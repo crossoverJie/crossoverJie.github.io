@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2018-08-20T17:15:20.917Z</updated>
+  <updated>2018-08-26T16:47:41.683Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,158 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>分布式(一) 搞定服务注册与发现</title>
+    <link href="http://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/"/>
+    <id>http://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/</id>
+    <published>2018-08-26T16:10:36.000Z</published>
+    <updated>2018-08-26T16:47:41.683Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://ws4.sinaimg.cn/large/006tNbRwgy1funbboybiaj31kw115e4k.jpg" alt=""></p>
+<h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>最近在做分布式相关的工作，由于人手不够只能我一个人来做；看这这段时间的加班表想想就是够惨的。</p>
+<p>不过其中也遇到的不少有意思的事情今后再拿来分享，今天重点来讨论服务的注册与发现。</p>
+<h2 id="分布式带来的问题"><a href="#分布式带来的问题" class="headerlink" title="分布式带来的问题"></a>分布式带来的问题</h2><p>我的业务比较简单，只是需要知道现在有哪些服务实例可供使用就可以了（并不是做远程调用，只需要拿到信息即可）。</p>
+<p>要实现这一功能最简单的方式可以在应用中配置所有的服务节点，这样每次再使用时只需要通过某种算法从配置列表中选择一个就可以了。</p>
+<p>但这样会有一个非常严重的问题：</p>
+<p>由于应用需要根据应用负载情况来灵活的调整服务节点的数量，这样我的配置就不能写死。</p>
+<p>不然就会出现要么新增的节点没有访问或者是已经 down 掉的节点却有请求，这样肯定就会导致报错。</p>
+<p>往往要解决这类分布式问题都需要一个公共的区域来保存这些信息，比如是否可以利用 Redis？</p>
+<p>每个节点启动之后都像 Redis 注册信息，关闭时也删除数据。</p>
+<p>其实就是存放节点的 <code>ip + port</code>，然后在需要知道服务节点信息时候只需要去 Redis 中获取即可。</p>
+<p>如下图所示：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwgy1func7s9260j305q0auwek.jpg" alt=""></p>
+<p>但这样会导致每次使用时都需要频繁的去查询 Redis，为了避免这个问题我们可以在每次查询之后在本地缓存一份最新的数据。这样优先从本地获取确实可以提高效率。</p>
+<p>但同样又会出现一个问题，如果服务提供者的节点新增或者删除消费者这边根本就不知道情况。</p>
+<p>要解决这个问题最先想到的应该就是利用定时任务定期去更新服务列表。</p>
+<p>以上的方案肯定不完美，并且不优雅。主要有以下几点：</p>
+<ul>
+<li>基于定时任务会导致很多无效的更新。</li>
+<li>定时任务存在周期性，没法做到实时，这样就可能存在请求异常。</li>
+<li>如果服务被强行 kill，没法及时清除 Redis，这样这个看似可用的服务将永远不可用！</li>
+</ul>
+<p>所以我们需要一个更加靠谱的解决方案，这样的场景其实和 Dubbo 非常类似。</p>
+<p>用过的同学肯定对这张图不陌生。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwgy1funblb2kj2j30f20boaan.jpg" alt=""></p>
+<blockquote>
+<p>引用自 Dubbo <a href="https://dubbo.incubator.apache.org/en-us/" target="_blank" rel="external">官网</a></p>
+</blockquote>
+<p>其中有一块非常核心的内容（红框出）就是服务的注册与发现。</p>
+<p>通常来说消费者是需要知道服务提供者的网络地址(ip + port)才能发起远程调用，这块内容和我上面的需求其实非常类似。</p>
+<p>而 Dubbo 则是利用 Zookeeper 来解决问题。</p>
+<h2 id="Zookeeper-能做什么"><a href="#Zookeeper-能做什么" class="headerlink" title="Zookeeper 能做什么"></a>Zookeeper 能做什么</h2><p>再具体讨论怎么实现之前先看看 Zookeeper 的几个重要特性。</p>
+<p>Zookeeper 实现了一个类似于文件系统的树状结构：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1funcpbul3tj30ab0cvdgd.jpg" alt=""></p>
+<p>这些节点被称为 znode(名字叫什么不重要)，其中每个节点都可以存放一定的数据。</p>
+<p>最主要的是 znode 有四种类型：</p>
+<ul>
+<li>永久节（除非手动删除，节点永远存在）</li>
+<li>永久有序节点（按照创先顺序会为每个节点末尾带上一个序号如：<code>root-1</code>）</li>
+<li>瞬时节点（创建客户端与 Zookeeper 保持连接时节点存在，断开时则删除并会有相应的通知）</li>
+<li>瞬时有序节点（在瞬时节点的基础上加上了顺序）</li>
+</ul>
+<p>考虑下上文使用 Redis 最大的一个问题是什么？</p>
+<p>其实就是不能实时的更新服务提供者的信息。</p>
+<p>那利用 Zookeeper 是怎么实现的？</p>
+<p>主要看第三个特性：<strong>瞬时节点</strong></p>
+<p>其实 Zookeeper 是一个典型的观察者模式。</p>
+<ul>
+<li>由于瞬时节点的特点，我们的消费者可以订阅瞬时节点的父节点。</li>
+<li>当新增、删除节点时所有的瞬时节点也会自动更新。</li>
+<li>更新时会给消费者发起通知告诉最新的节点信息。</li>
+</ul>
+<p>这样我们就可以实时获取服务节点的信息，同时也只需要在第一次获取列表时缓存到本地；也不需要频繁和 Zookeeper 产生交互，只需要等待通知更新即可。</p>
+<p>并且不管应用什么原因节点 down 掉时也会删除该信息。</p>
+<h2 id="效果演示"><a href="#效果演示" class="headerlink" title="效果演示"></a>效果演示</h2><p>这样实现方式就变为这样。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fundatqf6uj30el06f0su.jpg" alt=""></p>
+<p>为此我新建了一个应用来进行演示：</p>
+<p><a href="https://github.com/crossoverJie/netty-action/tree/master/netty-action-zk" target="_blank" rel="external">https://github.com/crossoverJie/netty-action/tree/master/netty-action-zk</a></p>
+<p>就是一个简单的 SpringBoot 应用，只是做了几件事情。</p>
+<ul>
+<li>应用启动时新开一个线程用于向 Zookeeper 注册服务。</li>
+<li>同时监听一个节点用于更新本地服务列表。</li>
+<li>提供一个接口用于返回一个可有的服务节点。</li>
+</ul>
+<p>我在本地启动了两个应用分别是：<code>127.0.0.1:8083,127.0.0.1:8084</code>。来看看效果图。</p>
+<p>两个应用启动完成：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fundkas9okj312y02kgn0.jpg" alt=""></p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwgy1fundkn0eaaj316b03011l.jpg" alt=""></p>
+<hr>
+<p>当前 Zookeeper 的可视化树状结构：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwgy1fundlpz7yrj30z408tq3y.jpg" alt=""></p>
+<hr>
+<p>当想知道所有的服务节点信息时：</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwgy1fundmm5zu5j30qv0exdh4.jpg" alt=""></p>
+<hr>
+<p>想要获取一个可用的服务节点时：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fundqlh99ug30go0cpe8a.gif" alt=""></p>
+<p>这里只是采取了简单的轮询。</p>
+<hr>
+<p>当 down 掉一个节点时：应用会收到通知更新本地缓存。同时 Zookeeper 中的节点会自动删除。</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwgy1fundshbop0j310e01vgmn.jpg" alt=""></p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwgy1fundtstsdlj30x109t0tj.jpg" alt=""></p>
+<hr>
+<p>再次获取最新节点时：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwgy1fundw0aww3g30gn08l1l1.gif" alt=""></p>
+<hr>
+<p>当节点恢复时自然也能获取到最新信息。本地缓存也会及时更新。</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwgy1fundy1zq14j313202yjtf.jpg" alt=""></p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fundztgw7ug30go08gx6s.gif" alt=""></p>
+<h2 id="编码实现"><a href="#编码实现" class="headerlink" title="编码实现"></a>编码实现</h2><p>实现起来倒也比较简单，主要就是 ZKClient 的 api 使用。</p>
+<p>贴几段比较核心的吧。</p>
+<h3 id="注册"><a href="#注册" class="headerlink" title="注册"></a>注册</h3><blockquote>
+<p>启动注册 Zookeeper。</p>
+</blockquote>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwgy1funkbljpn0j30ny0cjgnv.jpg" alt=""></p>
+<p>主要逻辑都在这个线程中。</p>
+<ul>
+<li>首先创建父节点。如上图的 Zookeeper 节点所示；需要先创建 <code>/route</code> 根节点，创建的时候会判断是否已经存在。</li>
+<li>接着需要判断是否需要将自己注册到 Zookeeper 中，因为有些节点只是用于服务发现，他自身是不需要承担业务功能（是我自己项目的需求）。</li>
+<li>将当前应用的所在 ip 以及端口注册上去，同时需要监听根节点 <code>/route</code> ，这样才能在其他服务上下线时候获得通知。</li>
+</ul>
+<h3 id="根据本地缓存"><a href="#根据本地缓存" class="headerlink" title="根据本地缓存"></a>根据本地缓存</h3><blockquote>
+<p>监听到服务变化</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">subscribeEvent</span><span class="params">(String path)</span> </span>&#123;</div><div class="line">    zkClient.subscribeChildChanges(path, <span class="keyword">new</span> IZkChildListener() &#123;</div><div class="line">        <span class="meta">@Override</span></div><div class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handleChildChange</span><span class="params">(String parentPath, List&lt;String&gt; currentChilds)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line">            logger.info(<span class="string">"清除/更新本地缓存 parentPath=【&#123;&#125;】,currentChilds=【&#123;&#125;】"</span>, parentPath,currentChilds.toString());</div><div class="line"></div><div class="line">            <span class="comment">//更新所有缓存/先删除 再新增</span></div><div class="line">            serverCache.updateCache(currentChilds) ;</div><div class="line">        &#125;</div><div class="line">    &#125;);</div><div class="line"></div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>可以看到这里是更新了本地缓存，该缓存采用了 Guava 提供的 Cache，感兴趣的可以查看之前的<a href="https://crossoverjie.top/categories/Guava/">源码分析</a>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * 更新所有缓存/先删除 再新增</div><div class="line"> *</div><div class="line"> * <span class="doctag">@param</span> currentChilds</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">updateCache</span><span class="params">(List&lt;String&gt; currentChilds)</span> </span>&#123;</div><div class="line">    cache.invalidateAll();</div><div class="line">    <span class="keyword">for</span> (String currentChild : currentChilds) &#123;</div><div class="line">        String key = currentChild.split(<span class="string">"-"</span>)[<span class="number">1</span>];</div><div class="line">        addCache(key);</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h3 id="客户端负载"><a href="#客户端负载" class="headerlink" title="客户端负载"></a>客户端负载</h3><blockquote>
+<p>同时在客户端提供了一个负载算法。</p>
+</blockquote>
+<p>其实就是一个轮询的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * 选取服务器</div><div class="line"> *</div><div class="line"> * <span class="doctag">@return</span></div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">public</span> String <span class="title">selectServer</span><span class="params">()</span> </span>&#123;</div><div class="line">    List&lt;String&gt; all = getAll();</div><div class="line">    <span class="keyword">if</span> (all.size() == <span class="number">0</span>) &#123;</div><div class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> RuntimeException(<span class="string">"路由列表为空"</span>);</div><div class="line">    &#125;</div><div class="line">    Long position = index.incrementAndGet() % all.size();</div><div class="line">    <span class="keyword">if</span> (position &lt; <span class="number">0</span>) &#123;</div><div class="line">        position = <span class="number">0L</span>;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="keyword">return</span> all.get(position.intValue());</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>当然这里可以扩展出更多的如权重、随机、<a href="https://crossoverjie.top/%2F2018%2F04%2F07%2Falgorithm%2FLRU-cache%2F">LRU</a> 等算法。</p>
+<h2 id="Zookeeper-其他优势及问题"><a href="#Zookeeper-其他优势及问题" class="headerlink" title="Zookeeper 其他优势及问题"></a>Zookeeper 其他优势及问题</h2><p>Zookeeper 自然是一个很棒的分布式协调工具，利用它的特性还可以有其他作用。</p>
+<ul>
+<li>数据变更发送通知这一特性可以实现统一配置中心，再也不需要再每个服务中单独维护配置。</li>
+<li>利用瞬时有序节点还可以实现分布式锁。</li>
+</ul>
+<p>在实现注册、发现这一需求时，Zookeeper 其实并不是特别合适。</p>
+<p>由于 Zookeeper 在 CAP 理论中选择了 CP（一致性、分区容错性），当 Zookeeper 集群有半数节点不可用时是不能获取到任何数据的。</p>
+<p>对于一致性来说自然没啥问题，但在注册、发现的场景下更加推荐 <code>Eureka</code>，已经在 SpringCloud 中得到验证。具体就不在本文讨论了。</p>
+<p>但鉴于我的使用场景来说 Zookeeper 已经能够胜任。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本文所有完整代码都托管在 GitHub。</p>
+<p><a href="https://github.com/crossoverJie/netty-action" target="_blank" rel="external">https://github.com/crossoverJie/netty-action</a>。</p>
+<p>一个看似简单的注册、发现功能实现了，但分布式应用远远不止这些。</p>
+<p>由于网络隔离之后带来的一系列问题还需要我们用其他方式一一去完善；后续会继续更新分布式相关内容，感兴趣的朋友不妨持续关注。</p>
+<p><strong>你的点赞与转发是最大的支持。</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://ws4.sinaimg.cn/large/006tNbRwgy1funbboybiaj31kw115e4k.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h2 id=&quot;背景&quot;&gt;&lt;a href=&quot;#背景&quot; class=&quot;headerlink&quot; tit
+    
+    </summary>
+    
+      <category term="Distributed" scheme="http://crossoverjie.top/categories/Distributed/"/>
+    
+    
+      <category term="SpringBoot" scheme="http://crossoverjie.top/tags/SpringBoot/"/>
+    
+      <category term="Zookeeper" scheme="http://crossoverjie.top/tags/Zookeeper/"/>
+    
+  </entry>
   
   <entry>
     <title>什么样的简历不会被丢进回收站</title>
@@ -2659,128 +2811,6 @@
     
       <category term="LRU cache" scheme="http://crossoverjie.top/categories/%E7%AE%97%E6%B3%95/LRU-cache/"/>
     
-    
-  </entry>
-  
-  <entry>
-    <title>基于 Redis 的分布式锁</title>
-    <link href="http://crossoverjie.top/2018/03/29/distributed-lock/distributed-lock-redis/"/>
-    <id>http://crossoverjie.top/2018/03/29/distributed-lock/distributed-lock-redis/</id>
-    <published>2018-03-29T12:10:36.000Z</published>
-    <updated>2018-04-27T14:19:14.000Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://ws3.sinaimg.cn/large/006tKfTcgy1fpvathnbf6j31kw11xwl3.jpg" alt=""></p>
-<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>分布式锁在分布式应用中应用广泛，想要搞懂一个新事物首先得了解它的由来，这样才能更加的理解甚至可以举一反三。</p>
-<p>首先谈到分布式锁自然也就联想到分布式应用。</p>
-<p>在我们将应用拆分为分布式应用之前的单机系统中，对一些并发场景读取公共资源时如扣库存，卖车票之类的需求可以简单的使用<a href="http://crossoverjie.top/2018/01/14/Synchronize/">同步</a>或者是<a href="http://crossoverjie.top/2018/01/25/ReentrantLock/">加锁</a>就可以实现。</p>
-<p>但是应用分布式了之后系统由以前的单进程多线程的程序变为了多进程多线程，这时使用以上的解决方案明显就不够了。</p>
-<p>因此业界常用的解决方案通常是借助于一个第三方组件并利用它自身的排他性来达到多进程的互斥。如：</p>
-<ul>
-<li>基于 DB 的唯一索引。</li>
-<li>基于 ZK 的临时有序节点。</li>
-<li>基于 Redis 的 <code>NX EX</code> 参数。</li>
-</ul>
-<p>这里主要基于 Redis 进行讨论。</p>
-<a id="more"></a>
-<h2 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h2><p>既然是选用了 Redis，那么它就得具有排他性才行。同时它最好也有锁的一些基本特性：</p>
-<ul>
-<li>高性能(加、解锁时高性能)</li>
-<li>可以使用阻塞锁与非阻塞锁。</li>
-<li>不能出现死锁。</li>
-<li>可用性(不能出现节点 down 掉后加锁失败)。</li>
-</ul>
-<p>这里利用 <code>Redis set key</code> 时的一个 NX 参数可以保证在这个 key 不存在的情况下写入成功。并且再加上 EX 参数可以让该 key 在超时之后自动删除。</p>
-<p>所以利用以上两个特性可以保证在同一时刻只会有一个进程获得锁，并且不会出现死锁(最坏的情况就是超时自动删除 key)。</p>
-<h3 id="加锁"><a href="#加锁" class="headerlink" title="加锁"></a>加锁</h3><p>实现代码如下：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"></div><div class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String SET_IF_NOT_EXIST = <span class="string">"NX"</span>;</div><div class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String SET_WITH_EXPIRE_TIME = <span class="string">"PX"</span>;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">public</span>  <span class="keyword">boolean</span> <span class="title">tryLock</span><span class="params">(String key, String request)</span> </span>&#123;</div><div class="line">    String result = <span class="keyword">this</span>.jedis.set(LOCK_PREFIX + key, request, SET_IF_NOT_EXIST, SET_WITH_EXPIRE_TIME, <span class="number">10</span> * TIME);</div><div class="line"></div><div class="line">    <span class="keyword">if</span> (LOCK_MSG.equals(result))&#123;</div><div class="line">        <span class="keyword">return</span> <span class="keyword">true</span> ;</div><div class="line">    &#125;<span class="keyword">else</span> &#123;</div><div class="line">        <span class="keyword">return</span> <span class="keyword">false</span> ;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>注意这里使用的 jedis 的</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="function">String <span class="title">set</span><span class="params">(String key, String value, String nxxx, String expx, <span class="keyword">long</span> time)</span></span>;</div></pre></td></tr></table></figure>
-<p>api。</p>
-<p>该命令可以保证 NX EX 的原子性。</p>
-<p>一定不要把两个命令(NX EX)分开执行，如果在 NX 之后程序出现问题就有可能产生死锁。</p>
-<h4 id="阻塞锁"><a href="#阻塞锁" class="headerlink" title="阻塞锁"></a>阻塞锁</h4><p>同时也可以实现一个阻塞锁：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div></pre></td><td class="code"><pre><div class="line"><span class="comment">//一直阻塞</span></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">lock</span><span class="params">(String key, String request)</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</div><div class="line"></div><div class="line">    <span class="keyword">for</span> (;;)&#123;</div><div class="line">        String result = <span class="keyword">this</span>.jedis.set(LOCK_PREFIX + key, request, SET_IF_NOT_EXIST, SET_WITH_EXPIRE_TIME, <span class="number">10</span> * TIME);</div><div class="line">        <span class="keyword">if</span> (LOCK_MSG.equals(result))&#123;</div><div class="line">            <span class="keyword">break</span> ;</div><div class="line">        &#125;</div><div class="line"></div><div class="line"> <span class="comment">//防止一直消耗 CPU 	</span></div><div class="line">        Thread.sleep(DEFAULT_SLEEP_TIME) ;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line"> <span class="comment">//自定义阻塞时间</span></div><div class="line"> <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">lock</span><span class="params">(String key, String request,<span class="keyword">int</span> blockTime)</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</div><div class="line"></div><div class="line">    <span class="keyword">while</span> (blockTime &gt;= <span class="number">0</span>)&#123;</div><div class="line"></div><div class="line">        String result = <span class="keyword">this</span>.jedis.set(LOCK_PREFIX + key, request, SET_IF_NOT_EXIST, SET_WITH_EXPIRE_TIME, <span class="number">10</span> * TIME);</div><div class="line">        <span class="keyword">if</span> (LOCK_MSG.equals(result))&#123;</div><div class="line">            <span class="keyword">return</span> <span class="keyword">true</span> ;</div><div class="line">        &#125;</div><div class="line">        blockTime -= DEFAULT_SLEEP_TIME ;</div><div class="line"></div><div class="line">        Thread.sleep(DEFAULT_SLEEP_TIME) ;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> <span class="keyword">false</span> ;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<h3 id="解锁"><a href="#解锁" class="headerlink" title="解锁"></a>解锁</h3><p>解锁也很简单，其实就是把这个 key 删掉就万事大吉了，比如使用 <code>del key</code> 命令。</p>
-<p>但现实往往没有那么 easy。</p>
-<p>如果进程 A 获取了锁设置了超时时间，但是由于执行周期较长导致到了超时时间之后锁就自动释放了。这时进程 B 获取了该锁执行很快就释放锁。这样就会出现进程 B 将进程 A 的锁释放了。</p>
-<p>所以最好的方式是在每次解锁时都需要判断锁<strong>是否是自己</strong>的。</p>
-<p>这时就需要结合加锁机制一起实现了。</p>
-<p>加锁时需要传递一个参数，将该参数作为这个 key 的 value，这样每次解锁时判断 value 是否相等即可。</p>
-<p>所以解锁代码就不能是简单的 <code>del</code>了。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span>  <span class="keyword">boolean</span> <span class="title">unlock</span><span class="params">(String key,String request)</span></span>&#123;</div><div class="line">    <span class="comment">//lua script</span></div><div class="line">    String script = <span class="string">"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"</span>;</div><div class="line"></div><div class="line">    Object result = <span class="keyword">null</span> ;</div><div class="line">    <span class="keyword">if</span> (jedis <span class="keyword">instanceof</span> Jedis)&#123;</div><div class="line">        result = ((Jedis)<span class="keyword">this</span>.jedis).eval(script, Collections.singletonList(LOCK_PREFIX + key), Collections.singletonList(request));</div><div class="line">    &#125;<span class="keyword">else</span> <span class="keyword">if</span> (jedis <span class="keyword">instanceof</span> JedisCluster)&#123;</div><div class="line">        result = ((JedisCluster)<span class="keyword">this</span>.jedis).eval(script, Collections.singletonList(LOCK_PREFIX + key), Collections.singletonList(request));</div><div class="line">    &#125;<span class="keyword">else</span> &#123;</div><div class="line">        <span class="comment">//throw new RuntimeException("instance is error") ;</span></div><div class="line">        <span class="keyword">return</span> <span class="keyword">false</span> ;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="keyword">if</span> (UNLOCK_MSG.equals(result))&#123;</div><div class="line">        <span class="keyword">return</span> <span class="keyword">true</span> ;</div><div class="line">    &#125;<span class="keyword">else</span> &#123;</div><div class="line">        <span class="keyword">return</span> <span class="keyword">false</span> ;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>这里使用了一个 <code>lua</code> 脚本来判断 value 是否相等，相等才执行 del 命令。</p>
-<p>使用 <code>lua</code> 也可以保证这里两个操作的原子性。</p>
-<p>因此上文提到的四个基本特性也能满足了：</p>
-<ul>
-<li>使用 Redis 可以保证性能。</li>
-<li>阻塞锁与非阻塞锁见上文。</li>
-<li>利用超时机制解决了死锁。</li>
-<li>Redis 支持集群部署提高了可用性。</li>
-</ul>
-<h2 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h2><p>我自己有撸了一个完整的实现，并且已经用于了生产，有兴趣的朋友可以开箱使用:</p>
-<p>maven 依赖：</p>
-<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>top.crossoverjie.opensource<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>distributed-redis-lock<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>1.0.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></div><div class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></div></pre></td></tr></table></figure>
-<p>配置 bean :</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Configuration</span></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">RedisLockConfig</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="meta">@Bean</span></div><div class="line">    <span class="function"><span class="keyword">public</span> RedisLock <span class="title">build</span><span class="params">()</span></span>&#123;</div><div class="line">        RedisLock redisLock = <span class="keyword">new</span> RedisLock() ;</div><div class="line">        HostAndPort hostAndPort = <span class="keyword">new</span> HostAndPort(<span class="string">"127.0.0.1"</span>,<span class="number">7000</span>) ;</div><div class="line">        JedisCluster jedisCluster = <span class="keyword">new</span> JedisCluster(hostAndPort) ;</div><div class="line">        <span class="comment">// Jedis 或 JedisCluster 都可以</span></div><div class="line">        redisLock.setJedisCluster(jedisCluster) ;</div><div class="line">        <span class="keyword">return</span> redisLock ;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>使用：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Autowired</span></div><div class="line"><span class="keyword">private</span> RedisLock redisLock ;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">use</span><span class="params">()</span> </span>&#123;</div><div class="line">    String key = <span class="string">"key"</span>;</div><div class="line">    String request = UUID.randomUUID().toString();</div><div class="line">    <span class="keyword">try</span> &#123;</div><div class="line">        <span class="keyword">boolean</span> locktest = redisLock.tryLock(key, request);</div><div class="line">        <span class="keyword">if</span> (!locktest) &#123;</div><div class="line">            System.out.println(<span class="string">"locked error"</span>);</div><div class="line">            <span class="keyword">return</span>;</div><div class="line">        &#125;</div><div class="line"></div><div class="line"></div><div class="line">        <span class="comment">//do something</span></div><div class="line"></div><div class="line">    &#125; <span class="keyword">finally</span> &#123;</div><div class="line">        redisLock.unlock(key,request) ;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>使用很简单。这里主要是想利用 Spring 来帮我们管理 RedisLock 这个单例的 bean，所以在释放锁的时候需要手动(因为整个上下文只有一个 RedisLock 实例)的传入 key 以及 request(api 看起来不是特别优雅)。</p>
-<p>也可以在每次使用锁的时候 new 一个 RedisLock 传入 key 以及 request，这样倒是在解锁时很方便。但是需要自行管理 RedisLock 的实例。各有优劣吧。</p>
-<p>项目源码在：</p>
-<p><a href="https://github.com/crossoverJie/distributed-lock-redis" target="_blank" rel="external">https://github.com/crossoverJie/distributed-lock-redis</a></p>
-<p>欢迎讨论。</p>
-<h2 id="单测"><a href="#单测" class="headerlink" title="单测"></a>单测</h2><p>在做这个项目的时候让我不得不想提一下<strong>单测</strong>。</p>
-<p>因为这个应用是强依赖于第三方组件的(Redis)，但是在单测中我们需要排除掉这种依赖。比如其他伙伴 fork 了该项目想在本地跑一遍单测，结果运行不起来：</p>
-<ol>
-<li>有可能是 Redis 的 ip、端口和单测里的不一致。</li>
-<li>Redis 自身可能也有问题。</li>
-<li>也有可能是该同学的环境中并没有 Redis。</li>
-</ol>
-<p>所以最好是要把这些外部不稳定的因素排除掉，单测只测我们写好的代码。</p>
-<p>于是就可以引入单测利器 <code>Mock</code> 了。</p>
-<p>它的想法很简答，就是要把你所依赖的外部资源统统屏蔽掉。如：数据库、外部接口、外部文件等等。</p>
-<p>使用方式也挺简单，可以参考该项目的单测：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Test</span></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">tryLock</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line">    String key = <span class="string">"test"</span>;</div><div class="line">    String request = UUID.randomUUID().toString();</div><div class="line">    Mockito.when(jedisCluster.set(Mockito.anyString(), Mockito.anyString(), Mockito.anyString(),</div><div class="line">            Mockito.anyString(), Mockito.anyLong())).thenReturn(<span class="string">"OK"</span>);</div><div class="line"></div><div class="line">    <span class="keyword">boolean</span> locktest = redisLock.tryLock(key, request);</div><div class="line">    System.out.println(<span class="string">"locktest="</span> + locktest);</div><div class="line"></div><div class="line">    Assert.assertTrue(locktest);</div><div class="line"></div><div class="line">    <span class="comment">//check</span></div><div class="line">    Mockito.verify(jedisCluster).set(Mockito.anyString(), Mockito.anyString(), Mockito.anyString(),</div><div class="line">            Mockito.anyString(), Mockito.anyLong());</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>这里只是简单演示下，可以的话下次仔细分析分析。</p>
-<p>它的原理其实也挺简单，debug 的话可以很直接的看出来：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tKfTcgy1fpxho866hbj311u0ej42f.jpg" alt=""></p>
-<p>这里我们所依赖的 JedisCluster 其实是一个 <code>cglib 代理对象</code>。所以也不难想到它是如何工作的。</p>
-<p>比如这里我们需要用到 JedisCluster 的 set 函数并需要它的返回值。</p>
-<p>Mock 就将该对象代理了，并在实际执行 set 方法后给你返回了一个你自定义的值。</p>
-<p>这样我们就可以随心所欲的测试了，<strong>完全把外部依赖所屏蔽了</strong>。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>至此一个基于 Redis 的分布式锁完成，但是依然有些问题。</p>
-<ul>
-<li>如在 key 超时之后业务并没有执行完毕但却自动释放锁了，这样就会导致并发问题。</li>
-<li>就算 Redis 是集群部署的，如果每个节点都只是 master 没有 slave，那么 master 宕机时该节点上的所有 key 在那一时刻都相当于是释放锁了，这样也会出现并发问题。就算是有 slave 节点，但如果在数据同步到 salve 之前 master 宕机也是会出现上面的问题。</li>
-</ul>
-<p>感兴趣的朋友还可以参考 <a href="https://github.com/redisson/redisson" target="_blank" rel="external">Redisson</a> 的实现。</p>
-<h2 id="号外"><a href="#号外" class="headerlink" title="号外"></a>号外</h2><p>最近在总结一些 Java 相关的知识点，感兴趣的朋友可以一起维护。</p>
-<blockquote>
-<p>地址: <a href="https://github.com/crossoverJie/Java-Interview" target="_blank" rel="external">https://github.com/crossoverJie/Java-Interview</a></p>
-</blockquote>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://ws3.sinaimg.cn/large/006tKfTcgy1fpvathnbf6j31kw11xwl3.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h2 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h2&gt;&lt;p&gt;分布式锁在分布式应用中应用广泛，想要搞懂一个新事物首先得了解它的由来，这样才能更加的理解甚至可以举一反三。&lt;/p&gt;
-&lt;p&gt;首先谈到分布式锁自然也就联想到分布式应用。&lt;/p&gt;
-&lt;p&gt;在我们将应用拆分为分布式应用之前的单机系统中，对一些并发场景读取公共资源时如扣库存，卖车票之类的需求可以简单的使用&lt;a href=&quot;http://crossoverjie.top/2018/01/14/Synchronize/&quot;&gt;同步&lt;/a&gt;或者是&lt;a href=&quot;http://crossoverjie.top/2018/01/25/ReentrantLock/&quot;&gt;加锁&lt;/a&gt;就可以实现。&lt;/p&gt;
-&lt;p&gt;但是应用分布式了之后系统由以前的单进程多线程的程序变为了多进程多线程，这时使用以上的解决方案明显就不够了。&lt;/p&gt;
-&lt;p&gt;因此业界常用的解决方案通常是借助于一个第三方组件并利用它自身的排他性来达到多进程的互斥。如：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;基于 DB 的唯一索引。&lt;/li&gt;
-&lt;li&gt;基于 ZK 的临时有序节点。&lt;/li&gt;
-&lt;li&gt;基于 Redis 的 &lt;code&gt;NX EX&lt;/code&gt; 参数。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;这里主要基于 Redis 进行讨论。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Distributed Tools" scheme="http://crossoverjie.top/categories/Distributed-Tools/"/>
-    
-    
-      <category term="Distributed Lock" scheme="http://crossoverjie.top/tags/Distributed-Lock/"/>
     
   </entry>
   
