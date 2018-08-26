@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2018-08-26T16:47:41.683Z</updated>
+  <updated>2018-08-26T17:03:34.527Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -20,23 +20,24 @@
     <link href="http://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/"/>
     <id>http://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/</id>
     <published>2018-08-26T16:10:36.000Z</published>
-    <updated>2018-08-26T16:47:41.683Z</updated>
+    <updated>2018-08-26T17:03:34.527Z</updated>
     
     <content type="html"><![CDATA[<p><img src="https://ws4.sinaimg.cn/large/006tNbRwgy1funbboybiaj31kw115e4k.jpg" alt=""></p>
-<h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>最近在做分布式相关的工作，由于人手不够只能我一个人来做；看这这段时间的加班表想想就是够惨的。</p>
-<p>不过其中也遇到的不少有意思的事情今后再拿来分享，今天重点来讨论服务的注册与发现。</p>
+<h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>最近在做分布式相关的工作，由于人手不够只能我一个人来怼；看着这段时间的加班表想想就是够惨的。</p>
+<p>不过其中也有遇到的不少有意思的事情今后再拿来分享，今天重点来讨论服务的<strong>注册与发现</strong>。</p>
 <h2 id="分布式带来的问题"><a href="#分布式带来的问题" class="headerlink" title="分布式带来的问题"></a>分布式带来的问题</h2><p>我的业务比较简单，只是需要知道现在有哪些服务实例可供使用就可以了（并不是做远程调用，只需要拿到信息即可）。</p>
-<p>要实现这一功能最简单的方式可以在应用中配置所有的服务节点，这样每次再使用时只需要通过某种算法从配置列表中选择一个就可以了。</p>
+<p>要实现这一功能最简单的方式可以在应用中配置所有的服务节点，这样每次在使用时只需要通过某种算法从配置列表中选择一个就可以了。</p>
 <p>但这样会有一个非常严重的问题：</p>
 <p>由于应用需要根据应用负载情况来灵活的调整服务节点的数量，这样我的配置就不能写死。</p>
-<p>不然就会出现要么新增的节点没有访问或者是已经 down 掉的节点却有请求，这样肯定就会导致报错。</p>
+<p>不然就会出现要么新增的节点没有访问或者是已经 down 掉的节点却有请求，这样肯定是不行的。</p>
 <p>往往要解决这类分布式问题都需要一个公共的区域来保存这些信息，比如是否可以利用 Redis？</p>
-<p>每个节点启动之后都像 Redis 注册信息，关闭时也删除数据。</p>
+<p>每个节点启动之后都向 Redis 注册信息，关闭时也删除数据。</p>
 <p>其实就是存放节点的 <code>ip + port</code>，然后在需要知道服务节点信息时候只需要去 Redis 中获取即可。</p>
+<a id="more"></a>
 <p>如下图所示：</p>
 <p><img src="https://ws1.sinaimg.cn/large/006tNbRwgy1func7s9260j305q0auwek.jpg" alt=""></p>
 <p>但这样会导致每次使用时都需要频繁的去查询 Redis，为了避免这个问题我们可以在每次查询之后在本地缓存一份最新的数据。这样优先从本地获取确实可以提高效率。</p>
-<p>但同样又会出现一个问题，如果服务提供者的节点新增或者删除消费者这边根本就不知道情况。</p>
+<p>但同样又会出现新的问题，如果服务提供者的节点新增或者删除消费者这边根本就不知道情况。</p>
 <p>要解决这个问题最先想到的应该就是利用定时任务定期去更新服务列表。</p>
 <p>以上的方案肯定不完美，并且不优雅。主要有以下几点：</p>
 <ul>
@@ -53,14 +54,14 @@
 <p>其中有一块非常核心的内容（红框出）就是服务的注册与发现。</p>
 <p>通常来说消费者是需要知道服务提供者的网络地址(ip + port)才能发起远程调用，这块内容和我上面的需求其实非常类似。</p>
 <p>而 Dubbo 则是利用 Zookeeper 来解决问题。</p>
-<h2 id="Zookeeper-能做什么"><a href="#Zookeeper-能做什么" class="headerlink" title="Zookeeper 能做什么"></a>Zookeeper 能做什么</h2><p>再具体讨论怎么实现之前先看看 Zookeeper 的几个重要特性。</p>
+<h2 id="Zookeeper-能做什么"><a href="#Zookeeper-能做什么" class="headerlink" title="Zookeeper 能做什么"></a>Zookeeper 能做什么</h2><p>在具体讨论怎么实现之前先看看 Zookeeper 的几个重要特性。</p>
 <p>Zookeeper 实现了一个类似于文件系统的树状结构：</p>
 <p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1funcpbul3tj30ab0cvdgd.jpg" alt=""></p>
 <p>这些节点被称为 znode(名字叫什么不重要)，其中每个节点都可以存放一定的数据。</p>
 <p>最主要的是 znode 有四种类型：</p>
 <ul>
-<li>永久节（除非手动删除，节点永远存在）</li>
-<li>永久有序节点（按照创先顺序会为每个节点末尾带上一个序号如：<code>root-1</code>）</li>
+<li>永久节点（除非手动删除，节点永远存在）</li>
+<li>永久有序节点（按照创建顺序会为每个节点末尾带上一个序号如：<code>root-1</code>）</li>
 <li>瞬时节点（创建客户端与 Zookeeper 保持连接时节点存在，断开时则删除并会有相应的通知）</li>
 <li>瞬时有序节点（在瞬时节点的基础上加上了顺序）</li>
 </ul>
@@ -68,14 +69,14 @@
 <p>其实就是不能实时的更新服务提供者的信息。</p>
 <p>那利用 Zookeeper 是怎么实现的？</p>
 <p>主要看第三个特性：<strong>瞬时节点</strong></p>
-<p>其实 Zookeeper 是一个典型的观察者模式。</p>
+<p>Zookeeper 是一个典型的观察者模式。</p>
 <ul>
 <li>由于瞬时节点的特点，我们的消费者可以订阅瞬时节点的父节点。</li>
 <li>当新增、删除节点时所有的瞬时节点也会自动更新。</li>
-<li>更新时会给消费者发起通知告诉最新的节点信息。</li>
+<li>更新时会给订阅者发起通知告诉最新的节点信息。</li>
 </ul>
-<p>这样我们就可以实时获取服务节点的信息，同时也只需要在第一次获取列表时缓存到本地；也不需要频繁和 Zookeeper 产生交互，只需要等待通知更新即可。</p>
-<p>并且不管应用什么原因节点 down 掉时也会删除该信息。</p>
+<p>这样我们就可以实时获取服务节点的信息，同时也只需要在第一次获取列表时缓存到本地；也不需要频繁和 Zookeeper 产生交互，只用等待通知更新即可。</p>
+<p>并且不管应用什么原因节点 down 掉后也会在 Zookeeper 中删除该信息。</p>
 <h2 id="效果演示"><a href="#效果演示" class="headerlink" title="效果演示"></a>效果演示</h2><p>这样实现方式就变为这样。</p>
 <p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fundatqf6uj30el06f0su.jpg" alt=""></p>
 <p>为此我新建了一个应用来进行演示：</p>
@@ -137,24 +138,33 @@
 <p>当然这里可以扩展出更多的如权重、随机、<a href="https://crossoverjie.top/%2F2018%2F04%2F07%2Falgorithm%2FLRU-cache%2F">LRU</a> 等算法。</p>
 <h2 id="Zookeeper-其他优势及问题"><a href="#Zookeeper-其他优势及问题" class="headerlink" title="Zookeeper 其他优势及问题"></a>Zookeeper 其他优势及问题</h2><p>Zookeeper 自然是一个很棒的分布式协调工具，利用它的特性还可以有其他作用。</p>
 <ul>
-<li>数据变更发送通知这一特性可以实现统一配置中心，再也不需要再每个服务中单独维护配置。</li>
+<li>数据变更发送通知这一特性可以实现统一配置中心，再也不需要在每个服务中单独维护配置。</li>
 <li>利用瞬时有序节点还可以实现分布式锁。</li>
 </ul>
-<p>在实现注册、发现这一需求时，Zookeeper 其实并不是特别合适。</p>
+<p>在实现注册、发现这一需求时，Zookeeper 其实并不是最优选。</p>
 <p>由于 Zookeeper 在 CAP 理论中选择了 CP（一致性、分区容错性），当 Zookeeper 集群有半数节点不可用时是不能获取到任何数据的。</p>
 <p>对于一致性来说自然没啥问题，但在注册、发现的场景下更加推荐 <code>Eureka</code>，已经在 SpringCloud 中得到验证。具体就不在本文讨论了。</p>
 <p>但鉴于我的使用场景来说 Zookeeper 已经能够胜任。</p>
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本文所有完整代码都托管在 GitHub。</p>
 <p><a href="https://github.com/crossoverJie/netty-action" target="_blank" rel="external">https://github.com/crossoverJie/netty-action</a>。</p>
 <p>一个看似简单的注册、发现功能实现了，但分布式应用远远不止这些。</p>
-<p>由于网络隔离之后带来的一系列问题还需要我们用其他方式一一去完善；后续会继续更新分布式相关内容，感兴趣的朋友不妨持续关注。</p>
+<p>由于网络隔离之后带来的一系列问题还需要我们用其他方式一一完善；后续会继续更新分布式相关内容，感兴趣的朋友不妨持续关注。</p>
 <p><strong>你的点赞与转发是最大的支持。</strong></p>
 ]]></content>
     
     <summary type="html">
     
       &lt;p&gt;&lt;img src=&quot;https://ws4.sinaimg.cn/large/006tNbRwgy1funbboybiaj31kw115e4k.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h2 id=&quot;背景&quot;&gt;&lt;a href=&quot;#背景&quot; class=&quot;headerlink&quot; tit
+&lt;h2 id=&quot;背景&quot;&gt;&lt;a href=&quot;#背景&quot; class=&quot;headerlink&quot; title=&quot;背景&quot;&gt;&lt;/a&gt;背景&lt;/h2&gt;&lt;p&gt;最近在做分布式相关的工作，由于人手不够只能我一个人来怼；看着这段时间的加班表想想就是够惨的。&lt;/p&gt;
+&lt;p&gt;不过其中也有遇到的不少有意思的事情今后再拿来分享，今天重点来讨论服务的&lt;strong&gt;注册与发现&lt;/strong&gt;。&lt;/p&gt;
+&lt;h2 id=&quot;分布式带来的问题&quot;&gt;&lt;a href=&quot;#分布式带来的问题&quot; class=&quot;headerlink&quot; title=&quot;分布式带来的问题&quot;&gt;&lt;/a&gt;分布式带来的问题&lt;/h2&gt;&lt;p&gt;我的业务比较简单，只是需要知道现在有哪些服务实例可供使用就可以了（并不是做远程调用，只需要拿到信息即可）。&lt;/p&gt;
+&lt;p&gt;要实现这一功能最简单的方式可以在应用中配置所有的服务节点，这样每次在使用时只需要通过某种算法从配置列表中选择一个就可以了。&lt;/p&gt;
+&lt;p&gt;但这样会有一个非常严重的问题：&lt;/p&gt;
+&lt;p&gt;由于应用需要根据应用负载情况来灵活的调整服务节点的数量，这样我的配置就不能写死。&lt;/p&gt;
+&lt;p&gt;不然就会出现要么新增的节点没有访问或者是已经 down 掉的节点却有请求，这样肯定是不行的。&lt;/p&gt;
+&lt;p&gt;往往要解决这类分布式问题都需要一个公共的区域来保存这些信息，比如是否可以利用 Redis？&lt;/p&gt;
+&lt;p&gt;每个节点启动之后都向 Redis 注册信息，关闭时也删除数据。&lt;/p&gt;
+&lt;p&gt;其实就是存放节点的 &lt;code&gt;ip + port&lt;/code&gt;，然后在需要知道服务节点信息时候只需要去 Redis 中获取即可。&lt;/p&gt;
     
     </summary>
     
