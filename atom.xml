@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2018-09-13T17:01:43.008Z</updated>
+  <updated>2018-09-24T12:03:20.152Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -16,11 +16,236 @@
   <generator uri="http://hexo.io/">Hexo</generator>
   
   <entry>
+    <title>设计一个百万级的消息推送系统</title>
+    <link href="http://crossoverjie.top/2018/09/25/netty/million-sms-push/"/>
+    <id>http://crossoverjie.top/2018/09/25/netty/million-sms-push/</id>
+    <published>2018-09-24T16:01:14.000Z</published>
+    <updated>2018-09-24T12:03:20.152Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2018/09/23/5ba7ae180e8eb.jpg" alt="business-communication-computer-261706.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>首先迟到的祝大家中秋快乐。</p>
+<p>最近一周多没有更新了。其实我一直想憋一个大招，分享一些大家感兴趣的干货。</p>
+<p>鉴于最近我个人的工作内容，于是利用这三天小长假憋了一个出来（其实是玩了两天🤣）。</p>
+<hr>
+<p>先简单说下本次的主题，由于我最近做的是物联网相关的开发工作，其中就不免会遇到和设备的交互。</p>
+<p>最主要的工作就是要有一个系统来支持设备的接入、向设备推送消息；同时还得满足大量设备接入的需求。</p>
+<p>所以本次分享的内容不但可以满足物联网领域同时还支持以下场景：</p>
+<ul>
+<li>基于 <code>WEB</code> 的聊天系统（点对点、群聊）。</li>
+<li><code>WEB</code> 应用中需求服务端推送的场景。</li>
+<li>基于 SDK 的消息推送平台。</li>
+</ul>
+<h1 id="技术选型"><a href="#技术选型" class="headerlink" title="技术选型"></a>技术选型</h1><p>要满足大量的连接数、同时支持双全工通信，并且性能也得有保障。</p>
+<p>在 Java 技术栈中进行选型首先自然是排除掉了传统 <code>IO</code>。</p>
+<p>那就只有选 NIO 了，在这个层面其实选择也不多，考虑到社区、资料维护等方面最终选择了 Netty。</p>
+<p>最终的架构图如下：</p>
+<p><img src="https://ws1.sinaimg.cn/mw690/72fbb941gy1fvjz1teappj20rg0humy1.jpg" alt=""></p>
+<a id="more"></a>
+<p>现在看着蒙没关系，下文一一介绍。</p>
+<h1 id="协议解析"><a href="#协议解析" class="headerlink" title="协议解析"></a>协议解析</h1><p>既然是一个消息系统，那自然得和客户端定义好双方的协议格式。</p>
+<p>常见和简单的是 HTTP 协议，但我们的需求中有一项需要是双全工的交互方式，同时 HTTP 更多的是服务于浏览器。我们需要的是一个更加精简的协议，减少许多不必要的数据传输。</p>
+<p>因此我觉得最好是在满足业务需求的情况下定制自己的私有协议，在我这个场景下其实有标准的物联网协议。</p>
+<p>如果是其他场景可以借鉴现在流行的 <code>RPC</code> 框架定制私有协议，使得双方通信更加高效。</p>
+<p>不过根据这段时间的经验来看，不管是哪种方式都得在协议中预留安全相关的位置。</p>
+<p>协议相关的内容就不过讨论了，更多介绍具体的应用。</p>
+<h1 id="简单实现"><a href="#简单实现" class="headerlink" title="简单实现"></a>简单实现</h1><p>首先考虑如何实现功能，再来思考百万连接的情况。</p>
+<h2 id="注册鉴权"><a href="#注册鉴权" class="headerlink" title="注册鉴权"></a>注册鉴权</h2><p>在做真正的消息上、下行之前首先要考虑的就是鉴权问题。</p>
+<p>就像你使用微信一样，第一步怎么也得是登录吧，不能无论是谁都可以直接连接到平台。</p>
+<p>所以第一步得是注册才行。</p>
+<p>如上面架构图中的 <code>注册/鉴权</code> 模块。通常来说都需要客户端通过 <code>HTTP</code> 请求传递一个唯一标识，后台鉴权通过之后会响应一个 <code>token</code>，并将这个 <code>token</code> 和客户端的关系维护到 <code>Redis</code> 或者是 DB 中。</p>
+<p>客户端将这个 token 也保存到本地，今后的每一次请求都得带上这个 token。一旦这个 token 过期，客户端需要再次请求获取 token。</p>
+<p>鉴权通过之后客户端会直接通过<code>TCP 长连接</code>到图中的 <code>push-server</code> 模块。</p>
+<p>这个模块就是真正处理消息的上、下行。</p>
+<h2 id="保存通道关系"><a href="#保存通道关系" class="headerlink" title="保存通道关系"></a>保存通道关系</h2><p>在连接接入之后，真正处理业务之前需要将当前的客户端和 Channel 的关系维护起来。</p>
+<p>假设客户端的唯一标识是手机号码，那就需要把手机号码和当前的 Channel 维护到一个 Map 中。</p>
+<p>这点和之前 <a href="https://crossoverjie.top/2018/05/24/netty/Netty(1">Netty(一) SpringBoot 整合长连接心跳机制</a>TCP-Heartbeat/#%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%BF%83%E8%B7%B3) 类似。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fvkj6oe4rej30k104c0tg.jpg" alt=""></p>
+<p>同时为了可以通过 Channel 获取到客户端唯一标识（手机号码），还需要在 Channel 中设置对应的属性：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">putClientId</span><span class="params">(Channel channel, String clientId)</span> </span>&#123;</div><div class="line">    channel.attr(CLIENT_ID).set(clientId);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>获取时手机号码时：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> String <span class="title">getClientId</span><span class="params">(Channel channel)</span> </span>&#123;</div><div class="line">    <span class="keyword">return</span> (String)getAttribute(channel, CLIENT_ID);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>这样当我们客户端下线的时便可以记录相关日志：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">String telNo = NettyAttrUtil.getClientId(ctx.channel());</div><div class="line">NettySocketHolder.remove(telNo);</div><div class="line">log.info(<span class="string">"客户端下线，TelNo="</span> +  telNo);</div></pre></td></tr></table></figure>
+<blockquote>
+<p>这里有一点需要注意：存放客户端与 Channel 关系的 Map 最好是预设好大小（避免经常扩容），因为它将是使用最为频繁同时也是占用内存最大的一个对象。</p>
+</blockquote>
+<h2 id="消息上行"><a href="#消息上行" class="headerlink" title="消息上行"></a>消息上行</h2><p>接下来则是真正的业务数据上传，通常来说第一步是需要判断上传消息输入什么业务类型。</p>
+<p>在聊天场景中，有可能上传的是文本、图片、视频等内容。</p>
+<p>所以我们得进行区分，来做不同的处理；这就和客户端协商的协议有关了。</p>
+<ul>
+<li>可以利用消息头中的某个字段进行区分。</li>
+<li>更简单的就是一个 <code>JSON</code> 消息，拿出一个字段用于区分不同消息。</li>
+</ul>
+<p>不管是哪种只有可以区分出来即可。</p>
+<h3 id="消息解析与业务解耦"><a href="#消息解析与业务解耦" class="headerlink" title="消息解析与业务解耦"></a>消息解析与业务解耦</h3><p>消息可以解析之后便是处理业务，比如可以是写入数据库、调用其他接口等。</p>
+<p>我们都知道在 Netty 中处理消息一般是在 <code>channelRead()</code> 方法中。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fvkkawymbkj30o6027mxf.jpg" alt=""></p>
+<p>在这里可以解析消息，区分类型。</p>
+<p>但如果我们的业务逻辑也写在里面，那这里的内容将是巨多无比。</p>
+<p>甚至我们分为好几个开发来处理不同的业务，这样将会出现许多冲突、难以维护等问题。</p>
+<p>所以非常有必要将消息解析与业务处理完全分离开来。</p>
+<blockquote>
+<p>这时面向接口编程就发挥作用了。</p>
+</blockquote>
+<p>这里的核心代码和 <a href="https://crossoverjie.top/2018/09/03/wheel/cicada1/#%E9%85%8D%E7%BD%AE%E4%B8%9A%E5%8A%A1-Action">「造个轮子」——cicada(轻量级 WEB 框架)</a> 是一致的。</p>
+<p>都是先定义一个接口用于处理业务逻辑，然后在解析消息之后通过反射创建具体的对象执行其中的<code>处理函数</code>即可。</p>
+<p>这样不同的业务、不同的开发人员只需要实现这个接口同时实现自己的业务逻辑即可。</p>
+<p>伪代码如下：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwgy1fvkkhd8961j30n602kglr.jpg" alt=""></p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fvkkhwsgkqj30nh0m0gpt.jpg" alt=""></p>
+<p>想要了解 cicada 的具体实现请点击这里：</p>
+<p><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">https://github.com/TogetherOS/cicada</a></p>
+<p>上行还有一点需要注意；由于是基于长连接，所以客户端需要定期发送心跳包用于维护本次连接。同时服务端也会有相应的检查，N 个时间间隔没有收到消息之后将会主动断开连接节省资源。</p>
+<p>这点使用一个 <code>IdleStateHandler</code> 就可实现，更多内容可以查看 <a href="https://crossoverjie.top/2018/05/24/netty/Netty(1">Netty(一) SpringBoot 整合长连接心跳机制</a>TCP-Heartbeat/#%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%BF%83%E8%B7%B3)。</p>
+<h2 id="消息下行"><a href="#消息下行" class="headerlink" title="消息下行"></a>消息下行</h2><p>有了上行自然也有下行。比如在聊天的场景中，有两个客户端连上了 <code>push-server</code>,他们直接需要点对点通信。</p>
+<p>这时的流程是：</p>
+<ul>
+<li>A 将消息发送给服务器。</li>
+<li>服务器收到消息之后，得知消息是要发送给 B，需要在内存中找到 B 的 Channel。</li>
+<li>通过 B 的 Channel 将 A 的消息转发下去。</li>
+</ul>
+<p>这就是一个下行的流程。</p>
+<p>甚至管理员需要给所有在线用户发送系统通知也是类似：</p>
+<p>遍历保存通道关系的 Map，挨个发送消息即可。这也是之前需要存放到 Map 中的主要原因。</p>
+<p>伪代码如下：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwgy1fvkkpefci7j30w408h768.jpg" alt=""></p>
+<p>具体可以参考：</p>
+<p><a href="https://github.com/crossoverJie/netty-action/" target="_blank" rel="external">https://github.com/crossoverJie/netty-action/</a></p>
+<h1 id="分布式方案"><a href="#分布式方案" class="headerlink" title="分布式方案"></a>分布式方案</h1><p>单机版的实现了，现在着重讲讲如何实现百万连接。</p>
+<p>百万连接其实只是一个形容词，更多的是想表达如何来实现一个分布式的方案，可以灵活的水平拓展从而能支持更多的连接。</p>
+<p>再做这个事前首先得搞清楚我们单机版的能支持多少连接。影响这个的因素就比较多了。</p>
+<ul>
+<li>服务器自身配置。内存、CPU、网卡、Linux 支持的最大文件打开数等。</li>
+<li>应用自身配置，因为 Netty 本身需要依赖于堆外内存，但是 JVM 本身也是需要占用一部分内存的，比如存放通道关系的大 <code>Map</code>。这点需要结合自身情况进行调整。</li>
+</ul>
+<p>结合以上的情况可以测试出单个节点能支持的最大连接数。</p>
+<p>单机无论怎么优化都是有上限的，这也是分布式主要解决的问题。</p>
+<h2 id="架构介绍"><a href="#架构介绍" class="headerlink" title="架构介绍"></a>架构介绍</h2><p>在将具体实现之前首先得讲讲上文贴出的整体架构图。</p>
+<p><img src="https://ws1.sinaimg.cn/mw690/72fbb941gy1fvjz1teappj20rg0humy1.jpg" alt=""></p>
+<p>先从左边开始。</p>
+<p>上文提到的 <code>注册鉴权</code> 模块也是集群部署的，通过前置的 Nginx 进行负载。之前也提过了它主要的目的是来做鉴权并返回一个 token 给客户端。</p>
+<p>但是 <code>push-server</code> 集群之后它又多了一个作用。那就是得返回一台可供当前客户端使用的 <code>push-server</code>。</p>
+<p>右侧的 <code>平台</code> 一般指管理平台，它可以查看当前的实时在线数、给指定客户端推送消息等。</p>
+<p>推送消息则需要经过一个推送路由（<code>push-server</code>）找到真正的推送节点。</p>
+<p>其余的中间件如：Redis、Zookeeper、Kafka、MySQL 都是为了这些功能所准备的，具体看下面的实现。</p>
+<h2 id="注册发现"><a href="#注册发现" class="headerlink" title="注册发现"></a>注册发现</h2><p>首先第一个问题则是 <code>注册发现</code>，<code>push-server</code> 变为多台之后如何给客户端选择一台可用的节点是第一个需要解决的。</p>
+<p>这块的内容其实已经在 <a href="https://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/">分布式(一) 搞定服务注册与发现</a> 中详细讲过了。</p>
+<p>所有的 <code>push-server</code> 在启动时候需要将自身的信息注册到 Zookeeper 中。</p>
+<p><code>注册鉴权</code> 模块会订阅 Zookeeper 中的节点，从而可以获取最新的服务列表。结构如下：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fundatqf6uj30el06f0su.jpg" alt=""></p>
+<p>以下是一些伪代码：</p>
+<p>应用启动注册 Zookeeper。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fvkriuz7yrj30m304lq3r.jpg" alt=""></p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwgy1fvkrj927rsj30od08ejst.jpg" alt=""></p>
+<p>对于<code>注册鉴权</code>模块来说只需要订阅这个 Zookeeper 节点：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fvkrlfdgrkj30tb08j0uf.jpg" alt=""></p>
+<h3 id="路由策略"><a href="#路由策略" class="headerlink" title="路由策略"></a>路由策略</h3><p>既然能获取到所有的服务列表，那如何选择一台刚好合适的 <code>push-server</code> 给客户端使用呢？</p>
+<p>这个过程重点要考虑以下几点：</p>
+<ul>
+<li>尽量保证各个节点的连接均匀。</li>
+<li>增删节点是否要做 Rebalance。</li>
+</ul>
+<p>首先保证均衡有以下几种算法：</p>
+<ul>
+<li>轮询。挨个将各个节点分配给客户端。但会出现新增节点分配不均匀的情况。</li>
+<li>Hash 取模的方式。类似于 HashMap，但也会出现轮询的问题。当然也可以像 HashMap 那样做一次 Rebalance，让所有的客户端重新连接。不过这样会导致所有的连接出现中断重连，代价有点大。</li>
+<li>由于 Hash 取模方式的问题带来了<a href="https://crossoverjie.top/%2F2018%2F01%2F08%2FConsistent-Hash%2F"><code>一致性 Hash</code>算法</a>，但依然会有一部分的客户端需要 Rebalance。</li>
+<li>权重。可以手动调整各个节点的负载情况，甚至可以做成自动的，基于监控当某些节点负载较高就自动调低权重，负载较低的可以提高权重。</li>
+</ul>
+<p>还有一个问题是：</p>
+<blockquote>
+<p>当我们在重启部分应用进行升级时，在该节点上的客户端怎么处理？</p>
+</blockquote>
+<p>由于我们有心跳机制，当心跳不通之后就可以认为该节点出现问题了。那就得重新请求<code>注册鉴权</code>模块获取一个可用的节点。在弱网情况下同样适用。</p>
+<p>如果这时客户端正在发送消息，则需要将消息保存到本地等待获取到新的节点之后再次发送。</p>
+<h2 id="有状态连接"><a href="#有状态连接" class="headerlink" title="有状态连接"></a>有状态连接</h2><p>在这样的场景中不像是 HTTP 那样是无状态的，我们得明确的知道各个客户端和连接的关系。</p>
+<p>在上文的单机版中我们将这个关系保存到本地的缓存中，但在分布式环境中显然行不通了。</p>
+<p>比如在平台向客户端推送消息的时候，它得首先知道这个客户端的通道保存在哪台节点上。</p>
+<p>借助我们以前的经验，这样的问题自然得引入一个第三方中间件用来存放这个关系。</p>
+<p>也就是架构图中的存放<code>路由关系的 Redis</code>，在客户端接入 <code>push-server</code> 时需要将当前客户端唯一标识和服务节点的 <code>ip+port</code> 存进 <code>Redis</code>。</p>
+<p>同时在客户端下线时候得在 Redis 中删掉这个连接关系。</p>
+<blockquote>
+<p>这样在理想情况下各个节点内存中的 map 关系加起来应该正好等于 Redis 中的数据。</p>
+</blockquote>
+<p>伪代码如下：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwgy1fvkt2ytdxoj30r109u40n.jpg" alt=""></p>
+<p>这里存放路由关系的时候会有并发问题，最好是换为一个 <code>lua</code> 脚本。</p>
+<h2 id="推送路由"><a href="#推送路由" class="headerlink" title="推送路由"></a>推送路由</h2><p>设想这样一个场景：管理员需要给最近注册的客户端推送一个系统消息会怎么做？</p>
+<blockquote>
+<p>结合架构图</p>
+</blockquote>
+<p>假设这批客户端有 10W 个，首先我们需要将这批号码通过<code>平台</code>下的 <code>Nginx</code> 下发到一个推送路由中。</p>
+<p>为了提高效率甚至可以将这批号码再次分散到每个 <code>push-route</code> 中。</p>
+<p>拿到具体号码之后再根据号码的数量启动多线程的方式去之前的路由 Redis 中获取客户端所对应的 <code>push-server</code>。</p>
+<p>再通过 HTTP 的方式调用 <code>push-server</code> 进行真正的消息下发（Netty 也很好的支持 HTTP 协议）。</p>
+<p>推送成功之后需要将结果更新到数据库中，不在线的客户端可以根据业务再次推送等。</p>
+<h2 id="消息流转"><a href="#消息流转" class="headerlink" title="消息流转"></a>消息流转</h2><p>也许有些场景对于客户端上行的消息非常看重，需要做持久化，并且消息量非常大。</p>
+<p>在 <code>push-sever</code> 做业务显然不合适，这时完全可以选择 Kafka 来解耦。</p>
+<p>将所有上行的数据直接往 Kafka 里丢后就不管了。</p>
+<p>再由消费程序将数据取出写入数据库中即可。</p>
+<p>其实这块内容也很值得讨论，可以先看这篇了解下：<a href="https://crossoverjie.top/2018/08/29/java-senior/OOM-Disruptor/">强如 Disruptor 也发生内存溢出？</a></p>
+<p>后续谈到 Kafka 再做详细介绍。</p>
+<h1 id="分布式问题"><a href="#分布式问题" class="headerlink" title="分布式问题"></a>分布式问题</h1><p>分布式解决了性能问题但却带来了其他麻烦。</p>
+<h2 id="应用监控"><a href="#应用监控" class="headerlink" title="应用监控"></a>应用监控</h2><p>比如如何知道线上几十个 <code>push-server</code> 节点的健康状况？</p>
+<p>这时就得监控系统发挥作用了，我们需要知道各个节点当前的内存使用情况、GC。</p>
+<p>以及操作系统本身的内存使用，毕竟 Netty 大量使用了堆外内存。</p>
+<p>同时需要监控各个节点当前的在线数，以及 Redis 中的在线数。理论上这两个数应该是相等的。</p>
+<p>这样也可以知道系统的使用情况，可以灵活的维护这些节点数量。</p>
+<h2 id="日志处理"><a href="#日志处理" class="headerlink" title="日志处理"></a>日志处理</h2><p>日志记录也变得异常重要了，比如哪天反馈有个客户端一直连不上，你得知道问题出在哪里。</p>
+<p>最好是给每次请求都加上一个 traceID 记录日志，这样就可以通过这个日志在各个节点中查看到底是卡在了哪里。</p>
+<p>以及 ELK 这些工具都得用起来才行。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本次是结合我日常经验得出的，有些坑可能在工作中并没有踩到，所有还会有一些遗漏的地方。</p>
+<p>就目前来看想做一个稳定的推送系统其实是比较麻烦的，其中涉及到的点非常多，只有真正做过之后才会知道。</p>
+<p>看完之后觉得有帮助的还请不吝转发分享。</p>
+<p><strong>欢迎关注公众号一起交流：</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2018/09/23/5ba7ae180e8eb.jpg&quot; alt=&quot;business-communication-computer-261706.jpg&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;首先迟到的祝大家中秋快乐。&lt;/p&gt;
+&lt;p&gt;最近一周多没有更新了。其实我一直想憋一个大招，分享一些大家感兴趣的干货。&lt;/p&gt;
+&lt;p&gt;鉴于最近我个人的工作内容，于是利用这三天小长假憋了一个出来（其实是玩了两天🤣）。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;先简单说下本次的主题，由于我最近做的是物联网相关的开发工作，其中就不免会遇到和设备的交互。&lt;/p&gt;
+&lt;p&gt;最主要的工作就是要有一个系统来支持设备的接入、向设备推送消息；同时还得满足大量设备接入的需求。&lt;/p&gt;
+&lt;p&gt;所以本次分享的内容不但可以满足物联网领域同时还支持以下场景：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;基于 &lt;code&gt;WEB&lt;/code&gt; 的聊天系统（点对点、群聊）。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;WEB&lt;/code&gt; 应用中需求服务端推送的场景。&lt;/li&gt;
+&lt;li&gt;基于 SDK 的消息推送平台。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id=&quot;技术选型&quot;&gt;&lt;a href=&quot;#技术选型&quot; class=&quot;headerlink&quot; title=&quot;技术选型&quot;&gt;&lt;/a&gt;技术选型&lt;/h1&gt;&lt;p&gt;要满足大量的连接数、同时支持双全工通信，并且性能也得有保障。&lt;/p&gt;
+&lt;p&gt;在 Java 技术栈中进行选型首先自然是排除掉了传统 &lt;code&gt;IO&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;那就只有选 NIO 了，在这个层面其实选择也不多，考虑到社区、资料维护等方面最终选择了 Netty。&lt;/p&gt;
+&lt;p&gt;最终的架构图如下：&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;https://ws1.sinaimg.cn/mw690/72fbb941gy1fvjz1teappj20rg0humy1.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Netty" scheme="http://crossoverjie.top/categories/Netty/"/>
+    
+    
+      <category term="Kafka" scheme="http://crossoverjie.top/tags/Kafka/"/>
+    
+      <category term="Redis" scheme="http://crossoverjie.top/tags/Redis/"/>
+    
+      <category term="Zookeeper" scheme="http://crossoverjie.top/tags/Zookeeper/"/>
+    
+      <category term="推送" scheme="http://crossoverjie.top/tags/%E6%8E%A8%E9%80%81/"/>
+    
+      <category term="路由策略" scheme="http://crossoverjie.top/tags/%E8%B7%AF%E7%94%B1%E7%AD%96%E7%95%A5/"/>
+    
+      <category term="注册发现" scheme="http://crossoverjie.top/tags/%E6%B3%A8%E5%86%8C%E5%8F%91%E7%8E%B0/"/>
+    
+  </entry>
+  
+  <entry>
     <title>「造个轮子」——cicada 设计一个配置模块</title>
     <link href="http://crossoverjie.top/2018/09/14/wheel/cicada3/"/>
     <id>http://crossoverjie.top/2018/09/14/wheel/cicada3/</id>
     <published>2018-09-13T17:19:36.000Z</published>
-    <updated>2018-09-13T17:01:43.008Z</updated>
+    <updated>2018-09-13T17:07:18.773Z</updated>
     
     <content type="html"><![CDATA[<p><img src="https://ws3.sinaimg.cn/large/0069RVTdgy1fv838lysj4j31kw11x7c8.jpg" alt=""></p>
 <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>在前两次的 <a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">cicada</a> 版本中其实还不支持读取配置文件，比如对端口、路由的配置。</p>
@@ -127,6 +352,7 @@
 <p><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">https://github.com/TogetherOS/cicada</a></p>
 <p>也欢迎大家参与一起维护！。</p>
 <p>同时后续关于 <code>cicada</code> 的更新会放慢一些。会介绍一些平时实战相关的内容，比如 Kafka 之类的，请持续关注。</p>
+<p><strong>你的点赞与转发是最大的支持。</strong></p>
 ]]></content>
     
     <summary type="html">
@@ -2555,167 +2781,6 @@
     
       <category term="小情绪" scheme="http://crossoverjie.top/categories/%E5%B0%8F%E6%83%85%E7%BB%AA/"/>
     
-    
-  </entry>
-  
-  <entry>
-    <title>Netty(一) SpringBoot 整合长连接心跳机制</title>
-    <link href="http://crossoverjie.top/2018/05/24/netty/Netty(1)TCP-Heartbeat/"/>
-    <id>http://crossoverjie.top/2018/05/24/netty/Netty(1)TCP-Heartbeat/</id>
-    <published>2018-05-23T17:02:54.000Z</published>
-    <updated>2018-05-27T18:30:39.000Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2018/05/25/5b0774828db53.jpeg" alt="photo-1522204657746-fccce0824cfd.jpeg"></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>Netty 是一个高性能的 NIO 网络框架，本文基于 SpringBoot 以常见的心跳机制来认识 Netty。</p>
-<p>最终能达到的效果：</p>
-<ul>
-<li>客户端每隔 N 秒检测是否需要发送心跳。</li>
-<li>服务端也每隔 N 秒检测是否需要发送心跳。</li>
-<li>服务端可以主动 push 消息到客户端。</li>
-<li>基于 SpringBoot 监控，可以查看实时连接以及各种应用信息。</li>
-</ul>
-<p>效果如下：</p>
-<p><img src="https://crossoverjie.top/uploads/netty-Heartbeat.gif" alt="show"></p>
-<a id="more"></a>
-<h1 id="IdleStateHandler"><a href="#IdleStateHandler" class="headerlink" title="IdleStateHandler"></a>IdleStateHandler</h1><p>Netty 可以使用 IdleStateHandler 来实现连接管理，当连接空闲时间太长（没有发送、接收消息）时则会触发一个事件，我们便可在该事件中实现心跳机制。</p>
-<h2 id="客户端心跳"><a href="#客户端心跳" class="headerlink" title="客户端心跳"></a>客户端心跳</h2><p>当客户端空闲了 N 秒没有给服务端发送消息时会自动发送一个心跳来维持连接。</p>
-<p>核心代码代码如下：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">EchoClientHandle</span> <span class="keyword">extends</span> <span class="title">SimpleChannelInboundHandler</span>&lt;<span class="title">ByteBuf</span>&gt; </span>&#123;</div><div class="line"></div><div class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> Logger LOGGER = LoggerFactory.getLogger(EchoClientHandle.class);</div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">userEventTriggered</span><span class="params">(ChannelHandlerContext ctx, Object evt)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line"></div><div class="line">        <span class="keyword">if</span> (evt <span class="keyword">instanceof</span> IdleStateEvent)&#123;</div><div class="line">            IdleStateEvent idleStateEvent = (IdleStateEvent) evt ;</div><div class="line"></div><div class="line">            <span class="keyword">if</span> (idleStateEvent.state() == IdleState.WRITER_IDLE)&#123;</div><div class="line">                LOGGER.info(<span class="string">"已经 10 秒没有发送信息！"</span>);</div><div class="line">                <span class="comment">//向服务端发送消息</span></div><div class="line">                CustomProtocol heartBeat = SpringBeanFactory.getBean(<span class="string">"heartBeat"</span>, CustomProtocol.class);</div><div class="line">                ctx.writeAndFlush(heartBeat).addListener(ChannelFutureListener.CLOSE_ON_FAILURE) ;</div><div class="line">            &#125;</div><div class="line"></div><div class="line"></div><div class="line">        &#125;</div><div class="line"></div><div class="line">        <span class="keyword">super</span>.userEventTriggered(ctx, evt);</div><div class="line">    &#125;</div><div class="line"></div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">channelRead0</span><span class="params">(ChannelHandlerContext channelHandlerContext, ByteBuf in)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line"></div><div class="line">        <span class="comment">//从服务端收到消息时被调用</span></div><div class="line">        LOGGER.info(<span class="string">"客户端收到消息=&#123;&#125;"</span>,in.toString(CharsetUtil.UTF_8)) ;</div><div class="line"></div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>实现非常简单，只需要在事件回调中发送一个消息即可。</p>
-<p>由于整合了 SpringBoot ，所以发送的心跳信息是一个单例的 Bean。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Configuration</span></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">HeartBeatConfig</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="meta">@Value</span>(<span class="string">"$&#123;channel.id&#125;"</span>)</div><div class="line">    <span class="keyword">private</span> <span class="keyword">long</span> id ;</div><div class="line"></div><div class="line"></div><div class="line">    <span class="meta">@Bean</span>(value = <span class="string">"heartBeat"</span>)</div><div class="line">    <span class="function"><span class="keyword">public</span> CustomProtocol <span class="title">heartBeat</span><span class="params">()</span></span>&#123;</div><div class="line">        <span class="keyword">return</span> <span class="keyword">new</span> CustomProtocol(id,<span class="string">"ping"</span>) ;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>这里涉及到了自定义协议的内容，请继续查看下文。</p>
-<p>当然少不了启动引导：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Component</span></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">HeartbeatClient</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> Logger LOGGER = LoggerFactory.getLogger(HeartbeatClient.class);</div><div class="line"></div><div class="line">    <span class="keyword">private</span> EventLoopGroup group = <span class="keyword">new</span> NioEventLoopGroup();</div><div class="line"></div><div class="line"></div><div class="line">    <span class="meta">@Value</span>(<span class="string">"$&#123;netty.server.port&#125;"</span>)</div><div class="line">    <span class="keyword">private</span> <span class="keyword">int</span> nettyPort;</div><div class="line"></div><div class="line">    <span class="meta">@Value</span>(<span class="string">"$&#123;netty.server.host&#125;"</span>)</div><div class="line">    <span class="keyword">private</span> String host;</div><div class="line"></div><div class="line">    <span class="keyword">private</span> SocketChannel channel;</div><div class="line"></div><div class="line">    <span class="meta">@PostConstruct</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">start</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</div><div class="line">        Bootstrap bootstrap = <span class="keyword">new</span> Bootstrap();</div><div class="line">        bootstrap.group(group)</div><div class="line">                .channel(NioSocketChannel.class)</div><div class="line">                .handler(<span class="keyword">new</span> CustomerHandleInitializer())</div><div class="line">        ;</div><div class="line"></div><div class="line">        ChannelFuture future = bootstrap.connect(host, nettyPort).sync();</div><div class="line">        <span class="keyword">if</span> (future.isSuccess()) &#123;</div><div class="line">            LOGGER.info(<span class="string">"启动 Netty 成功"</span>);</div><div class="line">        &#125;</div><div class="line">        channel = (SocketChannel) future.channel();</div><div class="line">    &#125;</div><div class="line">    </div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CustomerHandleInitializer</span> <span class="keyword">extends</span> <span class="title">ChannelInitializer</span>&lt;<span class="title">Channel</span>&gt; </span>&#123;</div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">initChannel</span><span class="params">(Channel ch)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line">        ch.pipeline()</div><div class="line">                <span class="comment">//10 秒没发送消息 将IdleStateHandler 添加到 ChannelPipeline 中</span></div><div class="line">                .addLast(<span class="keyword">new</span> IdleStateHandler(<span class="number">0</span>, <span class="number">10</span>, <span class="number">0</span>))</div><div class="line">                .addLast(<span class="keyword">new</span> HeartbeatEncode())</div><div class="line">                .addLast(<span class="keyword">new</span> EchoClientHandle())</div><div class="line">        ;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>所以当应用启动每隔 10 秒会检测是否发送过消息，不然就会发送心跳信息。</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tKfTcgy1frqd863hrhj31kw04taed.jpg" alt=""></p>
-<h2 id="服务端心跳"><a href="#服务端心跳" class="headerlink" title="服务端心跳"></a>服务端心跳</h2><p>服务器端的心跳其实也是类似，也需要在 ChannelPipeline 中添加一个 IdleStateHandler 。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">HeartBeatSimpleHandle</span> <span class="keyword">extends</span> <span class="title">SimpleChannelInboundHandler</span>&lt;<span class="title">CustomProtocol</span>&gt; </span>&#123;</div><div class="line"></div><div class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> Logger LOGGER = LoggerFactory.getLogger(HeartBeatSimpleHandle.class);</div><div class="line"></div><div class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> ByteBuf HEART_BEAT =  Unpooled.unreleasableBuffer(Unpooled.copiedBuffer(<span class="keyword">new</span> CustomProtocol(<span class="number">123456L</span>,<span class="string">"pong"</span>).toString(),CharsetUtil.UTF_8));</div><div class="line"></div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 取消绑定</div><div class="line">     * <span class="doctag">@param</span> ctx</div><div class="line">     * <span class="doctag">@throws</span> Exception</div><div class="line">     */</div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">channelInactive</span><span class="params">(ChannelHandlerContext ctx)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line"></div><div class="line">        NettySocketHolder.remove((NioSocketChannel) ctx.channel());</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">userEventTriggered</span><span class="params">(ChannelHandlerContext ctx, Object evt)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line"></div><div class="line">        <span class="keyword">if</span> (evt <span class="keyword">instanceof</span> IdleStateEvent)&#123;</div><div class="line">            IdleStateEvent idleStateEvent = (IdleStateEvent) evt ;</div><div class="line"></div><div class="line">            <span class="keyword">if</span> (idleStateEvent.state() == IdleState.READER_IDLE)&#123;</div><div class="line">                LOGGER.info(<span class="string">"已经5秒没有收到信息！"</span>);</div><div class="line">                <span class="comment">//向客户端发送消息</span></div><div class="line">                ctx.writeAndFlush(HEART_BEAT).addListener(ChannelFutureListener.CLOSE_ON_FAILURE) ;</div><div class="line">            &#125;</div><div class="line"></div><div class="line"></div><div class="line">        &#125;</div><div class="line"></div><div class="line">        <span class="keyword">super</span>.userEventTriggered(ctx, evt);</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">channelRead0</span><span class="params">(ChannelHandlerContext ctx, CustomProtocol customProtocol)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line">        LOGGER.info(<span class="string">"收到customProtocol=&#123;&#125;"</span>, customProtocol);</div><div class="line"></div><div class="line">        <span class="comment">//保存客户端与 Channel 之间的关系</span></div><div class="line">        NettySocketHolder.put(customProtocol.getId(),(NioSocketChannel)ctx.channel()) ;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p><strong>这里有点需要注意</strong>：</p>
-<p>当有多个客户端连上来时，服务端需要区分开，不然响应消息就会发生混乱。</p>
-<p>所以每当有个连接上来的时候，我们都将当前的 Channel 与连上的客户端 ID 进行关联（<strong>因此每个连上的客户端 ID 都必须唯一</strong>）。</p>
-<p>这里采用了一个 Map 来保存这个关系，并且在断开连接时自动取消这个关联。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">NettySocketHolder</span> </span>&#123;</div><div class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Map&lt;Long, NioSocketChannel&gt; MAP = <span class="keyword">new</span> ConcurrentHashMap&lt;&gt;(<span class="number">16</span>);</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">put</span><span class="params">(Long id, NioSocketChannel socketChannel)</span> </span>&#123;</div><div class="line">        MAP.put(id, socketChannel);</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> NioSocketChannel <span class="title">get</span><span class="params">(Long id)</span> </span>&#123;</div><div class="line">        <span class="keyword">return</span> MAP.get(id);</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Map&lt;Long, NioSocketChannel&gt; <span class="title">getMAP</span><span class="params">()</span> </span>&#123;</div><div class="line">        <span class="keyword">return</span> MAP;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">remove</span><span class="params">(NioSocketChannel nioSocketChannel)</span> </span>&#123;</div><div class="line">        MAP.entrySet().stream().filter(entry -&gt; entry.getValue() == nioSocketChannel).forEach(entry -&gt; MAP.remove(entry.getKey()));</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>启动引导程序：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div></pre></td><td class="code"><pre><div class="line">Component</div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">HeartBeatServer</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> Logger LOGGER = LoggerFactory.getLogger(HeartBeatServer.class);</div><div class="line"></div><div class="line">    <span class="keyword">private</span> EventLoopGroup boss = <span class="keyword">new</span> NioEventLoopGroup();</div><div class="line">    <span class="keyword">private</span> EventLoopGroup work = <span class="keyword">new</span> NioEventLoopGroup();</div><div class="line"></div><div class="line"></div><div class="line">    <span class="meta">@Value</span>(<span class="string">"$&#123;netty.server.port&#125;"</span>)</div><div class="line">    <span class="keyword">private</span> <span class="keyword">int</span> nettyPort;</div><div class="line"></div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 启动 Netty</div><div class="line">     *</div><div class="line">     * <span class="doctag">@return</span></div><div class="line">     * <span class="doctag">@throws</span> InterruptedException</div><div class="line">     */</div><div class="line">    <span class="meta">@PostConstruct</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">start</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</div><div class="line"></div><div class="line">        ServerBootstrap bootstrap = <span class="keyword">new</span> ServerBootstrap()</div><div class="line">                .group(boss, work)</div><div class="line">                .channel(NioServerSocketChannel.class)</div><div class="line">                .localAddress(<span class="keyword">new</span> InetSocketAddress(nettyPort))</div><div class="line">                <span class="comment">//保持长连接</span></div><div class="line">                .childOption(ChannelOption.SO_KEEPALIVE, <span class="keyword">true</span>)</div><div class="line">                .childHandler(<span class="keyword">new</span> HeartbeatInitializer());</div><div class="line"></div><div class="line">        ChannelFuture future = bootstrap.bind().sync();</div><div class="line">        <span class="keyword">if</span> (future.isSuccess()) &#123;</div><div class="line">            LOGGER.info(<span class="string">"启动 Netty 成功"</span>);</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line"></div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 销毁</div><div class="line">     */</div><div class="line">    <span class="meta">@PreDestroy</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">destroy</span><span class="params">()</span> </span>&#123;</div><div class="line">        boss.shutdownGracefully().syncUninterruptibly();</div><div class="line">        work.shutdownGracefully().syncUninterruptibly();</div><div class="line">        LOGGER.info(<span class="string">"关闭 Netty 成功"</span>);</div><div class="line">    &#125;</div><div class="line">&#125;    </div><div class="line"></div><div class="line"></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">HeartbeatInitializer</span> <span class="keyword">extends</span> <span class="title">ChannelInitializer</span>&lt;<span class="title">Channel</span>&gt; </span>&#123;</div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">initChannel</span><span class="params">(Channel ch)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line">        ch.pipeline()</div><div class="line">                <span class="comment">//五秒没有收到消息 将IdleStateHandler 添加到 ChannelPipeline 中</span></div><div class="line">                .addLast(<span class="keyword">new</span> IdleStateHandler(<span class="number">5</span>, <span class="number">0</span>, <span class="number">0</span>))</div><div class="line">                .addLast(<span class="keyword">new</span> HeartbeatDecoder())</div><div class="line">                .addLast(<span class="keyword">new</span> HeartBeatSimpleHandle());</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>也是同样将IdleStateHandler 添加到 ChannelPipeline 中，也会有一个定时任务，每5秒校验一次是否有收到消息，否则就主动发送一次请求。</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tKfTcgy1frqe2hbxjfj31kw06rtej.jpg" alt=""></p>
-<p>因为测试是有两个客户端连上所以有两个日志。</p>
-<h2 id="自定义协议"><a href="#自定义协议" class="headerlink" title="自定义协议"></a>自定义协议</h2><p>上文其实都看到了：服务端与客户端采用的是自定义的 POJO 进行通讯的。</p>
-<p>所以需要在客户端进行编码，服务端进行解码，也都只需要各自实现一个编解码器即可。</p>
-<p>CustomProtocol：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CustomProtocol</span> <span class="keyword">implements</span> <span class="title">Serializable</span></span>&#123;</div><div class="line"></div><div class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">long</span> serialVersionUID = <span class="number">4671171056588401542L</span>;</div><div class="line">    <span class="keyword">private</span> <span class="keyword">long</span> id ;</div><div class="line">    <span class="keyword">private</span> String content ;</div><div class="line">    <span class="comment">//省略 getter/setter</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>客户端的编码器：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">HeartbeatEncode</span> <span class="keyword">extends</span> <span class="title">MessageToByteEncoder</span>&lt;<span class="title">CustomProtocol</span>&gt; </span>&#123;</div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">encode</span><span class="params">(ChannelHandlerContext ctx, CustomProtocol msg, ByteBuf out)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line"></div><div class="line">        out.writeLong(msg.getId()) ;</div><div class="line">        out.writeBytes(msg.getContent().getBytes()) ;</div><div class="line"></div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>也就是说消息的前八个字节为 header，剩余的全是 content。</p>
-<p>服务端的解码器：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">HeartbeatDecoder</span> <span class="keyword">extends</span> <span class="title">ByteToMessageDecoder</span> </span>&#123;</div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">decode</span><span class="params">(ChannelHandlerContext ctx, ByteBuf in, List&lt;Object&gt; out)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line"></div><div class="line">        <span class="keyword">long</span> id = in.readLong() ;</div><div class="line">        <span class="keyword">byte</span>[] bytes = <span class="keyword">new</span> <span class="keyword">byte</span>[in.readableBytes()] ;</div><div class="line">        in.readBytes(bytes) ;</div><div class="line">        String content = <span class="keyword">new</span> String(bytes) ;</div><div class="line"></div><div class="line">        CustomProtocol customProtocol = <span class="keyword">new</span> CustomProtocol() ;</div><div class="line">        customProtocol.setId(id);</div><div class="line">        customProtocol.setContent(content) ;</div><div class="line">        out.add(customProtocol) ;</div><div class="line"></div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>只需要按照刚才的规则进行解码即可。</p>
-<h2 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h2><p>其实联想到 IdleStateHandler 的功能，自然也能想到它实现的原理：</p>
-<blockquote>
-<p>应该会存在一个定时任务的线程去处理这些消息。</p>
-</blockquote>
-<p>来看看它的源码：</p>
-<p>首先是构造函数:</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line">public IdleStateHandler(</div><div class="line">        int readerIdleTimeSeconds,</div><div class="line">        int writerIdleTimeSeconds,</div><div class="line">        int allIdleTimeSeconds) &#123;</div><div class="line"></div><div class="line">    this(readerIdleTimeSeconds, writerIdleTimeSeconds, allIdleTimeSeconds,</div><div class="line">         TimeUnit.SECONDS);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>其实就是初始化了几个数据：</p>
-<ul>
-<li>readerIdleTimeSeconds：一段时间内没有数据读取</li>
-<li>writerIdleTimeSeconds：一段时间内没有数据发送</li>
-<li>allIdleTimeSeconds：以上两种满足其中一个即可</li>
-</ul>
-<p>因为 IdleStateHandler 也是一种 ChannelHandler，所以会在 <code>channelActive</code> 中初始化任务：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Override</span></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">channelActive</span><span class="params">(ChannelHandlerContext ctx)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line">    <span class="comment">// This method will be invoked only if this handler was added</span></div><div class="line">    <span class="comment">// before channelActive() event is fired.  If a user adds this handler</span></div><div class="line">    <span class="comment">// after the channelActive() event, initialize() will be called by beforeAdd().</span></div><div class="line">    initialize(ctx);</div><div class="line">    <span class="keyword">super</span>.channelActive(ctx);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">initialize</span><span class="params">(ChannelHandlerContext ctx)</span> </span>&#123;</div><div class="line">    <span class="comment">// Avoid the case where destroy() is called before scheduling timeouts.</span></div><div class="line">    <span class="comment">// See: https://github.com/netty/netty/issues/143</span></div><div class="line">    <span class="keyword">switch</span> (state) &#123;</div><div class="line">    <span class="keyword">case</span> <span class="number">1</span>:</div><div class="line">    <span class="keyword">case</span> <span class="number">2</span>:</div><div class="line">        <span class="keyword">return</span>;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    state = <span class="number">1</span>;</div><div class="line">    initOutputChanged(ctx);</div><div class="line"></div><div class="line">    lastReadTime = lastWriteTime = ticksInNanos();</div><div class="line">    <span class="keyword">if</span> (readerIdleTimeNanos &gt; <span class="number">0</span>) &#123;</div><div class="line">        readerIdleTimeout = schedule(ctx, <span class="keyword">new</span> ReaderIdleTimeoutTask(ctx),</div><div class="line">                readerIdleTimeNanos, TimeUnit.NANOSECONDS);</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">if</span> (writerIdleTimeNanos &gt; <span class="number">0</span>) &#123;</div><div class="line">        writerIdleTimeout = schedule(ctx, <span class="keyword">new</span> WriterIdleTimeoutTask(ctx),</div><div class="line">                writerIdleTimeNanos, TimeUnit.NANOSECONDS);</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">if</span> (allIdleTimeNanos &gt; <span class="number">0</span>) &#123;</div><div class="line">        allIdleTimeout = schedule(ctx, <span class="keyword">new</span> AllIdleTimeoutTask(ctx),</div><div class="line">                allIdleTimeNanos, TimeUnit.NANOSECONDS);</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>也就是会按照我们给定的时间初始化出定时任务。</p>
-<p>接着在任务真正执行时进行判断：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">ReaderIdleTimeoutTask</span> <span class="keyword">extends</span> <span class="title">AbstractIdleTask</span> </span>&#123;</div><div class="line"></div><div class="line">    ReaderIdleTimeoutTask(ChannelHandlerContext ctx) &#123;</div><div class="line">        <span class="keyword">super</span>(ctx);</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">(ChannelHandlerContext ctx)</span> </span>&#123;</div><div class="line">        <span class="keyword">long</span> nextDelay = readerIdleTimeNanos;</div><div class="line">        <span class="keyword">if</span> (!reading) &#123;</div><div class="line">            nextDelay -= ticksInNanos() - lastReadTime;</div><div class="line">        &#125;</div><div class="line"></div><div class="line">        <span class="keyword">if</span> (nextDelay &lt;= <span class="number">0</span>) &#123;</div><div class="line">            <span class="comment">// Reader is idle - set a new timeout and notify the callback.</span></div><div class="line">            readerIdleTimeout = schedule(ctx, <span class="keyword">this</span>, readerIdleTimeNanos, TimeUnit.NANOSECONDS);</div><div class="line"></div><div class="line">            <span class="keyword">boolean</span> first = firstReaderIdleEvent;</div><div class="line">            firstReaderIdleEvent = <span class="keyword">false</span>;</div><div class="line"></div><div class="line">            <span class="keyword">try</span> &#123;</div><div class="line">                IdleStateEvent event = newIdleStateEvent(IdleState.READER_IDLE, first);</div><div class="line">                channelIdle(ctx, event);</div><div class="line">            &#125; <span class="keyword">catch</span> (Throwable t) &#123;</div><div class="line">                ctx.fireExceptionCaught(t);</div><div class="line">            &#125;</div><div class="line">        &#125; <span class="keyword">else</span> &#123;</div><div class="line">            <span class="comment">// Read occurred before the timeout - set a new timeout with shorter delay.</span></div><div class="line">            readerIdleTimeout = schedule(ctx, <span class="keyword">this</span>, nextDelay, TimeUnit.NANOSECONDS);</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>如果满足条件则会生成一个 IdleStateEvent 事件。</p>
-<h1 id="SpringBoot-监控"><a href="#SpringBoot-监控" class="headerlink" title="SpringBoot 监控"></a>SpringBoot 监控</h1><p>由于整合了 SpringBoot 之后不但可以利用 Spring 帮我们管理对象，也可以利用它来做应用监控。</p>
-<h2 id="actuator-监控"><a href="#actuator-监控" class="headerlink" title="actuator 监控"></a>actuator 监控</h2><p>当我们为引入了:</p>
-<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.boot<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-starter-actuator<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></div><div class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></div></pre></td></tr></table></figure>
-<p>就开启了 SpringBoot 的 actuator 监控功能，他可以暴露出很多监控端点供我们使用。</p>
-<p>如一些应用中的一些统计数据：<br><img src="https://ws1.sinaimg.cn/large/006tKfTcgy1frqeyocotnj31kw0b8tiy.jpg" alt=""></p>
-<p>存在的 Beans：<br><img src="https://ws3.sinaimg.cn/large/006tKfTcgy1frqez1kr3dj31kw0onawi.jpg" alt=""></p>
-<p>更多信息请查看：<a href="https://docs.spring.io/spring-boot/docs/current/reference/html/production-ready-endpoints.html" target="_blank" rel="external">https://docs.spring.io/spring-boot/docs/current/reference/html/production-ready-endpoints.html</a></p>
-<p>但是如果我想监控现在我的服务端有多少客户端连上来了，分别的 ID 是多少？</p>
-<p>其实就是实时查看我内部定义的那个关联关系的 Map。</p>
-<p>这就需要暴露自定义端点了。</p>
-<h2 id="自定义端点"><a href="#自定义端点" class="headerlink" title="自定义端点"></a>自定义端点</h2><p>暴露的方式也很简单：</p>
-<p>继承 AbstractEndpoint 并复写其中的 invoke 函数：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CustomEndpoint</span> <span class="keyword">extends</span> <span class="title">AbstractEndpoint</span>&lt;<span class="title">Map</span>&lt;<span class="title">Long</span>,<span class="title">NioSocketChannel</span>&gt;&gt; </span>&#123;</div><div class="line"></div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 监控端点的 访问地址</div><div class="line">     * <span class="doctag">@param</span> id</div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="title">CustomEndpoint</span><span class="params">(String id)</span> </span>&#123;</div><div class="line">        <span class="comment">//false 表示不是敏感端点</span></div><div class="line">        <span class="keyword">super</span>(id, <span class="keyword">false</span>);</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> Map&lt;Long, NioSocketChannel&gt; <span class="title">invoke</span><span class="params">()</span> </span>&#123;</div><div class="line">        <span class="keyword">return</span> NettySocketHolder.getMAP();</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>其实就是返回了 Map 中的数据。</p>
-<p>再配置一个该类型的 Bean 即可：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Configuration</span></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">EndPointConfig</span> </span>&#123;</div><div class="line"></div><div class="line"></div><div class="line">    <span class="meta">@Value</span>(<span class="string">"$&#123;monitor.channel.map.key&#125;"</span>)</div><div class="line">    <span class="keyword">private</span> String channelMap;</div><div class="line"></div><div class="line">    <span class="meta">@Bean</span></div><div class="line">    <span class="function"><span class="keyword">public</span> CustomEndpoint <span class="title">buildEndPoint</span><span class="params">()</span></span>&#123;</div><div class="line">        CustomEndpoint customEndpoint = <span class="keyword">new</span> CustomEndpoint(channelMap) ;</div><div class="line">        <span class="keyword">return</span> customEndpoint ;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>这样我们就可以通过配置文件中的 <code>monitor.channel.map.key</code> 来访问了：</p>
-<p>一个客户端连接时：<br><img src="https://ws3.sinaimg.cn/large/006tKfTcgy1frqf7ic0wqj31kw07rq7a.jpg" alt=""></p>
-<p>两个客户端连接时：<br><img src="https://ws2.sinaimg.cn/large/006tKfTcgy1frqf8omlzkj31kw07xq7y.jpg" alt=""></p>
-<h2 id="整合-SBA"><a href="#整合-SBA" class="headerlink" title="整合 SBA"></a>整合 SBA</h2><p>这样其实监控功能已经可以满足了，但能不能展示的更美观、并且多个应用也可以方便查看呢？</p>
-<p>有这样的开源工具帮我们做到了：</p>
-<p><a href="https://github.com/codecentric/spring-boot-admin" target="_blank" rel="external">https://github.com/codecentric/spring-boot-admin</a></p>
-<p>简单来说我们可以利用该工具将 actuator 暴露出来的接口可视化并聚合的展示在页面中：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tKfTcgy1frqfbz359wj31kw0p513n.jpg" alt=""></p>
-<p>接入也很简单，首先需要引入依赖：</p>
-<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>de.codecentric<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-admin-starter-client<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></div><div class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></div></pre></td></tr></table></figure>
-<p>并在配置文件中加入：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"># 关闭健康检查权限</div><div class="line">management.security.enabled=false</div><div class="line"># SpringAdmin 地址</div><div class="line">spring.boot.admin.url=http://127.0.0.1:8888</div></pre></td></tr></table></figure>
-<p>在启动应用之前先讲 SpringBootAdmin 部署好：</p>
-<p>这个应用就是一个纯粹的 SpringBoot ，只需要在主函数上加入 <code>@EnableAdminServer</code> 注解。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@SpringBootApplication</span></div><div class="line"><span class="meta">@Configuration</span></div><div class="line"><span class="meta">@EnableAutoConfiguration</span></div><div class="line"><span class="meta">@EnableAdminServer</span></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">AdminApplication</span> </span>&#123;</div><div class="line"></div><div class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</div><div class="line">		SpringApplication.run(AdminApplication.class, args);</div><div class="line">	&#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>引入：</p>
-<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></div><div class="line">	<span class="tag">&lt;<span class="name">groupId</span>&gt;</span>de.codecentric<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></div><div class="line">	<span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-admin-starter-server<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></div><div class="line">	<span class="tag">&lt;<span class="name">version</span>&gt;</span>1.5.7<span class="tag">&lt;/<span class="name">version</span>&gt;</span></div><div class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></div><div class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></div><div class="line">	<span class="tag">&lt;<span class="name">groupId</span>&gt;</span>de.codecentric<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></div><div class="line">	<span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-admin-server-ui<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></div><div class="line">	<span class="tag">&lt;<span class="name">version</span>&gt;</span>1.5.6<span class="tag">&lt;/<span class="name">version</span>&gt;</span></div><div class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></div></pre></td></tr></table></figure>
-<p>之后直接启动就行了。</p>
-<p>这样我们在 SpringBootAdmin 的页面中就可以查看很多应用信息了。</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tKfTcgy1frqfjuof2rj31kw10ldqk.jpg" alt=""></p>
-<p>更多内容请参考官方指南：</p>
-<p><a href="http://codecentric.github.io/spring-boot-admin/1.5.6/" target="_blank" rel="external">http://codecentric.github.io/spring-boot-admin/1.5.6/</a></p>
-<h3 id="自定义监控数据"><a href="#自定义监控数据" class="headerlink" title="自定义监控数据"></a>自定义监控数据</h3><p>其实我们完全可以借助 actuator 以及这个可视化页面帮我们监控一些简单的度量信息。</p>
-<p>比如我在客户端和服务端中写了两个 Rest 接口用于向对方发送消息。</p>
-<p>只是想要记录分别发送了多少次：</p>
-<p>客户端：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Controller</span></div><div class="line"><span class="meta">@RequestMapping</span>(<span class="string">"/"</span>)</div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">IndexController</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 统计 service</div><div class="line">     */</div><div class="line">    <span class="meta">@Autowired</span></div><div class="line">    <span class="keyword">private</span> CounterService counterService;</div><div class="line"></div><div class="line">    <span class="meta">@Autowired</span></div><div class="line">    <span class="keyword">private</span> HeartbeatClient heartbeatClient ;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 向服务端发消息</div><div class="line">     * <span class="doctag">@param</span> sendMsgReqVO</div><div class="line">     * <span class="doctag">@return</span></div><div class="line">     */</div><div class="line">    <span class="meta">@ApiOperation</span>(<span class="string">"客户端发送消息"</span>)</div><div class="line">    <span class="meta">@RequestMapping</span>(<span class="string">"sendMsg"</span>)</div><div class="line">    <span class="meta">@ResponseBody</span></div><div class="line">    <span class="function"><span class="keyword">public</span> BaseResponse&lt;SendMsgResVO&gt; <span class="title">sendMsg</span><span class="params">(@RequestBody SendMsgReqVO sendMsgReqVO)</span></span>&#123;</div><div class="line">        BaseResponse&lt;SendMsgResVO&gt; res = <span class="keyword">new</span> BaseResponse();</div><div class="line">        heartbeatClient.sendMsg(<span class="keyword">new</span> CustomProtocol(sendMsgReqVO.getId(),sendMsgReqVO.getMsg())) ;</div><div class="line"></div><div class="line">        <span class="comment">// 利用 actuator 来自增</span></div><div class="line">        counterService.increment(Constants.COUNTER_CLIENT_PUSH_COUNT);</div><div class="line"></div><div class="line">        SendMsgResVO sendMsgResVO = <span class="keyword">new</span> SendMsgResVO() ;</div><div class="line">        sendMsgResVO.setMsg(<span class="string">"OK"</span>) ;</div><div class="line">        res.setCode(StatusEnum.SUCCESS.getCode()) ;</div><div class="line">        res.setMessage(StatusEnum.SUCCESS.getMessage()) ;</div><div class="line">        res.setDataBody(sendMsgResVO) ;</div><div class="line">        <span class="keyword">return</span> res ;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>只要我们引入了 actuator 的包，那就可以直接注入 counterService ，利用它来帮我们记录数据。</p>
-<p>当我们调用该接口时：</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tKfTcgy1frqfv3vx0ej31hk0g6dj5.jpg" alt=""></p>
-<p><img src="https://ws4.sinaimg.cn/large/006tKfTcgy1frqfvof9lpj31kw07l0z8.jpg" alt=""></p>
-<p>在监控页面中可以查询刚才的调用情况：</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tKfTcgy1frqfwembi6j31kw0o0dot.jpg" alt=""></p>
-<p>服务端主动 push 消息也是类似，只是需要在发送时候根据客户端的 ID 查询到具体的 Channel 发送：</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tKfTcgy1frqfy9dcu5j31hu0f277i.jpg" alt=""></p>
-<p><img src="https://ws2.sinaimg.cn/large/006tKfTcgy1frqfz0aticj31kw05jgol.jpg" alt=""></p>
-<p><img src="https://ws3.sinaimg.cn/large/006tKfTcgy1frqfztzxd8j31kw0iyn0t.jpg" alt=""></p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>以上就是一个简单 Netty 心跳示例，并演示了 SpringBoot 的监控，之后会继续更新 Netty 相关内容，欢迎关注及指正。</p>
-<p>本文所有代码：</p>
-<p><a href="https://github.com/crossoverJie/netty-action" target="_blank" rel="external">https://github.com/crossoverJie/netty-action</a></p>
-<h1 id="号外"><a href="#号外" class="headerlink" title="号外"></a>号外</h1><p>最近在总结一些 Java 相关的知识点，感兴趣的朋友可以一起维护。</p>
-<blockquote>
-<p>地址: <a href="https://github.com/crossoverJie/Java-Interview" target="_blank" rel="external">https://github.com/crossoverJie/Java-Interview</a></p>
-</blockquote>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2018/05/25/5b0774828db53.jpeg&quot; alt=&quot;photo-1522204657746-fccce0824cfd.jpeg&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;Netty 是一个高性能的 NIO 网络框架，本文基于 SpringBoot 以常见的心跳机制来认识 Netty。&lt;/p&gt;
-&lt;p&gt;最终能达到的效果：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;客户端每隔 N 秒检测是否需要发送心跳。&lt;/li&gt;
-&lt;li&gt;服务端也每隔 N 秒检测是否需要发送心跳。&lt;/li&gt;
-&lt;li&gt;服务端可以主动 push 消息到客户端。&lt;/li&gt;
-&lt;li&gt;基于 SpringBoot 监控，可以查看实时连接以及各种应用信息。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;效果如下：&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;https://crossoverjie.top/uploads/netty-Heartbeat.gif&quot; alt=&quot;show&quot;&gt;&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Netty" scheme="http://crossoverjie.top/categories/Netty/"/>
-    
-    
-      <category term="SpringBoot" scheme="http://crossoverjie.top/tags/SpringBoot/"/>
-    
-      <category term="TCP" scheme="http://crossoverjie.top/tags/TCP/"/>
-    
-      <category term="Heartbeat" scheme="http://crossoverjie.top/tags/Heartbeat/"/>
     
   </entry>
   
