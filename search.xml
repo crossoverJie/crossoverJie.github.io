@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[利用责任链模式设计一个拦截器]]></title>
+    <url>%2F2018%2F10%2F22%2Fwheel%2Fcicada5%2F</url>
+    <content type="text"><![CDATA[前言近期在做 Cicada 的拦截器功能，正好用到了责任链模式。 这个设计模式在日常使用中频率还是挺高的，借此机会来分析分析。 责任链模式先来看看什么是责任链模式。 引用一段维基百科对其的解释： 责任链模式在面向对象程式设计里是一种软件设计模式，它包含了一些命令对象和一系列的处理对象。每一个处理对象决定它能处理哪些命令对象，它也知道如何将它不能处理的命令对象传递给该链中的下一个处理对象。该模式还描述了往该处理链的末尾添加新的处理对象的方法。 光看这段描述可能大家会觉得懵，简单来说就是该设计模式用于对某个对象或者请求进行一系列的处理，这些处理逻辑正好组成一个链条。 下面来简单演示使用与不使用责任链模式有什么区别和优势。 责任链模式的应用传统实现假设这样的场景：传入了一段内容，需要对这段文本进行加工；比如过滤敏感词、错别字修改、最后署上版权等操作。 常见的写法如下： 123456789public class Main &#123; public static void main(String[] args) &#123; String msg = "内容内容内容" ; String result = Process.sensitiveWord() .typo() .copyright(); &#125;&#125; 这样看似没啥问题也能解决需求，但如果我还需要为为内容加上一个统一的标题呢？在现有的方式下就不得不新增处理方法，并且是在这个客户端（Process）的基础上进行新增。 显然这样的扩展性不好。 责任链模式实现这时候就到了责任链模式发挥作用了。 该需求非常的符合对某一个对象、请求进行一系列处理的特征。 于是我们将代码修改： 这时 Process 就是一个接口了，用于定义真正的处理函数。 12345678public interface Process &#123; /** * 执行处理 * @param msg */ void doProcess(String msg) ;&#125; 同时之前对内容的各种处理只需要实现该接口即可： 12345678910111213141516171819202122public class SensitiveWordProcess implements Process &#123; @Override public void doProcess(String msg) &#123; System.out.println(msg + "敏感词处理"); &#125;&#125;public class CopyrightProcess implements Process &#123; @Override public void doProcess(String msg) &#123; System.out.println(msg + "版权处理"); &#125;&#125;public class CopyrightProcess implements Process &#123; @Override public void doProcess(String msg) &#123; System.out.println(msg + "版权处理"); &#125;&#125; 然后只需要给客户端提供一个执行入口以及添加责任链的入口即可： 123456789101112131415161718192021222324public class MsgProcessChain &#123; private List&lt;Process&gt; chains = new ArrayList&lt;&gt;() ; /** * 添加责任链 * @param process * @return */ public MsgProcessChain addChain(Process process)&#123; chains.add(process) ; return this ; &#125; /** * 执行处理 * @param msg */ public void process(String msg)&#123; for (Process chain : chains) &#123; chain.doProcess(msg); &#125; &#125;&#125; 这样使用起来就非常简单： 123456789101112public class Main &#123; public static void main(String[] args) &#123; String msg = "内容内容内容==" ; MsgProcessChain chain = new MsgProcessChain() .addChain(new SensitiveWordProcess()) .addChain(new TypoProcess()) .addChain(new CopyrightProcess()) ; chain.process(msg) ; &#125;&#125; 当我需要再增加一个处理逻辑时只需要添加一个处理单元即可（addChain(Process process)），并对客户端 chain.process(msg) 是无感知的，不需要做任何的改动。 可能大家没有直接写过责任链模式的相关代码，但不经意间使用到的却不少。 比如 Netty 中的 pipeline 就是一个典型的责任链模式，它可以让一个请求在整个管道中进行流转。 通过官方图就可以非常清楚的看出是一个责任链模式： 用责任链模式设计一个拦截器对于拦截器来说使用责任链模式再好不过了。 下面来看看在 Cicada 中的实现： 首先是定义了和上文 Process 接口类似的 CicadaInterceptor 抽象类： 12345678public abstract class CicadaInterceptor &#123; public boolean before(CicadaContext context,Param param) throws Exception&#123; return true; &#125; public void after(CicadaContext context,Param param) throws Exception&#123;&#125;&#125; 同时定义了一个 InterceptProcess 的客户端： 其中的 loadInterceptors() 会将所有的拦截器加入到责任链中。 再提供了两个函数分别对应了拦截前和拦截后的入口： 实际应用现在来看看具体是怎么使用的吧。 在请求的 handle 中首先进行加载（loadInterceptors(AppConfig appConfig)），也就是初始化责任链。 接下来则是客户端的入口；调用拦截前后的入口方法即可。 由于是拦截器，那么在 before 函数中是可以对请求进行拦截的。只要返回 false 就不会继续向后处理。所以这里做了一个返回值的判断。 同时对于使用者来说只需要创建拦截器类继承 CicadaInterceptor 类即可。 这里做了一个演示，分别有两个拦截器： 记录一个业务 handle 的执行时间。 在 after 里打印了请求参数。 同时可在第一个拦截器中返回 false 让请求被拦截。 先来做前两个试验： 这样当我请求其中一个接口时会将刚才的日志打印出来： 接下来我让打印执行时间的拦截器中拦截请求，同时输入向前端输入一段文本： 请求接口可以看到如下内容： 同时后面的请求参数也没有打印出来，说明请求确实被拦截下来。 同时我也可以调整拦截顺序，只需要在@Interceptor(order = 1) 注解中定义这个 order 属性即可（默认值是 0，越小越先执行）。 之前是打印请求参数的拦截器先执行，这次我手动将它的 order 调整为 2，而打印时间的 order 为 1 。 再次请求接口观察后台日志： 发现打印执行时间的拦截器先执行。 那这个执行执行顺序如何实现自定义配置的呢？ 其实也比较简单，有以下几步： 在加载拦截器时将注解里的 order 保存起来。 设置拦截器到责任链中时通过反射将 order 的值保存到各个拦截器中。 最终通过排序重新排列这个责任链的顺序。 贴一些核心代码。 扫描拦截器时保存 order 值： 保存 order 值到拦截器中： 重新对责任链排序： 总结整个责任链模式已经讲完，希望对这个设计模式还不了解的朋友带来些帮助。 上文中的源码如下： https://github.com/TogetherOS/cicada:一个高性能 HTTP 框架 https://git.io/fxKid 欢迎关注公众号一起交流：]]></content>
+      <categories>
+        <category>cicada</category>
+        <category>轮子</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>HTTP</tag>
+        <tag>Netty</tag>
+        <tag>责任链</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[分享几个 SpringBoot 实用的小技巧]]></title>
     <url>%2F2018%2F10%2F15%2FSpringBoot%2FSpringBoot-tips%2F</url>
     <content type="text"><![CDATA[前言最近分享的一些源码、框架设计的东西。我发现大家热情不是特别高，想想大多数应该还是正儿八经写代码的居多；这次就分享一点接地气的： SpringBoot 使用中的一些小技巧。 算不上多高大上的东西，但都还挺有用。 屏蔽外部依赖第一个是屏蔽外部依赖，什么意思呢？ 比如大家日常开发时候有没有这样的烦恼： 项目是基于 SpringCloud 或者是 dubbo 这样的分布式服务，你需要依赖许多基础服务。 比如说某个订单号的生成、获取用户信息等。 由于服务拆分，这些功能都是在其他应用中以接口的形式提供，单测还好我还可以利用 Mock 把它屏蔽掉。 但如果自己想把应用启动起来同时把自己相关的代码跑一遍呢？ 通常有几种做法： 本地把所有的服务都启动起来。 把注册中心换为开发环境，依赖开发环境的服务。 直接把代码推送到开发环境自测。 看起来三种都可以，以前我也是这么干的。但还是有几个小问题： 本地启动有可能服务很多，全部起来电脑能不能撑住还两说，万一服务有问题就进行不下去了。 依赖开发环境的前提是网络打通，还有一个问题就是开发环境代码很不稳定很大可能会影响你的测试。 推送到开发环境应该是比较靠谱的方案，但如果想调试只有日志大法，没有本地 debug 的效率高效。 那如何解决问题呢？既可以在本地调试也不用启动其他服务。 其实也可以利用单测的做法，把其他外部依赖 Mock 掉就行了。 大致的流程分为以下几步： SpringBoot 启动之后在 Spring 中找出你需要屏蔽的那个 API 的 bean（通常情况下这个接口都是交给 Spring 管理的）。 手动从 bean 容器中删除该 bean。 重新创建一个该 API 的对象，只不过是通过 Mock 出来的。 再手动注册进 bean 容器中。 以下面这段代码为例： 123456789@Overridepublic BaseResponse&lt;OrderNoResVO&gt; getUserByHystrix(@RequestBody UserReqVO userReqVO) &#123; OrderNoReqVO vo = new OrderNoReqVO(); vo.setAppId(123L); vo.setReqNo(userReqVO.getReqNo()); BaseResponse&lt;OrderNoResVO&gt; orderNo = orderServiceClient.getOrderNo(vo); return orderNo;&#125; 这是一个 SpringCloud 应用。 它依赖于 orderServiceClient 获取一个订单号。 其中的 orderServiceClient 就是一个外部 API，也是被 Spring 所管理。 替换原有的 Bean下一步就是替换原有的 Bean。 12345678910111213141516171819202122232425262728293031323334@Componentpublic class OrderMockServiceConfig implements CommandLineRunner &#123; private final static Logger logger = LoggerFactory.getLogger(OrderMockServiceConfig.class); @Autowired private ApplicationContext applicationContext; @Value("$&#123;excute.env&#125;") private String env; @Override public void run(String... strings) throws Exception &#123; // 非本地环境不做处理 if ("dev".equals(env) || "test".equals(env) || "pro".equals(env)) &#123; return; &#125; DefaultListableBeanFactory defaultListableBeanFactory = (DefaultListableBeanFactory) applicationContext.getAutowireCapableBeanFactory(); OrderServiceClient orderServiceClient = defaultListableBeanFactory.getBean(OrderServiceClient.class); logger.info("======orderServiceClient &#123;&#125;=====", orderServiceClient.getClass()); defaultListableBeanFactory.removeBeanDefinition(OrderServiceClient.class.getCanonicalName()); OrderServiceClient mockOrderApi = PowerMockito.mock(OrderServiceClient.class, invocationOnMock -&gt; BaseResponse.createSuccess(DateUtil.getLongTime() + "", "mock orderNo success")); defaultListableBeanFactory.registerSingleton(OrderServiceClient.class.getCanonicalName(), mockOrderApi); logger.info("======mockOrderApi &#123;&#125;=====", mockOrderApi.getClass()); &#125;&#125; 其中实现了 CommandLineRunner 接口，可以在 Spring 容器初始化完成之后调用 run() 方法。 代码非常简单，简单来说首先判断下是什么环境，毕竟除开本地环境其余的都是需要真正调用远程服务的。 之后就是获取 bean 然后手动删除掉。 关键的一步： 1234OrderServiceClient mockOrderApi = PowerMockito.mock(OrderServiceClient.class, invocationOnMock -&gt; BaseResponse.createSuccess(DateUtil.getLongTime() + "", "mock orderNo success"));defaultListableBeanFactory.registerSingleton(OrderServiceClient.class.getCanonicalName(), mockOrderApi); 创建了一个新的 OrderServiceClient 对象并手动注册进了 Spring 容器中。 第一段代码使用的是 PowerMockito.mock 的 API，他可以创建一个代理对象，让所有调用 OrderServiceClient 的方法都会做默认的返回。 1BaseResponse.createSuccess(DateUtil.getLongTime() + "", "mock orderNo success")) 测试一下，当我们没有替换时调用刚才那个接口并且本地也没有启动 OrderService： 因为没有配置 fallback 所以会报错，表示找不到这个服务。 替换掉 bean 时： 再次请求没有报错，并且获得了我们默认的返回。 通过日志也会发现 OrderServiceClient 最后已经被 Mock 代理了，并不会去调用真正的方法。 配置加密下一个则是配置加密，这应该算是一个基本功能。 比如我们配置文件中的一些账号和密码，都应该是密文保存的。 因此这次使用了一个开源组件来实现加密与解密，并且对 SpringBoot 非常友好只需要几段代码即可完成。 首先根据加密密码将需要加密的配置加密为密文。 替换原本明文保存的配置。 再使用时进行解密。 使用该包也只需要引入一个依赖即可： 12345&lt;dependency&gt; &lt;groupId&gt;com.github.ulisesbocchio&lt;/groupId&gt; &lt;artifactId&gt;jasypt-spring-boot-starter&lt;/artifactId&gt; &lt;version&gt;1.14&lt;/version&gt;&lt;/dependency&gt; 同时写一个单测根据密码生成密文，密码也可保存在配置文件中： 1jasypt.encryptor.password=123456 接着在单测中生成密文。 1234567891011@Autowiredprivate StringEncryptor encryptor;@Testpublic void getPass() &#123; String name = encryptor.encrypt("userName"); String password = encryptor.encrypt("password"); System.out.println(name + "----------------"); System.out.println(password + "----------------");&#125; 之后只需要使用密文就行。 由于我这里是对数据库用户名和密码加密，所以还得有一个解密的过程。 利用 Spring Bean 的一个增强接口即可实现： 12345678910111213141516171819202122232425@Componentpublic class DataSourceProcess implements BeanPostProcessor &#123; @Autowired private StringEncryptor encryptor; @Override public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException &#123; return bean; &#125; @Override public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException &#123; if (bean instanceof DataSourceProperties)&#123; DataSourceProperties dataSourceProperties = (DataSourceProperties) bean; dataSourceProperties.setUsername(encryptor.decrypt(dataSourceProperties.getUsername())) ; dataSourceProperties.setPassword(encryptor.decrypt(dataSourceProperties.getPassword())); return dataSourceProperties ; &#125; return bean; &#125;&#125; 这样就可以在真正使用时还原为明文。 同时也可以在启动命令中配置刚才的密码： 1java -Djasypt.encryptor.password=password -jar target/jasypt-spring-boot-demo-0.0.1-SNAPSHOT.jar 总结这样两个小技巧就讲完了，大家有 SpringBoot 的更多使用技巧欢迎留言讨论。 上文的一些实例代码可以在这里找到： https://github.com/crossoverJie/springboot-cloud 欢迎关注公众号一起交流：]]></content>
@@ -603,8 +618,8 @@
       </categories>
       <tags>
         <tag>Java</tag>
-        <tag>HTTP</tag>
         <tag>dubbo</tag>
+        <tag>HTTP</tag>
       </tags>
   </entry>
   <entry>
@@ -777,8 +792,8 @@
       </categories>
       <tags>
         <tag>Java</tag>
-        <tag>Lucene</tag>
         <tag>IDEA</tag>
+        <tag>Lucene</tag>
       </tags>
   </entry>
   <entry>
@@ -790,10 +805,10 @@
       </categories>
       <tags>
         <tag>Java</tag>
-        <tag>IDEA</tag>
         <tag>Spring</tag>
         <tag>SpringMVC</tag>
         <tag>Mybatis</tag>
+        <tag>IDEA</tag>
       </tags>
   </entry>
   <entry>
@@ -890,8 +905,8 @@
         <category>blog</category>
       </categories>
       <tags>
-        <tag>Markdown</tag>
         <tag>总结</tag>
+        <tag>Markdown</tag>
       </tags>
   </entry>
   <entry>

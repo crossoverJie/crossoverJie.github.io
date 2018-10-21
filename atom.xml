@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2018-10-14T16:53:16.039Z</updated>
+  <updated>2018-10-21T17:30:45.747Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,145 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>利用责任链模式设计一个拦截器</title>
+    <link href="http://crossoverjie.top/2018/10/22/wheel/cicada5/"/>
+    <id>http://crossoverjie.top/2018/10/22/wheel/cicada5/</id>
+    <published>2018-10-21T16:19:36.000Z</published>
+    <updated>2018-10-21T17:30:45.747Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fwg8mtmstrj31c5104nfw.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>近期在做 <a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">Cicada</a> 的拦截器功能，正好用到了责任链模式。</p>
+<p>这个设计模式在日常使用中频率还是挺高的，借此机会来分析分析。</p>
+<h1 id="责任链模式"><a href="#责任链模式" class="headerlink" title="责任链模式"></a>责任链模式</h1><p>先来看看什么是责任链模式。</p>
+<p>引用一段维基百科对其的解释：</p>
+<blockquote>
+<p>责任链模式在面向对象程式设计里是一种软件设计模式，它包含了一些命令对象和一系列的处理对象。每一个处理对象决定它能处理哪些命令对象，它也知道如何将它不能处理的命令对象传递给该链中的下一个处理对象。该模式还描述了往该处理链的末尾添加新的处理对象的方法。</p>
+</blockquote>
+<p>光看这段描述可能大家会觉得懵，简单来说就是该设计模式用于对某个对象或者请求进行一系列的处理，这些处理逻辑正好组成一个链条。</p>
+<p>下面来简单演示使用与不使用责任链模式有什么区别和优势。</p>
+<a id="more"></a>
+<h1 id="责任链模式的应用"><a href="#责任链模式的应用" class="headerlink" title="责任链模式的应用"></a>责任链模式的应用</h1><h2 id="传统实现"><a href="#传统实现" class="headerlink" title="传统实现"></a>传统实现</h2><p>假设这样的场景：传入了一段内容，需要对这段文本进行加工；比如过滤敏感词、错别字修改、最后署上版权等操作。</p>
+<p>常见的写法如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Main</span> </span>&#123;</div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</div><div class="line">        String msg = <span class="string">"内容内容内容"</span> ;</div><div class="line"></div><div class="line">        String result = Process.sensitiveWord()</div><div class="line">                .typo()</div><div class="line">                .copyright();</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>这样看似没啥问题也能解决需求，但如果我还需要为为内容加上一个统一的标题呢？在现有的方式下就不得不新增处理方法，并且是在这个客户端（<code>Process</code>）的基础上进行新增。</p>
+<p>显然这样的扩展性不好。</p>
+<h2 id="责任链模式实现"><a href="#责任链模式实现" class="headerlink" title="责任链模式实现"></a>责任链模式实现</h2><p>这时候就到了责任链模式发挥作用了。</p>
+<p>该需求非常的符合对某一个对象、请求进行一系列处理的特征。</p>
+<p>于是我们将代码修改：</p>
+<p>这时 <code>Process</code> 就是一个接口了，用于定义真正的处理函数。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Process</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 执行处理</div><div class="line">     * <span class="doctag">@param</span> msg</div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">void</span> <span class="title">doProcess</span><span class="params">(String msg)</span> </span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>同时之前对内容的各种处理只需要实现该接口即可：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">SensitiveWordProcess</span> <span class="keyword">implements</span> <span class="title">Process</span> </span>&#123;</div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">doProcess</span><span class="params">(String msg)</span> </span>&#123;</div><div class="line">        System.out.println(msg + <span class="string">"敏感词处理"</span>);</div><div class="line">    &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CopyrightProcess</span> <span class="keyword">implements</span> <span class="title">Process</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">doProcess</span><span class="params">(String msg)</span> </span>&#123;</div><div class="line">        System.out.println(msg + <span class="string">"版权处理"</span>);</div><div class="line">    &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CopyrightProcess</span> <span class="keyword">implements</span> <span class="title">Process</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">doProcess</span><span class="params">(String msg)</span> </span>&#123;</div><div class="line">        System.out.println(msg + <span class="string">"版权处理"</span>);</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>然后只需要给客户端提供一个执行入口以及添加责任链的入口即可：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MsgProcessChain</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="keyword">private</span> List&lt;Process&gt; chains = <span class="keyword">new</span> ArrayList&lt;&gt;() ;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 添加责任链</div><div class="line">     * <span class="doctag">@param</span> process</div><div class="line">     * <span class="doctag">@return</span></div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">public</span> MsgProcessChain <span class="title">addChain</span><span class="params">(Process process)</span></span>&#123;</div><div class="line">        chains.add(process) ;</div><div class="line">        <span class="keyword">return</span> <span class="keyword">this</span> ;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 执行处理</div><div class="line">     * <span class="doctag">@param</span> msg</div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">process</span><span class="params">(String msg)</span></span>&#123;</div><div class="line">        <span class="keyword">for</span> (Process chain : chains) &#123;</div><div class="line">            chain.doProcess(msg);</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>这样使用起来就非常简单：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Main</span> </span>&#123;</div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</div><div class="line">        String msg = <span class="string">"内容内容内容=="</span> ;</div><div class="line"></div><div class="line">        MsgProcessChain chain = <span class="keyword">new</span> MsgProcessChain()</div><div class="line">                .addChain(<span class="keyword">new</span> SensitiveWordProcess())</div><div class="line">                .addChain(<span class="keyword">new</span> TypoProcess())</div><div class="line">                .addChain(<span class="keyword">new</span> CopyrightProcess()) ;</div><div class="line"></div><div class="line">        chain.process(msg) ;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>当我需要再增加一个处理逻辑时只需要添加一个处理单元即可（<code>addChain(Process process)</code>），并对客户端 <code>chain.process(msg)</code> 是无感知的，不需要做任何的改动。</p>
+<p>可能大家没有直接写过责任链模式的相关代码，但不经意间使用到的却不少。</p>
+<p>比如 <code>Netty</code> 中的 <code>pipeline</code> 就是一个典型的责任链模式，它可以让一个请求在整个管道中进行流转。</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fwgb3k3zz0j30zo0aq0uu.jpg" alt=""></p>
+<p>通过官方图就可以非常清楚的看出是一个责任链模式：</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fwgb6c3uxaj30ye102wih.jpg" alt=""></p>
+<h1 id="用责任链模式设计一个拦截器"><a href="#用责任链模式设计一个拦截器" class="headerlink" title="用责任链模式设计一个拦截器"></a>用责任链模式设计一个拦截器</h1><p>对于拦截器来说使用责任链模式再好不过了。</p>
+<p>下面来看看在 <code>Cicada</code> 中的实现：</p>
+<p>首先是定义了和上文 <code>Process</code> 接口类似的 <code>CicadaInterceptor</code> 抽象类：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">CicadaInterceptor</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">before</span><span class="params">(CicadaContext context,Param param)</span> <span class="keyword">throws</span> Exception</span>&#123;</div><div class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">after</span><span class="params">(CicadaContext context,Param param)</span> <span class="keyword">throws</span> Exception</span>&#123;&#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>同时定义了一个 <code>InterceptProcess</code> 的客户端：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgbkkvvhmj31dc0fsaef.jpg" alt=""></p>
+<p>其中的 <code>loadInterceptors()</code> 会将所有的拦截器加入到责任链中。</p>
+<p>再提供了两个函数分别对应了拦截前和拦截后的入口：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgblxcj46j315a0osq79.jpg" alt=""></p>
+<h2 id="实际应用"><a href="#实际应用" class="headerlink" title="实际应用"></a>实际应用</h2><p>现在来看看具体是怎么使用的吧。</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fwgbp7vwhpj313w0o6tda.jpg" alt=""></p>
+<p>在请求的 <code>handle</code> 中首先进行加载（<code>loadInterceptors(AppConfig appConfig)</code>），也就是初始化责任链。</p>
+<p>接下来则是客户端的入口；调用拦截前后的入口方法即可。</p>
+<blockquote>
+<p>由于是拦截器，那么在 <code>before</code> 函数中是可以对请求进行拦截的。只要返回 <code>false</code> 就不会继续向后处理。所以这里做了一个返回值的判断。</p>
+</blockquote>
+<p>同时对于使用者来说只需要创建拦截器类继承 <code>CicadaInterceptor</code> 类即可。</p>
+<p>这里做了一个演示，分别有两个拦截器：</p>
+<ol>
+<li>记录一个业务 <code>handle</code> 的执行时间。</li>
+<li>在 <code>after</code> 里打印了请求参数。</li>
+<li>同时可在第一个拦截器中返回 <code>false</code> 让请求被拦截。</li>
+</ol>
+<p>先来做前两个试验：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fwgbx5806kj31ca0eoq6i.jpg" alt=""></p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fwgbxm6sblj319o0l2n15.jpg" alt=""></p>
+<hr>
+<p>这样当我请求其中一个接口时会将刚才的日志打印出来：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgbyfrxe7j31kw07jwix.jpg" alt=""></p>
+<hr>
+<p>接下来我让打印执行时间的拦截器中拦截请求，同时输入向前端输入一段文本：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fwgc0ry7vuj316i0nkn1r.jpg" alt=""></p>
+<hr>
+<p>请求接口可以看到如下内容：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgc1j835bj31560b4ta6.jpg" alt=""></p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgc1wziv5j31kw04ujuc.jpg" alt=""></p>
+<p>同时后面的请求参数也没有打印出来，说明请求确实被拦截下来。</p>
+<hr>
+<p>同时我也可以调整拦截顺序，只需要在<code>@Interceptor(order = 1)</code> 注解中定义这个 <code>order</code> 属性即可（默认值是 0，越小越先执行）。</p>
+<p>之前是打印请求参数的拦截器先执行，这次我手动将它的 order 调整为 2，而打印时间的 order 为 1 。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fwgc6sjzu1j318m0g8tc5.jpg" alt=""></p>
+<p>再次请求接口观察后台日志：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fwgc9n4x9mj31kw05mgop.jpg" alt=""></p>
+<p>发现打印执行时间的拦截器先执行。</p>
+<p>那这个执行执行顺序如何实现自定义配置的呢？</p>
+<p>其实也比较简单，有以下几步：</p>
+<ul>
+<li>在加载拦截器时将注解里的 <code>order</code> 保存起来。</li>
+<li>设置拦截器到责任链中时通过反射将 <code>order</code> 的值保存到各个拦截器中。</li>
+<li>最终通过排序重新排列这个责任链的顺序。</li>
+</ul>
+<p>贴一些核心代码。</p>
+<p>扫描拦截器时保存 <code>order</code> 值：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgcdc8iifj316c08ota5.jpg" alt=""></p>
+<hr>
+<p>保存 <code>order</code> 值到拦截器中：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fwgcf5tlrqj31bg0gigpt.jpg" alt=""></p>
+<hr>
+<p>重新对责任链排序：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgcft8uftj31800ck40d.jpg" alt=""></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>整个责任链模式已经讲完，希望对这个设计模式还不了解的朋友带来些帮助。</p>
+<p>上文中的源码如下：</p>
+<ul>
+<li><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">https://github.com/TogetherOS/cicada:一个高性能 HTTP 框架</a></li>
+<li><a href="https://git.io/fxKid" target="_blank" rel="external">https://git.io/fxKid</a></li>
+</ul>
+<p><strong>欢迎关注公众号一起交流：</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://ws2.sinaimg.cn/large/006tNbRwly1fwg8mtmstrj31c5104nfw.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;近期在做 &lt;a href=&quot;https://github.com/TogetherOS/cicada&quot;&gt;Cicada&lt;/a&gt; 的拦截器功能，正好用到了责任链模式。&lt;/p&gt;
+&lt;p&gt;这个设计模式在日常使用中频率还是挺高的，借此机会来分析分析。&lt;/p&gt;
+&lt;h1 id=&quot;责任链模式&quot;&gt;&lt;a href=&quot;#责任链模式&quot; class=&quot;headerlink&quot; title=&quot;责任链模式&quot;&gt;&lt;/a&gt;责任链模式&lt;/h1&gt;&lt;p&gt;先来看看什么是责任链模式。&lt;/p&gt;
+&lt;p&gt;引用一段维基百科对其的解释：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;责任链模式在面向对象程式设计里是一种软件设计模式，它包含了一些命令对象和一系列的处理对象。每一个处理对象决定它能处理哪些命令对象，它也知道如何将它不能处理的命令对象传递给该链中的下一个处理对象。该模式还描述了往该处理链的末尾添加新的处理对象的方法。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;光看这段描述可能大家会觉得懵，简单来说就是该设计模式用于对某个对象或者请求进行一系列的处理，这些处理逻辑正好组成一个链条。&lt;/p&gt;
+&lt;p&gt;下面来简单演示使用与不使用责任链模式有什么区别和优势。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="cicada" scheme="http://crossoverjie.top/categories/cicada/"/>
+    
+      <category term="轮子" scheme="http://crossoverjie.top/categories/cicada/%E8%BD%AE%E5%AD%90/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="HTTP" scheme="http://crossoverjie.top/tags/HTTP/"/>
+    
+      <category term="Netty" scheme="http://crossoverjie.top/tags/Netty/"/>
+    
+      <category term="责任链" scheme="http://crossoverjie.top/tags/%E8%B4%A3%E4%BB%BB%E9%93%BE/"/>
+    
+  </entry>
   
   <entry>
     <title>分享几个 SpringBoot 实用的小技巧</title>
@@ -2681,240 +2820,6 @@
     
     
       <category term="内存模型" scheme="http://crossoverjie.top/tags/%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>一个学渣的阿里之路</title>
-    <link href="http://crossoverjie.top/2018/06/21/personal/Interview-experience/"/>
-    <id>http://crossoverjie.top/2018/06/21/personal/Interview-experience/</id>
-    <published>2018-06-20T17:10:12.000Z</published>
-    <updated>2018-06-24T15:04:27.387Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://ws2.sinaimg.cn/large/006tNc79ly1fshrh2oexpj31kw0wkgsx.jpg" alt=""></p>
-<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>最近有些朋友在面试阿里，加上 <a href="https://github.com/crossoverJie/Java-Interview" target="_blank" rel="external">Java-Interview</a> 项目的原因也有小伙伴和我讨论，近期也在负责部门的招聘，这让我想起年初那段长达三个月的奇葩面试经历🤣。</p>
-<p>本来没想拿出来说的，毕竟最后也没成。</p>
-<p>但由于那几个月的经历让我了解到了大厂的工作方式、对候选同学的考察重点以及面试官的套路等都有了全新的认识。</p>
-<p>当然最重要的是这段时间的查漏补缺也让自己精进不少。</p>
-<p>先交代下背景吧：</p>
-<p>从去年 12 月到今年三月底，我前前后后面了阿里三个部门。</p>
-<p>其中两个部门通过了技术面试，还有一个跪在了三面。</p>
-<p>光看结果还不错，但整个流程堪称曲折。</p>
-<p>下面我会尽量描述流程以及大致的面试题目大纲，希望对想要跳槽、正在面试的同学带来点灵感，帮助可能谈不上，但启发还是能有。</p>
-<p>以下内容较长，请再次备好瓜子板凳。</p>
-<a id="more"></a>
-<h2 id="A-部门"><a href="#A-部门" class="headerlink" title="A 部门"></a>A 部门</h2><p>首先是第一次机会，去年 12 月份有位大佬加我，后来才知道是一个部门的技术 Leader 在网上看到我的博客，问我想不想来阿里试试。</p>
-<p>这时距离上次面阿里也过去一年多了，也想看看现在几斤几两，于是便同意了。</p>
-<p>在推荐一周之后收到了杭州打来的电话，说来也巧，那时候我正在机场候机，距离登记还有大概一个小时，心想时间肯定够了。</p>
-<p>那是我时隔一年多第一次面试，还是在机场这样嘈杂的环境里。多多少少还是有些紧张。</p>
-<h3 id="一面"><a href="#一面" class="headerlink" title="一面"></a>一面</h3><p>以下是我印象比较深刻的内容：</p>
-<p><strong>面试官：</strong></p>
-<p>谈谈你做过项目中印象较深或自认为做的比较好的地方？</p>
-<p><strong>博主：</strong></p>
-<p>我觉得我在 XX 做的不错，用了 XX 需求实现 XX 功能，性能提高了 N 倍。</p>
-<p><strong>面试官：</strong></p>
-<p>你说使用到了 AOP ，能谈谈它的实现原理嘛？</p>
-<p><strong>博主：</strong></p>
-<p>它是依靠动态代理实现的，动态代理又分为 JDK 自身的以及 CGLIB 。。。。</p>
-<p><strong>面试官：</strong></p>
-<p>嗯，能说说他们的不同及优缺点嘛？</p>
-<p><strong>博主：</strong></p>
-<p>JDK 是基于接口实现，而 CGLIB 继承代理类。。。</p>
-<p>就是这样会一直问下去，如果聊的差不多了就开始问一些零散的问题：</p>
-<ul>
-<li>JMM 内存模型，如何划分的？分别存储什么内容？线程安全与否？</li>
-<li>类加载机制，谈到双亲委派模型后会问到哪些违反了双亲委派模型？为什么？为什么要双亲委派？好处是什么？</li>
-<li>平时怎么使用多线程？有哪些好处？线程池的几个核心参数的意义？</li>
-<li>线程间通信的方式？</li>
-<li>HashMap 的原理？当谈到线程不安全时自然引申出 ConcurrentHashMap ，它的实现原理？</li>
-<li>分库分表如何设计？垂直拆分、水平拆分？</li>
-<li>业务 ID 的生成规则，有哪些方式？</li>
-<li>SQL 调优？平时使用数据库有哪些注意点？</li>
-<li>当一个应用启动缓慢如何优化？</li>
-</ul>
-<p>大概是以上这些，当聊到倒数第二个时我已经登机了。最后不得不提前挂断，结束之前告诉我之后会换一个同事和我沟通，听到这样的回复一面应该是过了，<br>后面也确实证实了这点。</p>
-<h3 id="二面"><a href="#二面" class="headerlink" title="二面"></a>二面</h3><p>大概过了一周，二面如期而至。</p>
-<p>我听声音很熟，就尝试问下是不是之前一面的面试官，结果真是。</p>
-<p>由于二面的面试官临时有事所以他来替一下。于是我赶紧问他能否把之前答的不好的再说说？的到了肯定的答复后开始了我的表演。</p>
-<p>有了第一次的经验这一次自然也轻车熟路，原本感觉一切尽在掌握却被告知需要笔试突然被激醒。</p>
-<p>笔试是一个在线平台，需要在网页中写代码，会有一个明确的题目：</p>
-<blockquote>
-<p>从一个日志文件中根据关键字读取日志，记录出现的次数，最后按照次数排序打印。</p>
-</blockquote>
-<p>在这过程中切记要和面试官多多交流，因为笔试有时间限制，别到最后发现题目理解错了，这就和高考作文写完发现方向错了一样要命。</p>
-<p>而且在沟通过程中体现出你解题的思路，即使最终结果不对，但说不定思考的过程很符合面试官的胃口哦。这也和今年的高考改卷一样；过程正确得高分，只有结果得低分。</p>
-<h3 id="三面"><a href="#三面" class="headerlink" title="三面"></a>三面</h3><p>又过了差不多一周的时间接到了三面的电话，一般到了三面会是技术 Leader 之类的角色。</p>
-<p>这个过程中不会过多强调技术细节，更多的考察软件能，比如团队协作、学习能力等。</p>
-<p>但我记得也问了以下一些技术问题：</p>
-<ul>
-<li>谈谈你所理解的 HTTP 协议？</li>
-<li>对 TCP 的理解？三次握手？滑动窗口？</li>
-<li>基本算法，Base64 等。</li>
-<li>Java 内存模型，Happen Before 的理解。</li>
-</ul>
-<p>一周之后我接到了 HR 助理的电话约了和 HRBP 以及产品技术负责人的视频面试。</p>
-<p>但是我却没有面下去，具体原因得往下看。</p>
-<h2 id="B-部门"><a href="#B-部门" class="headerlink" title="B 部门"></a>B 部门</h2><p>在 A 部门三面完成后，我等了差不多一星期，这期间我却收到了一封邮件。</p>
-<p>大概内容是他在 GitHub 上看到的我，他们的技术总监对我很感兴趣（我都不敢相信我的眼镜），问我想不想来阿里试试。</p>
-<p>我对比了 A B 部门的区别发现 B 部门在做的事情上确实更加有诱惑力，之后我表达了有一个面试正在流程中的顾虑；对方表示可以私下和我快速的进行三面，如果一切没问题再交由我自行选择。至少对双方都是一个双赢嘛。</p>
-<p>我想也不亏，并且对方很有诚意，就答应试试；于是便有了下面的面试：</p>
-<h3 id="一面-1"><a href="#一面-1" class="headerlink" title="一面"></a>一面</h3><p><strong>面试官：</strong></p>
-<p>对 Java 锁的理解？</p>
-<p><strong>博主：</strong></p>
-<p>我谈到了 synchronize，Lock 接口的应用。</p>
-<p><strong>面试官：</strong></p>
-<p>他们两者的区别以及优缺点呢？</p>
-<p><strong>博主：</strong></p>
-<p><code>synchronize</code> 在 JDK1.6 之前称为重量锁，是通过进出对象监视器来实现同步的；1.6 之后做了 XX 优化。。。</p>
-<p>而 <code>ReentrantLock</code> 是利用了一个巧妙数据结构实现的，并且加锁解锁是显式的。。。</p>
-<p>之后又引申到<a href="https://crossoverjie.top/%2F2018%2F03%2F29%2Fdistributed-lock%2Fdistributed-lock-redis%2F">分布式锁</a>，光这块就聊了差不多半个小时。</p>
-<p>之后又聊到了我的<a href="https://github.com/crossoverJie" target="_blank" rel="external">开源项目</a>：</p>
-<ul>
-<li>是如何想做这个项目的？</li>
-<li>已经有一些关注了后续是如何规划的？</li>
-<li>你今后的学习计划是什么？</li>
-<li>平时看哪些书？</li>
-</ul>
-<p>之后技术聊的不是很多，但对于个人发展却聊了不少。</p>
-<blockquote>
-<p>关于锁相关的内容可以参考这里：<a href="https://crossoverjie.top/%2F2018%2F01%2F25%2FReentrantLock%2F">ReentrantLock 实现原理</a> <a href="https://crossoverjie.top/%2F2018%2F01%2F14%2FSynchronize%2F">synchronize 关键字原理</a></p>
-</blockquote>
-<h3 id="二面-1"><a href="#二面-1" class="headerlink" title="二面"></a>二面</h3><p>隔了差不多一天的时间，二面很快就来了。</p>
-<p>内容不是很多：</p>
-<ul>
-<li><a href="https://crossoverjie.top/%2F2018%2F03%2F16%2Fjava-senior%2Fthread-communication%2F">线程间通信的多种方式</a>？</li>
-<li>限流算法？单机限流？分布式限流？</li>
-<li>提到了 Guava Cache ,了解它的<a href="https://crossoverjie.top/2018/06/13/guava/guava-cache/">实现原理</a>嘛？</li>
-<li>如何定位一个线上问题？</li>
-<li>CPU 高负载？OOM 排查等？</li>
-</ul>
-<p>聊完之后表示第二天应该会有三面。</p>
-<h3 id="三面-1"><a href="#三面-1" class="headerlink" title="三面"></a>三面</h3><p>三面的面试官应该是之前邮件中提到的那位总监大佬，以前应该也是一线的技术大牛；聊的问题不是很多：</p>
-<ul>
-<li>谈谈对 Netty 的理解？</li>
-<li>Netty 的线程模型？</li>
-<li><a href="https://crossoverjie.top/2018/04/07/algorithm/LRU-cache/">写一个 LRU 缓存</a>。</li>
-</ul>
-<h3 id="笔试"><a href="#笔试" class="headerlink" title="笔试"></a>笔试</h3><p>本以为技术面试完了，结果后面告知所有的面试流程都得有笔试了，于是又参与了一次笔试：</p>
-<blockquote>
-<p><a href="https://github.com/crossoverJie/Java-Interview/blob/master/src/main/java/com/crossoverjie/actual/TwoThread.java" target="_blank" rel="external">交替打印奇偶数</a></p>
-</blockquote>
-<p>这个相对比较简单，基于锁、等待唤醒机制都是可以的。最后也告知笔试通过。</p>
-<p>之后在推荐我的那位大佬的帮助下戏剧般的通过了整个技术轮（真的很感谢他的认可），并且得知这个消息是在我刚好和 A 部门约好视频面试时间之后。</p>
-<p>也就意味着我必须<strong>拒掉一个部门！</strong></p>
-<p>没看错，是我要拒掉一个。这对我来说确实太难了，我压根没想过还有两个机会摆在我面前。</p>
-<p>最后凭着个人的爱好以及 B 部门的热情我很不好意思的拒掉了 A 部门。。。</p>
-<h3 id="HR-面"><a href="#HR-面" class="headerlink" title="HR 面"></a>HR 面</h3><p>在面这之前我从来没有面过这样大厂的 HR 流程，于是疯狂搜索，希望能弥补点经验。</p>
-<p>也许这就是乐极生悲吧，我确实猜中了 HR 问的大部分问题，但遗憾的是最终依然没能通过。</p>
-<p>后来我在想如果我没有拒掉 A ，会不会结局不一样了？</p>
-<p>但现实就是如此，没有那么多假设，并且每个人也得为自己的选择负责！</p>
-<p>大概的问题是：</p>
-<ul>
-<li>为什么想来阿里？</li>
-<li>个人做的最成功最有挑战的事情是什么？</li>
-<li>工作中最难忘的经历？</li>
-<li>对加入我们团队有何期待？</li>
-</ul>
-<h2 id="C-部门"><a href="#C-部门" class="headerlink" title="C 部门"></a>C 部门</h2><p>HR 这关被 Pass 之后没多久我居然又收到了第三个部门的邀约。</p>
-<p>说实话当时我是拒绝的，之前经历了将近两个月的时间却没能如愿我内心是崩溃的。</p>
-<p>我向联系我的大佬表达了我的想法，他倒觉得我最后被 pass 的原因是个小问题，再尝试的话会有很大的几率通过。</p>
-<p>我把这事给朋友说了之后也支持我再试试，反正也没啥损失嘛，而且面试的状态还在。</p>
-<p>所以我又被打了鸡血，才有了下面的面试经过：</p>
-<h3 id="一面-2"><a href="#一面-2" class="headerlink" title="一面"></a>一面</h3><p><strong>面试官：</strong></p>
-<p>服务化框架的选型和差异？</p>
-<p><strong>博主：</strong></p>
-<p>一起探讨了 SpringCloud、Dubbo、Thrift 的差异，优缺点等。</p>
-<p><strong>面试官：</strong></p>
-<p><a href="https://crossoverjie.top/2018/01/08/Consistent-Hash/">一致性 Hash 算法的原理</a>？</p>
-<p><strong>博主：</strong></p>
-<p>将数据 Hash 之后落到一个 <code>0 ~ 2^32-1</code> 构成的一个环上。。。。</p>
-<p><strong>面试官：</strong></p>
-<p>谈谈你理解的 Zookeeper？</p>
-<p><strong>博主：</strong></p>
-<p>作为一个分布式协调器。。。</p>
-<p><strong>面试官：</strong></p>
-<p>如何处理 MQ 重复消费？</p>
-<p><strong>博主：</strong></p>
-<p>业务幂等处理。。。。</p>
-<p><strong>面试官：</strong></p>
-<p>客户端负载算法？</p>
-<p><strong>博主：</strong></p>
-<p>轮询、随机、一致性 Hash、故障转移、LRU 等。。</p>
-<p><strong>面试官：</strong></p>
-<p>long 类型的赋值是否是原子的？</p>
-<p><strong>博主：</strong></p>
-<p>不是。。。</p>
-<p><strong>面试官：</strong></p>
-<p><a href="https://crossoverjie.top/2018/03/09/volatile/">volatile 关键字的原理及作用？happen Before？</a></p>
-<p><strong>博主：</strong></p>
-<p>可见性、一致性。。</p>
-<h3 id="二面-2"><a href="#二面-2" class="headerlink" title="二面"></a>二面</h3><p>一面之后大概一周的时间接到了二面的电话：</p>
-<p>原以为会像之前一样直接进入笔试，这次上来先简单聊了下：</p>
-<ul>
-<li>谈谈对微服务的理解，好处以及弊端？</li>
-<li>分布式缓存的设计？热点缓存？</li>
-</ul>
-<p>之后才正式进入笔试流程：</p>
-<blockquote>
-<p>这次主要考察设计能力，其实就是对设计模式的理解？能否应对后续的扩展性。</p>
-</blockquote>
-<p>笔试完了之后也和面试官交流，原以为会是算法之类的测试，后来得知他能看到前几轮的笔试情况，特地挑的没有做过的方向。</p>
-<p>所以大家也不用刻意去押题，总有你想不到的，平时多积累才是硬道理。</p>
-<h3 id="三面-2"><a href="#三面-2" class="headerlink" title="三面"></a>三面</h3><p>又过了两周左右，得到 HR 通知；希望能过去杭州参加现场面试。并且阿里包了来回的机票酒店等。</p>
-<p>可见阿里对人才渴望还是舍得下成本的。</p>
-<p>既然都这样了，就当成一次旅游所以去了一趟杭州。</p>
-<p>现场面的时候有别于其他面试，是由两个面试官同时参与：</p>
-<blockquote>
-<p>给一个场景，谈谈你的架构方式。</p>
-</blockquote>
-<p>这就对平时的积累要求较高了。</p>
-<p>还有一个印象较深的是：</p>
-<blockquote>
-<p>在网页上点击一个按钮到服务器的整个流程，尽量完整。</p>
-</blockquote>
-<p>其实之前看过，好像是 Google 的一个面试题。</p>
-<p>完了之后让我回去等通知，没有见到 HR 我就知道凉了，果不其然。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>看到这里的朋友应该都是老铁了，我也把上文提到的大多数面试题整理在了 GitHub：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNc79gy1fsi40z9dulj30sl0p00yg.jpg" alt=""></p>
-<p>厂库地址：</p>
-<p><a href="https://github.com/crossoverJie/Java-Interview" target="_blank" rel="external">https://github.com/crossoverJie/Java-Interview</a></p>
-<p>最后总结下这将近四个月的面试心得：</p>
-<ul>
-<li>一定要积极的推销自己，像在 A 部门的三面时，由于基础答得不是很好；所以最后我表达了自己的态度，对工作、技术的积极性。让面试官看到你的潜力值得一个 HC 名额。</li>
-<li>面试过程中遇到自己的不会的可以主动提出，切不可不懂装懂，这一问就露馅。可以将面试官引导到自己擅长的领域。比如当时我正好研究了锁，所以和面试官一聊就是半小时这就是加分项。</li>
-<li>平时要主动积累知识。写博客和参与开源项目就是很好的方式。</li>
-<li>博客可以记录自己踩过的坑，加深印象，而且在写的过程中可以查漏补缺，最后把整个知识体系巩固的比较牢固，良好的内容还可以得到意想不到的收获，比如我第一次面试的机会。</li>
-<li>GitHub 是开发者的一张名片，积极参与开源项目可以和全球大佬头脑风暴，并且在面试过程中绝对是一个加分利器。</li>
-<li>面试官一般最后都会问你有什么要问我的？千万不要问一些公司福利待遇之类的问题。可以问下本次面试的表现？还有哪些需要完善的？从而知道自己答得如何也能补全自己。</li>
-</ul>
-<p>还有一点：不要在某次面试失利后否定自己，有时真的不是自己能力不行。这个也讲缘分。</p>
-<p><strong>塞翁失马焉知非福</strong></p>
-<p>我就是个例子，虽然最后没能去成阿里，现在在公司也是一个部门的技术负责人，在我们城市还有个窝，温馨的家，和女朋友一起为想要的生活努力奋斗。</p>
-<blockquote>
-<p>欢迎关注作者公众号于我交流🤗。</p>
-</blockquote>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://ws2.sinaimg.cn/large/006tNc79ly1fshrh2oexpj31kw0wkgsx.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h2 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h2&gt;&lt;p&gt;最近有些朋友在面试阿里，加上 &lt;a href=&quot;https://github.com/crossoverJie/Java-Interview&quot;&gt;Java-Interview&lt;/a&gt; 项目的原因也有小伙伴和我讨论，近期也在负责部门的招聘，这让我想起年初那段长达三个月的奇葩面试经历🤣。&lt;/p&gt;
-&lt;p&gt;本来没想拿出来说的，毕竟最后也没成。&lt;/p&gt;
-&lt;p&gt;但由于那几个月的经历让我了解到了大厂的工作方式、对候选同学的考察重点以及面试官的套路等都有了全新的认识。&lt;/p&gt;
-&lt;p&gt;当然最重要的是这段时间的查漏补缺也让自己精进不少。&lt;/p&gt;
-&lt;p&gt;先交代下背景吧：&lt;/p&gt;
-&lt;p&gt;从去年 12 月到今年三月底，我前前后后面了阿里三个部门。&lt;/p&gt;
-&lt;p&gt;其中两个部门通过了技术面试，还有一个跪在了三面。&lt;/p&gt;
-&lt;p&gt;光看结果还不错，但整个流程堪称曲折。&lt;/p&gt;
-&lt;p&gt;下面我会尽量描述流程以及大致的面试题目大纲，希望对想要跳槽、正在面试的同学带来点灵感，帮助可能谈不上，但启发还是能有。&lt;/p&gt;
-&lt;p&gt;以下内容较长，请再次备好瓜子板凳。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Interview" scheme="http://crossoverjie.top/categories/Interview/"/>
-    
-      <category term="Person" scheme="http://crossoverjie.top/categories/Interview/Person/"/>
-    
     
   </entry>
   
