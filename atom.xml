@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2018-10-29T00:41:20.202Z</updated>
+  <updated>2018-10-30T18:06:41.795Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -16,11 +16,136 @@
   <generator uri="http://hexo.io/">Hexo</generator>
   
   <entry>
+    <title>一份针对于新手的多线程实践--进阶篇</title>
+    <link href="http://crossoverjie.top/2018/10/31/java-senior/concurrent-in-action2/"/>
+    <id>http://crossoverjie.top/2018/10/31/java-senior/concurrent-in-action2/</id>
+    <published>2018-10-30T17:10:16.000Z</published>
+    <updated>2018-10-30T18:06:41.795Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://ws1.sinaimg.cn/large/72fbb941ly1fwqq35o0ubj21g80vyb2b.jpg" alt="img"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>在上文<a href="https://crossoverjie.top/2018/10/29/java-senior/concurrent-in-action/#%E6%9B%B4%E5%A4%9A%E6%80%9D%E8%80%83">《一份针对于新手的多线程实践》</a>留下了一个问题：</p>
+<blockquote>
+<p>这只是多线程其中的一个用法，相信看到这里的朋友应该多它的理解更进一步了。</p>
+<p>再给大家留个阅后练习，场景也是类似的：</p>
+<blockquote>
+<p>在 Redis 或者其他存储介质中存放有上千万的手机号码数据，每个号码都是唯一的，需要在最快的时间内把这些号码全部都遍历一遍。</p>
+</blockquote>
+<p>有想法感兴趣的朋友欢迎在文末留言参与讨论🤔🤨。</p>
+</blockquote>
+<h2 id="网友们的方案"><a href="#网友们的方案" class="headerlink" title="网友们的方案"></a>网友们的方案</h2><a id="more"></a>
+<p>我在公众号以及其他一些平台收到了大家的回复，果然是<code>众人拾柴火焰高</code>啊。</p>
+<p><img src="https://ws1.sinaimg.cn/large/72fbb941ly1fwqqe92n6hj20yc0rkn5u.jpg" alt=""></p>
+<hr>
+<p><img src="https://ws1.sinaimg.cn/large/72fbb941ly1fwqqh8os15j20y60t2qdl.jpg" alt=""></p>
+<hr>
+<p><img src="https://ws1.sinaimg.cn/large/72fbb941ly1fwqqk8wbc4j21a80dedjp.jpg" alt=""></p>
+<hr>
+<p>感谢每一位参与的朋友。</p>
+<p>其实看了大家的方案大多都想到了数据肯定要分段，因为大量的数据肯定没法一次性 <code>load</code> 到内存。</p>
+<p>但怎么加载就要考虑清楚了，有些人说放在数据库中通过分页的方式进行加载，然后将每页的数据丢到一个线程里去做遍历。</p>
+<p>其实想法挺不错的，但有个问题就是：</p>
+<blockquote>
+<p>这样肯定会导致有一个主线程去遍历所有的号码，即便是分页查询的那也得全部查询一遍，效率还是很低。</p>
+<p>即便是分页加载号码用多线程，那就会涉及到锁的问题，怎么保证每个线程读取的数据是互不冲突的。</p>
+</blockquote>
+<p>但如果存储换成 <code>Redis</code> 的 <code>String</code> 结构这样就更行不通了。</p>
+<h1 id="遍历数据方案"><a href="#遍历数据方案" class="headerlink" title="遍历数据方案"></a>遍历数据方案</h1><p>有没有一种利用多线程加载效率高，并且线程之间互相不需要竞争锁的方案呢？</p>
+<p>下面来看看这个方案：</p>
+<p>首先在存储这千万号码的时候我们把它的号段单独提出来并冗余存储一次。</p>
+<p>比如有个号码是 <code>18523981123</code> 那么就还需要存储一个号段：<code>1852398</code>。</p>
+<p>这样当我们有以下这些号码时：</p>
+<p><code>18523981123 18523981124 18523981125 13123874321 13123874322 13123874323</code></p>
+<p>我们就还会维护一个号段数据为：</p>
+<p><code>1852398 1312387</code></p>
+<p>这样我想大家应该明白下一步应当怎么做了吧。</p>
+<p>在需要遍历时：</p>
+<ul>
+<li>通过主线程先把所有的号段加载到内存，即便是千万的号码号段也顶多几千条数据。</li>
+<li>遍历这个号段，将每个号段提交到一个 <code>task</code> 线程中。</li>
+<li>由这个线程通过号段再去查询真正的号码进行遍历。</li>
+<li>最后所有的号段都提交完毕再等待所有的线程执行完毕即可遍历所有的号码。</li>
+</ul>
+<p>这样做的根本原因其实是避免了线程之间加锁，通过号段可以让每个线程只取自己那一部分数据。</p>
+<p>可能会有人说，如果号码持续增多导致号段的数据也达到了上万甚至几十万这怎么办呢？</p>
+<p>那其实也是同样的思路，可以再把号段进行拆分。</p>
+<p>比如之前是 <code>1852398</code> 的号段，那我继续拆分为 <code>1852</code> 。</p>
+<p>这样只需要在之前的基础上再启动一个线程去查询子号段即可，有点 <code>fork/join</code> 的味道。</p>
+<blockquote>
+<p>这样的思路其实也和 JDK1.7 中的 ConcurrentHashMap 类似，定位一个真正的数据需要两次定位。</p>
+</blockquote>
+<p><img src="https://ws4.sinaimg.cn/large/006tNc79gy1ftj0evlsrgj30dw073gm2.jpg" alt=""></p>
+<h1 id="分布式方案"><a href="#分布式方案" class="headerlink" title="分布式方案"></a>分布式方案</h1><p>上面的方案也是由局限性的，毕竟说到底还是一个单机应用。没法扩展；处理的数据始终是有上限。</p>
+<p>这个上限就和服务器的配置以及线程数这些相关，说的高大上一点其实就是<code>垂直扩展</code>增加单机的处理性能。</p>
+<p>因此随着数据量的提升我们肯定得需要通过<code>水平扩展</code>的方式才能达到最好的性能，这就是分布式的方案。</p>
+<p>假设我现在有上亿的数据需要遍历，但我当前的服务器配置只能支撑一个应用启动 N 个线程 5 分钟跑<code>5000W</code> 的数据。</p>
+<p>于是我水平扩展，在三台服务器上启动了三个独立的进程。假设一个应用能跑 5000W ，那么理论上来说三个应用就可以跑<strong>1.5亿</strong>的数据了。</p>
+<p>但这个的前提还是和上文一样：每个应用只能<strong>处理自己的数据</strong>，不能出现加锁的情况（这样会大大的降低性能）。</p>
+<p>所以我们得对刚才的号段进行分组。</p>
+<p>先通过一张图来直观的表示这个逻辑：</p>
+<p><img src="https://ws1.sinaimg.cn/large/72fbb941ly1fwqrmjixdsj20q00dimy8.jpg" alt=""></p>
+<p>假设现在我有 9 个号段，那么我就得按照图中的方式把数据隔离开来。</p>
+<p>第一个数据给应用0，第二个数据给应用1，第三个数据给应用2。后面的数据以此类推（就是一个简单的取模运算）。</p>
+<p>这样就可以将号段均匀的分配给不同的应用来进行处理，然后每个应用再按照上文提到的将分配给自己的号段丢到线程池中由具体的线程去查询、遍历即可。</p>
+<h2 id="分布式带来的问题"><a href="#分布式带来的问题" class="headerlink" title="分布式带来的问题"></a>分布式带来的问题</h2><p>这样看似没啥问题，但一旦引入了分布式之后就不可避免的会出现 <code>CAP</code> 的取舍，这里不做过多讨论，感兴趣的朋友可以自行搜索。</p>
+<p>首先要解决的一个问题就是：</p>
+<p>这三个应用怎么知道它自己应该取哪些号段的数据呢？比如 0 号应用就取 <code>0 3 6</code>（这个相当于号段的下标），难道在配置文件里配置嘛？</p>
+<p>那如果数据量又增大了，对应的机器数也增加到了 5 台，那自然 0 号应用就不是取 <code>0 3 6</code> 了（取模之后数据会变）。</p>
+<blockquote>
+<p>所以我们得需要一个统一的调度来分配各个应用他们应当取哪些号段，这也就是<strong>数据分片</strong>。</p>
+</blockquote>
+<p>假设我这里有一个统一的分配中心，他知道现在有多少个应用来处理数据。还是假设上文的三个应用吧。</p>
+<p>在真正开始遍历数据的时候，这个分配中心就会去告诉这三个应用：</p>
+<blockquote>
+<p>你们要开始工作了啊，0 号应用你的工作内容是 <strong>0 3 6</strong>，1 号应用你的工作内容是 <strong>1 4 7</strong>，2 号应用你的工作内容是 <strong>2 5 8</strong>。</p>
+</blockquote>
+<p>这样各个应用就知道他们所应当处理的数据了。</p>
+<p>当我们新增了一个应用来处理数据时也很简单，同样这个分配中心知道现在有多少台应用会工作。</p>
+<p>他会再拿着现有的号段对 4(3+1台应用) 进行取模然后对数据进行重新分配，这样就可以再次保证数据分配均匀了。</p>
+<blockquote>
+<p>只是分配中心如何知道有多少应用呢，其实也简单，只要中心和应用之间通信就可以了。比如启动的时候调用分配中心的接口即可。</p>
+</blockquote>
+<p>上面提到的这个分配中心其实就是一个常见的定时任务的分布式调度中心，由它来统一发起调度，当然<strong>分片</strong>只是它其中的一个功能而已（关于调度中心之后有兴趣再细说）。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本次探讨了多线程的更多应用方式，如要是如何高效的运行。最主要的一点其实就是尽量的避免加锁。</p>
+<p>同时对分布式水平扩展谈了一些处理建议，本次也是难得的一行代码都没贴，大家感兴趣的话在后面更新相关代码。</p>
+<blockquote>
+<p>也欢迎大家留言讨论。:smile:</p>
+</blockquote>
+<p><strong>你的点赞与转发是最大的支持。</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://ws1.sinaimg.cn/large/72fbb941ly1fwqq35o0ubj21g80vyb2b.jpg&quot; alt=&quot;img&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;在上文&lt;a href=&quot;https://crossoverjie.top/2018/10/29/java-senior/concurrent-in-action/#%E6%9B%B4%E5%A4%9A%E6%80%9D%E8%80%83&quot;&gt;《一份针对于新手的多线程实践》&lt;/a&gt;留下了一个问题：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;这只是多线程其中的一个用法，相信看到这里的朋友应该多它的理解更进一步了。&lt;/p&gt;
+&lt;p&gt;再给大家留个阅后练习，场景也是类似的：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;在 Redis 或者其他存储介质中存放有上千万的手机号码数据，每个号码都是唯一的，需要在最快的时间内把这些号码全部都遍历一遍。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;有想法感兴趣的朋友欢迎在文末留言参与讨论🤔🤨。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&quot;网友们的方案&quot;&gt;&lt;a href=&quot;#网友们的方案&quot; class=&quot;headerlink&quot; title=&quot;网友们的方案&quot;&gt;&lt;/a&gt;网友们的方案&lt;/h2&gt;
+    
+    </summary>
+    
+      <category term="Java 进阶" scheme="http://crossoverjie.top/categories/Java-%E8%BF%9B%E9%98%B6/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="SpringBoot" scheme="http://crossoverjie.top/tags/SpringBoot/"/>
+    
+      <category term="ThreadPool" scheme="http://crossoverjie.top/tags/ThreadPool/"/>
+    
+  </entry>
+  
+  <entry>
     <title>一份针对于新手的多线程实践</title>
     <link href="http://crossoverjie.top/2018/10/29/java-senior/concurrent-in-action/"/>
     <id>http://crossoverjie.top/2018/10/29/java-senior/concurrent-in-action/</id>
     <published>2018-10-28T17:00:16.000Z</published>
-    <updated>2018-10-29T00:41:20.202Z</updated>
+    <updated>2018-10-30T15:50:37.222Z</updated>
     
     <content type="html"><![CDATA[<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fwo6yqzqkoj31kw11xn6h.jpg" alt=""></p>
 <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fwo7rifc2dj30e3035jru.jpg" alt=""></p>
@@ -2788,131 +2913,6 @@
     
     
       <category term="Cache" scheme="http://crossoverjie.top/tags/Cache/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>一次线上问题排查所引发的思考</title>
-    <link href="http://crossoverjie.top/2018/07/08/java-senior/JVM-Troubleshoot/"/>
-    <id>http://crossoverjie.top/2018/07/08/java-senior/JVM-Troubleshoot/</id>
-    <published>2018-07-08T11:10:36.000Z</published>
-    <updated>2018-07-08T08:29:46.830Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://ws1.sinaimg.cn/large/006tNc79gy1ft2j8cuv3tj31kw0vy7wh.jpg" alt=""></p>
-<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>之前或多或少分享过一些<a href="https://github.com/crossoverJie/Java-Interview/blob/master/MD/MemoryAllocation.md" target="_blank" rel="external">内存模型</a>、<a href="https://crossoverjie.top/2018/01/18/newObject/">对象创建</a>之类的内容，其实大部分人看完都是懵懵懂懂，也不知道这些的实际意义。</p>
-<p>直到有一天你会碰到线上奇奇怪怪的问题，如：</p>
-<ul>
-<li>线程执行一个任务迟迟没有返回，应用假死。</li>
-<li>接口响应缓慢，甚至请求超时。</li>
-<li>CPU 高负载运行。</li>
-</ul>
-<p>这类问题并不像一个空指针、数组越界这样明显好查，这时就需要刚才提到的内存模型、对象创建、线程等相关知识结合在一起来排查问题了。</p>
-<p>正好这次借助之前的一次生产问题来聊聊如何排查和解决问题。</p>
-<h2 id="生产现象"><a href="#生产现象" class="headerlink" title="生产现象"></a>生产现象</h2><p>首先看看问题的背景吧：</p>
-<p>我这其实是一个定时任务，在固定的时间会开启 N 个线程并发的从 Redis 中获取数据进行运算。</p>
-<p><strong>业务逻辑非常简单，但应用一般涉及到多线程之后再简单的事情都要小心对待。</strong></p>
-<p>果不其然这次就出问题了。</p>
-<p>现象:原本只需要执行几分钟的任务执行了几个小时都没退出。翻遍了所有的日志都没找到异常。</p>
-<p>于是便开始定位问题之路。</p>
-<a id="more"></a>
-<h3 id="定位问题"><a href="#定位问题" class="headerlink" title="定位问题"></a>定位问题</h3><p>既然没办法直接从日志中发现异常，那就只能看看应用到底在干嘛了。</p>
-<p>最常见的工具就是 JDK 自带的那一套。</p>
-<p>这次我使用了 <code>jstack</code> 来查看线程的执行情况，它的作用其实就是 dump 当前的线程堆栈。</p>
-<p>当然在 dump 之前是需要知道我应用的 pid 的，可以使用 <code>jps -v</code> 这样的方式列出所有的 Java 进程。</p>
-<p>当然如果知道关键字的话直接使用 <code>ps aux|grep java</code> 也是可以的。</p>
-<p>拿到 <code>pid=1523</code> 了之后就可以利用 <code>jstack 1523 &gt; 1523.log</code> 这样的方式将 dump 文件输出到日志文件中。</p>
-<p>如果应用简单不复杂，线程这些也比较少其实可以直接打开查看。</p>
-<p>但复杂的应用导出来的日志文件也比较大还是建议用专业的分析工具。</p>
-<p>我这里的日志比较少直接打开就可以了。</p>
-<p>因为我清楚知道应用中开启的线程名称，所以直接根据线程名就可以在日志中找到相关的堆栈：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNc79gy1ft2fd0q5hhj30sn0cz0yn.jpg" alt=""></p>
-<blockquote>
-<p>所以通常建议大家线程名字给的有意义，在排查问题时很有必要。</p>
-</blockquote>
-<p>其实其他几个线程都和这里的堆栈类似，很明显的看出都是在做 Redis 连接。</p>
-<p>于是我登录 Redis 查看了当前的连接数，发现已经非常高了。</p>
-<p>这样 Redis 的响应自然也就变慢了。</p>
-<p>接着利用 <code>jps -v</code> 列出了当前所以在跑的 Java 进程，果不其然有好几个应用都在查询 Redis，而且都是并发连接，问题自然就找到了。</p>
-<h3 id="解决办法"><a href="#解决办法" class="headerlink" title="解决办法"></a>解决办法</h3><blockquote>
-<p>所以问题的主要原因是：大量的应用并发查询 Redis，导致 Redis 的性能降低。</p>
-</blockquote>
-<p>既然找到了问题，那如何解决呢？</p>
-<ul>
-<li>减少同时查询 Redis 的应用，分开时段降低 Redis 的压力。</li>
-<li>将 Redis 复制几个集群，各个应用分开查询。但是这样会涉及到数据的同步等运维操作，或者由程序了进行同步也会增加复杂度。</li>
-</ul>
-<p>目前我们选择的是第一个方案，效果很明显。</p>
-<h2 id="本地模拟"><a href="#本地模拟" class="headerlink" title="本地模拟"></a>本地模拟</h2><p>上文介绍的是线程相关问题，现在来分析下内存的问题。</p>
-<p>以这个类为例：</p>
-<p><a href="https://github.com/crossoverJie/Java-Interview/blob/master/src/main/java/com/crossoverjie/oom/heap/HeapOOM.java" target="_blank" rel="external">https://github.com/crossoverJie/Java-Interview/blob/master/src/main/java/com/crossoverjie/oom/heap/HeapOOM.java</a></p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">HeapOOM</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</div><div class="line">        List&lt;String&gt; list = <span class="keyword">new</span> ArrayList&lt;&gt;(<span class="number">10</span>) ;</div><div class="line">        <span class="keyword">while</span> (<span class="keyword">true</span>)&#123;</div><div class="line">            list.add(<span class="string">"1"</span>) ;</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>启动参数如下：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">-Xms20m</div><div class="line">-Xmx20m</div><div class="line">-XX:+HeapDumpOnOutOfMemoryError</div><div class="line">-XX:HeapDumpPath=/Users/xx/Documents</div></pre></td></tr></table></figure>
-<p>为了更快的突出内存问题将堆的最大内存固定在 20M，同时在 JVM 出现 OOM 的时候自动 dump 内存到 <code>/Users/xx/Documents</code>(不配路径则会生成在当前目录)。</p>
-<p>执行之后果不其然出现了异常：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNc79gy1ft2g4f80rfj30mc064tag.jpg" alt=""></p>
-<p>同时对应的内存 dump 文件也生成了。</p>
-<h3 id="内存分析"><a href="#内存分析" class="headerlink" title="内存分析"></a>内存分析</h3><p>这时就需要相应的工具进行分析了，最常用的自然就是 MAT 了。</p>
-<p>我试了一个在线工具也不错（文件大了就不适合了）：</p>
-<p><a href="http://heaphero.io/index.jsp" target="_blank" rel="external">http://heaphero.io/index.jsp</a></p>
-<p>上传刚才生成的内存文件之后：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNc79gy1ft2gb4p08tj31460ojade.jpg" alt=""></p>
-<p>因为是内存溢出，所以主要观察下大对象：</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNc79gy1ft2gbw5g3pj30zx0g4wge.jpg" alt=""></p>
-<p>也有相应提示，这个很有可能就是内存溢出的对象，点进去之后：</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNc79gy1ft2gcmd00lj30kz0bjmyo.jpg" alt=""></p>
-<p>看到这个堆栈其实就很明显了：</p>
-<p>在向 ArrayList 中不停的写入数据时，会导致频繁的扩容也就是数组复制这些过程，最终达到 20M 的上限导致内存溢出了。</p>
-<h2 id="更多建议"><a href="#更多建议" class="headerlink" title="更多建议"></a>更多建议</h2><p>上文说过，一旦使用了多线程，那就要格外小心。</p>
-<p>以下是一些日常建议：</p>
-<ul>
-<li>尽量不要在线程中做大量耗时的网络操作，如查询数据库（可以的话在一开始就将数据从从 DB 中查出准备好）。</li>
-<li>尽可能的减少多线程竞争锁。可以将数据分段，各个线程分别读取。</li>
-<li>多利用 <code>CAS+自旋</code> 的方式更新数据，减少锁的使用。</li>
-<li>应用中加上 <code>-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp</code> 参数，在内存溢出时至少可以拿到内存日志。</li>
-<li>线程池监控。如线程池大小、队列大小、最大线程数等数据，可提前做好预估。</li>
-<li>JVM 监控，可以看到堆内存的涨幅趋势，GC 曲线等数据，也可以提前做好准备。</li>
-</ul>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>线上问题定位需要综合技能，所以是需要一些基础技能。如线程、内存模型、Linux 等。</p>
-<p>当然这些问题没有实操过都是纸上谈兵；如果第一次碰到线上问题，不要慌张，反而应该庆幸解决之后你又会习得一项技能。</p>
-<h2 id="号外"><a href="#号外" class="headerlink" title="号外"></a>号外</h2><p>最近在总结一些 Java 相关的知识点，感兴趣的朋友可以一起维护。</p>
-<blockquote>
-<p>地址: <a href="https://github.com/crossoverJie/Java-Interview" target="_blank" rel="external">https://github.com/crossoverJie/Java-Interview</a></p>
-</blockquote>
-<p><strong>欢迎关注公众号一起交流：</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://ws1.sinaimg.cn/large/006tNc79gy1ft2j8cuv3tj31kw0vy7wh.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h2 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h2&gt;&lt;p&gt;之前或多或少分享过一些&lt;a href=&quot;https://github.com/crossoverJie/Java-Interview/blob/master/MD/MemoryAllocation.md&quot;&gt;内存模型&lt;/a&gt;、&lt;a href=&quot;https://crossoverjie.top/2018/01/18/newObject/&quot;&gt;对象创建&lt;/a&gt;之类的内容，其实大部分人看完都是懵懵懂懂，也不知道这些的实际意义。&lt;/p&gt;
-&lt;p&gt;直到有一天你会碰到线上奇奇怪怪的问题，如：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;线程执行一个任务迟迟没有返回，应用假死。&lt;/li&gt;
-&lt;li&gt;接口响应缓慢，甚至请求超时。&lt;/li&gt;
-&lt;li&gt;CPU 高负载运行。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;这类问题并不像一个空指针、数组越界这样明显好查，这时就需要刚才提到的内存模型、对象创建、线程等相关知识结合在一起来排查问题了。&lt;/p&gt;
-&lt;p&gt;正好这次借助之前的一次生产问题来聊聊如何排查和解决问题。&lt;/p&gt;
-&lt;h2 id=&quot;生产现象&quot;&gt;&lt;a href=&quot;#生产现象&quot; class=&quot;headerlink&quot; title=&quot;生产现象&quot;&gt;&lt;/a&gt;生产现象&lt;/h2&gt;&lt;p&gt;首先看看问题的背景吧：&lt;/p&gt;
-&lt;p&gt;我这其实是一个定时任务，在固定的时间会开启 N 个线程并发的从 Redis 中获取数据进行运算。&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;业务逻辑非常简单，但应用一般涉及到多线程之后再简单的事情都要小心对待。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;果不其然这次就出问题了。&lt;/p&gt;
-&lt;p&gt;现象:原本只需要执行几分钟的任务执行了几个小时都没退出。翻遍了所有的日志都没找到异常。&lt;/p&gt;
-&lt;p&gt;于是便开始定位问题之路。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Java 进阶" scheme="http://crossoverjie.top/categories/Java-%E8%BF%9B%E9%98%B6/"/>
-    
-    
-      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
-    
-      <category term="Thread" scheme="http://crossoverjie.top/tags/Thread/"/>
-    
-      <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
-    
-      <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
     
   </entry>
   
