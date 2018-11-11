@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2018-11-09T04:55:15.911Z</updated>
+  <updated>2018-11-11T16:46:13.661Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,129 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>不改一行代码定位线上性能问题</title>
+    <link href="http://crossoverjie.top/2018/11/12/java-senior/coding-online-analysis/"/>
+    <id>http://crossoverjie.top/2018/11/12/java-senior/coding-online-analysis/</id>
+    <published>2018-11-12T00:01:36.000Z</published>
+    <updated>2018-11-11T16:46:13.661Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx414pjlzkj31hc0u0jyv.jpg" alt=""></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>最近时运不佳，几乎天天被线上问题骚扰。前几天刚解决了一个 <a href="https://crossoverjie.top/2018/11/08/java-senior/JVM-concurrent-HashSet-problem/">HashSet 的并发</a>问题，周六又来了一个性能问题。</p>
+<p>大致的现象是：</p>
+<blockquote>
+<p>我们提供出去的一个 OpenAPI 反应时快时慢，快的时候几十毫秒，慢的时候几秒钟才响应。</p>
+</blockquote>
+<h1 id="尝试解决"><a href="#尝试解决" class="headerlink" title="尝试解决"></a>尝试解决</h1><p>由于这种也不是业务问题，不能直接定位。所以尝试在测试环境复现，但遗憾的测试环境贼快。</p>
+<p>没办法只能硬着头皮上了。</p>
+<p>中途有抱着侥幸心里让运维查看了 <code>Nginx</code> 里 <code>OpenAPI</code> 的响应时间，想把锅扔给网络。结果果然打脸了；<code>Nginx</code> 里的日志也表明确实响应时间确实有问题。</p>
+<a id="more"></a>
+<p>为了清晰的了解这个问题，我简单梳理了这个调用过程。</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx4jffrt0hj30gp0ftt97.jpg" alt=""></p>
+<p>整个的流程算是比较常见的分层架构：</p>
+<ul>
+<li>客户端请求到 <code>Nginx</code>。</li>
+<li><code>Nginx</code> 负载了后端的 <code>web</code> 服务。</li>
+<li><code>web</code> 服务通过 <code>RPC</code> 调用后端的 <code>Service</code> 服务。</li>
+</ul>
+<h2 id="日志大法"><a href="#日志大法" class="headerlink" title="日志大法"></a>日志大法</h2><p>我们首先想到的是打日志，在可能会慢的方法或接口处记录处理时间来判断哪里有问题。</p>
+<p>但通过刚才的调用链来说，这个请求流程不短。加日志涉及的改动较多而且万一加漏了还有可能定位不到问题。</p>
+<p>再一个是改动代码之后还会涉及到发版上线。</p>
+<h2 id="工具分析"><a href="#工具分析" class="headerlink" title="工具分析"></a>工具分析</h2><p>所以最好的方式就是不改动一行代码把这个问题分析出来。</p>
+<p>这时就需要一个 <code>agent</code> 工具了。我们选用了阿里以前开源的  <a href="https://github.com/alibaba/TProfiler" target="_blank" rel="external">Tprofile</a> 来使用。</p>
+<p>只需要在启动参数中加入 <code>-javaagent:/xx/tprofiler.jar</code> 即可监控你想要监控的方法耗时，并且可以给你输出报告，非常方便。对代码没有任何侵入性同时性能影响也较小。</p>
+<h1 id="工具使用"><a href="#工具使用" class="headerlink" title="工具使用"></a>工具使用</h1><p>下面来简单展示下如何使用这个工具。</p>
+<p>首先第一步自然是 <code>clone</code> 源码然后打包，可以克隆我修改过的源码。</p>
+<blockquote>
+<p>因为这个项目阿里多年没有维护了，还残留一些 <code>bug</code>,我在它原有的基础上修复了个影响使用的 <code>bug</code>，同时做了一些优化。</p>
+</blockquote>
+<p>执行以下脚本即可。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">git clone https://github.com/crossoverJie/TProfiler</div><div class="line"></div><div class="line">mvn assembly:assembly</div></pre></td></tr></table></figure></p>
+<p>到这里之后会在项目的 <code>TProfiler/pkg/TProfiler/lib/tprofiler-1.0.1.jar</code> 中生成好我们要使用的 jar 包。</p>
+<p>接下来只需要将这个 jar 包配置到启动参数中，同时再配置一个配置文件路径即可。</p>
+<p>这个配置文件我 copy 官方的解释。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div></pre></td><td class="code"><pre><div class="line">#log file name</div><div class="line">logFileName = tprofiler.log</div><div class="line">methodFileName = tmethod.log</div><div class="line">samplerFileName = tsampler.log</div><div class="line"></div><div class="line">#basic configuration items</div><div class="line"># 开始取样时间</div><div class="line">startProfTime = 1:00:00</div><div class="line"></div><div class="line"># 结束取样时间</div><div class="line">endProfTime = 23:00:00</div><div class="line"></div><div class="line"># 取样的时间长度</div><div class="line">eachProfUseTime = 10</div><div class="line"></div><div class="line"># 每次取样的时间间隔</div><div class="line">eachProfIntervalTime = 1</div><div class="line"></div><div class="line">samplerIntervalTime = 20</div><div class="line"></div><div class="line"># 端口，主要不要冲突了</div><div class="line">port = 50000</div><div class="line">debugMode = false</div><div class="line">needNanoTime = false</div><div class="line"></div><div class="line"># 是否忽略 get set 方法</div><div class="line">ignoreGetSetMethod = true</div><div class="line"></div><div class="line">#file paths 日志路径</div><div class="line">logFilePath = /data/work/logs/tprofile/$&#123;logFileName&#125;</div><div class="line">methodFilePath =/data/work/logs/tprofile/$&#123;methodFileName&#125;</div><div class="line">samplerFilePath =/data/work/logs/tprofile/$&#123;samplerFileName&#125;</div><div class="line"></div><div class="line">#include &amp; excludes items</div><div class="line">excludeClassLoader = org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader</div><div class="line"></div><div class="line"># 需要监控的包</div><div class="line">includePackageStartsWith = top.crossoverjie.cicada.example.action</div><div class="line"></div><div class="line"># 不需要监控的包</div><div class="line">excludePackageStartsWith = com.taobao.sketch;org.apache.velocity;com.alibaba;com.taobao.forest.domain.dataobject</div></pre></td></tr></table></figure>
+<p>最终的启动参数如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">-javaagent:/TProfiler/lib/tprofiler-<span class="number">1.0</span>.1.jar</div><div class="line">-Dprofile.properties=/TProfiler/profile.properties</div></pre></td></tr></table></figure>
+<p>为了模拟排查接口响应慢的问题，我用 <a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">cicada</a> 实现了一个 <code>HTTP</code> 接口。其中调用了两个耗时方法：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fx4kh9jae6j30my0ac409.jpg" alt=""></p>
+<p>这样当我启动应用时，<code>Tprofile</code> 就会在我配置的目录记录它所收集的方法信息。</p>
+<p>我访问接口 <code>http://127.0.0.1:5688/cicada-example/demoAction?name=test&amp;id=10</code> 几次后它就会把每个方法的明细响应写入 <code>tprofile.log</code>。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fx4knnbbrnj308v08njrp.jpg" alt=""></p>
+<p>由左到右每列分别代表为：</p>
+<p>线程ID、方法栈深度、方法编号、耗时（毫秒）。</p>
+<p>但 <code>tmethod.log</code> 还是空的；</p>
+<p>这时我们只需要执行这个命令即可把最新的方法采样信息刷到 <code>tmethod.log</code> 文件中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">java -cp /TProfiler/tprofiler.jar com.taobao.profile.client.TProfilerClient <span class="number">127.0</span>.0.1 <span class="number">50000</span> flushmethod</div><div class="line"></div><div class="line">flushmethod success</div></pre></td></tr></table></figure>
+<p>其实就是访问了 <code>Tprofile</code> 暴露出的一个服务，他会读取、解析 <code>tprofile.log</code> 同时写入 <code>tmethod.log</code>.</p>
+<blockquote>
+<p>其中的端口就是配置文件中的 port。</p>
+</blockquote>
+<p>再打开 <code>tmethod.log</code> ：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fx4ktw47dyj30jz043t9x.jpg" alt=""></p>
+<p>其中会记录方法的信息。</p>
+<ul>
+<li>第一行数字为方法的编号。可以通过这个编号去 <code>tprofile.log</code>(明细)中查询每次的耗时情况。</li>
+<li>行末的数字则是这个方法在源码中最后一行的行号。</li>
+</ul>
+<p>其实大部分的性能分析都是统计某个方法的平均耗时。</p>
+<p>所以还需要执行下面的命令，通过 <code>tmethod.log tprofile.log</code>来生成每个方法的平均耗时。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">java -cp /TProfiler/tprofiler.jar com.taobao.profile.analysis.ProfilerLogAnalysis tprofiler.log tmethod.log topmethod.log topobject.log</div><div class="line">print result success</div></pre></td></tr></table></figure>
+<p>打开 <code>topmethod.log</code> 就是所有方法的平均耗时。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fx4l0ambzhj30l302fwf0.jpg" alt=""></p>
+<ul>
+<li>4 为请求次数。</li>
+<li>205 为平均耗时。</li>
+<li>818 则为总耗时。</li>
+</ul>
+<p>和实际情况是相符的。</p>
+<h2 id="方法的明细耗时"><a href="#方法的明细耗时" class="headerlink" title="方法的明细耗时"></a>方法的明细耗时</h2><p>这是可能还会有其他需求；比如说我想查询某个方法所有的明细耗时怎么办呢？</p>
+<p>官方没有提供，但也是可以的，只是要麻烦一点。</p>
+<p>比如我想查看 <code>selectDB()</code> 的耗时明细：</p>
+<p>首先得知道这个方法的编号，在 <code>tmethod.log</code> 中可以看查到。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="number">2</span> top/crossoverjie/cicada/example/action/DemoAction:selectDB:<span class="number">84</span></div></pre></td></tr></table></figure>
+<p>编号为 2.</p>
+<p>之前我们就知道 <code>tprofile.log</code> 记录的是明细，所以通过下面的命令即可查看。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">grep 2 tprofiler.log</div></pre></td></tr></table></figure>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fx4l6hj8nnj30b907qjw8.jpg" alt=""></p>
+<p>通过第三列方法编号为 2 的来查看每次执行的明细。</p>
+<p>但这样的方式显然不够友好，需要人为来过滤干扰，步骤也多；所以我也准备加上这样一个功能。</p>
+<p>只需要传入一个方法名称即可查询采集到的所有方法耗时明细。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>回到之前的问题；线上通过这个工具分析我们得到了如下结果。</p>
+<ul>
+<li>有些方法确实执行时快时慢，但都是和数据库相关的。由于目前数据库压力较大，准备在接下来进行冷热数据分离，以及分库分表。</li>
+<li>在第一步操作还没实施之前将部分写数据库的操作改为异步，减小响应时间。</li>
+<li>考虑接入 <code>pinpoint</code> 这样的 <code>APM工具</code>。</li>
+</ul>
+<p>类似于 <a href="https://github.com/crossoverJie/TProfiler" target="_blank" rel="external">Tprofile</a> 的工具确实挺多的，找到适合自己的就好。</p>
+<p>在还没有使用类似于 <code>pinpoint</code> 这样的分布式跟踪工具之前应该会大量依赖于这个工具，所以后续说不定也会做一些定制，比如增加一些可视化界面等，可以提高排查效率。</p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://ws1.sinaimg.cn/large/006tNbRwly1fx414pjlzkj31hc0u0jyv.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;背景&quot;&gt;&lt;a href=&quot;#背景&quot; class=&quot;headerlink&quot; title=&quot;背景&quot;&gt;&lt;/a&gt;背景&lt;/h1&gt;&lt;p&gt;最近时运不佳，几乎天天被线上问题骚扰。前几天刚解决了一个 &lt;a href=&quot;https://crossoverjie.top/2018/11/08/java-senior/JVM-concurrent-HashSet-problem/&quot;&gt;HashSet 的并发&lt;/a&gt;问题，周六又来了一个性能问题。&lt;/p&gt;
+&lt;p&gt;大致的现象是：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;我们提供出去的一个 OpenAPI 反应时快时慢，快的时候几十毫秒，慢的时候几秒钟才响应。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h1 id=&quot;尝试解决&quot;&gt;&lt;a href=&quot;#尝试解决&quot; class=&quot;headerlink&quot; title=&quot;尝试解决&quot;&gt;&lt;/a&gt;尝试解决&lt;/h1&gt;&lt;p&gt;由于这种也不是业务问题，不能直接定位。所以尝试在测试环境复现，但遗憾的测试环境贼快。&lt;/p&gt;
+&lt;p&gt;没办法只能硬着头皮上了。&lt;/p&gt;
+&lt;p&gt;中途有抱着侥幸心里让运维查看了 &lt;code&gt;Nginx&lt;/code&gt; 里 &lt;code&gt;OpenAPI&lt;/code&gt; 的响应时间，想把锅扔给网络。结果果然打脸了；&lt;code&gt;Nginx&lt;/code&gt; 里的日志也表明确实响应时间确实有问题。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Java 进阶" scheme="http://crossoverjie.top/categories/Java-%E8%BF%9B%E9%98%B6/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="Thread" scheme="http://crossoverjie.top/tags/Thread/"/>
+    
+      <category term="Tprofile" scheme="http://crossoverjie.top/tags/Tprofile/"/>
+    
+  </entry>
   
   <entry>
     <title>一次 HashSet 所引起的并发问题</title>
@@ -130,9 +253,9 @@
     
       <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
     
-      <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
-    
       <category term="HashMap" scheme="http://crossoverjie.top/tags/HashMap/"/>
+    
+      <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
     
       <category term="HashSet" scheme="http://crossoverjie.top/tags/HashSet/"/>
     
@@ -2542,196 +2665,6 @@
       <category term="粘包" scheme="http://crossoverjie.top/tags/%E7%B2%98%E5%8C%85/"/>
     
       <category term="protobuf" scheme="http://crossoverjie.top/tags/protobuf/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>如何优雅的使用和理解线程池</title>
-    <link href="http://crossoverjie.top/2018/07/29/java-senior/ThreadPool/"/>
-    <id>http://crossoverjie.top/2018/07/29/java-senior/ThreadPool/</id>
-    <published>2018-07-28T18:00:16.000Z</published>
-    <updated>2018-07-29T07:32:28.954Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://ws1.sinaimg.cn/large/006tKfTcgy1ftpwh3a2szj31kw11xh84.jpg" alt=""></p>
-<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>平时接触过多线程开发的童鞋应该都或多或少了解过线程池，之前发布的《阿里巴巴 Java 手册》里也有一条：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tKfTcgy1ftpxf3x1epj30la03s0tl.jpg" alt=""></p>
-<p>可见线程池的重要性。</p>
-<p>简单来说使用线程池有以下几个目的：</p>
-<ul>
-<li>线程是稀缺资源，不能频繁的创建。</li>
-<li>解耦作用；线程的创建于执行完全分开，方便维护。</li>
-<li>应当将其放入一个池子中，可以给其他任务进行复用。</li>
-</ul>
-<h2 id="线程池原理"><a href="#线程池原理" class="headerlink" title="线程池原理"></a>线程池原理</h2><p>谈到线程池就会想到池化技术，其中最核心的思想就是把宝贵的资源放到一个池子中；每次使用都从里面获取，用完之后又放回池子供其他人使用，有点吃大锅饭的意思。</p>
-<p>那在 Java 中又是如何实现的呢？</p>
-<p>在 JDK 1.5 之后推出了相关的 api，常见的创建线程池方式有以下几种：</p>
-<ul>
-<li><code>Executors.newCachedThreadPool()</code>：无限线程池。</li>
-<li><code>Executors.newFixedThreadPool(nThreads)</code>：创建固定大小的线程池。</li>
-<li><code>Executors.newSingleThreadExecutor()</code>：创建单个线程的线程池。</li>
-</ul>
-<a id="more"></a>
-<p>其实看这三种方式创建的源码就会发现：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> ExecutorService <span class="title">newCachedThreadPool</span><span class="params">()</span> </span>&#123;</div><div class="line">    <span class="keyword">return</span> <span class="keyword">new</span> ThreadPoolExecutor(<span class="number">0</span>, Integer.MAX_VALUE,</div><div class="line">                                  <span class="number">60L</span>, TimeUnit.SECONDS,</div><div class="line">                                  <span class="keyword">new</span> SynchronousQueue&lt;Runnable&gt;());</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>实际上还是利用 <code>ThreadPoolExecutor</code> 类实现的。</p>
-<p>所以我们重点来看下 <code>ThreadPoolExecutor</code> 是怎么玩的。</p>
-<p>首先是创建线程的 api：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">ThreadPoolExecutor(<span class="keyword">int</span> corePoolSize, <span class="keyword">int</span> maximumPoolSize, <span class="keyword">long</span> keepAliveTime, TimeUnit unit, BlockingQueue&lt;Runnable&gt; workQueue, RejectedExecutionHandler handler)</div></pre></td></tr></table></figure>
-<p>这几个核心参数的作用：</p>
-<ul>
-<li><code>corePoolSize</code> 为线程池的基本大小。</li>
-<li><code>maximumPoolSize</code> 为线程池最大线程大小。</li>
-<li><code>keepAliveTime</code> 和 <code>unit</code> 则是线程空闲后的存活时间。</li>
-<li><code>workQueue</code> 用于存放任务的阻塞队列。</li>
-<li><code>handler</code> 当队列和最大线程池都满了之后的饱和策略。</li>
-</ul>
-<p>了解了这几个参数再来看看实际的运用。</p>
-<p>通常我们都是使用:</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">threadPool.execute(<span class="keyword">new</span> Job());</div></pre></td></tr></table></figure>
-<p>这样的方式来提交一个任务到线程池中，所以核心的逻辑就是 <code>execute()</code> 函数了。</p>
-<p>在具体分析之前先了解下线程池中所定义的状态，这些状态都和线程的执行密切相关：</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tKfTcgy1ftq1ks5qywj30jn03i3za.jpg" alt=""></p>
-<ul>
-<li><code>RUNNING</code> 自然是运行状态，指可以接受任务执行队列里的任务</li>
-<li><code>SHUTDOWN</code> 指调用了 <code>shutdown()</code> 方法，不再接受新任务了，但是队列里的任务得执行完毕。</li>
-<li><code>STOP</code> 指调用了 <code>shutdownNow()</code> 方法，不再接受新任务，同时抛弃阻塞队列里的所有任务并中断所有正在执行任务。</li>
-<li><code>TIDYING</code> 所有任务都执行完毕，在调用 <code>shutdown()/shutdownNow()</code> 中都会尝试更新为这个状态。</li>
-<li><code>TERMINATED</code> 终止状态，当执行 <code>terminated()</code> 后会更新为这个状态。</li>
-</ul>
-<p>用图表示为：</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tKfTcgy1ftq2nxlwe5j30sp0ba0ts.jpg" alt=""></p>
-<p>然后看看 <code>execute()</code> 方法是如何处理的：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tKfTcgy1ftq283zi91j30ky08mwgb.jpg" alt=""></p>
-<ol>
-<li>获取当前线程池的状态。</li>
-<li>当前线程数量小于 coreSize 时创建一个新的线程运行。</li>
-<li>如果当前线程处于运行状态，并且写入阻塞队列成功。</li>
-<li>双重检查，再次获取线程状态；如果线程状态变了（非运行状态）就需要从阻塞队列移除任务，并尝试判断线程是否全部执行完毕。同时执行拒绝策略。</li>
-<li>如果当前线程池为空就新创建一个线程并执行。</li>
-<li>如果在第三步的判断为非运行状态，尝试新建线程，如果失败则执行拒绝策略。</li>
-</ol>
-<p>这里借助《聊聊并发》的一张图来描述这个流程：</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tKfTcgy1ftq2vzuv5rj30dw085q3i.jpg" alt=""></p>
-<h3 id="如何配置线程"><a href="#如何配置线程" class="headerlink" title="如何配置线程"></a>如何配置线程</h3><p>流程聊完了再来看看上文提到了几个核心参数应该如何配置呢？</p>
-<p>有一点是肯定的，线程池肯定是不是越大越好。</p>
-<p>通常我们是需要根据这批任务执行的性质来确定的。</p>
-<ul>
-<li>IO 密集型任务：由于线程并不是一直在运行，所以可以尽可能的多配置线程，比如 CPU 个数 * 2 </li>
-<li>CPU 密集型任务（大量复杂的运算）应当分配较少的线程，比如 CPU 个数相当的大小。</li>
-</ul>
-<p>当然这些都是经验值，最好的方式还是根据实际情况测试得出最佳配置。</p>
-<h3 id="优雅的关闭线程池"><a href="#优雅的关闭线程池" class="headerlink" title="优雅的关闭线程池"></a>优雅的关闭线程池</h3><p>有运行任务自然也有关闭任务，从上文提到的 5 个状态就能看出如何来关闭线程池。</p>
-<p>其实无非就是两个方法 <code>shutdown()/shutdownNow()</code>。</p>
-<p>但他们有着重要的区别：</p>
-<ul>
-<li><code>shutdown()</code> 执行后停止接受新任务，会把队列的任务执行完毕。</li>
-<li><code>shutdownNow()</code> 也是停止接受新任务，但会中断所有的任务，将线程池状态变为 stop。</li>
-</ul>
-<blockquote>
-<p>两个方法都会中断线程，用户可自行判断是否需要响应中断。</p>
-</blockquote>
-<p><code>shutdownNow()</code> 要更简单粗暴，可以根据实际场景选择不同的方法。</p>
-<p>我通常是按照以下方式关闭线程池的：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">long</span> start = System.currentTimeMillis();</div><div class="line"><span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt;= <span class="number">5</span>; i++) &#123;</div><div class="line">    pool.execute(<span class="keyword">new</span> Job());</div><div class="line">&#125;</div><div class="line"></div><div class="line">pool.shutdown();</div><div class="line"></div><div class="line"><span class="keyword">while</span> (!pool.awaitTermination(<span class="number">1</span>, TimeUnit.SECONDS)) &#123;</div><div class="line">    LOGGER.info(<span class="string">"线程还在执行。。。"</span>);</div><div class="line">&#125;</div><div class="line"><span class="keyword">long</span> end = System.currentTimeMillis();</div><div class="line">LOGGER.info(<span class="string">"一共处理了【&#123;&#125;】"</span>, (end - start));</div></pre></td></tr></table></figure>
-<p><code>pool.awaitTermination(1, TimeUnit.SECONDS)</code> 会每隔一秒钟检查一次是否执行完毕（状态为 <code>TERMINATED</code>），当从 while 循环退出时就表明线程池已经完全终止了。</p>
-<h2 id="SpringBoot-使用线程池"><a href="#SpringBoot-使用线程池" class="headerlink" title="SpringBoot 使用线程池"></a>SpringBoot 使用线程池</h2><p>2018 年了，SpringBoot 盛行；来看看在 SpringBoot 中应当怎么配置和使用线程池。</p>
-<p>既然用了 SpringBoot ，那自然得发挥 Spring 的特性，所以需要 Spring 来帮我们管理线程池：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Configuration</span></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TreadPoolConfig</span> </span>&#123;</div><div class="line"></div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 消费队列线程</div><div class="line">     * <span class="doctag">@return</span></div><div class="line">     */</div><div class="line">    <span class="meta">@Bean</span>(value = <span class="string">"consumerQueueThreadPool"</span>)</div><div class="line">    <span class="function"><span class="keyword">public</span> ExecutorService <span class="title">buildConsumerQueueThreadPool</span><span class="params">()</span></span>&#123;</div><div class="line">        ThreadFactory namedThreadFactory = <span class="keyword">new</span> ThreadFactoryBuilder()</div><div class="line">                .setNameFormat(<span class="string">"consumer-queue-thread-%d"</span>).build();</div><div class="line"></div><div class="line">        ExecutorService pool = <span class="keyword">new</span> ThreadPoolExecutor(<span class="number">5</span>, <span class="number">5</span>, <span class="number">0L</span>, TimeUnit.MILLISECONDS,</div><div class="line">                <span class="keyword">new</span> ArrayBlockingQueue&lt;Runnable&gt;(<span class="number">5</span>),namedThreadFactory,<span class="keyword">new</span> ThreadPoolExecutor.AbortPolicy());</div><div class="line"></div><div class="line">        <span class="keyword">return</span> pool ;</div><div class="line">    &#125;</div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>使用时：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Resource</span>(name = <span class="string">"consumerQueueThreadPool"</span>)</div><div class="line"><span class="keyword">private</span> ExecutorService consumerQueueThreadPool;</div><div class="line"></div><div class="line"></div><div class="line"><span class="meta">@Override</span></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">execute</span><span class="params">()</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="comment">//消费队列</span></div><div class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">5</span>; i++) &#123;</div><div class="line">        consumerQueueThreadPool.execute(<span class="keyword">new</span> ConsumerQueueThread());</div><div class="line">    &#125;</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>其实也挺简单，就是创建了一个线程池的 bean，在使用时直接从 Spring 中取出即可。</p>
-<h2 id="监控线程池"><a href="#监控线程池" class="headerlink" title="监控线程池"></a>监控线程池</h2><p>谈到了 SpringBoot，也可利用它 actuator 组件来做线程池的监控。</p>
-<p>线程怎么说都是稀缺资源，对线程池的监控可以知道自己任务执行的状况、效率等。</p>
-<p>关于 actuator 就不再细说了，感兴趣的可以看看<a href="http://t.cn/ReimM0o" target="_blank" rel="external">这篇</a>，有详细整理过如何暴露监控端点。</p>
-<p>其实 ThreadPool 本身已经提供了不少 api 可以获取线程状态：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tKfTcgy1ftq3xsrbs6j30bg0bpgnb.jpg" alt=""></p>
-<p>很多方法看名字就知道其含义，只需要将这些信息暴露到 SpringBoot 的监控端点中，我们就可以在可视化页面查看当前的线程池状态了。</p>
-<p>甚至我们可以继承线程池扩展其中的几个函数来自定义监控逻辑：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tKfTcgy1ftq40lkw9jj30mq07rmyt.jpg" alt=""></p>
-<p><img src="https://ws4.sinaimg.cn/large/006tKfTcgy1ftq41asf8rj30kq07cabd.jpg" alt=""></p>
-<p>看这些名称和定义都知道，这是让子类来实现的。</p>
-<p>可以在线程执行前、后、终止状态执行自定义逻辑。</p>
-<h2 id="线程池隔离"><a href="#线程池隔离" class="headerlink" title="线程池隔离"></a>线程池隔离</h2><blockquote>
-<p>线程池看似很美好，但也会带来一些问题。</p>
-</blockquote>
-<p>如果我们很多业务都依赖于同一个线程池,当其中一个业务因为各种不可控的原因消耗了所有的线程，导致线程池全部占满。</p>
-<p>这样其他的业务也就不能正常运转了，这对系统的打击是巨大的。</p>
-<p>比如我们 Tomcat 接受请求的线程池，假设其中一些响应特别慢，线程资源得不到回收释放；线程池慢慢被占满，最坏的情况就是整个应用都不能提供服务。</p>
-<p>所以我们需要将线程池<strong>进行隔离</strong>。</p>
-<p>通常的做法是按照业务进行划分：</p>
-<blockquote>
-<p>比如下单的任务用一个线程池，获取数据的任务用另一个线程池。这样即使其中一个出现问题把线程池耗尽，那也不会影响其他的任务运行。</p>
-</blockquote>
-<h3 id="hystrix-隔离"><a href="#hystrix-隔离" class="headerlink" title="hystrix 隔离"></a>hystrix 隔离</h3><p>这样的需求 <a href="https://github.com/Netflix/Hystrix" target="_blank" rel="external">Hystrix</a> 已经帮我们实现了。</p>
-<blockquote>
-<p>Hystrix 是一款开源的容错插件，具有依赖隔离、系统容错降级等功能。</p>
-</blockquote>
-<p>下面来看看 <code>Hystrix</code> 简单的应用：</p>
-<p>首先需要定义两个线程池，分别用于执行订单、处理用户。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * Function:订单服务</div><div class="line"> *</div><div class="line"> * <span class="doctag">@author</span> crossoverJie</div><div class="line"> *         Date: 2018/7/28 16:43</div><div class="line"> * <span class="doctag">@since</span> JDK 1.8</div><div class="line"> */</div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CommandOrder</span> <span class="keyword">extends</span> <span class="title">HystrixCommand</span>&lt;<span class="title">String</span>&gt; </span>&#123;</div><div class="line"></div><div class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> Logger LOGGER = LoggerFactory.getLogger(CommandOrder.class);</div><div class="line"></div><div class="line">    <span class="keyword">private</span> String orderName;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="title">CommandOrder</span><span class="params">(String orderName)</span> </span>&#123;</div><div class="line"></div><div class="line"></div><div class="line">        <span class="keyword">super</span>(Setter.withGroupKey(</div><div class="line">                <span class="comment">//服务分组</span></div><div class="line">                HystrixCommandGroupKey.Factory.asKey(<span class="string">"OrderGroup"</span>))</div><div class="line">                <span class="comment">//线程分组</span></div><div class="line">                .andThreadPoolKey(HystrixThreadPoolKey.Factory.asKey(<span class="string">"OrderPool"</span>))</div><div class="line"></div><div class="line">                <span class="comment">//线程池配置</span></div><div class="line">                .andThreadPoolPropertiesDefaults(HystrixThreadPoolProperties.Setter()</div><div class="line">                        .withCoreSize(<span class="number">10</span>)</div><div class="line">                        .withKeepAliveTimeMinutes(<span class="number">5</span>)</div><div class="line">                        .withMaxQueueSize(<span class="number">10</span>)</div><div class="line">                        .withQueueSizeRejectionThreshold(<span class="number">10000</span>))</div><div class="line"></div><div class="line">                .andCommandPropertiesDefaults(</div><div class="line">                        HystrixCommandProperties.Setter()</div><div class="line">                                .withExecutionIsolationStrategy(HystrixCommandProperties.ExecutionIsolationStrategy.THREAD))</div><div class="line">        )</div><div class="line">        ;</div><div class="line">        <span class="keyword">this</span>.orderName = orderName;</div><div class="line">    &#125;</div><div class="line"></div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> String <span class="title">run</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line"></div><div class="line">        LOGGER.info(<span class="string">"orderName=[&#123;&#125;]"</span>, orderName);</div><div class="line"></div><div class="line">        TimeUnit.MILLISECONDS.sleep(<span class="number">100</span>);</div><div class="line">        <span class="keyword">return</span> <span class="string">"OrderName="</span> + orderName;</div><div class="line">    &#125;</div><div class="line"></div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line"></div><div class="line"><span class="comment">/**</span></div><div class="line"> * Function:用户服务</div><div class="line"> *</div><div class="line"> * <span class="doctag">@author</span> crossoverJie</div><div class="line"> *         Date: 2018/7/28 16:43</div><div class="line"> * <span class="doctag">@since</span> JDK 1.8</div><div class="line"> */</div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CommandUser</span> <span class="keyword">extends</span> <span class="title">HystrixCommand</span>&lt;<span class="title">String</span>&gt; </span>&#123;</div><div class="line"></div><div class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> Logger LOGGER = LoggerFactory.getLogger(CommandUser.class);</div><div class="line"></div><div class="line">    <span class="keyword">private</span> String userName;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="title">CommandUser</span><span class="params">(String userName)</span> </span>&#123;</div><div class="line"></div><div class="line"></div><div class="line">        <span class="keyword">super</span>(Setter.withGroupKey(</div><div class="line">                <span class="comment">//服务分组</span></div><div class="line">                HystrixCommandGroupKey.Factory.asKey(<span class="string">"UserGroup"</span>))</div><div class="line">                <span class="comment">//线程分组</span></div><div class="line">                .andThreadPoolKey(HystrixThreadPoolKey.Factory.asKey(<span class="string">"UserPool"</span>))</div><div class="line"></div><div class="line">                <span class="comment">//线程池配置</span></div><div class="line">                .andThreadPoolPropertiesDefaults(HystrixThreadPoolProperties.Setter()</div><div class="line">                        .withCoreSize(<span class="number">10</span>)</div><div class="line">                        .withKeepAliveTimeMinutes(<span class="number">5</span>)</div><div class="line">                        .withMaxQueueSize(<span class="number">10</span>)</div><div class="line">                        .withQueueSizeRejectionThreshold(<span class="number">10000</span>))</div><div class="line"></div><div class="line">                <span class="comment">//线程池隔离</span></div><div class="line">                .andCommandPropertiesDefaults(</div><div class="line">                        HystrixCommandProperties.Setter()</div><div class="line">                                .withExecutionIsolationStrategy(HystrixCommandProperties.ExecutionIsolationStrategy.THREAD))</div><div class="line">        )</div><div class="line">        ;</div><div class="line">        <span class="keyword">this</span>.userName = userName;</div><div class="line">    &#125;</div><div class="line"></div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> String <span class="title">run</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line"></div><div class="line">        LOGGER.info(<span class="string">"userName=[&#123;&#125;]"</span>, userName);</div><div class="line"></div><div class="line">        TimeUnit.MILLISECONDS.sleep(<span class="number">100</span>);</div><div class="line">        <span class="keyword">return</span> <span class="string">"userName="</span> + userName;</div><div class="line">    &#125;</div><div class="line"></div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<hr>
-<p><code>api</code> 特别简洁易懂，具体详情请查看官方文档。</p>
-<p>然后模拟运行：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line">    CommandOrder commandPhone = <span class="keyword">new</span> CommandOrder(<span class="string">"手机"</span>);</div><div class="line">    CommandOrder command = <span class="keyword">new</span> CommandOrder(<span class="string">"电视"</span>);</div><div class="line"></div><div class="line"></div><div class="line">    <span class="comment">//阻塞方式执行</span></div><div class="line">    String execute = commandPhone.execute();</div><div class="line">    LOGGER.info(<span class="string">"execute=[&#123;&#125;]"</span>, execute);</div><div class="line"></div><div class="line">    <span class="comment">//异步非阻塞方式</span></div><div class="line">    Future&lt;String&gt; queue = command.queue();</div><div class="line">    String value = queue.get(<span class="number">200</span>, TimeUnit.MILLISECONDS);</div><div class="line">    LOGGER.info(<span class="string">"value=[&#123;&#125;]"</span>, value);</div><div class="line"></div><div class="line"></div><div class="line">    CommandUser commandUser = <span class="keyword">new</span> CommandUser(<span class="string">"张三"</span>);</div><div class="line">    String name = commandUser.execute();</div><div class="line">    LOGGER.info(<span class="string">"name=[&#123;&#125;]"</span>, name);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<hr>
-<p>运行结果：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tKfTcgy1ftq4e0ukubj30ps04gtak.jpg" alt=""></p>
-<p>可以看到两个任务分成了两个线程池运行，他们之间互不干扰。</p>
-<p>获取任务任务结果支持同步阻塞和异步非阻塞方式，可自行选择。</p>
-<p>它的实现原理其实容易猜到：</p>
-<blockquote>
-<p>利用一个 Map 来存放不同业务对应的线程池。</p>
-</blockquote>
-<p>通过刚才的构造函数也能证明：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tKfTcgy1ftq4i6xy2qj30uo09adhp.jpg" alt=""></p>
-<p>还要注意的一点是：</p>
-<blockquote>
-<p>自定义的 Command 并不是一个单例，每次执行需要 new 一个实例，不然会报 <code>This instance can only be executed once. Please instantiate a new instance.</code> 异常。</p>
-</blockquote>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>池化技术确实在平时应用广泛，熟练掌握能提高不少效率。</p>
-<p>文末的 hystrix 源码：</p>
-<p><a href="https://github.com/crossoverJie/Java-Interview/tree/master/src/main/java/com/crossoverjie/hystrix" target="_blank" rel="external">https://github.com/crossoverJie/Java-Interview/tree/master/src/main/java/com/crossoverjie/hystrix</a></p>
-<p>最后插播个小广告：</p>
-<p><a href="https://github.com/crossoverJie/Java-Interview" target="_blank" rel="external">Java-Interview</a> 截止目前将近 8K star。</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tKfTcgy1ftq4ygnncrj30ru09p40i.jpg" alt=""></p>
-<p>这次定个小目标：争取冲击 <code>1W star</code>。</p>
-<p>感谢各位老铁的支持与点赞。</p>
-<p><strong>欢迎关注公众号一起交流：</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://ws1.sinaimg.cn/large/006tKfTcgy1ftpwh3a2szj31kw11xh84.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h2 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h2&gt;&lt;p&gt;平时接触过多线程开发的童鞋应该都或多或少了解过线程池，之前发布的《阿里巴巴 Java 手册》里也有一条：&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;https://ws2.sinaimg.cn/large/006tKfTcgy1ftpxf3x1epj30la03s0tl.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;p&gt;可见线程池的重要性。&lt;/p&gt;
-&lt;p&gt;简单来说使用线程池有以下几个目的：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;线程是稀缺资源，不能频繁的创建。&lt;/li&gt;
-&lt;li&gt;解耦作用；线程的创建于执行完全分开，方便维护。&lt;/li&gt;
-&lt;li&gt;应当将其放入一个池子中，可以给其他任务进行复用。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2 id=&quot;线程池原理&quot;&gt;&lt;a href=&quot;#线程池原理&quot; class=&quot;headerlink&quot; title=&quot;线程池原理&quot;&gt;&lt;/a&gt;线程池原理&lt;/h2&gt;&lt;p&gt;谈到线程池就会想到池化技术，其中最核心的思想就是把宝贵的资源放到一个池子中；每次使用都从里面获取，用完之后又放回池子供其他人使用，有点吃大锅饭的意思。&lt;/p&gt;
-&lt;p&gt;那在 Java 中又是如何实现的呢？&lt;/p&gt;
-&lt;p&gt;在 JDK 1.5 之后推出了相关的 api，常见的创建线程池方式有以下几种：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;code&gt;Executors.newCachedThreadPool()&lt;/code&gt;：无限线程池。&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;Executors.newFixedThreadPool(nThreads)&lt;/code&gt;：创建固定大小的线程池。&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;Executors.newSingleThreadExecutor()&lt;/code&gt;：创建单个线程的线程池。&lt;/li&gt;
-&lt;/ul&gt;
-    
-    </summary>
-    
-      <category term="Java 进阶" scheme="http://crossoverjie.top/categories/Java-%E8%BF%9B%E9%98%B6/"/>
-    
-    
-      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
-    
-      <category term="SpringBoot" scheme="http://crossoverjie.top/tags/SpringBoot/"/>
-    
-      <category term="ThreadPool" scheme="http://crossoverjie.top/tags/ThreadPool/"/>
-    
-      <category term="Hystirx" scheme="http://crossoverjie.top/tags/Hystirx/"/>
     
   </entry>
   
