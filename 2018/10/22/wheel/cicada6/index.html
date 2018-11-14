@@ -68,7 +68,7 @@
 <link href="/css/main.css?v=5.0.1" rel="stylesheet" type="text/css" />
 
 
-  <meta name="keywords" content="Linux,centos,nginx," />
+  <meta name="keywords" content="Java,HTTP,Netty," />
 
 
 
@@ -86,29 +86,52 @@
 
 
 
-<meta name="description" content="前言Linux相信对大多数程序员来说都不陌生，毕竟在服务器端依然还是霸主地位而且丝毫没有退居二线的意思，以至于现在几乎每一个软件开发的相关人员都得或多或少的知道一些Linux的相关内容，本文将介绍如何在刚拿到一台云服务器(采用centos)来进行运行环境的搭建，包括JDK、Mysql、Tomcat以及nginx。相信对于小白来说很有必要的，也是我个人的一个记录。
+<meta name="description" content="前言磨了许久，借助最近的一次通宵上线 cicada 终于更新了 v2.0.0 版本。
+之所以大的版本号变为 2，确实是向下不兼容了；主要表现为：
 
-该服务器的用途是用于部署Jav">
+修复了几个反馈的 bug。
+灵活的路由方式。
+可拔插的 IOC 容器选择。
+
+其中重点是后面两个。">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Linux（二）服务器运行环境配置">
-<meta property="og:url" content="http://crossoverjie.top/2016/09/20/Linux-normal2/index.html">
+<meta property="og:title" content="设计一个可拔插的 IOC 容器">
+<meta property="og:url" content="http://crossoverjie.top/2018/10/22/wheel/cicada6/index.html">
 <meta property="og:site_name" content="crossoverJie's Blog">
-<meta property="og:description" content="前言Linux相信对大多数程序员来说都不陌生，毕竟在服务器端依然还是霸主地位而且丝毫没有退居二线的意思，以至于现在几乎每一个软件开发的相关人员都得或多或少的知道一些Linux的相关内容，本文将介绍如何在刚拿到一台云服务器(采用centos)来进行运行环境的搭建，包括JDK、Mysql、Tomcat以及nginx。相信对于小白来说很有必要的，也是我个人的一个记录。
+<meta property="og:description" content="前言磨了许久，借助最近的一次通宵上线 cicada 终于更新了 v2.0.0 版本。
+之所以大的版本号变为 2，确实是向下不兼容了；主要表现为：
 
-该服务器的用途是用于部署Jav">
-<meta property="og:image" content="https://ooo.0o0.ooo/2017/05/07/590ea8312b227.jpg">
-<meta property="og:image" content="https://ooo.0o0.ooo/2017/05/07/590ea878f1a8b.jpg">
-<meta property="og:image" content="http://img.blog.csdn.net/20160920000008974">
-<meta property="og:image" content="http://img.blog.csdn.net/20160920120817031">
-<meta property="og:image" content="http://img.blog.csdn.net/20160920121542492">
-<meta property="og:image" content="http://i.imgur.com/wQmHabT.gif">
-<meta property="og:updated_time" content="2017-05-07T04:54:33.000Z">
+修复了几个反馈的 bug。
+灵活的路由方式。
+可拔插的 IOC 容器选择。
+
+其中重点是后面两个。">
+<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fx7y63ed53j31hc0u046a.jpg">
+<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fx7ytq4sj0j30sz0o40zv.jpg">
+<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fx7yuvz6o1j30od0gcwhm.jpg">
+<meta property="og:image" content="https://ws3.sinaimg.cn/large/006tNbRwly1fx7z8xeztxj30tu094abn.jpg">
+<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fx7z9opcx8j30lb0a6jsz.jpg">
+<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fx7zckbkh3j30ov07cgmy.jpg">
+<meta property="og:image" content="https://ws4.sinaimg.cn/large/006tNbRwly1fx7zfd77kaj30np0in44c.jpg">
+<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tNbRwly1fx805jyttnj30e003ewer.jpg">
+<meta property="og:image" content="https://ws4.sinaimg.cn/large/006tNbRwly1fx8074vywrj30hj05yaap.jpg">
+<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fx808jz2dtj30jx06nmy7.jpg">
+<meta property="og:image" content="https://ws3.sinaimg.cn/large/006tNbRwly1fx80baammgj30kw08mgn2.jpg">
+<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tNbRwly1fx80dmej6mj30f805emxm.jpg">
+<meta property="og:image" content="https://ws4.sinaimg.cn/large/006tNbRwly1fx80efy38xj30m004rgmd.jpg">
+<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fx80hpjmcoj30ph064q43.jpg">
+<meta property="og:updated_time" content="2018-11-14T15:55:19.982Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Linux（二）服务器运行环境配置">
-<meta name="twitter:description" content="前言Linux相信对大多数程序员来说都不陌生，毕竟在服务器端依然还是霸主地位而且丝毫没有退居二线的意思，以至于现在几乎每一个软件开发的相关人员都得或多或少的知道一些Linux的相关内容，本文将介绍如何在刚拿到一台云服务器(采用centos)来进行运行环境的搭建，包括JDK、Mysql、Tomcat以及nginx。相信对于小白来说很有必要的，也是我个人的一个记录。
+<meta name="twitter:title" content="设计一个可拔插的 IOC 容器">
+<meta name="twitter:description" content="前言磨了许久，借助最近的一次通宵上线 cicada 终于更新了 v2.0.0 版本。
+之所以大的版本号变为 2，确实是向下不兼容了；主要表现为：
 
-该服务器的用途是用于部署Jav">
-<meta name="twitter:image" content="https://ooo.0o0.ooo/2017/05/07/590ea8312b227.jpg">
+修复了几个反馈的 bug。
+灵活的路由方式。
+可拔插的 IOC 容器选择。
+
+其中重点是后面两个。">
+<meta name="twitter:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fx7y63ed53j31hc0u046a.jpg">
 
 
 
@@ -129,9 +152,9 @@
 
 
 
-  <link rel="canonical" href="http://crossoverjie.top/2016/09/20/Linux-normal2/"/>
+  <link rel="canonical" href="http://crossoverjie.top/2018/10/22/wheel/cicada6/"/>
 
-  <title> Linux（二）服务器运行环境配置 | crossoverJie's Blog </title>
+  <title> 设计一个可拔插的 IOC 容器 | crossoverJie's Blog </title>
 </head>
 
 <body itemscope itemtype="http://schema.org/WebPage" lang="en">
@@ -330,7 +353,7 @@
             
             
               
-                Linux（二）服务器运行环境配置
+                设计一个可拔插的 IOC 容器
               
             
           </h1>
@@ -342,8 +365,8 @@
               <i class="fa fa-calendar-o"></i>
             </span>
             <span class="post-meta-item-text">Posted on</span>
-            <time itemprop="dateCreated" datetime="2016-09-20T19:45:17+08:00" content="2016-09-20">
-              2016-09-20
+            <time itemprop="dateCreated" datetime="2018-10-22T00:19:36+08:00" content="2018-10-22">
+              2018-10-22
             </time>
           </span>
 
@@ -356,8 +379,20 @@
               <span class="post-meta-item-text">In</span>
               
                 <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
-                  <a href="/categories/Linux笔记/" itemprop="url" rel="index">
-                    <span itemprop="name">Linux笔记</span>
+                  <a href="/categories/cicada/" itemprop="url" rel="index">
+                    <span itemprop="name">cicada</span>
+                  </a>
+                </span>
+
+                
+                
+                  , 
+                
+
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/cicada/轮子/" itemprop="url" rel="index">
+                    <span itemprop="name">轮子</span>
                   </a>
                 </span>
 
@@ -372,8 +407,8 @@
             
               <span class="post-comments-count">
                 &nbsp; | &nbsp;
-                <a href="/2016/09/20/Linux-normal2/#comments" itemprop="discussionUrl">
-                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2016/09/20/Linux-normal2/" itemprop="commentsCount"></span>
+                <a href="/2018/10/22/wheel/cicada6/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/10/22/wheel/cicada6/" itemprop="commentsCount"></span>
                 </a>
               </span>
             
@@ -383,7 +418,7 @@
 
           
           
-             <span id="/2016/09/20/Linux-normal2/" class="leancloud_visitors" data-flag-title="Linux（二）服务器运行环境配置">
+             <span id="/2018/10/22/wheel/cicada6/" class="leancloud_visitors" data-flag-title="设计一个可拔插的 IOC 容器">
                &nbsp; | &nbsp;
                <span class="post-meta-item-icon">
                  <i class="fa fa-eye"></i>
@@ -410,61 +445,120 @@
       
 
       
-        <p><img src="https://ooo.0o0.ooo/2017/05/07/590ea8312b227.jpg" alt="linux2.jpg"></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>Linux相信对大多数程序员来说都不陌生，毕竟在服务器端依然还是霸主地位而且丝毫没有退居二线的意思，以至于现在几乎每一个软件开发的相关人员都得或多或少的知道一些Linux的相关内容，本文将介绍如何在刚拿到一台云服务器(采用<code>centos</code>)来进行运行环境的搭建，包括<code>JDK</code>、<code>Mysql</code>、<code>Tomcat</code>以及<code>nginx</code>。相信对于小白来说很有必要的，也是我个人的一个记录。</p>
-<blockquote>
-<p>该服务器的用途是用于部署JavaEE项目。<br>部署之后的效果图如下:<br><img src="https://ooo.0o0.ooo/2017/05/07/590ea878f1a8b.jpg" alt="mac背景.jpg"><br><a id="more"></a></p>
-</blockquote>
-<h1 id="JDK安装"><a href="#JDK安装" class="headerlink" title="JDK安装"></a>JDK安装</h1><p>由于我们之后需要部署的是<code>JavaEE</code>项目，所以首先第一步就是安装JDK了。</p>
-<h2 id="卸载自带的openJDK"><a href="#卸载自带的openJDK" class="headerlink" title="卸载自带的openJDK"></a>卸载自带的openJDK</h2><p>现在的服务器拿来之后一般都是默认给我们安装一个<code>openJDK</code>，首先我们需要卸载掉。</p>
-<ol>
-<li>使用<code>rpm -qa | grep java</code>命令查看系统中是否存在有Java。</li>
-<li>使用<code>rpm -e --nodeps 相关应用名称</code>来进行卸载。(相关应用名称就是上一个命令中显示出来的名称复制到这里卸载即可)。</li>
-</ol>
-<h2 id="下载并安装JDK"><a href="#下载并安装JDK" class="headerlink" title="下载并安装JDK"></a>下载并安装JDK</h2><ol>
-<li>之后是下载<code>ORACLE</code>所提供的JDK，<a href="http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html" target="_blank" rel="external">传送门</a>根据自己系统的情况下载对应版本即可。笔者使用的是<code>jdk-8u101-linux-x64.rpm</code>版本。</li>
-<li>然后使用FTP工具上传到<code>/usr/java</code>目录下即可，没有<code>java</code>目录新建一个即可。</li>
-<li>然后使用<code>rpm -ivh jdk-8u101-linux-x64.rpm</code>命令进行解压安装。</li>
-</ol>
-<h2 id="profile文件配置"><a href="#profile文件配置" class="headerlink" title="profile文件配置"></a>profile文件配置</h2><p>安装完成之后使用<code>vi /etc/profile</code>命令编辑<code>profile</code>文件(注意该文件路径是指根目录下的etc文件夹不要找错了)。<br>在该文件中加入以下内容：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">export JAVA_HOME=/usr/java/jdk-8u101-linux-x64</div><div class="line">export CLASSPATH=.:$JAVA_HOME/jre/lib/rt.jar:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar</div><div class="line">export PATH=$PATH:$JAVA_HOME/bin</div></pre></td></tr></table></figure></p>
-<p>保存之后运行<code>source /etc/profile</code>使配置生效。</p>
-<h2 id="验证是否安装成功"><a href="#验证是否安装成功" class="headerlink" title="验证是否安装成功"></a>验证是否安装成功</h2><p>之后我们使用在<code>windows</code>平台也有的命令<code>java -version</code>，如果输出如图：<br><img src="http://img.blog.csdn.net/20160920000008974" alt="2"><br>表示安装成功。</p>
-<h1 id="MySQL安装"><a href="#MySQL安装" class="headerlink" title="MySQL安装"></a>MySQL安装</h1><h2 id="卸载自带的Mysql"><a href="#卸载自带的Mysql" class="headerlink" title="卸载自带的Mysql"></a>卸载自带的Mysql</h2><p>首先第一步还是要卸载掉自带的mysql。<br><code>rpm -e --nodeps mysql</code>命令和之前一样只是把应用名称换成mysql了而已。</p>
-<h2 id="使用yum来安装mysql"><a href="#使用yum来安装mysql" class="headerlink" title="使用yum来安装mysql"></a>使用<code>yum</code>来安装mysql</h2><p>之后我们采用<code>yum</code>来安装mysql。这样的方式最简单便捷。<br><code>yum install -y mysql-server mysql mysql-deve</code>执行该命令直到出现<code>Complete!</code>提示之后表示安装成功。<br><code>rpm -qi mysql-server</code>之后使用该命令可以查看我们安装的mysql信息。</p>
-<h2 id="mysql相关配置"><a href="#mysql相关配置" class="headerlink" title="mysql相关配置"></a>mysql相关配置</h2><p>使用<code>service mysqld start</code>来启动mysql服务(第一次会输出很多信息)，之后就不会了。<br>然后我们可以使用<code>chkconfig mysqld on</code>命令将mysql设置为开机启动。<br>输入<code>chkconfig --list | grep mysql</code>命令显示如下图：<br><img src="http://img.blog.csdn.net/20160920120817031" alt="3"><br>表示设置成功。<br>使用<code>mysqladmin -u root password &#39;root&#39;</code>为<code>root</code>账户设置密码。</p>
-<h2 id="设置远程使用"><a href="#设置远程使用" class="headerlink" title="设置远程使用"></a>设置远程使用</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">grant all privileges on *.* to &apos;root&apos;@&apos;%&apos; identified by &apos;123456&apos; with grant option;</div><div class="line"># root是用户名，%代表任意主机，&apos;123456&apos;指定的登录密码（这个和本地的root密码可以设置不同的，互不影响）</div><div class="line">flush privileges; # 重载系统权限</div><div class="line">exit;</div></pre></td></tr></table></figure>
-<h2 id="验证使用"><a href="#验证使用" class="headerlink" title="验证使用"></a>验证使用</h2><p>使用<code>mysql -u root -proot</code>来登录mysql。如果出现以下界面表示设置成功。<br><img src="http://img.blog.csdn.net/20160920121542492" alt="4"></p>
-<h1 id="Tomcat安装"><a href="#Tomcat安装" class="headerlink" title="Tomcat安装"></a>Tomcat安装</h1><p><code>Tomcat</code>也是我们运行<code>JavaEE</code>项目必备的一个中间件。</p>
-<ol>
-<li>第一步需要下载linux的Tomcat，<a href="http://tomcat.apache.org/download-80.cgi" target="_blank" rel="external">传送门</a>。根据自己系统版本进行下载即可。之后将<code>apache-tomcat-8.5.5.tar.gz</code>上传到<code>/usr/local</code>目录中。</li>
-<li>解压该压缩包<code>tar -zxv -f apache-tomcat-8.5.5.tar.gz</code>,再使用<code>mv apache-tomcat-8.5.5  tomcat</code>将解压的Tomcat移动到外层的<code>Tomcat</code>目录中。</li>
-<li>进入<code>/usr/local/tomcat/apache-tomcat-8.5.5/bin</code>目录使用<code>./startup.bat</code>命令启动tomcat。</li>
-<li>因为tomcat使用的默认端口是<code>8080</code>，linux防火墙默认是不能访问的，需要手动将其打开。使用<code>vi + /etc/sysconfig/iptables</code>编辑<code>iptables</code>(注意etc目录是根目录下的)，加入以下代码:<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 8080 -j ACCEPT</div><div class="line">-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 80 -j ACCEPT</div></pre></td></tr></table></figure>
-</li>
-</ol>
-<p>这里我们开放了8080和80端口，之后安装nginx就不用在开放了。</p>
-<blockquote>
-<p>ps:这里用到了简单的vim命令。按<code>i</code>进入插入模式，输入上面两段代码。之后按<code>esc</code>退出插入模式。再按<code>:wq</code>保存关闭即可。<br>之后使用<code>service iptables restart</code>命令重启防火墙即可。在浏览器输入服务器的<code>ip+8080</code>如果出现Tomcat的欢迎页即表明<code>Tomcat</code>安装成功。</p>
-</blockquote>
-<h1 id="nginx安装"><a href="#nginx安装" class="headerlink" title="nginx安装"></a>nginx安装</h1><p>最后是安装<code>nginx</code>，这里我们还是使用最简单的<code>yum</code>的方式来进行安装。</p>
+        <p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7y63ed53j31hc0u046a.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>磨了许久，借助最近的一次通宵上线 <a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">cicada</a> 终于更新了 <code>v2.0.0</code> 版本。</p>
+<p>之所以大的版本号变为 2，确实是向下不兼容了；主要表现为：</p>
 <ul>
-<li><p>首先使用以下几个命令安装必备的几个库：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">yum -y install pcre*</div><div class="line">yum -y install openssl*</div><div class="line">yum -y install gcc</div></pre></td></tr></table></figure>
-</li>
-<li><p>之后安装nginx。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">cd /usr/local/</div><div class="line">wget http://nginx.org/download/nginx-1.4.2.tar.gz</div><div class="line">tar -zxvf nginx-1.4.2.tar.gz</div><div class="line">cd nginx-1.4.2  </div><div class="line">./configure --prefix=/usr/local/nginx --with-http_stub_status_module</div><div class="line">make</div><div class="line">make install</div></pre></td></tr></table></figure>
-</li>
+<li>修复了几个反馈的 <code>bug</code>。</li>
+<li>灵活的路由方式。</li>
+<li>可拔插的 <code>IOC</code> 容器选择。</li>
 </ul>
-<ul>
-<li>之后就可以使用<code>/usr/local/nginx/sbin/nginx</code>命令来启动nginx了。输入服务器的IP地址，如果出现nginx的欢迎界面表示安装成功了。</li>
-</ul>
-<h2 id="nginx配置"><a href="#nginx配置" class="headerlink" title="nginx配置"></a>nginx配置</h2><p>这里我就简单贴以下我的配置，主要就是配置一个<code>upstream,</code>之后在<code>server</code>中引用配置的那个<code>upstream</code>即可。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div><div class="line">107</div><div class="line">108</div><div class="line">109</div><div class="line">110</div><div class="line">111</div><div class="line">112</div><div class="line">113</div><div class="line">114</div><div class="line">115</div><div class="line">116</div><div class="line">117</div><div class="line">118</div><div class="line">119</div><div class="line">120</div><div class="line">121</div><div class="line">122</div><div class="line">123</div><div class="line">124</div><div class="line">125</div></pre></td><td class="code"><pre><div class="line"></div><div class="line">#user  nobody;</div><div class="line">worker_processes  1;</div><div class="line"></div><div class="line">#error_log  logs/error.log;</div><div class="line">#error_log  logs/error.log  notice;</div><div class="line">#error_log  logs/error.log  info;</div><div class="line"></div><div class="line">#pid        logs/nginx.pid;</div><div class="line"></div><div class="line"></div><div class="line">events &#123;</div><div class="line">    worker_connections  1024;</div><div class="line">&#125;</div><div class="line"></div><div class="line"></div><div class="line">http &#123;</div><div class="line">    include       mime.types;</div><div class="line">    default_type  application/octet-stream;</div><div class="line"></div><div class="line">    #log_format  main  &apos;$remote_addr - $remote_user [$time_local] &quot;$request&quot; &apos;</div><div class="line">    #                  &apos;$status $body_bytes_sent &quot;$http_referer&quot; &apos;</div><div class="line">    #                  &apos;&quot;$http_user_agent&quot; &quot;$http_x_forwarded_for&quot;&apos;;</div><div class="line"></div><div class="line">    #access_log  logs/access.log  main;</div><div class="line"></div><div class="line">    sendfile        on;</div><div class="line">    #tcp_nopush     on;</div><div class="line"></div><div class="line">    #keepalive_timeout  0;</div><div class="line">    keepalive_timeout  65;</div><div class="line"></div><div class="line">    #gzip  on;</div><div class="line"></div><div class="line">    upstream crossover_main &#123;</div><div class="line">        server 127.0.0.1:8080;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    server &#123;</div><div class="line">        listen       80;</div><div class="line">        server_name  www.crossoverjie.top;</div><div class="line"></div><div class="line">        #charset koi8-r;</div><div class="line"></div><div class="line">        #access_log  logs/host.access.log  main;</div><div class="line"></div><div class="line">        location  / &#123;</div><div class="line">             proxy_pass http://crossover_main/examples/;</div><div class="line">             proxy_set_header Host $http_host;</div><div class="line">             proxy_set_header X-Forwarded-For $remote_addr;</div><div class="line">             index  index.jsp;</div><div class="line">        &#125;</div><div class="line"></div><div class="line"></div><div class="line">        #error_page  404              /404.html;</div><div class="line"></div><div class="line">        # redirect server error pages to the static page /50x.html</div><div class="line">        #</div><div class="line">        error_page   500 502 503 504  /50x.html;</div><div class="line">        location = /50x.html &#123;</div><div class="line">            root   html;</div><div class="line">        &#125;</div><div class="line"></div><div class="line">        # proxy the PHP scripts to Apache listening on 127.0.0.1:80</div><div class="line">        #</div><div class="line">        #location ~ \.php$ &#123;</div><div class="line">        #    proxy_pass   http://127.0.0.1;</div><div class="line">        #&#125;</div><div class="line"></div><div class="line">        # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000</div><div class="line">        #</div><div class="line">        #location ~ \.php$ &#123;</div><div class="line">        #    root           html;</div><div class="line">        #    fastcgi_pass   127.0.0.1:9000;</div><div class="line">        #    fastcgi_index  index.php;</div><div class="line">        #    fastcgi_param  SCRIPT_FILENAME  /scripts$fastcgi_script_name;</div><div class="line">        #    include        fastcgi_params;</div><div class="line">        #&#125;</div><div class="line"></div><div class="line">        # deny access to .htaccess files, if Apache&apos;s document root</div><div class="line">        # concurs with nginx&apos;s one</div><div class="line">        #</div><div class="line">        #location ~ /\.ht &#123;</div><div class="line">        #    deny  all;</div><div class="line">        #&#125;</div><div class="line">    &#125;</div><div class="line"></div><div class="line"></div><div class="line">    # another virtual host using mix of IP-, name-, and port-based configuration</div><div class="line">    #</div><div class="line">    #server &#123;</div><div class="line">    #    listen       8000;</div><div class="line">    #    listen       somename:8080;</div><div class="line">    #    server_name  somename  alias  another.alias;</div><div class="line"></div><div class="line">    #    location / &#123;</div><div class="line">    #        root   html;</div><div class="line">    #        index  index.html index.htm;</div><div class="line">    #    &#125;</div><div class="line">    #&#125;</div><div class="line"></div><div class="line"></div><div class="line">    # HTTPS server</div><div class="line">    #</div><div class="line">    #server &#123;</div><div class="line">    #    listen       443;</div><div class="line">    #    server_name  localhost;</div><div class="line"></div><div class="line">    #    ssl                  on;</div><div class="line">    #    ssl_certificate      cert.pem;</div><div class="line">    #    ssl_certificate_key  cert.key;</div><div class="line"></div><div class="line">    #    ssl_session_timeout  5m;</div><div class="line"></div><div class="line">    #    ssl_protocols  SSLv2 SSLv3 TLSv1;</div><div class="line">    #    ssl_ciphers  HIGH:!aNULL:!MD5;</div><div class="line">    #    ssl_prefer_server_ciphers   on;</div><div class="line"></div><div class="line">    #    location / &#123;</div><div class="line">    #        root   html;</div><div class="line">    #        index  index.html index.htm;</div><div class="line">    #    &#125;</div><div class="line">    #&#125;</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
-<p>之后我们在地址栏输入服务器的IP地址(如果有域名解析了服务器的IP可以直接输入域名)就会进入我们在<code>upstream</code>中配置的地址加上在<code>server</code>中的地址。根据我这里的配置最后解析地址就是<code>http://127.0.0.1:8080/examples</code>应该是很好理解的。最终的结果是我在片头放的那张截图一样。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这是一个简单的基于centOS的运行环境配置，对于小白练手应该是够了，有不清楚和错误的地方欢迎指出反正我也不会回复。<br><img src="http://i.imgur.com/wQmHabT.gif" alt="4"></p>
+<p>其中重点是后面两个。</p>
+<a id="more"></a>
+<h1 id="新的路由方式"><a href="#新的路由方式" class="headerlink" title="新的路由方式"></a>新的路由方式</h1><p>先来看第一个：路由方式的更新。</p>
+<p>在之前的版本想要写一个接口必须的实现一个 <code>WorkAction</code>；而且最麻烦的是一个实现类只能做一个接口。</p>
+<p>因此也有朋友给我提过这个 <a href="https://github.com/TogetherOS/cicada/issues/12" target="_blank" rel="external">issue</a>。</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7ytq4sj0j30sz0o40zv.jpg" alt=""></p>
+<hr>
+<p>于是改进后的使用方式如下：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7yuvz6o1j30od0gcwhm.jpg" alt=""></p>
 <blockquote>
-<p>个人博客地址：<a href="http://crossoverjie.top">http://crossoverjie.top</a>。</p>
-<p>GitHub地址：<a href="https://github.com/crossoverJie" target="_blank" rel="external">https://github.com/crossoverJie</a>。</p>
+<p>是否有点似曾相识的感觉😊。</p>
 </blockquote>
+<p>如上图所示，不需要实现某个特定的接口；只需要使用不同的注解即可。</p>
+<p>同时也支持自定义 <code>pojo</code>, <code>cicada</code> 会在调用过程中对参数进行实例化。</p>
+<p>拿这个 <code>getUser</code> 接口为例，当这样请求时这些参数就会被封装进 <code>DemoReq</code> 中.</p>
+<p><a href="http://127.0.0.1:5688/cicada-example/routeAction/getUser?id=1234&amp;name=zhangsan" target="_blank" rel="external">http://127.0.0.1:5688/cicada-example/routeAction/getUser?id=1234&amp;name=zhangsan</a></p>
+<p>同时得到响应：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">&#123;<span class="attr">"message"</span>:<span class="string">"hello =zhangsan"</span>&#125;</div></pre></td></tr></table></figure>
+<p>实现过程也挺简单，大家查看源码便会发现；这里贴一点比较核心的步骤。</p>
+<ul>
+<li>扫描所有使用 <code>@CicadaAction</code> 注解的类。</li>
+<li>扫描所有使用 <code>@CicadaRoute</code> 注解的方法。</li>
+<li>将他们的映射关系存入 <code>Map</code> 中。</li>
+<li>请求时根据 <code>URL</code> 去 <code>Map</code> 中查找这个关系。</li>
+<li>反射构建参数及方法调用。</li>
+</ul>
+<p><strong>扫描类以及写入映射关系</strong></p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fx7z8xeztxj30tu094abn.jpg" alt=""></p>
+<hr>
+<p><strong>请求时查询映射关系</strong></p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7z9opcx8j30lb0a6jsz.jpg" alt=""></p>
+<hr>
+<p><strong>反射调用这些方法</strong></p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7zckbkh3j30ov07cgmy.jpg" alt=""></p>
+<h1 id="是否需要-IOC-容器"><a href="#是否需要-IOC-容器" class="headerlink" title="是否需要 IOC 容器"></a>是否需要 IOC 容器</h1><p>上面那几个步骤其实我都是一把梭写完的，但当我写到执行具体方法时感觉<code>有点意思</code>了。</p>
+<p>大家都知道反射调用方法有两个重要的参数：</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fx7zfd77kaj30np0in44c.jpg" alt=""></p>
+<ul>
+<li><code>obj</code> 方法执行的实例。</li>
+<li><code>args..</code> 自然是方法的参数。</li>
+</ul>
+<p>我第一次写的时候是这样的：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">method.invoke(method.getDeclaringClass().newInstance(), object);</div></pre></td></tr></table></figure>
+<p>然后一测试，也没问题。</p>
+<p>当我写完之后 <code>review</code> 代码时发现不对：这样这里每次都会创建一个新的实例，而且反射调用 <code>newInstance()</code> 效率也不高。</p>
+<p>这时我不自觉的想到了 Spring 中 IOC 容器，和这里场景也非常的类似。</p>
+<blockquote>
+<p>在应用初始化时将所有的接口实例化并保存到 bean 容器中，当需要使用时只需要从容器中获取即可。</p>
+</blockquote>
+<p>这样只是会在启动时做很多加载工作，但造福后代啊。</p>
+<h1 id="可拔插的-IOC-容器"><a href="#可拔插的-IOC-容器" class="headerlink" title="可拔插的 IOC 容器"></a>可拔插的 IOC 容器</h1><p>于是我打算自己实现一个这样的 bean 容器。</p>
+<p>但在实现之前又想到一个 feature:</p>
+<blockquote>
+<p>不如把实现 bean 容器的方案交给使用者选择，可以选择使用 bean 容器，也可以就用之前的每次都创建新的实例，就像 Spring 中的 prototype 作用域一样。</p>
+</blockquote>
+<p>甚至可以自定义容器实现，比如将 bean 存放到数据库、Redis 都行；当然一般人也不会这么干。</p>
+<p>和 <code>SPI</code> 的机制也有点类似。</p>
+<p>要实现上述的需求大致需要以下步骤：</p>
+<ul>
+<li>一个通用的接口，包含了注册容器、从容器中获取实例等方法。</li>
+<li><code>BeanManager</code> 类，由它来管理具体使用哪种 <code>IOC</code> 容器。</li>
+</ul>
+<p>所以首先定义了一个接口；<code>CicadaBeanFactory</code>:</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fx805jyttnj30e003ewer.jpg" alt=""></p>
+<p>包含了注册和获取实例的接口。</p>
+<p>同时分别有两个不同的容器实现方案。</p>
+<p>默认实现；<code>CicadaDefaultBean</code>：<br><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fx8074vywrj30hj05yaap.jpg" alt=""></p>
+<p>也就是文中说道的，每次都会创建实例；由于这种方式其实根本就没有 bean 容器，所以也不存在注册了。</p>
+<p>接下来是真正的 IOC 容器；<code>CicadaIoc</code>：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx808jz2dtj30jx06nmy7.jpg" alt=""></p>
+<blockquote>
+<p>它将所有的实例都存放在一个 Map 中。</p>
+</blockquote>
+<p>当然也少不了刚才提到的 <code>CicadaBeanManager</code>，它会在应用启动的时候将所有的实例注册到 <code>bean</code> 容器中。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fx80baammgj30kw08mgn2.jpg" alt=""></p>
+<p>重点是图中标红的部分：</p>
+<ul>
+<li>需要根据用户的选择实例化 <code>CicadaBeanFactory</code> 接口。</li>
+<li>将所有的实例注册到 CicadaBeanFactory 接口中。</li>
+</ul>
+<p>同时也提供了一个获取实例的方法：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fx80dmej6mj30f805emxm.jpg" alt=""></p>
+<p>就是直接调用 <code>CicadaBeanFactory</code> 接口的方法。</p>
+<hr>
+<p>然后在上文提到的反射调用方法处就变为：</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fx80efy38xj30m004rgmd.jpg" alt=""></p>
+<p>从 <code>bean</code> 容器中获取实例了；获取的过程可以是每次都创建一个新的对象，也可以是直接从容器中获取实例。这点对于这里的调用者来说<strong>并不关心</strong>。</p>
+<p>所以这也实现了标题所说的：<code>可拔插</code>。</p>
+<p>为了实现这个目的，我将 <code>CicadaIoc</code> 的实现单独放到一个模块中，以 jar 包的形式提供实现。</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx80hpjmcoj30ph064q43.jpg" alt=""></p>
+<p>所以如果你想要使用 <code>IOC</code> 容器的方式获取实例时只需要在你的应用中额外加入这个 jar 包即可。</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>top.crossoverjie.opensource<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>cicada-ioc<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>2.0.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></div><div class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></div></pre></td></tr></table></figure>
+<p>如果不使用则是默认的 <code>CicadaDefaultBean</code> 实现，也就是每次都会创建对象。</p>
+<p>这样有个好处：</p>
+<p>当你自己想实现一个 <code>IOC</code> 容器时；只需要实现 <code>cicada</code> 提供的 <code>CicadaBeanFactory</code> 接口，并在你的应用中只加入你的 <code>jar</code> 包即可。</p>
+<p><strong>其余所有的代码都不需要改变，便可随意切换不的容器。</strong></p>
+<blockquote>
+<p>当然我是推荐大家使用 <code>IOC</code> 容器的（其实就是单例），牺牲一点应用启动时间带来后续性能的提升是值得的。</p>
+</blockquote>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>cicada</code> 的大坑填的差不多了，后续也会做一些小功能的迭代。</p>
+<p>还没有关注的朋友赶紧关注一波：</p>
+<p><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">https://github.com/TogetherOS/cicada</a></p>
+<blockquote>
+<p>PS：虽然没有仔细分析 Spring IOC 的实现，但相信看完此篇的朋友应该对 Spring IOC 以及 SpringMVC 会有一些自己的理解。</p>
+</blockquote>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
 
       
     </div>
@@ -512,11 +606,11 @@
       
         <div class="post-tags">
           
-            <a href="/tags/Linux/" rel="tag">#Linux</a>
+            <a href="/tags/Java/" rel="tag">#Java</a>
           
-            <a href="/tags/centos/" rel="tag">#centos</a>
+            <a href="/tags/HTTP/" rel="tag">#HTTP</a>
           
-            <a href="/tags/nginx/" rel="tag">#nginx</a>
+            <a href="/tags/Netty/" rel="tag">#Netty</a>
           
         </div>
       
@@ -525,16 +619,16 @@
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/2016/09/04/SSM5/" rel="next" title="SSM(五)基于webSocket的聊天室">
-                <i class="fa fa-chevron-left"></i> SSM(五)基于webSocket的聊天室
+              <a href="/2018/10/22/wheel/cicada5/" rel="next" title="利用责任链模式设计一个拦截器">
+                <i class="fa fa-chevron-left"></i> 利用责任链模式设计一个拦截器
               </a>
             
           </div>
 
           <div class="post-nav-prev post-nav-item">
             
-              <a href="/2016/10/18/SSM6/" rel="prev" title="SSM(六)跨域传输">
-                SSM(六)跨域传输 <i class="fa fa-chevron-right"></i>
+              <a href="/2018/10/29/java-senior/concurrent-in-action/" rel="prev" title="一份针对于新手的多线程实践">
+                一份针对于新手的多线程实践 <i class="fa fa-chevron-right"></i>
               </a>
             
           </div>
@@ -746,7 +840,7 @@
               
             
             
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#JDK安装"><span class="nav-number">2.</span> <span class="nav-text">JDK安装</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#卸载自带的openJDK"><span class="nav-number">2.1.</span> <span class="nav-text">卸载自带的openJDK</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#下载并安装JDK"><span class="nav-number">2.2.</span> <span class="nav-text">下载并安装JDK</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#profile文件配置"><span class="nav-number">2.3.</span> <span class="nav-text">profile文件配置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#验证是否安装成功"><span class="nav-number">2.4.</span> <span class="nav-text">验证是否安装成功</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#MySQL安装"><span class="nav-number">3.</span> <span class="nav-text">MySQL安装</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#卸载自带的Mysql"><span class="nav-number">3.1.</span> <span class="nav-text">卸载自带的Mysql</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用yum来安装mysql"><span class="nav-number">3.2.</span> <span class="nav-text">使用yum来安装mysql</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#mysql相关配置"><span class="nav-number">3.3.</span> <span class="nav-text">mysql相关配置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#设置远程使用"><span class="nav-number">3.4.</span> <span class="nav-text">设置远程使用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#验证使用"><span class="nav-number">3.5.</span> <span class="nav-text">验证使用</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Tomcat安装"><span class="nav-number">4.</span> <span class="nav-text">Tomcat安装</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#nginx安装"><span class="nav-number">5.</span> <span class="nav-text">nginx安装</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#nginx配置"><span class="nav-number">5.1.</span> <span class="nav-text">nginx配置</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#新的路由方式"><span class="nav-number">2.</span> <span class="nav-text">新的路由方式</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#是否需要-IOC-容器"><span class="nav-number">3.</span> <span class="nav-text">是否需要 IOC 容器</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#可拔插的-IOC-容器"><span class="nav-number">4.</span> <span class="nav-text">可拔插的 IOC 容器</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li></ol></div>
             
           </div>
         </section>
@@ -889,9 +983,9 @@
 
     <script type="text/javascript">
       var disqus_shortname = 'crossoverjie';
-      var disqus_identifier = '2016/09/20/Linux-normal2/';
-      var disqus_title = "Linux（二）服务器运行环境配置";
-      var disqus_url = 'http://crossoverjie.top/2016/09/20/Linux-normal2/';
+      var disqus_identifier = '2018/10/22/wheel/cicada6/';
+      var disqus_title = "设计一个可拔插的 IOC 容器";
+      var disqus_url = 'http://crossoverjie.top/2018/10/22/wheel/cicada6/';
 
       function run_disqus_script(disqus_script){
         var dsq = document.createElement('script');
