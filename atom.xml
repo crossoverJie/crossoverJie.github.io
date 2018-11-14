@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2018-11-11T16:46:13.661Z</updated>
+  <updated>2018-11-14T15:57:23.202Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,156 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>设计一个可拔插的 IOC 容器</title>
+    <link href="http://crossoverjie.top/2018/11/22/wheel/cicada6/"/>
+    <id>http://crossoverjie.top/2018/11/22/wheel/cicada6/</id>
+    <published>2018-11-22T00:19:36.000Z</published>
+    <updated>2018-11-14T15:57:23.202Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7y63ed53j31hc0u046a.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>磨了许久，借助最近的一次通宵上线 <a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">cicada</a> 终于更新了 <code>v2.0.0</code> 版本。</p>
+<p>之所以大的版本号变为 2，确实是向下不兼容了；主要表现为：</p>
+<ul>
+<li>修复了几个反馈的 <code>bug</code>。</li>
+<li>灵活的路由方式。</li>
+<li>可拔插的 <code>IOC</code> 容器选择。</li>
+</ul>
+<p>其中重点是后面两个。</p>
+<a id="more"></a>
+<h1 id="新的路由方式"><a href="#新的路由方式" class="headerlink" title="新的路由方式"></a>新的路由方式</h1><p>先来看第一个：路由方式的更新。</p>
+<p>在之前的版本想要写一个接口必须的实现一个 <code>WorkAction</code>；而且最麻烦的是一个实现类只能做一个接口。</p>
+<p>因此也有朋友给我提过这个 <a href="https://github.com/TogetherOS/cicada/issues/12" target="_blank" rel="external">issue</a>。</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7ytq4sj0j30sz0o40zv.jpg" alt=""></p>
+<hr>
+<p>于是改进后的使用方式如下：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7yuvz6o1j30od0gcwhm.jpg" alt=""></p>
+<blockquote>
+<p>是否有点似曾相识的感觉😊。</p>
+</blockquote>
+<p>如上图所示，不需要实现某个特定的接口；只需要使用不同的注解即可。</p>
+<p>同时也支持自定义 <code>pojo</code>, <code>cicada</code> 会在调用过程中对参数进行实例化。</p>
+<p>拿这个 <code>getUser</code> 接口为例，当这样请求时这些参数就会被封装进 <code>DemoReq</code> 中.</p>
+<p><a href="http://127.0.0.1:5688/cicada-example/routeAction/getUser?id=1234&amp;name=zhangsan" target="_blank" rel="external">http://127.0.0.1:5688/cicada-example/routeAction/getUser?id=1234&amp;name=zhangsan</a></p>
+<p>同时得到响应：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">&#123;<span class="attr">"message"</span>:<span class="string">"hello =zhangsan"</span>&#125;</div></pre></td></tr></table></figure>
+<p>实现过程也挺简单，大家查看源码便会发现；这里贴一点比较核心的步骤。</p>
+<ul>
+<li>扫描所有使用 <code>@CicadaAction</code> 注解的类。</li>
+<li>扫描所有使用 <code>@CicadaRoute</code> 注解的方法。</li>
+<li>将他们的映射关系存入 <code>Map</code> 中。</li>
+<li>请求时根据 <code>URL</code> 去 <code>Map</code> 中查找这个关系。</li>
+<li>反射构建参数及方法调用。</li>
+</ul>
+<p><strong>扫描类以及写入映射关系</strong></p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fx7z8xeztxj30tu094abn.jpg" alt=""></p>
+<hr>
+<p><strong>请求时查询映射关系</strong></p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7z9opcx8j30lb0a6jsz.jpg" alt=""></p>
+<hr>
+<p><strong>反射调用这些方法</strong></p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7zckbkh3j30ov07cgmy.jpg" alt=""></p>
+<h1 id="是否需要-IOC-容器"><a href="#是否需要-IOC-容器" class="headerlink" title="是否需要 IOC 容器"></a>是否需要 IOC 容器</h1><p>上面那几个步骤其实我都是一把梭写完的，但当我写到执行具体方法时感觉<code>有点意思</code>了。</p>
+<p>大家都知道反射调用方法有两个重要的参数：</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fx7zfd77kaj30np0in44c.jpg" alt=""></p>
+<ul>
+<li><code>obj</code> 方法执行的实例。</li>
+<li><code>args..</code> 自然是方法的参数。</li>
+</ul>
+<p>我第一次写的时候是这样的：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">method.invoke(method.getDeclaringClass().newInstance(), object);</div></pre></td></tr></table></figure>
+<p>然后一测试，也没问题。</p>
+<p>当我写完之后 <code>review</code> 代码时发现不对：这样这里每次都会创建一个新的实例，而且反射调用 <code>newInstance()</code> 效率也不高。</p>
+<p>这时我不自觉的想到了 Spring 中 IOC 容器，和这里场景也非常的类似。</p>
+<blockquote>
+<p>在应用初始化时将所有的接口实例化并保存到 bean 容器中，当需要使用时只需要从容器中获取即可。</p>
+</blockquote>
+<p>这样只是会在启动时做很多加载工作，但造福后代啊。</p>
+<h1 id="可拔插的-IOC-容器"><a href="#可拔插的-IOC-容器" class="headerlink" title="可拔插的 IOC 容器"></a>可拔插的 IOC 容器</h1><p>于是我打算自己实现一个这样的 bean 容器。</p>
+<p>但在实现之前又想到一个 feature:</p>
+<blockquote>
+<p>不如把实现 bean 容器的方案交给使用者选择，可以选择使用 bean 容器，也可以就用之前的每次都创建新的实例，就像 Spring 中的 prototype 作用域一样。</p>
+</blockquote>
+<p>甚至可以自定义容器实现，比如将 bean 存放到数据库、Redis 都行；当然一般人也不会这么干。</p>
+<p>和 <code>SPI</code> 的机制也有点类似。</p>
+<p>要实现上述的需求大致需要以下步骤：</p>
+<ul>
+<li>一个通用的接口，包含了注册容器、从容器中获取实例等方法。</li>
+<li><code>BeanManager</code> 类，由它来管理具体使用哪种 <code>IOC</code> 容器。</li>
+</ul>
+<p>所以首先定义了一个接口；<code>CicadaBeanFactory</code>:</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fx805jyttnj30e003ewer.jpg" alt=""></p>
+<p>包含了注册和获取实例的接口。</p>
+<p>同时分别有两个不同的容器实现方案。</p>
+<p>默认实现；<code>CicadaDefaultBean</code>：<br><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fx8074vywrj30hj05yaap.jpg" alt=""></p>
+<p>也就是文中说道的，每次都会创建实例；由于这种方式其实根本就没有 bean 容器，所以也不存在注册了。</p>
+<p>接下来是真正的 IOC 容器；<code>CicadaIoc</code>：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx808jz2dtj30jx06nmy7.jpg" alt=""></p>
+<blockquote>
+<p>它将所有的实例都存放在一个 Map 中。</p>
+</blockquote>
+<p>当然也少不了刚才提到的 <code>CicadaBeanManager</code>，它会在应用启动的时候将所有的实例注册到 <code>bean</code> 容器中。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fx80baammgj30kw08mgn2.jpg" alt=""></p>
+<p>重点是图中标红的部分：</p>
+<ul>
+<li>需要根据用户的选择实例化 <code>CicadaBeanFactory</code> 接口。</li>
+<li>将所有的实例注册到 CicadaBeanFactory 接口中。</li>
+</ul>
+<p>同时也提供了一个获取实例的方法：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fx80dmej6mj30f805emxm.jpg" alt=""></p>
+<p>就是直接调用 <code>CicadaBeanFactory</code> 接口的方法。</p>
+<hr>
+<p>然后在上文提到的反射调用方法处就变为：</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fx80efy38xj30m004rgmd.jpg" alt=""></p>
+<p>从 <code>bean</code> 容器中获取实例了；获取的过程可以是每次都创建一个新的对象，也可以是直接从容器中获取实例。这点对于这里的调用者来说<strong>并不关心</strong>。</p>
+<p>所以这也实现了标题所说的：<code>可拔插</code>。</p>
+<p>为了实现这个目的，我将 <code>CicadaIoc</code> 的实现单独放到一个模块中，以 jar 包的形式提供实现。</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx80hpjmcoj30ph064q43.jpg" alt=""></p>
+<p>所以如果你想要使用 <code>IOC</code> 容器的方式获取实例时只需要在你的应用中额外加入这个 jar 包即可。</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>top.crossoverjie.opensource<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>cicada-ioc<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>2.0.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></div><div class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></div></pre></td></tr></table></figure>
+<p>如果不使用则是默认的 <code>CicadaDefaultBean</code> 实现，也就是每次都会创建对象。</p>
+<p>这样有个好处：</p>
+<p>当你自己想实现一个 <code>IOC</code> 容器时；只需要实现 <code>cicada</code> 提供的 <code>CicadaBeanFactory</code> 接口，并在你的应用中只加入你的 <code>jar</code> 包即可。</p>
+<p><strong>其余所有的代码都不需要改变，便可随意切换不的容器。</strong></p>
+<blockquote>
+<p>当然我是推荐大家使用 <code>IOC</code> 容器的（其实就是单例），牺牲一点应用启动时间带来后续性能的提升是值得的。</p>
+</blockquote>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>cicada</code> 的大坑填的差不多了，后续也会做一些小功能的迭代。</p>
+<p>还没有关注的朋友赶紧关注一波：</p>
+<p><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">https://github.com/TogetherOS/cicada</a></p>
+<blockquote>
+<p>PS：虽然没有仔细分析 Spring IOC 的实现，但相信看完此篇的朋友应该对 Spring IOC 以及 SpringMVC 会有一些自己的理解。</p>
+</blockquote>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://ws1.sinaimg.cn/large/006tNbRwly1fx7y63ed53j31hc0u046a.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;磨了许久，借助最近的一次通宵上线 &lt;a href=&quot;https://github.com/TogetherOS/cicada&quot;&gt;cicada&lt;/a&gt; 终于更新了 &lt;code&gt;v2.0.0&lt;/code&gt; 版本。&lt;/p&gt;
+&lt;p&gt;之所以大的版本号变为 2，确实是向下不兼容了；主要表现为：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;修复了几个反馈的 &lt;code&gt;bug&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;灵活的路由方式。&lt;/li&gt;
+&lt;li&gt;可拔插的 &lt;code&gt;IOC&lt;/code&gt; 容器选择。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;其中重点是后面两个。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="cicada" scheme="http://crossoverjie.top/categories/cicada/"/>
+    
+      <category term="轮子" scheme="http://crossoverjie.top/categories/cicada/%E8%BD%AE%E5%AD%90/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="HTTP" scheme="http://crossoverjie.top/tags/HTTP/"/>
+    
+      <category term="Netty" scheme="http://crossoverjie.top/tags/Netty/"/>
+    
+  </entry>
   
   <entry>
     <title>不改一行代码定位线上性能问题</title>
@@ -253,9 +403,9 @@
     
       <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
     
-      <category term="HashMap" scheme="http://crossoverjie.top/tags/HashMap/"/>
-    
       <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
+    
+      <category term="HashMap" scheme="http://crossoverjie.top/tags/HashMap/"/>
     
       <category term="HashSet" scheme="http://crossoverjie.top/tags/HashSet/"/>
     
@@ -618,156 +768,6 @@
       <category term="SpringBoot" scheme="http://crossoverjie.top/tags/SpringBoot/"/>
     
       <category term="ThreadPool" scheme="http://crossoverjie.top/tags/ThreadPool/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>设计一个可拔插的 IOC 容器</title>
-    <link href="http://crossoverjie.top/2018/10/22/wheel/cicada6/"/>
-    <id>http://crossoverjie.top/2018/10/22/wheel/cicada6/</id>
-    <published>2018-10-21T16:19:36.000Z</published>
-    <updated>2018-11-14T15:55:19.982Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7y63ed53j31hc0u046a.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>磨了许久，借助最近的一次通宵上线 <a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">cicada</a> 终于更新了 <code>v2.0.0</code> 版本。</p>
-<p>之所以大的版本号变为 2，确实是向下不兼容了；主要表现为：</p>
-<ul>
-<li>修复了几个反馈的 <code>bug</code>。</li>
-<li>灵活的路由方式。</li>
-<li>可拔插的 <code>IOC</code> 容器选择。</li>
-</ul>
-<p>其中重点是后面两个。</p>
-<a id="more"></a>
-<h1 id="新的路由方式"><a href="#新的路由方式" class="headerlink" title="新的路由方式"></a>新的路由方式</h1><p>先来看第一个：路由方式的更新。</p>
-<p>在之前的版本想要写一个接口必须的实现一个 <code>WorkAction</code>；而且最麻烦的是一个实现类只能做一个接口。</p>
-<p>因此也有朋友给我提过这个 <a href="https://github.com/TogetherOS/cicada/issues/12" target="_blank" rel="external">issue</a>。</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7ytq4sj0j30sz0o40zv.jpg" alt=""></p>
-<hr>
-<p>于是改进后的使用方式如下：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7yuvz6o1j30od0gcwhm.jpg" alt=""></p>
-<blockquote>
-<p>是否有点似曾相识的感觉😊。</p>
-</blockquote>
-<p>如上图所示，不需要实现某个特定的接口；只需要使用不同的注解即可。</p>
-<p>同时也支持自定义 <code>pojo</code>, <code>cicada</code> 会在调用过程中对参数进行实例化。</p>
-<p>拿这个 <code>getUser</code> 接口为例，当这样请求时这些参数就会被封装进 <code>DemoReq</code> 中.</p>
-<p><a href="http://127.0.0.1:5688/cicada-example/routeAction/getUser?id=1234&amp;name=zhangsan" target="_blank" rel="external">http://127.0.0.1:5688/cicada-example/routeAction/getUser?id=1234&amp;name=zhangsan</a></p>
-<p>同时得到响应：</p>
-<figure class="highlight json"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">&#123;<span class="attr">"message"</span>:<span class="string">"hello =zhangsan"</span>&#125;</div></pre></td></tr></table></figure>
-<p>实现过程也挺简单，大家查看源码便会发现；这里贴一点比较核心的步骤。</p>
-<ul>
-<li>扫描所有使用 <code>@CicadaAction</code> 注解的类。</li>
-<li>扫描所有使用 <code>@CicadaRoute</code> 注解的方法。</li>
-<li>将他们的映射关系存入 <code>Map</code> 中。</li>
-<li>请求时根据 <code>URL</code> 去 <code>Map</code> 中查找这个关系。</li>
-<li>反射构建参数及方法调用。</li>
-</ul>
-<p><strong>扫描类以及写入映射关系</strong></p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fx7z8xeztxj30tu094abn.jpg" alt=""></p>
-<hr>
-<p><strong>请求时查询映射关系</strong></p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7z9opcx8j30lb0a6jsz.jpg" alt=""></p>
-<hr>
-<p><strong>反射调用这些方法</strong></p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7zckbkh3j30ov07cgmy.jpg" alt=""></p>
-<h1 id="是否需要-IOC-容器"><a href="#是否需要-IOC-容器" class="headerlink" title="是否需要 IOC 容器"></a>是否需要 IOC 容器</h1><p>上面那几个步骤其实我都是一把梭写完的，但当我写到执行具体方法时感觉<code>有点意思</code>了。</p>
-<p>大家都知道反射调用方法有两个重要的参数：</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fx7zfd77kaj30np0in44c.jpg" alt=""></p>
-<ul>
-<li><code>obj</code> 方法执行的实例。</li>
-<li><code>args..</code> 自然是方法的参数。</li>
-</ul>
-<p>我第一次写的时候是这样的：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">method.invoke(method.getDeclaringClass().newInstance(), object);</div></pre></td></tr></table></figure>
-<p>然后一测试，也没问题。</p>
-<p>当我写完之后 <code>review</code> 代码时发现不对：这样这里每次都会创建一个新的实例，而且反射调用 <code>newInstance()</code> 效率也不高。</p>
-<p>这时我不自觉的想到了 Spring 中 IOC 容器，和这里场景也非常的类似。</p>
-<blockquote>
-<p>在应用初始化时将所有的接口实例化并保存到 bean 容器中，当需要使用时只需要从容器中获取即可。</p>
-</blockquote>
-<p>这样只是会在启动时做很多加载工作，但造福后代啊。</p>
-<h1 id="可拔插的-IOC-容器"><a href="#可拔插的-IOC-容器" class="headerlink" title="可拔插的 IOC 容器"></a>可拔插的 IOC 容器</h1><p>于是我打算自己实现一个这样的 bean 容器。</p>
-<p>但在实现之前又想到一个 feature:</p>
-<blockquote>
-<p>不如把实现 bean 容器的方案交给使用者选择，可以选择使用 bean 容器，也可以就用之前的每次都创建新的实例，就像 Spring 中的 prototype 作用域一样。</p>
-</blockquote>
-<p>甚至可以自定义容器实现，比如将 bean 存放到数据库、Redis 都行；当然一般人也不会这么干。</p>
-<p>和 <code>SPI</code> 的机制也有点类似。</p>
-<p>要实现上述的需求大致需要以下步骤：</p>
-<ul>
-<li>一个通用的接口，包含了注册容器、从容器中获取实例等方法。</li>
-<li><code>BeanManager</code> 类，由它来管理具体使用哪种 <code>IOC</code> 容器。</li>
-</ul>
-<p>所以首先定义了一个接口；<code>CicadaBeanFactory</code>:</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fx805jyttnj30e003ewer.jpg" alt=""></p>
-<p>包含了注册和获取实例的接口。</p>
-<p>同时分别有两个不同的容器实现方案。</p>
-<p>默认实现；<code>CicadaDefaultBean</code>：<br><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fx8074vywrj30hj05yaap.jpg" alt=""></p>
-<p>也就是文中说道的，每次都会创建实例；由于这种方式其实根本就没有 bean 容器，所以也不存在注册了。</p>
-<p>接下来是真正的 IOC 容器；<code>CicadaIoc</code>：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx808jz2dtj30jx06nmy7.jpg" alt=""></p>
-<blockquote>
-<p>它将所有的实例都存放在一个 Map 中。</p>
-</blockquote>
-<p>当然也少不了刚才提到的 <code>CicadaBeanManager</code>，它会在应用启动的时候将所有的实例注册到 <code>bean</code> 容器中。</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fx80baammgj30kw08mgn2.jpg" alt=""></p>
-<p>重点是图中标红的部分：</p>
-<ul>
-<li>需要根据用户的选择实例化 <code>CicadaBeanFactory</code> 接口。</li>
-<li>将所有的实例注册到 CicadaBeanFactory 接口中。</li>
-</ul>
-<p>同时也提供了一个获取实例的方法：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fx80dmej6mj30f805emxm.jpg" alt=""></p>
-<p>就是直接调用 <code>CicadaBeanFactory</code> 接口的方法。</p>
-<hr>
-<p>然后在上文提到的反射调用方法处就变为：</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fx80efy38xj30m004rgmd.jpg" alt=""></p>
-<p>从 <code>bean</code> 容器中获取实例了；获取的过程可以是每次都创建一个新的对象，也可以是直接从容器中获取实例。这点对于这里的调用者来说<strong>并不关心</strong>。</p>
-<p>所以这也实现了标题所说的：<code>可拔插</code>。</p>
-<p>为了实现这个目的，我将 <code>CicadaIoc</code> 的实现单独放到一个模块中，以 jar 包的形式提供实现。</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx80hpjmcoj30ph064q43.jpg" alt=""></p>
-<p>所以如果你想要使用 <code>IOC</code> 容器的方式获取实例时只需要在你的应用中额外加入这个 jar 包即可。</p>
-<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>top.crossoverjie.opensource<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>cicada-ioc<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>2.0.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></div><div class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></div></pre></td></tr></table></figure>
-<p>如果不使用则是默认的 <code>CicadaDefaultBean</code> 实现，也就是每次都会创建对象。</p>
-<p>这样有个好处：</p>
-<p>当你自己想实现一个 <code>IOC</code> 容器时；只需要实现 <code>cicada</code> 提供的 <code>CicadaBeanFactory</code> 接口，并在你的应用中只加入你的 <code>jar</code> 包即可。</p>
-<p><strong>其余所有的代码都不需要改变，便可随意切换不的容器。</strong></p>
-<blockquote>
-<p>当然我是推荐大家使用 <code>IOC</code> 容器的（其实就是单例），牺牲一点应用启动时间带来后续性能的提升是值得的。</p>
-</blockquote>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>cicada</code> 的大坑填的差不多了，后续也会做一些小功能的迭代。</p>
-<p>还没有关注的朋友赶紧关注一波：</p>
-<p><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">https://github.com/TogetherOS/cicada</a></p>
-<blockquote>
-<p>PS：虽然没有仔细分析 Spring IOC 的实现，但相信看完此篇的朋友应该对 Spring IOC 以及 SpringMVC 会有一些自己的理解。</p>
-</blockquote>
-<p><strong>你的点赞与分享是对我最大的支持</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://ws1.sinaimg.cn/large/006tNbRwly1fx7y63ed53j31hc0u046a.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;磨了许久，借助最近的一次通宵上线 &lt;a href=&quot;https://github.com/TogetherOS/cicada&quot;&gt;cicada&lt;/a&gt; 终于更新了 &lt;code&gt;v2.0.0&lt;/code&gt; 版本。&lt;/p&gt;
-&lt;p&gt;之所以大的版本号变为 2，确实是向下不兼容了；主要表现为：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;修复了几个反馈的 &lt;code&gt;bug&lt;/code&gt;。&lt;/li&gt;
-&lt;li&gt;灵活的路由方式。&lt;/li&gt;
-&lt;li&gt;可拔插的 &lt;code&gt;IOC&lt;/code&gt; 容器选择。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;其中重点是后面两个。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="cicada" scheme="http://crossoverjie.top/categories/cicada/"/>
-    
-      <category term="轮子" scheme="http://crossoverjie.top/categories/cicada/%E8%BD%AE%E5%AD%90/"/>
-    
-    
-      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
-    
-      <category term="HTTP" scheme="http://crossoverjie.top/tags/HTTP/"/>
-    
-      <category term="Netty" scheme="http://crossoverjie.top/tags/Netty/"/>
     
   </entry>
   

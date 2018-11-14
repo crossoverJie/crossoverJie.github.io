@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[设计一个可拔插的 IOC 容器]]></title>
+    <url>%2F2018%2F11%2F22%2Fwheel%2Fcicada6%2F</url>
+    <content type="text"><![CDATA[前言磨了许久，借助最近的一次通宵上线 cicada 终于更新了 v2.0.0 版本。 之所以大的版本号变为 2，确实是向下不兼容了；主要表现为： 修复了几个反馈的 bug。 灵活的路由方式。 可拔插的 IOC 容器选择。 其中重点是后面两个。 新的路由方式先来看第一个：路由方式的更新。 在之前的版本想要写一个接口必须的实现一个 WorkAction；而且最麻烦的是一个实现类只能做一个接口。 因此也有朋友给我提过这个 issue。 于是改进后的使用方式如下： 是否有点似曾相识的感觉😊。 如上图所示，不需要实现某个特定的接口；只需要使用不同的注解即可。 同时也支持自定义 pojo, cicada 会在调用过程中对参数进行实例化。 拿这个 getUser 接口为例，当这样请求时这些参数就会被封装进 DemoReq 中. http://127.0.0.1:5688/cicada-example/routeAction/getUser?id=1234&amp;name=zhangsan 同时得到响应： 1&#123;"message":"hello =zhangsan"&#125; 实现过程也挺简单，大家查看源码便会发现；这里贴一点比较核心的步骤。 扫描所有使用 @CicadaAction 注解的类。 扫描所有使用 @CicadaRoute 注解的方法。 将他们的映射关系存入 Map 中。 请求时根据 URL 去 Map 中查找这个关系。 反射构建参数及方法调用。 扫描类以及写入映射关系 请求时查询映射关系 反射调用这些方法 是否需要 IOC 容器上面那几个步骤其实我都是一把梭写完的，但当我写到执行具体方法时感觉有点意思了。 大家都知道反射调用方法有两个重要的参数： obj 方法执行的实例。 args.. 自然是方法的参数。 我第一次写的时候是这样的： 1method.invoke(method.getDeclaringClass().newInstance(), object); 然后一测试，也没问题。 当我写完之后 review 代码时发现不对：这样这里每次都会创建一个新的实例，而且反射调用 newInstance() 效率也不高。 这时我不自觉的想到了 Spring 中 IOC 容器，和这里场景也非常的类似。 在应用初始化时将所有的接口实例化并保存到 bean 容器中，当需要使用时只需要从容器中获取即可。 这样只是会在启动时做很多加载工作，但造福后代啊。 可拔插的 IOC 容器于是我打算自己实现一个这样的 bean 容器。 但在实现之前又想到一个 feature: 不如把实现 bean 容器的方案交给使用者选择，可以选择使用 bean 容器，也可以就用之前的每次都创建新的实例，就像 Spring 中的 prototype 作用域一样。 甚至可以自定义容器实现，比如将 bean 存放到数据库、Redis 都行；当然一般人也不会这么干。 和 SPI 的机制也有点类似。 要实现上述的需求大致需要以下步骤： 一个通用的接口，包含了注册容器、从容器中获取实例等方法。 BeanManager 类，由它来管理具体使用哪种 IOC 容器。 所以首先定义了一个接口；CicadaBeanFactory: 包含了注册和获取实例的接口。 同时分别有两个不同的容器实现方案。 默认实现；CicadaDefaultBean： 也就是文中说道的，每次都会创建实例；由于这种方式其实根本就没有 bean 容器，所以也不存在注册了。 接下来是真正的 IOC 容器；CicadaIoc： 它将所有的实例都存放在一个 Map 中。 当然也少不了刚才提到的 CicadaBeanManager，它会在应用启动的时候将所有的实例注册到 bean 容器中。 重点是图中标红的部分： 需要根据用户的选择实例化 CicadaBeanFactory 接口。 将所有的实例注册到 CicadaBeanFactory 接口中。 同时也提供了一个获取实例的方法： 就是直接调用 CicadaBeanFactory 接口的方法。 然后在上文提到的反射调用方法处就变为： 从 bean 容器中获取实例了；获取的过程可以是每次都创建一个新的对象，也可以是直接从容器中获取实例。这点对于这里的调用者来说并不关心。 所以这也实现了标题所说的：可拔插。 为了实现这个目的，我将 CicadaIoc 的实现单独放到一个模块中，以 jar 包的形式提供实现。 所以如果你想要使用 IOC 容器的方式获取实例时只需要在你的应用中额外加入这个 jar 包即可。 12345&lt;dependency&gt; &lt;groupId&gt;top.crossoverjie.opensource&lt;/groupId&gt; &lt;artifactId&gt;cicada-ioc&lt;/artifactId&gt; &lt;version&gt;2.0.0&lt;/version&gt;&lt;/dependency&gt; 如果不使用则是默认的 CicadaDefaultBean 实现，也就是每次都会创建对象。 这样有个好处： 当你自己想实现一个 IOC 容器时；只需要实现 cicada 提供的 CicadaBeanFactory 接口，并在你的应用中只加入你的 jar 包即可。 其余所有的代码都不需要改变，便可随意切换不的容器。 当然我是推荐大家使用 IOC 容器的（其实就是单例），牺牲一点应用启动时间带来后续性能的提升是值得的。 总结cicada 的大坑填的差不多了，后续也会做一些小功能的迭代。 还没有关注的朋友赶紧关注一波： https://github.com/TogetherOS/cicada PS：虽然没有仔细分析 Spring IOC 的实现，但相信看完此篇的朋友应该对 Spring IOC 以及 SpringMVC 会有一些自己的理解。 你的点赞与分享是对我最大的支持]]></content>
+      <categories>
+        <category>cicada</category>
+        <category>轮子</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>HTTP</tag>
+        <tag>Netty</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[不改一行代码定位线上性能问题]]></title>
     <url>%2F2018%2F11%2F12%2Fjava-senior%2Fcoding-online-analysis%2F</url>
     <content type="text"><![CDATA[背景最近时运不佳，几乎天天被线上问题骚扰。前几天刚解决了一个 HashSet 的并发问题，周六又来了一个性能问题。 大致的现象是： 我们提供出去的一个 OpenAPI 反应时快时慢，快的时候几十毫秒，慢的时候几秒钟才响应。 尝试解决由于这种也不是业务问题，不能直接定位。所以尝试在测试环境复现，但遗憾的测试环境贼快。 没办法只能硬着头皮上了。 中途有抱着侥幸心里让运维查看了 Nginx 里 OpenAPI 的响应时间，想把锅扔给网络。结果果然打脸了；Nginx 里的日志也表明确实响应时间确实有问题。 为了清晰的了解这个问题，我简单梳理了这个调用过程。 整个的流程算是比较常见的分层架构： 客户端请求到 Nginx。 Nginx 负载了后端的 web 服务。 web 服务通过 RPC 调用后端的 Service 服务。 日志大法我们首先想到的是打日志，在可能会慢的方法或接口处记录处理时间来判断哪里有问题。 但通过刚才的调用链来说，这个请求流程不短。加日志涉及的改动较多而且万一加漏了还有可能定位不到问题。 再一个是改动代码之后还会涉及到发版上线。 工具分析所以最好的方式就是不改动一行代码把这个问题分析出来。 这时就需要一个 agent 工具了。我们选用了阿里以前开源的 Tprofile 来使用。 只需要在启动参数中加入 -javaagent:/xx/tprofiler.jar 即可监控你想要监控的方法耗时，并且可以给你输出报告，非常方便。对代码没有任何侵入性同时性能影响也较小。 工具使用下面来简单展示下如何使用这个工具。 首先第一步自然是 clone 源码然后打包，可以克隆我修改过的源码。 因为这个项目阿里多年没有维护了，还残留一些 bug,我在它原有的基础上修复了个影响使用的 bug，同时做了一些优化。 执行以下脚本即可。123git clone https://github.com/crossoverJie/TProfilermvn assembly:assembly 到这里之后会在项目的 TProfiler/pkg/TProfiler/lib/tprofiler-1.0.1.jar 中生成好我们要使用的 jar 包。 接下来只需要将这个 jar 包配置到启动参数中，同时再配置一个配置文件路径即可。 这个配置文件我 copy 官方的解释。 1234567891011121314151617181920212223242526272829303132333435363738394041#log file namelogFileName = tprofiler.logmethodFileName = tmethod.logsamplerFileName = tsampler.log#basic configuration items# 开始取样时间startProfTime = 1:00:00# 结束取样时间endProfTime = 23:00:00# 取样的时间长度eachProfUseTime = 10# 每次取样的时间间隔eachProfIntervalTime = 1samplerIntervalTime = 20# 端口，主要不要冲突了port = 50000debugMode = falseneedNanoTime = false# 是否忽略 get set 方法ignoreGetSetMethod = true#file paths 日志路径logFilePath = /data/work/logs/tprofile/$&#123;logFileName&#125;methodFilePath =/data/work/logs/tprofile/$&#123;methodFileName&#125;samplerFilePath =/data/work/logs/tprofile/$&#123;samplerFileName&#125;#include &amp; excludes itemsexcludeClassLoader = org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader# 需要监控的包includePackageStartsWith = top.crossoverjie.cicada.example.action# 不需要监控的包excludePackageStartsWith = com.taobao.sketch;org.apache.velocity;com.alibaba;com.taobao.forest.domain.dataobject 最终的启动参数如下： 12-javaagent:/TProfiler/lib/tprofiler-1.0.1.jar-Dprofile.properties=/TProfiler/profile.properties 为了模拟排查接口响应慢的问题，我用 cicada 实现了一个 HTTP 接口。其中调用了两个耗时方法： 这样当我启动应用时，Tprofile 就会在我配置的目录记录它所收集的方法信息。 我访问接口 http://127.0.0.1:5688/cicada-example/demoAction?name=test&amp;id=10 几次后它就会把每个方法的明细响应写入 tprofile.log。 由左到右每列分别代表为： 线程ID、方法栈深度、方法编号、耗时（毫秒）。 但 tmethod.log 还是空的； 这时我们只需要执行这个命令即可把最新的方法采样信息刷到 tmethod.log 文件中。 123java -cp /TProfiler/tprofiler.jar com.taobao.profile.client.TProfilerClient 127.0.0.1 50000 flushmethodflushmethod success 其实就是访问了 Tprofile 暴露出的一个服务，他会读取、解析 tprofile.log 同时写入 tmethod.log. 其中的端口就是配置文件中的 port。 再打开 tmethod.log ： 其中会记录方法的信息。 第一行数字为方法的编号。可以通过这个编号去 tprofile.log(明细)中查询每次的耗时情况。 行末的数字则是这个方法在源码中最后一行的行号。 其实大部分的性能分析都是统计某个方法的平均耗时。 所以还需要执行下面的命令，通过 tmethod.log tprofile.log来生成每个方法的平均耗时。 12java -cp /TProfiler/tprofiler.jar com.taobao.profile.analysis.ProfilerLogAnalysis tprofiler.log tmethod.log topmethod.log topobject.logprint result success 打开 topmethod.log 就是所有方法的平均耗时。 4 为请求次数。 205 为平均耗时。 818 则为总耗时。 和实际情况是相符的。 方法的明细耗时这是可能还会有其他需求；比如说我想查询某个方法所有的明细耗时怎么办呢？ 官方没有提供，但也是可以的，只是要麻烦一点。 比如我想查看 selectDB() 的耗时明细： 首先得知道这个方法的编号，在 tmethod.log 中可以看查到。 12 top/crossoverjie/cicada/example/action/DemoAction:selectDB:84 编号为 2. 之前我们就知道 tprofile.log 记录的是明细，所以通过下面的命令即可查看。 1grep 2 tprofiler.log 通过第三列方法编号为 2 的来查看每次执行的明细。 但这样的方式显然不够友好，需要人为来过滤干扰，步骤也多；所以我也准备加上这样一个功能。 只需要传入一个方法名称即可查询采集到的所有方法耗时明细。 总结回到之前的问题；线上通过这个工具分析我们得到了如下结果。 有些方法确实执行时快时慢，但都是和数据库相关的。由于目前数据库压力较大，准备在接下来进行冷热数据分离，以及分库分表。 在第一步操作还没实施之前将部分写数据库的操作改为异步，减小响应时间。 考虑接入 pinpoint 这样的 APM工具。 类似于 Tprofile 的工具确实挺多的，找到适合自己的就好。 在还没有使用类似于 pinpoint 这样的分布式跟踪工具之前应该会大量依赖于这个工具，所以后续说不定也会做一些定制，比如增加一些可视化界面等，可以提高排查效率。 你的点赞与分享是对我最大的支持]]></content>
@@ -24,8 +38,8 @@
         <tag>Java</tag>
         <tag>Thread</tag>
         <tag>concurrent</tag>
-        <tag>HashMap</tag>
         <tag>JVM</tag>
+        <tag>HashMap</tag>
         <tag>HashSet</tag>
       </tags>
   </entry>
@@ -62,20 +76,6 @@
         <tag>Java</tag>
         <tag>SpringBoot</tag>
         <tag>ThreadPool</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title><![CDATA[设计一个可拔插的 IOC 容器]]></title>
-    <url>%2F2018%2F10%2F22%2Fwheel%2Fcicada6%2F</url>
-    <content type="text"><![CDATA[前言磨了许久，借助最近的一次通宵上线 cicada 终于更新了 v2.0.0 版本。 之所以大的版本号变为 2，确实是向下不兼容了；主要表现为： 修复了几个反馈的 bug。 灵活的路由方式。 可拔插的 IOC 容器选择。 其中重点是后面两个。 新的路由方式先来看第一个：路由方式的更新。 在之前的版本想要写一个接口必须的实现一个 WorkAction；而且最麻烦的是一个实现类只能做一个接口。 因此也有朋友给我提过这个 issue。 于是改进后的使用方式如下： 是否有点似曾相识的感觉😊。 如上图所示，不需要实现某个特定的接口；只需要使用不同的注解即可。 同时也支持自定义 pojo, cicada 会在调用过程中对参数进行实例化。 拿这个 getUser 接口为例，当这样请求时这些参数就会被封装进 DemoReq 中. http://127.0.0.1:5688/cicada-example/routeAction/getUser?id=1234&amp;name=zhangsan 同时得到响应： 1&#123;"message":"hello =zhangsan"&#125; 实现过程也挺简单，大家查看源码便会发现；这里贴一点比较核心的步骤。 扫描所有使用 @CicadaAction 注解的类。 扫描所有使用 @CicadaRoute 注解的方法。 将他们的映射关系存入 Map 中。 请求时根据 URL 去 Map 中查找这个关系。 反射构建参数及方法调用。 扫描类以及写入映射关系 请求时查询映射关系 反射调用这些方法 是否需要 IOC 容器上面那几个步骤其实我都是一把梭写完的，但当我写到执行具体方法时感觉有点意思了。 大家都知道反射调用方法有两个重要的参数： obj 方法执行的实例。 args.. 自然是方法的参数。 我第一次写的时候是这样的： 1method.invoke(method.getDeclaringClass().newInstance(), object); 然后一测试，也没问题。 当我写完之后 review 代码时发现不对：这样这里每次都会创建一个新的实例，而且反射调用 newInstance() 效率也不高。 这时我不自觉的想到了 Spring 中 IOC 容器，和这里场景也非常的类似。 在应用初始化时将所有的接口实例化并保存到 bean 容器中，当需要使用时只需要从容器中获取即可。 这样只是会在启动时做很多加载工作，但造福后代啊。 可拔插的 IOC 容器于是我打算自己实现一个这样的 bean 容器。 但在实现之前又想到一个 feature: 不如把实现 bean 容器的方案交给使用者选择，可以选择使用 bean 容器，也可以就用之前的每次都创建新的实例，就像 Spring 中的 prototype 作用域一样。 甚至可以自定义容器实现，比如将 bean 存放到数据库、Redis 都行；当然一般人也不会这么干。 和 SPI 的机制也有点类似。 要实现上述的需求大致需要以下步骤： 一个通用的接口，包含了注册容器、从容器中获取实例等方法。 BeanManager 类，由它来管理具体使用哪种 IOC 容器。 所以首先定义了一个接口；CicadaBeanFactory: 包含了注册和获取实例的接口。 同时分别有两个不同的容器实现方案。 默认实现；CicadaDefaultBean： 也就是文中说道的，每次都会创建实例；由于这种方式其实根本就没有 bean 容器，所以也不存在注册了。 接下来是真正的 IOC 容器；CicadaIoc： 它将所有的实例都存放在一个 Map 中。 当然也少不了刚才提到的 CicadaBeanManager，它会在应用启动的时候将所有的实例注册到 bean 容器中。 重点是图中标红的部分： 需要根据用户的选择实例化 CicadaBeanFactory 接口。 将所有的实例注册到 CicadaBeanFactory 接口中。 同时也提供了一个获取实例的方法： 就是直接调用 CicadaBeanFactory 接口的方法。 然后在上文提到的反射调用方法处就变为： 从 bean 容器中获取实例了；获取的过程可以是每次都创建一个新的对象，也可以是直接从容器中获取实例。这点对于这里的调用者来说并不关心。 所以这也实现了标题所说的：可拔插。 为了实现这个目的，我将 CicadaIoc 的实现单独放到一个模块中，以 jar 包的形式提供实现。 所以如果你想要使用 IOC 容器的方式获取实例时只需要在你的应用中额外加入这个 jar 包即可。 12345&lt;dependency&gt; &lt;groupId&gt;top.crossoverjie.opensource&lt;/groupId&gt; &lt;artifactId&gt;cicada-ioc&lt;/artifactId&gt; &lt;version&gt;2.0.0&lt;/version&gt;&lt;/dependency&gt; 如果不使用则是默认的 CicadaDefaultBean 实现，也就是每次都会创建对象。 这样有个好处： 当你自己想实现一个 IOC 容器时；只需要实现 cicada 提供的 CicadaBeanFactory 接口，并在你的应用中只加入你的 jar 包即可。 其余所有的代码都不需要改变，便可随意切换不的容器。 当然我是推荐大家使用 IOC 容器的（其实就是单例），牺牲一点应用启动时间带来后续性能的提升是值得的。 总结cicada 的大坑填的差不多了，后续也会做一些小功能的迭代。 还没有关注的朋友赶紧关注一波： https://github.com/TogetherOS/cicada PS：虽然没有仔细分析 Spring IOC 的实现，但相信看完此篇的朋友应该对 Spring IOC 以及 SpringMVC 会有一些自己的理解。 你的点赞与分享是对我最大的支持]]></content>
-      <categories>
-        <category>cicada</category>
-        <category>轮子</category>
-      </categories>
-      <tags>
-        <tag>Java</tag>
-        <tag>HTTP</tag>
-        <tag>Netty</tag>
       </tags>
   </entry>
   <entry>
