@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2018-11-19T18:19:44.673Z</updated>
+  <updated>2018-11-24T18:50:34.860Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,159 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>如何判断一个元素在亿级数据中是否存在？</title>
+    <link href="http://crossoverjie.top/2018/11/26/guava/guava-bloom-filter/"/>
+    <id>http://crossoverjie.top/2018/11/26/guava/guava-bloom-filter/</id>
+    <published>2018-11-26T00:19:36.000Z</published>
+    <updated>2018-11-24T18:50:34.860Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fxjmn1eyr6j31hc0qr114.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近有朋友问我这么一个面试题目：</p>
+<blockquote>
+<p>现在有一个非常庞大的数据，假设全是 int 类型。现在我给你一个数，你需要告诉我它是否存在其中(尽量高效)。</p>
+</blockquote>
+<p>需求其实很清晰，只是要判断一个数据是否存在即可。</p>
+<p>但这里有一个比较重要的前提：<strong>非常庞大的数据</strong>。</p>
+<a id="more"></a>
+<h1 id="常规实现"><a href="#常规实现" class="headerlink" title="常规实现"></a>常规实现</h1><p>先不考虑这个条件，我们脑海中出现的第一种方案是什么？</p>
+<p>我想大多数想到的都是用 <code>HashMap</code> 来存放数据，因为它的写入查询的效率都比较高。</p>
+<p>写入和判断元素是否存在都有对应的 <code>API</code>，所以实现起来也比较简单。</p>
+<p>为此我写了一个单测，利用 <code>HashSet</code> 来存数据（底层也是 <code>HashMap</code> ）；同时为了后面的对比将堆内存写死：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">-Xms64m -Xmx64m -XX:+PrintHeapAtGC -XX:+HeapDumpOnOutOfMemoryError</div></pre></td></tr></table></figure>
+<p>为了方便调试加入了 <code>GC</code> 日志的打印，以及内存溢出后 <code>Dump</code> 内存。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Test</span></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">hashMapTest</span><span class="params">()</span></span>&#123;</div><div class="line">    <span class="keyword">long</span> star = System.currentTimeMillis();</div><div class="line"></div><div class="line">    Set&lt;Integer&gt; hashset = <span class="keyword">new</span> HashSet&lt;&gt;(<span class="number">100</span>) ;</div><div class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</div><div class="line">        hashset.add(i) ;</div><div class="line">    &#125;</div><div class="line">    Assert.assertTrue(hashset.contains(<span class="number">1</span>));</div><div class="line">    Assert.assertTrue(hashset.contains(<span class="number">2</span>));</div><div class="line">    Assert.assertTrue(hashset.contains(<span class="number">3</span>));</div><div class="line"></div><div class="line">    <span class="keyword">long</span> end = System.currentTimeMillis();</div><div class="line">    System.out.println(<span class="string">"执行时间："</span> + (end - star));</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>当我只写入 100 条数据时自然是没有问题的。</p>
+<p>还是在这个基础上，写入 1000W 数据试试：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fxjn76zaoaj30fr07ejsh.jpg" alt=""></p>
+<p>执行后马上就内存溢出。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fxjn7zovu8j30my07rq4o.jpg" alt=""></p>
+<p>可见在内存有限的情况下我们不能使用这种方式。</p>
+<p>实际情况也是如此；既然要判断一个数据是否存在于集合中，考虑的算法的效率以及准确性肯定是要把数据全部 <code>load</code> 到内存中的。</p>
+<h1 id="Bloom-Filter"><a href="#Bloom-Filter" class="headerlink" title="Bloom Filter"></a>Bloom Filter</h1><p>基于上面分析的条件，要实现这个需求最需要解决的是<code>如何将庞大的数据 load 到内存中。</code></p>
+<p>而我们是否可以换种思路，因为只是需要判断数据是否存在，也不是需要把数据查询出来，所以完全没有必要将真正的数据存放进去。</p>
+<p>伟大的科学家们已经帮我们想到了这样的需求。</p>
+<p><code>Burton Howard Bloom</code> 在 1970 年提出了一个叫做 <code>Bloom Filter</code>（中文翻译：布隆过滤）的算法。</p>
+<p>它主要就是用于解决判断一个元素是否在一个集合中，但它的优势是只需要占用很小的内存空间以及有着高效的查询效率。</p>
+<p>所以在这个场景下在合适不过了。</p>
+<h2 id="Bloom-Filter-原理"><a href="#Bloom-Filter-原理" class="headerlink" title="Bloom Filter 原理"></a>Bloom Filter 原理</h2><p>下面来分析下它的实现原理。</p>
+<blockquote>
+<p>官方的说法是：它是一个保存了很长的二级制向量，同时结合 Hash 函数实现的。</p>
+</blockquote>
+<p>听起来比较绕，但是通过一个图就比较容易理解了。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fxjo2ku62jj30ew0bzweu.jpg" alt=""></p>
+<p>如图所示：</p>
+<ul>
+<li>首先需要初始化一个二进制的数组，长度设为 L（图中为 8），同时初始值全为 0 。</li>
+<li>当写入一个 <code>A1=1000</code> 的数据时，需要进行 H 次 <code>hash</code> 函数的运算（这里为 2 次）；与 HashMap 有点类似，通过算出的 <code>HashCode</code> 与 L 取模后定位到 0、2 处，将该处的值设为 1。</li>
+<li><code>A2=2000</code> 也是同理计算后将 <code>4、7</code> 位置设为 1。</li>
+<li>当有一个 <code>B1=1000</code> 需要判断是否存在时，也是做两次 Hash 运算，定位到 0、2 处，此时他们的值都为 1 ，所以认为 <code>B1=1000</code> 存在于集合中。</li>
+<li>当有一个 <code>B2=3000</code> 时，也是同理。第一次 Hash 定位到 <code>index=4</code> 时，数组中的值为 1，所以再进行第二次 Hash 运算，结果定位到 <code>index=5</code> 的值为 0，所以认为 <code>B2=3000</code> 不存在于集合中。</li>
+</ul>
+<p>整个的写入、查询的流程就是这样，汇总起来就是：</p>
+<blockquote>
+<p>对写入的数据做 H 次 hash 运算定位到数组中的位置，同时将数据改为 1 。当有数据查询时也是同样的方式定位到数组中。<br>一旦其中的有一位为 <strong>0</strong> 则认为数据<strong>肯定不存在于集合</strong>，否则数据<strong>可能存在于集合中</strong>。</p>
+</blockquote>
+<p>所以布隆过滤有以下几个特点：</p>
+<ol>
+<li>只要返回数据不存在，则肯定不存在。</li>
+<li>返回数据存在，但只能是大概率存在。</li>
+<li>同时不能清除其中的数据。</li>
+</ol>
+<p>第一点应该都能理解，重点解释下 2、3 点。</p>
+<p>为什么返回存在的数据却是可能存在呢，这其实也和 <code>HashMap</code> 类似。</p>
+<p>在有限的数组长度中存放大量的数据，即便是再完美的 Hash 算法也会有冲突，所以有可能两个完全不同的 <code>A、B</code> 两个数据最后定位到的位置是一模一样的。</p>
+<p>这时拿 B 进行查询时那自然就是误报了。</p>
+<p>删除数据也是同理，当我把 B 的数据删除时，其实也相当于是把 A 的数据删掉了，这样也会造成后续的误报。</p>
+<p>基于以上的 <code>Hash</code> 冲突的前提，所以 <code>Bloom Filter</code> 有一定的误报率，这个误报率和 <code>Hash</code> 算法的次数 H，以及数组长度 L 都是有关的。</p>
+<h1 id="自己实现一个布隆过滤"><a href="#自己实现一个布隆过滤" class="headerlink" title="自己实现一个布隆过滤"></a>自己实现一个布隆过滤</h1><p>算法其实很简单不难理解，于是利用 <code>Java</code> 实现了一个简单的雏形。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div><div class="line">107</div><div class="line">108</div><div class="line">109</div><div class="line">110</div><div class="line">111</div><div class="line">112</div><div class="line">113</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">BloomFilters</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 数组长度</div><div class="line">     */</div><div class="line">    <span class="keyword">private</span> <span class="keyword">int</span> arraySize;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 数组</div><div class="line">     */</div><div class="line">    <span class="keyword">private</span> <span class="keyword">int</span>[] array;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="title">BloomFilters</span><span class="params">(<span class="keyword">int</span> arraySize)</span> </span>&#123;</div><div class="line">        <span class="keyword">this</span>.arraySize = arraySize;</div><div class="line">        array = <span class="keyword">new</span> <span class="keyword">int</span>[arraySize];</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 写入数据</div><div class="line">     * <span class="doctag">@param</span> key</div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">add</span><span class="params">(String key)</span> </span>&#123;</div><div class="line">        <span class="keyword">int</span> first = hashcode_1(key);</div><div class="line">        <span class="keyword">int</span> second = hashcode_2(key);</div><div class="line">        <span class="keyword">int</span> third = hashcode_3(key);</div><div class="line"></div><div class="line">        array[first % arraySize] = <span class="number">1</span>;</div><div class="line">        array[second % arraySize] = <span class="number">1</span>;</div><div class="line">        array[third % arraySize] = <span class="number">1</span>;</div><div class="line"></div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 判断数据是否存在</div><div class="line">     * <span class="doctag">@param</span> key</div><div class="line">     * <span class="doctag">@return</span></div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">check</span><span class="params">(String key)</span> </span>&#123;</div><div class="line">        <span class="keyword">int</span> first = hashcode_1(key);</div><div class="line">        <span class="keyword">int</span> second = hashcode_2(key);</div><div class="line">        <span class="keyword">int</span> third = hashcode_3(key);</div><div class="line"></div><div class="line">        <span class="keyword">int</span> firstIndex = array[first % arraySize];</div><div class="line">        <span class="keyword">if</span> (firstIndex == <span class="number">0</span>) &#123;</div><div class="line">            <span class="keyword">return</span> <span class="keyword">false</span>;</div><div class="line">        &#125;</div><div class="line"></div><div class="line">        <span class="keyword">int</span> secondIndex = array[second % arraySize];</div><div class="line">        <span class="keyword">if</span> (secondIndex == <span class="number">0</span>) &#123;</div><div class="line">            <span class="keyword">return</span> <span class="keyword">false</span>;</div><div class="line">        &#125;</div><div class="line"></div><div class="line">        <span class="keyword">int</span> thirdIndex = array[third % arraySize];</div><div class="line">        <span class="keyword">if</span> (thirdIndex == <span class="number">0</span>) &#123;</div><div class="line">            <span class="keyword">return</span> <span class="keyword">false</span>;</div><div class="line">        &#125;</div><div class="line"></div><div class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</div><div class="line"></div><div class="line">    &#125;</div><div class="line"></div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * hash 算法1</div><div class="line">     * <span class="doctag">@param</span> key</div><div class="line">     * <span class="doctag">@return</span></div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">int</span> <span class="title">hashcode_1</span><span class="params">(String key)</span> </span>&#123;</div><div class="line">        <span class="keyword">int</span> hash = <span class="number">0</span>;</div><div class="line">        <span class="keyword">int</span> i;</div><div class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; key.length(); ++i) &#123;</div><div class="line">            hash = <span class="number">33</span> * hash + key.charAt(i);</div><div class="line">        &#125;</div><div class="line">        <span class="keyword">return</span> Math.abs(hash);</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * hash 算法2</div><div class="line">     * <span class="doctag">@param</span> data</div><div class="line">     * <span class="doctag">@return</span></div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">int</span> <span class="title">hashcode_2</span><span class="params">(String data)</span> </span>&#123;</div><div class="line">        <span class="keyword">final</span> <span class="keyword">int</span> p = <span class="number">16777619</span>;</div><div class="line">        <span class="keyword">int</span> hash = (<span class="keyword">int</span>) <span class="number">2166136261L</span>;</div><div class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; data.length(); i++) &#123;</div><div class="line">            hash = (hash ^ data.charAt(i)) * p;</div><div class="line">        &#125;</div><div class="line">        hash += hash &lt;&lt; <span class="number">13</span>;</div><div class="line">        hash ^= hash &gt;&gt; <span class="number">7</span>;</div><div class="line">        hash += hash &lt;&lt; <span class="number">3</span>;</div><div class="line">        hash ^= hash &gt;&gt; <span class="number">17</span>;</div><div class="line">        hash += hash &lt;&lt; <span class="number">5</span>;</div><div class="line">        <span class="keyword">return</span> Math.abs(hash);</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     *  hash 算法3</div><div class="line">     * <span class="doctag">@param</span> key</div><div class="line">     * <span class="doctag">@return</span></div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">int</span> <span class="title">hashcode_3</span><span class="params">(String key)</span> </span>&#123;</div><div class="line">        <span class="keyword">int</span> hash, i;</div><div class="line">        <span class="keyword">for</span> (hash = <span class="number">0</span>, i = <span class="number">0</span>; i &lt; key.length(); ++i) &#123;</div><div class="line">            hash += key.charAt(i);</div><div class="line">            hash += (hash &lt;&lt; <span class="number">10</span>);</div><div class="line">            hash ^= (hash &gt;&gt; <span class="number">6</span>);</div><div class="line">        &#125;</div><div class="line">        hash += (hash &lt;&lt; <span class="number">3</span>);</div><div class="line">        hash ^= (hash &gt;&gt; <span class="number">11</span>);</div><div class="line">        hash += (hash &lt;&lt; <span class="number">15</span>);</div><div class="line">        <span class="keyword">return</span> Math.abs(hash);</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<ol>
+<li>首先初始化了一个 int 数组。</li>
+<li>写入数据的时候进行三次 <code>hash</code> 运算，同时把对应的位置置为 1。</li>
+<li>查询时同样的三次 <code>hash</code> 运算，取到对应的值，一旦值为 0 ，则认为数据不存在。</li>
+</ol>
+<p>实现逻辑其实就和上文描述的一样。</p>
+<p>下面来测试一下，同样的参数：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">-Xms64m -Xmx64m -XX:+PrintHeapAtGC</div></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Test</span></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">bloomFilterTest</span><span class="params">()</span></span>&#123;</div><div class="line">    <span class="keyword">long</span> star = System.currentTimeMillis();</div><div class="line">    BloomFilters bloomFilters = <span class="keyword">new</span> BloomFilters(<span class="number">10000000</span>) ;</div><div class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">10000000</span>; i++) &#123;</div><div class="line">        bloomFilters.add(i + <span class="string">""</span>) ;</div><div class="line">    &#125;</div><div class="line">    Assert.assertTrue(bloomFilters.check(<span class="number">1</span>+<span class="string">""</span>));</div><div class="line">    Assert.assertTrue(bloomFilters.check(<span class="number">2</span>+<span class="string">""</span>));</div><div class="line">    Assert.assertTrue(bloomFilters.check(<span class="number">3</span>+<span class="string">""</span>));</div><div class="line">    Assert.assertTrue(bloomFilters.check(<span class="number">999999</span>+<span class="string">""</span>));</div><div class="line">    Assert.assertFalse(bloomFilters.check(<span class="number">400230340</span>+<span class="string">""</span>));</div><div class="line">    <span class="keyword">long</span> end = System.currentTimeMillis();</div><div class="line">    System.out.println(<span class="string">"执行时间："</span> + (end - star));</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>执行结果如下：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fxjow3df29j30le06d405.jpg" alt=""></p>
+<p>只花了 3 秒钟就写入了 1000W 的数据同时做出来准确的判断。</p>
+<hr>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fxjoxad1kmj30p8072dhe.jpg" alt=""></p>
+<p>当让我把数组长度缩小到了 100W 时就出现了一个误报，<code>400230340</code> 这个数明明没在集合里，却返回了存在。</p>
+<p>这也体现了 <code>Bloom Filter</code> 的误报率。</p>
+<p>我们提高数组长度以及 <code>hash</code> 计算次数可以降低误报率，但相应的 <code>CPU、内存</code>的消耗就会提高；这就需要根据业务需要自行权衡。</p>
+<h1 id="Guava-实现"><a href="#Guava-实现" class="headerlink" title="Guava 实现"></a>Guava 实现</h1><p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fxjp1vluy8j30lj04iab8.jpg" alt=""></p>
+<p>刚才的方式虽然实现了功能，也满足了大量数据。但其实观察 <code>GC</code> 日志非常频繁，同时老年代也使用了 90%，接近崩溃的边缘。</p>
+<p>总的来说就是内存利用率做的不好。</p>
+<p>其实 Google Guava 库中也实现了该算法，下面来看看业界权威的实现。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">-Xms64m -Xmx64m -XX:+PrintHeapAtGC</div></pre></td></tr></table></figure>
+<hr>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Test</span></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">guavaTest</span><span class="params">()</span> </span>&#123;</div><div class="line">    <span class="keyword">long</span> star = System.currentTimeMillis();</div><div class="line">    BloomFilter&lt;Integer&gt; filter = BloomFilter.create(</div><div class="line">            Funnels.integerFunnel(),</div><div class="line">            <span class="number">10000000</span>,</div><div class="line">            <span class="number">0.01</span>);</div><div class="line"></div><div class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">10000000</span>; i++) &#123;</div><div class="line">        filter.put(i);</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    Assert.assertTrue(filter.mightContain(<span class="number">1</span>));</div><div class="line">    Assert.assertTrue(filter.mightContain(<span class="number">2</span>));</div><div class="line">    Assert.assertTrue(filter.mightContain(<span class="number">3</span>));</div><div class="line">    Assert.assertFalse(filter.mightContain(<span class="number">10000000</span>));</div><div class="line">    <span class="keyword">long</span> end = System.currentTimeMillis();</div><div class="line">    System.out.println(<span class="string">"执行时间："</span> + (end - star));</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>也是同样写入了 1000W 的数据，执行没有问题。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fxjp57ga3oj30ma052gmt.jpg" alt=""></p>
+<p>观察 GC 日志会发现没有一次 <code>fullGC</code>，同时老年代的使用率很低。和刚才的一对比这里明显的要好上很多，也可以写入更多的数据。</p>
+<h2 id="源码分析"><a href="#源码分析" class="headerlink" title="源码分析"></a>源码分析</h2><p>那就来看看 <code>Guava</code> 它是如何实现的。</p>
+<p>构造方法中有两个比较重要的参数，一个是预计存放多少数据，一个是可以接受的误报率。<br>我这里的测试 demo 分别是 1000W 以及 0.01。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fxjp9reomaj30yq0cqjv9.jpg" alt=""></p>
+<p><code>Guava</code> 会通过你预计的数量以及误报率帮你计算出你应当会使用的数组大小 <code>numBits</code> 以及需要计算几次 Hash 函数 <code>numHashFunctions</code> 。</p>
+<p>这个算法计算规则可以参考维基百科。</p>
+<h3 id="put-写入函数"><a href="#put-写入函数" class="headerlink" title="put 写入函数"></a>put 写入函数</h3><p>真正存放数据的 <code>put</code> 函数如下：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fxjpg55hszj30so082abx.jpg" alt=""></p>
+<ul>
+<li>根据 <code>murmur3_128</code> 方法的到一个 128 位长度的 <code>byte[]</code>。</li>
+<li>分别取高低 8 位的到两个 <code>hash</code> 值。</li>
+<li>再根据初始化时的到的执行 <code>hash</code> 的次数进行 <code>hash</code> 运算。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">bitsChanged |= bits.set((combinedHash &amp; Long.MAX_VALUE) % bitSize);</div></pre></td></tr></table></figure>
+<p>其实也是 <code>hash取模</code>拿到 <code>index</code> 后去赋值 1.</p>
+<p>重点是 <code>bits.set()</code> 方法。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fxjpl6uih0j30m30dxmz9.jpg" alt=""></p>
+<p>其实 set 方法是 <code>BitArray</code> 中的一个函数，<code>BitArray</code> 就是真正存放数据的底层数据结构。</p>
+<p>利用了一个 <code>long[] data</code> 来存放数据。</p>
+<p>所以 <code>set()</code> 时候也是对这个 <code>data</code> 做处理。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fxjpnobodvj30iz06vwf7.jpg" alt=""></p>
+<ul>
+<li>在 <code>set</code> 之前先通过 <code>get()</code> 判断这个数据是否存在于集合中，如果已经存在则直接返回告知客户端写入失败。</li>
+<li>接下来就是通过位运算进行<code>位或赋值</code>。</li>
+<li><code>get()</code> 方法的计算逻辑和 set 类似，只要判断为 0 就直接返回存在该值。</li>
+</ul>
+<h3 id="mightContain-是否存在函数"><a href="#mightContain-是否存在函数" class="headerlink" title="mightContain 是否存在函数"></a>mightContain 是否存在函数</h3><p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fxjprkzulxj30o408wabk.jpg" alt=""></p>
+<p>前面几步的逻辑都是类似的，只是调用了刚才的 <code>get()</code> 方法判断元素是否存在而已。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>布隆过滤的应用还是蛮多的，比如数据库，爬虫等。</p>
+<p>特别是需要精确知道某个数据不存在时做点什么事情就非常适合布隆过滤。</p>
+<p>这段时间的研究发现算法也挺有意思的，后续应该会继续分享一些类似的内容。</p>
+<p>如果对你有帮助那就分享一下吧。</p>
+<p>本问的示例代码参考这里：</p>
+<p><a href="https://github.com/crossoverJie/JCSprout" target="_blank" rel="external">https://github.com/crossoverJie/JCSprout</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://ws2.sinaimg.cn/large/006tNbRwly1fxjmn1eyr6j31hc0qr114.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;最近有朋友问我这么一个面试题目：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;现在有一个非常庞大的数据，假设全是 int 类型。现在我给你一个数，你需要告诉我它是否存在其中(尽量高效)。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;需求其实很清晰，只是要判断一个数据是否存在即可。&lt;/p&gt;
+&lt;p&gt;但这里有一个比较重要的前提：&lt;strong&gt;非常庞大的数据&lt;/strong&gt;。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Guava" scheme="http://crossoverjie.top/categories/Guava/"/>
+    
+    
+      <category term="Bloom Filter" scheme="http://crossoverjie.top/tags/Bloom-Filter/"/>
+    
+      <category term="算法" scheme="http://crossoverjie.top/tags/%E7%AE%97%E6%B3%95/"/>
+    
+      <category term="Hash" scheme="http://crossoverjie.top/tags/Hash/"/>
+    
+  </entry>
   
   <entry>
     <title>分享一些 Kafka 消费数据的小经验</title>
@@ -543,9 +696,9 @@
     
       <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
     
-      <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
-    
       <category term="HashMap" scheme="http://crossoverjie.top/tags/HashMap/"/>
+    
+      <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
     
       <category term="HashSet" scheme="http://crossoverjie.top/tags/HashSet/"/>
     
@@ -2492,63 +2645,6 @@
     
     
       <category term="简历" scheme="http://crossoverjie.top/tags/%E7%AE%80%E5%8E%86/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>GitHub 1W star 成就达成！</title>
-    <link href="http://crossoverjie.top/2018/08/17/personal/1W-star/"/>
-    <id>http://crossoverjie.top/2018/08/17/personal/1W-star/</id>
-    <published>2018-08-16T16:11:12.000Z</published>
-    <updated>2018-08-16T17:39:08.829Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://ws3.sinaimg.cn/large/0069RVTdgy1fuc0fhj6s8j31kw135dv7.jpg" alt=""></p>
-<h2 id="起因"><a href="#起因" class="headerlink" title="起因"></a>起因</h2><p>感谢各位大佬的支持收获了人生第一个（很有可能也是唯一一个）<code>1W star</code> 项目。</p>
-<p><img src="https://ws1.sinaimg.cn/large/0069RVTdgy1fuc1ejsp0fj31kw1hx4qp.jpg" alt=""></p>
-<p>从今年一月份创建项目至今 8 个月时间。</p>
-<p>一共关闭了 27 个 <code>issue</code>，47 个 <code>RP</code>，总共有 11 位小伙伴参与维护。</p>
-<p>神奇般的连续两个月上了 GitHub Java 热门榜首。</p>
-<a id="more"></a>
-<p><img src="https://ws2.sinaimg.cn/large/0069RVTdgy1fuc1m7owbjj30od0gl0vy.jpg" alt=""></p>
-<p><img src="https://ws4.sinaimg.cn/large/0069RVTdgy1fuc1mhv5roj30o70nu7ad.jpg" alt=""></p>
-<p>整个热度走势图也是一路向北：</p>
-<p><img src="https://ws1.sinaimg.cn/large/0069RVTdgy1fuc1p5zvwxj30m50kzmyh.jpg" alt=""></p>
-<p>过程中也有许多朋友反馈得到了帮助，自己确实没想到能起到这么好的作用。</p>
-<h2 id="更名"><a href="#更名" class="headerlink" title="更名"></a>更名</h2><p>趁这机会我想给项目重新换个名字，因为我发现做到现在这里面并不仅仅包含面试的内容。</p>
-<p>我们也不应该只为了面试而使用该项目，里面所有的技术内容我认为都应该对实际开发起到帮助，让大家少走弯路。</p>
-<p>所有我把项目重命名为：</p>
-<p><code>JCSprout : Java Core Sprout：处于萌芽阶段的 Java 核心知识库。</code></p>
-<p>还创建了 logo。</p>
-<p><img src="https://ws1.sinaimg.cn/large/0069RVTdly1fubocn5pxaj30go082dg1.jpg" alt=""></p>
-<p>整个技术道路非常漫长，这一点小成就只是一颗小萌芽，希望最后能生根发芽。</p>
-<h2 id="未来"><a href="#未来" class="headerlink" title="未来"></a>未来</h2><p>今后我依然会持续维护，也希望更多的朋友参与进来。</p>
-<p>还要把之前给自己挖的坑填好：</p>
-<ul>
-<li>HTTP </li>
-<li>SpringBoot</li>
-<li>Tomcat 等</li>
-</ul>
-<p>后期还会继续添加一些源码解析、最佳实践等内容。</p>
-<p>还没有关注的朋友难道不想进来看看嘛？最新地址：</p>
-<p><a href="https://github.com/crossoverJie/JCSprout" target="_blank" rel="external">https://github.com/crossoverJie/JCSprout</a></p>
-<p><strong>你的点赞与转发是最大的支持。</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://ws3.sinaimg.cn/large/0069RVTdgy1fuc0fhj6s8j31kw135dv7.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h2 id=&quot;起因&quot;&gt;&lt;a href=&quot;#起因&quot; class=&quot;headerlink&quot; title=&quot;起因&quot;&gt;&lt;/a&gt;起因&lt;/h2&gt;&lt;p&gt;感谢各位大佬的支持收获了人生第一个（很有可能也是唯一一个）&lt;code&gt;1W star&lt;/code&gt; 项目。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;https://ws1.sinaimg.cn/large/0069RVTdgy1fuc1ejsp0fj31kw1hx4qp.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;p&gt;从今年一月份创建项目至今 8 个月时间。&lt;/p&gt;
-&lt;p&gt;一共关闭了 27 个 &lt;code&gt;issue&lt;/code&gt;，47 个 &lt;code&gt;RP&lt;/code&gt;，总共有 11 位小伙伴参与维护。&lt;/p&gt;
-&lt;p&gt;神奇般的连续两个月上了 GitHub Java 热门榜首。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Person" scheme="http://crossoverjie.top/categories/Person/"/>
-    
-      <category term="GitHub" scheme="http://crossoverjie.top/categories/Person/GitHub/"/>
-    
     
   </entry>
   
