@@ -1,0 +1,1203 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/vendors/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/vendors/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Java,JVM," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml" />
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.1" />
+
+
+
+
+
+
+<meta name="description" content="前言标题没有看错，真的是让我写个 bug！
+刚接到这个需求时我内心没有丝毫波澜，甚至还有点激动。这可是我特长啊；终于可以光明正大的写 bug 了🙄。
+先来看看具体是要干啥吧，其实主要就是要让一些负载很低的服务器额外消耗一些内存、CPU 等资源（至于背景就不多说了），让它的负载可以提高一些。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="老板让我写个 Bug">
+<meta property="og:url" content="http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/index.html">
+<meta property="og:site_name" content="crossoverJie's Blog">
+<meta property="og:description" content="前言标题没有看错，真的是让我写个 bug！
+刚接到这个需求时我内心没有丝毫波澜，甚至还有点激动。这可是我特长啊；终于可以光明正大的写 bug 了🙄。
+先来看看具体是要干啥吧，其实主要就是要让一些负载很低的服务器额外消耗一些内存、CPU 等资源（至于背景就不多说了），让它的负载可以提高一些。">
+<meta property="og:image" content="https://ws3.sinaimg.cn/large/006tNbRwly1fy25iirb5tj31hc0u0e81.jpg">
+<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tNbRwly1fy2t4bjv5bj318s0hgjv4.jpg">
+<meta property="og:image" content="https://ws4.sinaimg.cn/large/006tNbRwly1fy2xv0wnp8j30s80je405.jpg">
+<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tNbRwly1fy2ykiyz7cj31gs0b0dhr.jpg">
+<meta property="og:image" content="https://ws4.sinaimg.cn/large/006tNbRwly1fy2y2psuhzj318c0oatbp.jpg">
+<meta property="og:image" content="https://ws3.sinaimg.cn/large/006tNbRwly1fy2ynuuog3j317i0f2e81.jpg">
+<meta property="og:image" content="https://ws4.sinaimg.cn/large/006tNbRwly1fy2z2yxof0j30n60buab4.jpg">
+<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fy2z7i5qrdj316m0eeb29.jpg">
+<meta property="og:image" content="https://ws3.sinaimg.cn/large/006tNbRwly1fy2zn03yjoj30sy0mg4qp.jpg">
+<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tNbRwly1fy2t4bjv5bj318s0hgjv4.jpg">
+<meta property="og:image" content="https://camo.githubusercontent.com/dc705fafcecd5df825706c0599a5993a1d8e4351/68747470733a2f2f75706c6f61642e77696b696d656469612e6f72672f77696b6970656469612f636f6d6d6f6e732f342f34612f416e696d6174696f6e5f6f665f7468655f4e616976655f4d61726b5f616e645f53776565705f476172626167655f436f6c6c6563746f725f416c676f726974686d2e676966">
+<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fy359itj30j30mn0ecjuh.jpg">
+<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fy35t541v1j30qn06pjs4.jpg">
+<meta property="og:image" content="https://ws4.sinaimg.cn/large/006tNbRwly1fy35u96ercj309n03eaa5.jpg">
+<meta property="og:image" content="https://ws4.sinaimg.cn/large/006tNbRwly1fy37wlwaabj30lq09d4ax.jpg">
+<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tNbRwly1fy35yw0qw9j309w04ewed.jpg">
+<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tNbRwly1fy3638jhdvj30lh02s422.jpg">
+<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tNbRwly1fy364kujo3j30ly05zjz6.jpg">
+<meta property="og:image" content="https://ws3.sinaimg.cn/large/006tNbRwly1fy36g355cbj30av04wglr.jpg">
+<meta property="og:image" content="https://ws3.sinaimg.cn/large/006tNbRwly1fy36jxum8kj30o20b4wvb.jpg">
+<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tNbRwly1fy36kw89b5j30mq08m4ae.jpg">
+<meta property="og:updated_time" content="2018-12-11T15:26:29.861Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="老板让我写个 Bug">
+<meta name="twitter:description" content="前言标题没有看错，真的是让我写个 bug！
+刚接到这个需求时我内心没有丝毫波澜，甚至还有点激动。这可是我特长啊；终于可以光明正大的写 bug 了🙄。
+先来看看具体是要干啥吧，其实主要就是要让一些负载很低的服务器额外消耗一些内存、CPU 等资源（至于背景就不多说了），让它的负载可以提高一些。">
+<meta name="twitter:image" content="https://ws3.sinaimg.cn/large/006tNbRwly1fy25iirb5tj31hc0u0e81.jpg">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: 555390,
+      author: 'crossoverJie'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/"/>
+
+  <title> 老板让我写个 Bug | crossoverJie's Blog </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+
+
+
+
+
+
+
+
+  <div style="display: none;">
+    <script src="https://s6.cnzz.com/stat.php?id=1259025147&web_id=1259025147" type="text/javascript"></script>
+  </div>
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">crossoverJie's Blog</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle">baller</p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            Home
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            Categories
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            About
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            Archives
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            Tags
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-photo">
+          <a href="/favourite" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-photo"></i> <br />
+            
+            photo
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-jcsprout">
+          <a href="https://crossoverjie.top/JCSprout/#/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-leaf"></i> <br />
+            
+            JCSprout
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-cicada">
+          <a href="https://github.com/TogetherOS/cicada" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-github"></i> <br />
+            
+            cicada
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="#" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br />
+            
+            Search
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup">
+ <span class="search-icon fa fa-search"></span>
+ <input type="text" id="local-search-input">
+ <div id="local-search-result"></div>
+ <span class="popup-btn-close">close</span>
+</div>
+
+
+    </div>
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                老板让我写个 Bug
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">Posted on</span>
+            <time itemprop="dateCreated" datetime="2018-12-12T08:01:36+08:00" content="2018-12-12">
+              2018-12-12
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/Java-进阶/" itemprop="url" rel="index">
+                    <span itemprop="name">Java 进阶</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/2018/12/12/java-senior/java-memary-allocation/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/12/12/java-senior/java-memary-allocation/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+             <span id="/2018/12/12/java-senior/java-memary-allocation/" class="leancloud_visitors" data-flag-title="老板让我写个 Bug">
+               &nbsp; | &nbsp;
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               <span class="post-meta-item-text">visitors </span>
+               <span class="leancloud-visitors-count"></span>
+              </span>
+          
+
+          
+              &nbsp; | &nbsp;
+              <span class="page-pv">本文总阅读量
+              <span class="busuanzi-value" id="busuanzi_value_page_pv" ></span>次
+              </span>
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fy25iirb5tj31hc0u0e81.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>标题没有看错，真的是让我写个 <code>bug</code>！</p>
+<p>刚接到这个需求时我内心没有丝毫波澜，甚至还有点激动。这可是我特长啊；终于可以光明正大的写 <code>bug</code> 了🙄。</p>
+<p>先来看看具体是要干啥吧，其实主要就是要让一些负载很低的服务器额外消耗一些内存、CPU 等资源（至于背景就不多说了），让它的负载可以提高一些。</p>
+<a id="more"></a>
+<h1 id="JVM-内存分配回顾"><a href="#JVM-内存分配回顾" class="headerlink" title="JVM 内存分配回顾"></a>JVM 内存分配回顾</h1><p>于是我刷刷一把梭的就把代码写好了，大概如下：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fy2t4bjv5bj318s0hgjv4.jpg" alt=""></p>
+<p>写完之后我就在想一个问题，代码中的 <code>mem</code> 对象在方法执行完之后会不会被立即回收呢？我想肯定会有一部分人认为就是在方法执行完之后回收。</p>
+<p>我也正儿八经的去调研了下，问了一些朋友；果不其然确实有一部分认为是在方法执行完毕之后回收。</p>
+<p>那事实情况如何呢？我做了一个试验。</p>
+<p>我用以下的启动参数将刚才这个应用启动起来。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">java -Djava.rmi.server.hostname=<span class="number">10</span>.xx.xx.xx </div><div class="line">-Djava.security.policy=jstatd.all.policy </div><div class="line">-Dcom.sun.management.jmxremote.authenticate=<span class="keyword">false</span> </div><div class="line">-Dcom.sun.management.jmxremote.ssl=<span class="keyword">false</span> </div><div class="line">-Dcom.sun.management.jmxremote.port=<span class="number">8888</span>  </div><div class="line">-Xms4g -Xmx4g  -jar bug-<span class="number">0.0</span>.1-SNAPSHOT.jar</div></pre></td></tr></table></figure>
+<p>这样我就可以通过 JMX 端口远程连接到这个应用观察内存、GC 情况了。</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fy2xv0wnp8j30s80je405.jpg" alt=""></p>
+<hr>
+<p>如果是方法执行完毕就回收 <code>mem</code> 对象，当我分配 <code>250M</code> 内存时；内存就会有一个明显的曲线，同时 GC 也会执行。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fy2ykiyz7cj31gs0b0dhr.jpg" alt=""></p>
+<hr>
+<p>这时观察内存曲线。</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fy2y2psuhzj318c0oatbp.jpg" alt=""></p>
+<p>会发现确实有明显的涨幅，但是之后并没有立即回收，而是一直保持在这个水位。同时左边的 GC 也没有任何的反应。</p>
+<p>用 <code>jstat</code> 查看内存布局也是同样的情况。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fy2ynuuog3j317i0f2e81.jpg" alt=""></p>
+<p>不管是 <code>YGC,FGC</code> 都没有，只是 Eden 区的使用占比有所增加，毕竟分配了 250M 内存嘛。</p>
+<p>那怎样才会回收呢？</p>
+<p>我再次分配了两个 250M 之后观察内存曲线。</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fy2z2yxof0j30n60buab4.jpg" alt=""></p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fy2z7i5qrdj316m0eeb29.jpg" alt=""></p>
+<p>发现第三个 250M 的时候 <code>Eden</code> 区达到了 <code>98.83%</code> 于是再次分配时就需要回收 <code>Eden</code> 区产生了 <code>YGC</code>。</p>
+<p>同时内存曲线也得到了下降。</p>
+<p>整个的换算过程如图：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fy2zn03yjoj30sy0mg4qp.jpg" alt=""></p>
+<p>由于初始化的堆内存为 <code>4G</code>，所以算出来的 <code>Eden</code> 区大概为 <code>1092M</code> 内存。</p>
+<p>加上应用启动 <code>Spring</code> 之类消耗的大约 <code>20%</code> 内存，所以分配 3 次 250M 内存就会导致 <code>YGC</code>。</p>
+<p>再来回顾下刚才的问题：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fy2t4bjv5bj318s0hgjv4.jpg" alt=""></p>
+<p><code>mem</code> 对象既然在方法执行完毕后不会回收，那什么时候回收呢。</p>
+<p>其实只要记住一点即可：<strong>对象都需要垃圾回收器发生 <code>GC</code> 时才能回收；不管这个对象是局部变量还是全局变量。</strong></p>
+<p>通过刚才的实验也发现了，当 <code>Eden</code> 区空间不足产生 <code>YGC</code> 时才会回收掉我们创建的 <code>mem</code> 对象。</p>
+<p>但这里其实还有一个隐藏条件：那就是这个对象是<strong>局部变量</strong>。如果该对象是全局变量那依然不能被回收。</p>
+<p>也就是我们常说的<strong>对象不可达</strong>，这样不可达的对象在 <code>GC</code> 发生时就会被认为是需要回收的对象从而进行回收。</p>
+<p>在多考虑下，为什么有些人会认为方法执行完毕后局部变量会被回收呢？</p>
+<p>我想这应当是记混了，其实方法执行完毕后回收的是<code>栈帧</code>。</p>
+<p>它最直接的结果就是导致 <code>mem</code> 这个对象没有被引用了。但没有引用并不代表会被马上回收，也就是上面说到的需要产生 <code>GC</code> 才会回收。</p>
+<p>所以使用的是上面提到的对象不可达所采用的<strong>可达性分析算法</strong>来表明哪些对象需要被回收。</p>
+<p>当对象没有被引用后也就认为不可达了。</p>
+<p>这里有一张动图比较清晰：</p>
+<p><img src="https://camo.githubusercontent.com/dc705fafcecd5df825706c0599a5993a1d8e4351/68747470733a2f2f75706c6f61642e77696b696d656469612e6f72672f77696b6970656469612f636f6d6d6f6e732f342f34612f416e696d6174696f6e5f6f665f7468655f4e616976655f4d61726b5f616e645f53776565705f476172626167655f436f6c6c6563746f725f416c676f726974686d2e676966" alt=""></p>
+<p>当方法执行完之后其中的 <code>mem</code> 对象就相当于图中的 <code>Object 5</code>，所以在 <code>GC</code> 时候就会回收掉。</p>
+<h2 id="优先在-Eden-区分配对象"><a href="#优先在-Eden-区分配对象" class="headerlink" title="优先在 Eden 区分配对象"></a>优先在 Eden 区分配对象</h2><p>其实从上面的例子中可以看出对象是优先分配在新生代中 Eden 区的，但有个前提就是对象不能太大。</p>
+<p>以前也写过相关的内容：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fy359itj30j30mn0ecjuh.jpg" alt=""></p>
+<h2 id="大对象直接进入老年代"><a href="#大对象直接进入老年代" class="headerlink" title="大对象直接进入老年代"></a>大对象直接进入老年代</h2><p>而大对象则是直接分配到老年代中（至于多大算大，可以通过参数配置）。</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fy35t541v1j30qn06pjs4.jpg" alt=""></p>
+<hr>
+<p>当我直接分配 1000M 内存时，由于 Eden 区不能直接装下，所以改为分配在老年代中。</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fy35u96ercj309n03eaa5.jpg" alt=""></p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fy37wlwaabj30lq09d4ax.jpg" alt=""></p>
+<p>可以看到 <code>Eden</code> 区几乎没有变动，但是老年代却涨了 37% ，根据之前计算的老年代内存 <code>2730M</code> 算出来也差不多是 <code>1000M</code> 的内存。</p>
+<h1 id="Linux-内存查看"><a href="#Linux-内存查看" class="headerlink" title="Linux 内存查看"></a>Linux 内存查看</h1><p>回到这次我需要完成的需求：增加服务器内存和 CPU 的消耗。</p>
+<p>CPU 还好，本身就有一定的使用，同时每创建一个对象也会消耗一些 CPU。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fy35yw0qw9j309w04ewed.jpg" alt=""></p>
+<p>主要是内存,先来看下没启动这个应用之前的内存情况。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fy3638jhdvj30lh02s422.jpg" alt=""></p>
+<p>大概只使用了 3G 的内存。</p>
+<p>启动应用之后大概只消耗了 600M 左右的内存。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fy364kujo3j30ly05zjz6.jpg" alt=""></p>
+<p>为了满足需求我需要分配一些内存，但这里有点需要讲究。</p>
+<p>不能一直分配内存，这样会导致 CPU 负载太高了，同时内存也会由于 GC 回收导致占用也不是特别多。</p>
+<p>所以我需要少量的分配，让大多数对象在新生代中，为了不被回收需要保持在百分之八九十。</p>
+<p>同时也需要分配一些大对象到老年代中，也要保持老年代的使用在百分之八九十。</p>
+<p>这样才能最大限度的利用这 4G 的堆内存。</p>
+<p>于是我做了以下操作：</p>
+<ul>
+<li>先分配一些小对象在新生代中（800M）保持新生代在90%</li>
+<li>接着又分配了<code>老年代内 *（100%-已使用的28%）；也就是 2730*60%=1638M</code> 让老年代也在 90% 左右。</li>
+</ul>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fy36g355cbj30av04wglr.jpg" alt=""></p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fy36jxum8kj30o20b4wvb.jpg" alt=""></p>
+<p>效果如上。</p>
+<p>最主要的是一次 <code>GC</code> 都没有发生这样也就达到了我的目的。</p>
+<p>最终内存消耗了 3.5G 左右。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fy36kw89b5j30mq08m4ae.jpg" alt=""></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>虽说这次的需求是比较奇葩，但想要精确的控制 <code>JVM</code> 的内存分配还是没那么容易。</p>
+<p>需要对它的内存布局，回收都要有一定的了解，写这个 Bug 的过程确实也加深了印象，如果对你有所帮助请不要吝啬你的点赞与分享。</p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+<div id="wechat_subscriber" style="display: block； padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+    <img id="wechat_subscriber_qcode" src="/uploads/weixin.png" alt="crossoverJie wechat" style="width: 200px; max-width: 100%;"/>
+    <div>我很有眼光！</div>
+</div>
+
+      
+    </div>
+
+    <div>
+      
+        
+  <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+    <div>就是有钱。。</div>
+    <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+      <span>赏</span>
+    </button>
+    <div id="QR" style="display: none;">
+      
+        <div id="wechat" style="display: inline-block">
+          <img id="wechat_qr" src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay"/>
+          <p>微信打赏</p>
+        </div>
+      
+      
+        <div id="alipay" style="display: inline-block">
+          <img id="alipay_qr" src="/alipay-reward-image.jpg" alt="crossoverJie Alipay"/>
+          <p>支付宝打赏</p>
+        </div>
+      
+    </div>
+  </div>
+
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Java/" rel="tag">#Java</a>
+          
+            <a href="/tags/JVM/" rel="tag">#JVM</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/11/26/guava/guava-bloom-filter/" rel="next" title="如何判断一个元素在亿级数据中是否存在？">
+                <i class="fa fa-chevron-left"></i> 如何判断一个元素在亿级数据中是否存在？
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+  <p>热评文章</p>
+  <div class="ds-top-threads" data-range="weekly" data-num-items="4"></div>
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/uploads/crossoverjie.jpg"
+               alt="crossoverJie" />
+          <p class="site-author-name" itemprop="name">crossoverJie</p>
+          <p class="site-description motion-element" itemprop="description">You never know what you can do till you try.</p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">86</span>
+              <span class="site-state-item-name">posts</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">31</span>
+                <span class="site-state-item-name">categories</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">88</span>
+                <span class="site-state-item-name">tags</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/crossoverJie" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://www.jianshu.com/users/e2d07947c112/latest_articles" target="_blank" title="简书">
+                  
+                    <i class="fa fa-fw fa-book"></i>
+                  
+                  简书
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" target="_blank" title="掘金">
+                  
+                    <i class="fa fa-fw fa-bookmark"></i>
+                  
+                  掘金
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://twitter.com/crossoverJie" target="_blank" title="Twitter">
+                  
+                    <i class="fa fa-fw fa-twitter"></i>
+                  
+                  Twitter
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://wuchong.me" title="Jark's Blog" target="_blank">Jark's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://tengj.top" title="嘟嘟独立博客" target="_blank">嘟嘟独立博客</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://yemengying.com/" title="Giraffe Home" target="_blank">Giraffe Home</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://blog.jamespan.me/" title="潘小鶸(ruò)" target="_blank">潘小鶸(ruò)</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://fangjian0423.github.io/" title="Format's Notes" target="_blank">Format's Notes</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://yuzhouwan.com/" title="Benedict Jin" target="_blank">Benedict Jin</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.didispace.com/" title="程序猿DD" target="_blank">程序猿DD</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://blog.52itstyle.com/" title="小柒博客" target="_blank">小柒博客</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://cmsblogs.com/" title="Java技术驿站" target="_blank">Java技术驿站</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#JVM-内存分配回顾"><span class="nav-number">2.</span> <span class="nav-text">JVM 内存分配回顾</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#优先在-Eden-区分配对象"><span class="nav-number">2.1.</span> <span class="nav-text">优先在 Eden 区分配对象</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#大对象直接进入老年代"><span class="nav-number">2.2.</span> <span class="nav-text">大对象直接进入老年代</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Linux-内存查看"><span class="nav-number">3.</span> <span class="nav-text">Linux 内存查看</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy;  2016 - 
+  <span itemprop="copyrightYear">2018</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+
+<div class="powered-by">
+  Powered by <a class="theme-link" href="http://hexo.io">Hexo</a>
+</div>
+
+<div class="theme-info">
+  Theme -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+        
+
+<div class="busuanzi-count">
+
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="site-uv"><i class="fa fa-user"></i><span class="busuanzi-value" id="busuanzi_value_site_uv"></span>人数</span>
+  
+
+  
+    <span class="site-pv">您是第<span class="busuanzi-value" id="busuanzi_value_site_pv"></span>位童鞋</span>
+  
+  
+</div>
+
+
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/vendors/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/vendors/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.0.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.1"></script>
+
+
+
+  
+
+
+
+  
+
+    <script type="text/javascript">
+      var disqus_shortname = 'crossoverjie';
+      var disqus_identifier = '2018/12/12/java-senior/java-memary-allocation/';
+      var disqus_title = "老板让我写个 Bug";
+      var disqus_url = 'http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/';
+
+      function run_disqus_script(disqus_script){
+        var dsq = document.createElement('script');
+        dsq.type = 'text/javascript';
+        dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      }
+
+      run_disqus_script('count.js');
+      
+        run_disqus_script('embed.js');
+      
+    </script>
+  
+
+
+
+
+  
+  
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length == 0) {
+       search_path = "search.xml";
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    function proceedsearch() {
+      $("body").append('<div class="popoverlay">').css('overflow', 'hidden');
+      $('.popup').toggle();
+
+    }
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+    'use strict';
+    $.ajax({
+        url: path,
+        dataType: "xml",
+        async: true,
+        success: function( xmlResponse ) {
+            // get the contents from search data
+            isfetched = true;
+            $('.popup').detach().appendTo('.header-inner');
+            var datas = $( "entry", xmlResponse ).map(function() {
+                return {
+                    title: $( "title", this ).text(),
+                    content: $("content",this).text(),
+                    url: $( "url" , this).text()
+                };
+            }).get();
+            var $input = document.getElementById(search_id);
+            var $resultContent = document.getElementById(content_id);
+            $input.addEventListener('input', function(){
+                var matchcounts = 0;
+                var str='<ul class=\"search-result-list\">';                
+                var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                $resultContent.innerHTML = "";
+                if (this.value.trim().length > 1) {
+                // perform local searching
+                datas.forEach(function(data) {
+                    var isMatch = true;
+                    var content_index = [];
+                    var data_title = data.title.trim().toLowerCase();
+                    var data_content = data.content.trim().replace(/<[^>]+>/g,"").toLowerCase();
+                    var data_url = data.url;
+                    var index_title = -1;
+                    var index_content = -1;
+                    var first_occur = -1;
+                    // only match artiles with not empty titles and contents
+                    if(data_title != '' && data_content != '') {
+                        keywords.forEach(function(keyword, i) {
+                            index_title = data_title.indexOf(keyword);
+                            index_content = data_content.indexOf(keyword);
+                            if( index_title < 0 && index_content < 0 ){
+                                isMatch = false;
+                            } else {
+                                if (index_content < 0) {
+                                    index_content = 0;
+                                }
+                                if (i == 0) {
+                                    first_occur = index_content;
+                                }
+                            }
+                        });
+                    }
+                    // show search results
+                    if (isMatch) {
+                        matchcounts += 1;
+                        str += "<li><a href='"+ data_url +"' class='search-result-title'>"+ data_title +"</a>";
+                        var content = data.content.trim().replace(/<[^>]+>/g,"");
+                        if (first_occur >= 0) {
+                            // cut out 100 characters
+                            var start = first_occur - 20;
+                            var end = first_occur + 80;
+                            if(start < 0){
+                                start = 0;
+                            }
+                            if(start == 0){
+                                end = 50;
+                            }
+                            if(end > content.length){
+                                end = content.length;
+                            }
+                            var match_content = content.substring(start, end);
+                            // highlight all keywords
+                            keywords.forEach(function(keyword){
+                                var regS = new RegExp(keyword, "gi");
+                                match_content = match_content.replace(regS, "<b class=\"search-keyword\">"+keyword+"</b>");
+                            });
+                            
+                            str += "<p class=\"search-result\">" + match_content +"...</p>"
+                        }
+                        str += "</li>";
+                    }
+                })};
+                str += "</ul>";
+                if (matchcounts == 0) { str = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>' }
+                if (keywords == "") { str = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>' }
+                $resultContent.innerHTML = str;
+            });
+            proceedsearch();
+        }
+    });}
+
+    // handle and trigger popup window;
+    $('.popup-trigger').mousedown(function(e) {
+      e.stopPropagation();
+      if (isfetched == false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+
+    });
+
+    $('.popup-btn-close').click(function(e){
+      $('.popup').hide();
+      $(".popoverlay").remove();
+      $('body').css('overflow', '');
+    });
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+  </script>
+
+  
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.1.js"></script>
+  <script>AV.initialize("Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz", "NXiHFodQfmI8oxkK6IThhjrF");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script type="text/javascript" src="/js/src/particle.js" count="50" zindex="-2" opacity="1" color="0,104,183"></script>
+</body>
+</html>
