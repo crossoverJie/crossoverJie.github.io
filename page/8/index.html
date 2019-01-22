@@ -329,6 +329,144 @@
             
               
                 
+                <a class="post-title-link" href="/2017/01/05/SSM8/" itemprop="url">
+                  SSM(八)动态切换数据源
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">Posted on</span>
+            <time itemprop="dateCreated" datetime="2017-01-05T03:44:54+08:00" content="2017-01-05">
+              2017-01-05
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/SSM/" itemprop="url" rel="index">
+                    <span itemprop="name">SSM</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/2017/01/05/SSM8/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2017/01/05/SSM8/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+             <span id="/2017/01/05/SSM8/" class="leancloud_visitors" data-flag-title="SSM(八)动态切换数据源">
+               &nbsp; | &nbsp;
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               <span class="post-meta-item-text">visitors </span>
+               <span class="leancloud-visitors-count"></span>
+              </span>
+          
+
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          <p><img src="https://ws1.sinaimg.cn/large/0069RVTdly1fu80j3f2uvj30jg0ay0tx.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><blockquote>
+<p>在现在开发的过程中应该大多数朋友都有遇到过切换数据源的需求。比如现在常用的数据库读写分离，或者就是有两个数据库的情况，这些都需要用到切换数据源。</p>
+</blockquote>
+<h1 id="手动切换数据源"><a href="#手动切换数据源" class="headerlink" title="手动切换数据源"></a>手动切换数据源</h1><p>使用<code>Spring</code>的<code>AbstractRoutingDataSource</code>类来进行拓展多数据源。</p>
+<p>该类就相当于一个<code>dataSource</code>的路由，用于根据<code>key</code>值来进行切换对应的<code>dataSource</code>。</p>
+<p>下面简单来看下<code>AbstractRoutingDataSource</code>类的几段关键源码：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Override</span></div><div class="line"><span class="function"><span class="keyword">public</span> Connection <span class="title">getConnection</span><span class="params">()</span> <span class="keyword">throws</span> SQLException </span>&#123;</div><div class="line">	<span class="keyword">return</span> determineTargetDataSource().getConnection();</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="meta">@Override</span></div><div class="line"><span class="function"><span class="keyword">public</span> Connection <span class="title">getConnection</span><span class="params">(String username, String password)</span> <span class="keyword">throws</span> SQLException </span>&#123;</div><div class="line">	<span class="keyword">return</span> determineTargetDataSource().getConnection(username, password);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">/**</div><div class="line"> * Retrieve the current target DataSource. Determines the</div><div class="line"> * &#123;<span class="doctag">@link</span> #determineCurrentLookupKey() current lookup key&#125;, performs</div><div class="line"> * a lookup in the &#123;<span class="doctag">@link</span> #setTargetDataSources targetDataSources&#125; map,</div><div class="line"> * falls back to the specified</div><div class="line"> * &#123;<span class="doctag">@link</span> #setDefaultTargetDataSource default target DataSource&#125; if necessary.</div><div class="line"> * <span class="doctag">@see</span> #determineCurrentLookupKey()</div><div class="line"> */</span></div><div class="line"><span class="function"><span class="keyword">protected</span> DataSource <span class="title">determineTargetDataSource</span><span class="params">()</span> </span>&#123;</div><div class="line">	Assert.notNull(<span class="keyword">this</span>.resolvedDataSources, <span class="string">"DataSource router not initialized"</span>);</div><div class="line">	Object lookupKey = determineCurrentLookupKey();</div><div class="line">	DataSource dataSource = <span class="keyword">this</span>.resolvedDataSources.get(lookupKey);</div><div class="line">	<span class="keyword">if</span> (dataSource == <span class="keyword">null</span> &amp;&amp; (<span class="keyword">this</span>.lenientFallback || lookupKey == <span class="keyword">null</span>)) &#123;</div><div class="line">		dataSource = <span class="keyword">this</span>.resolvedDefaultDataSource;</div><div class="line">	&#125;</div><div class="line">	<span class="keyword">if</span> (dataSource == <span class="keyword">null</span>) &#123;</div><div class="line">		<span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"Cannot determine target DataSource for lookup key ["</span> + lookupKey + <span class="string">"]"</span>);</div><div class="line">	&#125;</div><div class="line">	<span class="keyword">return</span> dataSource;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">/**</div><div class="line"> * Determine the current lookup key. This will typically be</div><div class="line"> * implemented to check a thread-bound transaction context.</div><div class="line"> * &lt;p&gt;Allows for arbitrary keys. The returned key needs</div><div class="line"> * to match the stored lookup key type, as resolved by the</div><div class="line"> * &#123;<span class="doctag">@link</span> #resolveSpecifiedLookupKey&#125; method.</div><div class="line"> */</span></div><div class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">abstract</span> Object <span class="title">determineCurrentLookupKey</span><span class="params">()</span></span>;</div></pre></td></tr></table></figure></p>
+<p>可以看到其中获取链接的方法<code>getConnection()</code>调用的<code>determineTargetDataSource</code>则是关键方法。该方法用于返回我们使用的数据源。<br>
+          <div class="post-more-link text-center">
+            <a class="btn" href="/2017/01/05/SSM8/#more" rel="contents">
+              Read more &raquo;
+            </a>
+          </div>
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
                 <a class="post-title-link" href="/2016/12/31/annual-summary/GoodBye 2016,Welcome 2017 | 码农砌墙记/" itemprop="url">
                   GoodBye 2016,Welcome 2017 | 码农砌墙记
                 </a>
@@ -1530,149 +1668,11 @@
 
 
     
-      
-
-  
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-            
-            
-              
-                
-                <a class="post-title-link" href="/2016/06/18/normal-skill3/" itemprop="url">
-                  日常记录（三）更换Hexo主题
-                </a>
-              
-            
-          </h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            <span class="post-meta-item-icon">
-              <i class="fa fa-calendar-o"></i>
-            </span>
-            <span class="post-meta-item-text">Posted on</span>
-            <time itemprop="dateCreated" datetime="2016-06-18T00:05:24+08:00" content="2016-06-18">
-              2016-06-18
-            </time>
-          </span>
-
-          
-            <span class="post-category" >
-              &nbsp; | &nbsp;
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              <span class="post-meta-item-text">In</span>
-              
-                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
-                  <a href="/categories/日常记录/" itemprop="url" rel="index">
-                    <span itemprop="name">日常记录</span>
-                  </a>
-                </span>
-
-                
-                
-
-              
-            </span>
-          
-
-          
-            
-              <span class="post-comments-count">
-                &nbsp; | &nbsp;
-                <a href="/2016/06/18/normal-skill3/#comments" itemprop="discussionUrl">
-                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2016/06/18/normal-skill3/" itemprop="commentsCount"></span>
-                </a>
-              </span>
-            
-          
-
-          
-
-          
-          
-             <span id="/2016/06/18/normal-skill3/" class="leancloud_visitors" data-flag-title="日常记录（三）更换Hexo主题">
-               &nbsp; | &nbsp;
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               <span class="post-meta-item-text">visitors </span>
-               <span class="leancloud-visitors-count"></span>
-              </span>
-          
-
-          
-        </div>
-      </header>
-    
-
-
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><blockquote>
-<p>由于博主的喜新厌旧，再经过一段时间对上一个主题的审美疲劳加上我专(zhuang)研(bi)的精神<br>于是就想找一个B格较高的主题。经过一段时间的查找发现NexT这个主题简洁而不失华丽，低调而不失逼格(就不收广告费了)特别适合我，接着就着手开干。</p>
-</blockquote>
-<hr>
-<h1 id="安装NexT主题"><a href="#安装NexT主题" class="headerlink" title="安装NexT主题"></a>安装NexT主题</h1><h2 id="从Git上克隆主题"><a href="#从Git上克隆主题" class="headerlink" title="从Git上克隆主题"></a>从Git上克隆主题</h2><p>这里我就不介绍有关Hexo的东西了，默认是知道如何搭建Hexo博客的。还不太清楚的请自行百度。<br>首先将NexT主题先克隆到自己电脑上：</p>
-<ul>
-<li><code>cd your-hexo-site</code></li>
-<li><code>git clone https://github.com/iissnan/hexo-theme-next themes/next</code>。<h2 id="安装主题"><a href="#安装主题" class="headerlink" title="安装主题"></a>安装主题</h2>接下来我们只需要将站点下的<code>_config.yml</code>配置文件中的主题配置更换成Next，如下图：<br><img src="http://i.imgur.com/GhhnMDs.png" alt=""><br>其实这样主题就配好了，是不是很简单<br><img src="http://i.imgur.com/wQmHabT.gif" alt="">。
-          <div class="post-more-link text-center">
-            <a class="btn" href="/2016/06/18/normal-skill3/#more" rel="contents">
-              Read more &raquo;
-            </a>
-          </div>
-        
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-
-
-    
   </section>
 
   
   <nav class="pagination">
-    <a class="extend prev" rel="prev" href="/page/7/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/7/">7</a><span class="page-number current">8</span><a class="page-number" href="/page/9/">9</a><a class="extend next" rel="next" href="/page/9/"><i class="fa fa-angle-right"></i></a>
+    <a class="extend prev" rel="prev" href="/page/7/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/7/">7</a><span class="page-number current">8</span><a class="page-number" href="/page/9/">9</a><a class="page-number" href="/page/10/">10</a><a class="extend next" rel="next" href="/page/9/"><i class="fa fa-angle-right"></i></a>
   </nav>
 
 
@@ -1713,7 +1713,7 @@
         <nav class="site-state motion-element">
           <div class="site-state-item site-state-posts">
             <a href="/archives">
-              <span class="site-state-item-count">90</span>
+              <span class="site-state-item-count">91</span>
               <span class="site-state-item-name">posts</span>
             </a>
           </div>
