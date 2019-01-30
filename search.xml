@@ -1,6 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[利用策略模式优化过多 if else]]></title>
+    <url>%2F2019%2F01%2F30%2Fjava-senior%2Fdesign-if-else%2F</url>
+    <content type="text"><![CDATA[前言不出意外，这应该是年前最后一次分享，本次来一点实际开发中会用到的小技巧。 比如平时大家是否都会写类似这样的代码： 123456789if(a)&#123; //dosomething&#125;else if(b)&#123; //doshomething&#125;else if(c)&#123; //doshomething&#125; else&#123; ////doshomething&#125; 条件少还好，一旦 else if 过多这里的逻辑将会比较混乱，并很容易出错。 比如这样： 摘自 cim 中的一个客户端命令的判断条件。 刚开始条件较少，也就没管那么多直接写的；现在功能多了导致每次新增一个 else 条件我都得仔细核对，生怕影响之前的逻辑。 这次终于忍无可忍就把他重构了，重构之后这里的结构如下： 最后直接变为两行代码，简洁了许多。 而之前所有的实现逻辑都单独抽取到其他实现类中。 这样每当我需要新增一个 else 逻辑，只需要新增一个类实现同一个接口便可完成。每个处理逻辑都互相独立互不干扰。 实现 按照目前的实现画了一个草图。 整体思路如下： 定义一个 InnerCommand 接口，其中有一个 process 函数交给具体的业务实现。 根据自己的业务，会有多个类实现 InnerCommand 接口；这些实现类都会注册到 Spring Bean 容器中供之后使用。 通过客户端输入命令，从 Spring Bean 容器中获取一个 InnerCommand 实例。 执行最终的 process 函数。 主要想实现的目的就是不在有多个判断条件，只需要根据当前客户端的状态动态的获取 InnerCommand 实例。 从源码上来看最主要的就是 InnerCommandContext 类，他会根据当前客户端命令动态获取 InnerCommand 实例。 第一步是获取所有的 InnerCommand 实例列表。 根据客户端输入的命令从第一步的实例列表中获取类类型。 根据类类型从 Spring 容器中获取具体实例对象。 因此首先第一步需要维护各个命令所对应的类类型。 所以在之前的枚举中就维护了命令和类类型的关系，只需要知道命令就能知道他的类类型。 这样才能满足只需要两行代码就能替换以前复杂的 if else，同时也能灵活扩展。 12InnerCommand instance = innerCommandContext.getInstance(msg);instance.process(msg) ; 总结当然还可以做的更灵活一些，比如都不需要显式的维护命令和类类型的对应关系。 只需要在应用启动时扫描所有实现了 InnerCommand 接口的类即可，在 cicada 中有类似实现，感兴趣的可以自行查看。 这样一些小技巧希望对你有所帮助。 以上所有源码可以在这里查看： https://github.com/crossoverJie/cim 你的点赞与分享是对我最大的支持]]></content>
+      <categories>
+        <category>Java 进阶</category>
+        <category>设计模式</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>策略模式</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[长连接的心跳及重连设计]]></title>
     <url>%2F2019%2F01%2F23%2Fnetty%2Fcim03-heartbeat%2F</url>
     <content type="text"><![CDATA[前言说道“心跳”这个词大家都不陌生，当然不是指男女之间的心跳，而是和长连接相关的。 顾名思义就是证明是否还活着的依据。 什么场景下需要心跳呢？ 目前我们接触到的大多是一些基于长连接的应用需要心跳来“保活”。 由于在长连接的场景下，客户端和服务端并不是一直处于通信状态，如果双方长期没有沟通则双方都不清楚对方目前的状态；所以需要发送一段很小的报文告诉对方“我还活着”。 同时还有另外几个目的： 服务端检测到某个客户端迟迟没有心跳过来可以主动关闭通道，让它下线。 客户端检测到某个服务端迟迟没有响应心跳也能重连获取一个新的连接。 正好借着在 cim有这样两个需求来聊一聊。 心跳实现方式心跳其实有两种实现方式： TCP 协议实现（keepalive 机制）。 应用层自己实现。 由于 TCP 协议过于底层，对于开发者来说维护性、灵活度都比较差同时还依赖于操作系统。 所以我们这里所讨论的都是应用层的实现。 如上图所示，在应用层通常是由客户端发送一个心跳包 ping 到服务端，服务端收到后响应一个 pong 表明双方都活得好好的。 一旦其中一端延迟 N 个时间窗口没有收到消息则进行不同的处理。 客户端自动重连先拿客户端来说吧，每隔一段时间客户端向服务端发送一个心跳包，同时收到服务端的响应。 常规的实现应当是： 开启一个定时任务，定期发送心跳包。 收到服务端响应后更新本地时间。 再有一个定时任务定期检测这个“本地时间”是否超过阈值。 超过后则认为服务端出现故障，需要重连。 这样确实也能实现心跳，但并不友好。 在正常的客户端和服务端通信的情况下，定时任务依然会发送心跳包；这样就显得没有意义，有些多余。 所以理想的情况应当是客户端收到的写消息空闲时才发送这个心跳包去确认服务端是否健在。 好消息是 Netty 已经为我们考虑到了这点，自带了一个开箱即用的 IdleStateHandler 专门用于心跳处理。 来看看 cim 中的实现： 在 pipeline 中加入了一个 10秒没有收到写消息的 IdleStateHandler，到时他会回调 ChannelInboundHandler 中的 userEventTriggered 方法。 所以一旦写超时就立马向服务端发送一个心跳（做的更完善应当在心跳发送失败后有一定的重试次数）； 这样也就只有在空闲时候才会发送心跳包。 但一旦间隔许久没有收到服务端响应进行重连的逻辑应当写在哪里呢？ 先来看这个示例： 当收到服务端响应的 pong 消息时，就在当前 Channel 上记录一个时间，也就是说后续可以在定时任务中取出这个时间和当前时间的差额来判断是否超过阈值。 超过则重连。 同时在每次心跳时候都用当前时间和之前服务端响应绑定到 Channel 上的时间相减判断是否需要重连即可。 也就是 heartBeatHandler.process(ctx); 的执行逻辑。 伪代码如下： 123456789101112@Overridepublic void process(ChannelHandlerContext ctx) throws Exception &#123; long heartBeatTime = appConfiguration.getHeartBeatTime() * 1000; Long lastReadTime = NettyAttrUtil.getReaderTime(ctx.channel()); long now = System.currentTimeMillis(); if (lastReadTime != null &amp;&amp; now - lastReadTime &gt; heartBeatTime)&#123; reconnect(); &#125;&#125; IdleStateHandler 误区一切看起来也没毛病，但实际上却没有这样实现重连逻辑。 最主要的问题还是对 IdleStateHandler 理解有误。 我们假设下面的场景： 客户端通过登录连上了服务端并保持长连接，一切正常的情况下双方各发心跳包保持连接。 这时服务端突入出现 down 机，那么理想情况下应当是客户端迟迟没有收到服务端的响应从而 userEventTriggered 执行定时任务。 判断当前时间 - UpdateWriteTime &gt; 阈值 时进行重连。 但却事与愿违，并不会执行 2、3两步。 因为一旦服务端 down 机、或者是与客户端的网络断开则会回调客户端的 channelInactive 事件。 IdleStateHandler 作为一个 ChannelInbound 也重写了 channelInactive() 方法。 这里的 destroy() 方法会把之前开启的定时任务都给取消掉。 所以就不会再有任何的定时任务执行了，也就不会有机会执行这个重连业务。 靠谱实现因此我们得有一个单独的线程来判断是否需要重连，不依赖于 IdleStateHandler。 于是 cim 在客户端感知到网络断开时就会开启一个定时任务： 之所以不在客户端启动就开启，是为了节省一点线程消耗。网络问题虽然不可避免，但在需要的时候开启更能节省资源。 在这个任务重其实就是执行了重连，限于篇幅具体代码就不贴了，感兴趣的可以自行查阅。 同时来验证一下效果。 启动两个服务端，再启动客户端连接上一台并保持长连接。这时突然手动关闭一台服务，客户端可以自动重连到可用的那台服务节点。 启动客户端后服务端也能收到正常的 ping 消息。 利用 :info 命令查看当前客户端的链接状态发现连的是 9000端口。 :info 是一个新增命令，可以查看一些客户端信息。 这时我关掉连接上的这台节点。 1kill -9 2142 这时客户端会自动重连到可用的那台节点。这个节点也收到了上线日志以及心跳包。 服务端自动剔除离线客户端现在来看看服务端，它要实现的效果就是延迟 N 秒没有收到客户端的 ping 包则认为客户端下线了，在 cim 的场景下就需要把他踢掉置于离线状态。 消息发送误区这里依然有一个误区，在调用 ctx.writeAndFlush() 发送消息获取回调时。 其中是 isSuccess 并不能作为消息发送成功与否的标准。 也就是说即便是客户端直接断网，服务端这里发送消息后拿到的 success 依旧是 true。 这是因为这里的 success 只是告知我们消息写入了 TCP 缓冲区成功了而已。 和我之前有着一样错误理解的不在少数，这是 Netty 官方给的回复。 相关 issue： https://github.com/netty/netty/issues/4915 同时感谢 95老徐以及闪电侠的一起排查。 所以我们不能依据此来关闭客户端的连接，而是要像上文一样判断 Channel 上绑定的时间与当前时间只差是否超过了阈值。 以上则是 cim 服务端的实现，逻辑和开头说的一致，也和 Dubbo 的心跳机制有些类似。 于是来做个试验：正常通信的客户端和服务端，当我把客户端直接断网时，服务端会自动剔除客户端。 总结这样就实现了文初的两个要求。 服务端检测到某个客户端迟迟没有心跳过来可以主动关闭通道，让它下线。 客户端检测到某个服务端迟迟没有响应心跳也能重连获取一个新的连接。 同时也踩了两个误区，坑一个人踩就可以了，希望看过本文的都有所收获避免踩坑。 本文所有相关代码都在此处，感兴趣的可以自行查看： https://github.com/crossoverJie/cim 如果本文对你有所帮助还请不吝转发。]]></content>
@@ -9,8 +22,8 @@
         <category>cim</category>
       </categories>
       <tags>
-        <tag>IM</tag>
         <tag>Heartbeat</tag>
+        <tag>IM</tag>
       </tags>
   </entry>
   <entry>
@@ -37,8 +50,8 @@
       <tags>
         <tag>Redis</tag>
         <tag>Zookeeper</tag>
-        <tag>推送</tag>
         <tag>IM</tag>
+        <tag>推送</tag>
         <tag>IOT</tag>
       </tags>
   </entry>
@@ -64,19 +77,6 @@
         <tag>concurrent</tag>
         <tag>JVM</tag>
         <tag>disruptor</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title><![CDATA[利用策略模式优化过多 if else]]></title>
-    <url>%2F2018%2F12%2F12%2Fjava-senior%2Fdesign-if-else%2F</url>
-    <content type="text"><![CDATA[前言不出意外，这应该是年前最后一次分享，本次来一点实际开发中会用到的小技巧。 比如平时大家是否都会写类似这样的代码： 123456789if(a)&#123; //dosomething&#125;else if(b)&#123; //doshomething&#125;else if(c)&#123; //doshomething&#125; else&#123; ////doshomething&#125; 条件少还好，一旦 else if 过多这里的逻辑将会比较混乱，并很容易出错。 比如这样： 摘自 cim 中的一个客户端命令的判断条件。 刚开始条件较少，也就没管那么多直接写的；现在功能多了导致每次新增一个 else 条件我都得仔细核对，生怕影响之前的逻辑。 这次终于忍无可忍就把他重构了，重构之后这里的结构如下： 最后直接变为两行代码，简洁了许多。 而之前所有的实现逻辑都单独抽取到其他实现类中。 这样每当我需要新增一个 else 逻辑，只需要新增一个类实现同一个接口便可完成。每个处理逻辑都互相独立互不干扰。 实现 按照目前的实现画了一个草图。 整体思路如下： 定义一个 InnerCommand 接口，其中有一个 process 函数交给具体的业务实现。 根据自己的业务，会有多个类实现 InnerCommand 接口；这些实现类都会注册到 Spring Bean 容器中供之后使用。 通过客户端输入命令，从 Spring Bean 容器中获取一个 InnerCommand 实例。 执行最终的 process 函数。 主要想实现的目的就是不在有多个判断条件，只需要根据当前客户端的状态动态的获取 InnerCommand 实例。 从源码上来看最主要的就是 InnerCommandContext 类，他会根据当前客户端命令动态获取 InnerCommand 实例。 第一步是获取所有的 InnerCommand 实例列表。 根据客户端输入的命令从第一步的实例列表中获取类类型。 根据类类型从 Spring 容器中获取具体实例对象。 因此首先第一步需要维护各个命令所对应的类类型。 所以在之前的枚举中就维护了命令和类类型的关系，只需要知道命令就能知道他的类类型。 这样才能满足只需要两行代码就能替换以前复杂的 if else，同时也能灵活扩展。 12InnerCommand instance = innerCommandContext.getInstance(msg);instance.process(msg) ; 总结当然还可以做的更灵活一些，比如都不需要显式的维护命令和类类型的对应关系。 只需要在应用启动时扫描所有实现了 InnerCommand 接口的类即可，在 cicada 中有类似实现，感兴趣的可以自行查看。 这样一些小技巧希望对你有所帮助。 以上所有源码可以在这里查看： https://github.com/crossoverJie/cim 你的点赞与分享是对我最大的支持]]></content>
-      <categories>
-        <category>Java 进阶</category>
-        <category>设计模式</category>
-      </categories>
-      <tags>
-        <tag>Java</tag>
-        <tag>策略模式</tag>
       </tags>
   </entry>
   <entry>
@@ -154,9 +154,9 @@
         <tag>Java</tag>
         <tag>Thread</tag>
         <tag>concurrent</tag>
-        <tag>HashMap</tag>
         <tag>JVM</tag>
         <tag>HashSet</tag>
+        <tag>HashMap</tag>
       </tags>
   </entry>
   <entry>
@@ -409,8 +409,8 @@
       <tags>
         <tag>Java</tag>
         <tag>concurrent</tag>
-        <tag>ConcurrentHashMap</tag>
         <tag>HashMap</tag>
+        <tag>ConcurrentHashMap</tag>
       </tags>
   </entry>
   <entry>
@@ -743,8 +743,8 @@
         <category>sbc</category>
       </categories>
       <tags>
-        <tag>重构</tag>
         <tag>Java</tag>
+        <tag>重构</tag>
         <tag>AOP</tag>
         <tag>SpringBoot</tag>
         <tag>SpringCloud</tag>
@@ -804,18 +804,6 @@
       </tags>
   </entry>
   <entry>
-    <title><![CDATA[科普-为自己的博客免费加上小绿锁]]></title>
-    <url>%2F2017%2F05%2F07%2Fhttps%2F</url>
-    <content type="text"><![CDATA[在如今的HTTPS大当其道的情况下自己的博客要是还没有用上。作为互联网的螺丝钉(码农)岂不是很没面子。 使用CLOUDFLARE这里使用CLOUDFLARE来提供HTTPS服务。 在其官网进行注册，按照提示添加好自己的域名即可。 之后需要在自己域名的提供商处修改DNS服务器，我是在万网购买的修改后如下图：其中的DNS服务器地址由CLOUDFLARE是提供的。修改完成之后通常需要等待一段时间才能生效。 接着在CLOUDFLARE配置DNS解析：点击CLOUDFLARE顶部的DNS进行如我上图中的配置，和之前的配置没有什么区别。 等待一段时间之后发现使用HTTP,HTTPS都能访问，但是最好还是能在访问HTTP的时候能强制跳转到HTTPS. 在CLOUDFLARE菜单栏点击page-rules之后新建一个page rule：这样整个网站的请求都会强制到请求到HTTPS. 主题配置由于我才用的是Hexo中的Next主题，其中配置了CNZZ站长统计。其中配置的CNZZ统计JS是才用的HTTP。导致在首页的时候chrome一直提示感叹号。修改站点themes/next/layout/_scripts/third-party/analytics目录下的cnzz-analytics.swig文件1234567&#123;% if theme.cnzz_siteid %&#125; &lt;div style=&quot;display: none;&quot;&gt; &lt;script src=&quot;https://s6.cnzz.com/stat.php?id=&#123;&#123; theme.cnzz_siteid &#125;&#125;&amp;web_id=&#123;&#123; theme.cnzz_siteid &#125;&#125;&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt; &lt;/div&gt;&#123;% endif %&#125; 之后再进行构建的时候就会使用HTTPS. 值得注意一点的是之后文章中所使用的图片都要用HTTPS的地址了，不然chrome会提示感叹号。 个人博客地址：http://crossoverjie.top。 GitHub地址：https://github.com/crossoverJie。]]></content>
-      <categories>
-        <category>科普</category>
-      </categories>
-      <tags>
-        <tag>HTTP</tag>
-        <tag>HTTPS</tag>
-      </tags>
-  </entry>
-  <entry>
     <title><![CDATA[SSM(十三) 将dubbo暴露出HTTP服务]]></title>
     <url>%2F2017%2F05%2F07%2FSSM13%2F</url>
     <content type="text"><![CDATA[前言通常来说一个dubbo服务都是对内给内部调用的，但也有可能一个服务就是需要提供给外部使用，并且还不能有使用语言的局限性。 比较标准的做法是对外的服务我们统一提供一个openAPI，这样的调用方需要按照标准提供相应的appID以及密钥来进行验签才能使用。这样固然是比较规范和安全，但复杂度也不亚于开发一个单独的系统了。 这里所讲到的没有那么复杂，就只是把一个不需要各种权限检验的dubbo服务对外提供为HTTP服务。 调用示例: 准备工作以下是本文所涉及到的一些知识点： Spring相关知识。 Java反射相关知识。 SpringMVC相关知识。 其实思路很简单，就是利用SpringMVC提供一个HTTP接口。在该接口中通过入参进行反射找到具体的dubbo服务实现进行调用。 HttpProviderConf配置类首先需要定义一个HttpProviderConf类用于保存声明需要对外提供服务的包名，毕竟我们反射时需要用到一个类的全限定名： 12345678public class HttpProviderConf &#123; /** * 提供http访问的包 */ private List&lt;String&gt; usePackage ; //省略getter setter方法&#125; 就只有一个usePackage成员变量，用于存放需要包名。至于用List的原因是允许有多个。 请求响应入参、出参HttpRequest入参123456public class HttpRequest &#123; private String param ;//入参 private String service ;//请求service private String method ;//请求方法 //省略getter setter方法&#125; 其中param是用于存放真正调用dubbo服务时的入参，传入json在调用的时候解析成具体的参数对象。 service存放dubbo服务声明的interface API的包名。 method则是真正调用的方法名称。 HttpResponse 响应1234567891011public class HttpResponse implements Serializable&#123; private static final long serialVersionUID = -552828440320737814L; private boolean success;//成功标志 private String code;//信息码 private String description;//描述 //省略getter setter方法&#125; 这里只是封装了常用的HTTP服务的响应数据。 暴露服务controller最重要的则是controller里的实现代码了。 先贴代码：123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899100101102103104105106107108109110111112113114115116117118119120121122123124125126127128129130131132133134135136137138139140141142143144145146147148149150151152153154155@Controller@RequestMapping("/dubboAPI")public class DubboController implements ApplicationContextAware&#123; private final static Logger logger = LoggerFactory.getLogger(DubboController.class); @Autowired private HttpProviderConf httpProviderConf; //缓存作用的map private final Map&lt;String, Class&lt;?&gt;&gt; cacheMap = new HashMap&lt;String, Class&lt;?&gt;&gt;(); protected ApplicationContext applicationContext; @ResponseBody @RequestMapping(value = "/&#123;service&#125;/&#123;method&#125;",method = RequestMethod.POST) public String api(HttpRequest httpRequest, HttpServletRequest request, @PathVariable String service, @PathVariable String method) &#123; logger.debug("ip:&#123;&#125;-httpRequest:&#123;&#125;",getIP(request), JSON.toJSONString(httpRequest)); String invoke = invoke(httpRequest, service, method); logger.debug("callback :"+invoke) ; return invoke ; &#125; private String invoke(HttpRequest httpRequest,String service,String method)&#123; httpRequest.setService(service); httpRequest.setMethod(method); HttpResponse response = new HttpResponse() ; logger.debug("input param:"+JSON.toJSONString(httpRequest)); if (!CollectionUtils.isEmpty(httpProviderConf.getUsePackage()))&#123; boolean isPac = false ; for (String pac : httpProviderConf.getUsePackage()) &#123; if (service.startsWith(pac))&#123; isPac = true ; break ; &#125; &#125; if (!isPac)&#123; //调用的是未经配置的包 logger.error("service is not correct,service="+service); response.setCode("2"); response.setSuccess(false); response.setDescription("service is not correct,service="+service); &#125; &#125; try &#123; Class&lt;?&gt; serviceCla = cacheMap.get(service); if (serviceCla == null)&#123; serviceCla = Class.forName(service) ; logger.debug("serviceCla:"+JSON.toJSONString(serviceCla)); //设置缓存 cacheMap.put(service,serviceCla) ; &#125; Method[] methods = serviceCla.getMethods(); Method targetMethod = null ; for (Method m : methods) &#123; if (m.getName().equals(method))&#123; targetMethod = m ; break ; &#125; &#125; if (method == null)&#123; logger.error("method is not correct,method="+method); response.setCode("2"); response.setSuccess(false); response.setDescription("method is not correct,method="+method); &#125; Object bean = this.applicationContext.getBean(serviceCla); Object result = null ; Class&lt;?&gt;[] parameterTypes = targetMethod.getParameterTypes(); if (parameterTypes.length == 0)&#123; //没有参数 result = targetMethod.invoke(bean); &#125;else if (parameterTypes.length == 1)&#123; Object json = JSON.parseObject(httpRequest.getParam(), parameterTypes[0]); result = targetMethod.invoke(bean,json) ; &#125;else &#123; logger.error("Can only have one parameter"); response.setSuccess(false); response.setCode("2"); response.setDescription("Can only have one parameter"); &#125; return JSON.toJSONString(result) ; &#125;catch (ClassNotFoundException e)&#123; logger.error("class not found",e); response.setSuccess(false); response.setCode("2"); response.setDescription("class not found"); &#125; catch (InvocationTargetException e) &#123; logger.error("InvocationTargetException",e); response.setSuccess(false); response.setCode("2"); response.setDescription("InvocationTargetException"); &#125; catch (IllegalAccessException e) &#123; logger.error("IllegalAccessException",e); response.setSuccess(false); response.setCode("2"); response.setDescription("IllegalAccessException"); &#125; return JSON.toJSONString(response) ; &#125; /** * 获取IP * @param request * @return */ private String getIP(HttpServletRequest request) &#123; if (request == null) return null; String s = request.getHeader("X-Forwarded-For"); if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getHeader("Proxy-Client-IP"); &#125; if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getHeader("WL-Proxy-Client-IP"); &#125; if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getHeader("HTTP_CLIENT_IP"); &#125; if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getHeader("HTTP_X_FORWARDED_FOR"); &#125; if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getRemoteAddr(); &#125; if ("127.0.0.1".equals(s) || "0:0:0:0:0:0:0:1".equals(s)) try &#123; s = InetAddress.getLocalHost().getHostAddress(); &#125; catch (UnknownHostException unknownhostexception) &#123; return ""; &#125; return s; &#125; public void setApplicationContext(ApplicationContext applicationContext) throws BeansException &#123; this.applicationContext = applicationContext; &#125; 先一步一步的看： 首先是定义了一个DubboController,并使用了SpringMVC的注解对外暴露HTTP服务。 实现了org.springframework.context.ApplicationContextAware类，实现了setApplicationContext()方法用于初始化Spring上下文对象，在之后可以获取到容器里的相应对象。 核心的invoke()方法。 调用时：http://127.0.0.1:8080/SSM-SERVICE/dubboAPI/com.crossoverJie.api.UserInfoApi/getUserInfo。 具体如上文的调用实例。先将com.crossoverJie.api.UserInfoApi、getUserInfo赋值到httpRequest入参中。 判断传入的包是否是对外提供的。如下配置：1234567891011&lt;!--dubbo服务暴露为http服务--&gt;&lt;bean class="com.crossoverJie.dubbo.http.conf.HttpProviderConf"&gt; &lt;property name="usePackage"&gt; &lt;list&gt; &lt;!--需要暴露服务的接口包名，可多个--&gt; &lt;value&gt;com.crossoverJie.api&lt;/value&gt; &lt;/list&gt; &lt;/property&gt;&lt;/bean&gt;&lt;!--扫描暴露包--&gt;&lt;context:component-scan base-package="com.crossoverJie.dubbo.http"/&gt; 其中的com.crossoverJie.api就是自己需要暴露的包名，可以多个。 接着在缓存map中取出反射获取到的接口类类型，如果获取不到则通过反射获取，并将值设置到缓存map中，这样不用每次都反射获取，可以节省系统开销(反射很耗系统资源)。 接着也是判断该接口中是否有传入的getUserInfo方法。 取出该方法的参数列表，如果没有参数则直接调用。 如果有参数，判断个数。这里最多只运行一个参数。也就是说在真正的dubbo调用的时候只能传递一个BO类型，具体的参数列表可以写到BO中。因为如果有多个在进行json解析的时候是无法赋值到两个参数对象中去的。 之后进行调用，将调用返回的数据进行返回即可。 总结通常来说这样提供的HTTP接口再实际中用的不多，但是很方便调试。 比如写了一个dubbo的查询接口，在测试环境或者是预发布环境中就可以直接通过HTTP请求的方式进行简单的测试，或者就是查询数据。比在Java中写单测来测试或查询快的很多。 安装1git clone https://github.com/crossoverJie/SSM-DUBBO-HTTP.git 1cd SSM-DUBBO-HTTP 1mvn clean 1mvn install 使用12345&lt;dependency&gt; &lt;groupId&gt;com.crossoverJie&lt;/groupId&gt; &lt;artifactId&gt;SSM-HTTP-PROVIDER&lt;/artifactId&gt; &lt;version&gt;1.0.0&lt;/version&gt;&lt;/dependency&gt; spring配置1234567891011&lt;!--dubbo服务暴露为http服务--&gt;&lt;bean class="com.crossoverJie.dubbo.http.conf.HttpProviderConf"&gt; &lt;property name="usePackage"&gt; &lt;list&gt; &lt;!--需要暴露服务的接口包名，可多个--&gt; &lt;value&gt;com.crossoverJie.api&lt;/value&gt; &lt;/list&gt; &lt;/property&gt;&lt;/bean&gt;&lt;!--扫描暴露包--&gt;&lt;context:component-scan base-package="com.crossoverJie.dubbo.http"/&gt; 插件地址：https://github.com/crossoverJie/SSM-DUBBO-HTTP 项目地址：https://github.com/crossoverJie/SSM.git 个人博客地址：http://crossoverjie.top。 GitHub地址：https://github.com/crossoverJie。]]></content>
@@ -826,6 +814,18 @@
         <tag>Java</tag>
         <tag>dubbo</tag>
         <tag>HTTP</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[科普-为自己的博客免费加上小绿锁]]></title>
+    <url>%2F2017%2F05%2F07%2Fhttps%2F</url>
+    <content type="text"><![CDATA[在如今的HTTPS大当其道的情况下自己的博客要是还没有用上。作为互联网的螺丝钉(码农)岂不是很没面子。 使用CLOUDFLARE这里使用CLOUDFLARE来提供HTTPS服务。 在其官网进行注册，按照提示添加好自己的域名即可。 之后需要在自己域名的提供商处修改DNS服务器，我是在万网购买的修改后如下图：其中的DNS服务器地址由CLOUDFLARE是提供的。修改完成之后通常需要等待一段时间才能生效。 接着在CLOUDFLARE配置DNS解析：点击CLOUDFLARE顶部的DNS进行如我上图中的配置，和之前的配置没有什么区别。 等待一段时间之后发现使用HTTP,HTTPS都能访问，但是最好还是能在访问HTTP的时候能强制跳转到HTTPS. 在CLOUDFLARE菜单栏点击page-rules之后新建一个page rule：这样整个网站的请求都会强制到请求到HTTPS. 主题配置由于我才用的是Hexo中的Next主题，其中配置了CNZZ站长统计。其中配置的CNZZ统计JS是才用的HTTP。导致在首页的时候chrome一直提示感叹号。修改站点themes/next/layout/_scripts/third-party/analytics目录下的cnzz-analytics.swig文件1234567&#123;% if theme.cnzz_siteid %&#125; &lt;div style=&quot;display: none;&quot;&gt; &lt;script src=&quot;https://s6.cnzz.com/stat.php?id=&#123;&#123; theme.cnzz_siteid &#125;&#125;&amp;web_id=&#123;&#123; theme.cnzz_siteid &#125;&#125;&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt; &lt;/div&gt;&#123;% endif %&#125; 之后再进行构建的时候就会使用HTTPS. 值得注意一点的是之后文章中所使用的图片都要用HTTPS的地址了，不然chrome会提示感叹号。 个人博客地址：http://crossoverjie.top。 GitHub地址：https://github.com/crossoverJie。]]></content>
+      <categories>
+        <category>科普</category>
+      </categories>
+      <tags>
+        <tag>HTTP</tag>
+        <tag>HTTPS</tag>
       </tags>
   </entry>
   <entry>
