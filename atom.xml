@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-02-21T05:41:16.583Z</updated>
+  <updated>2019-02-28T16:59:42.816Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,200 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>一致性 Hash 算法的实际应用</title>
+    <link href="http://crossoverjie.top/2019/03/01/algorithm/consistent-hash/"/>
+    <id>http://crossoverjie.top/2019/03/01/algorithm/consistent-hash/</id>
+    <published>2019-03-01T00:10:00.000Z</published>
+    <updated>2019-02-28T16:59:42.816Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g0m9w97ajwj31hc0u0qjc.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>记得一年前分享过一篇<a href="https://crossoverjie.top/2018/01/08/Consistent-Hash/">《一致性 Hash 算法分析》</a>，当时只是分析了这个算法的实现原理、解决了什么问题等。</p>
+<p>但没有实际实现一个这样的算法，毕竟要加深印象还得自己撸一遍，于是本次就当前的一个路由需求来着手实现一次。</p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>看过<a href="https://crossoverjie.top/2019/01/02/netty/cim01-started/">《为自己搭建一个分布式 IM(即时通讯) 系统》</a>的朋友应该对其中的登录逻辑有所印象。</p>
+<a id="more"></a>
+<blockquote>
+<p>先给新来的朋友简单介绍下 <a href="https://github.com/crossoverJie/cim" target="_blank" rel="external">cim</a> 是干啥的：</p>
+</blockquote>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g0mbghm31pj31i60dsad3.jpg" alt=""></p>
+<p>其中有一个场景是在客户端登录成功后需要从可用的服务端列表中选择一台服务节点返回给客户端使用。</p>
+<p>而这个选择的过程就是一个负载策略的过程；第一版本做的比较简单，默认只支持轮询的方式。</p>
+<p>虽然够用，但不够优雅😏。</p>
+<p><strong>因此我的规划是内置多种路由策略供使用者根据自己的场景选择，同时提供简单的 API 供用户自定义自己的路由策略。</strong></p>
+<p>先来看看一致性 Hash 算法的一些特点：</p>
+<ul>
+<li>构造一个 <code>0 ~ 2^32-1</code> 大小的环。</li>
+<li>服务节点经过 hash 之后将自身存放到环中的下标中。</li>
+<li>客户端根据自身的某些数据 hash 之后也定位到这个环中。</li>
+<li>通过顺时针找到离他最近的一个节点，也就是这次路由的服务节点。</li>
+<li>考虑到服务节点的个数以及 hash 算法的问题导致环中的数据分布不均匀时引入了虚拟节点。</li>
+</ul>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g0mczfckhij310s0q0gu2.jpg" alt=""></p>
+<h1 id="自定义有序-Map"><a href="#自定义有序-Map" class="headerlink" title="自定义有序 Map"></a>自定义有序 Map</h1><p>根据这些客观条件我们很容易想到通过自定义一个<strong>有序</strong>数组来模拟这个环。</p>
+<p>这样我们的流程如下：</p>
+<ol>
+<li>初始化一个长度为 N 的数组。</li>
+<li>将服务节点通过 hash 算法得到的正整数，同时将节点自身的数据（hashcode、ip、端口等）存放在这里。</li>
+<li>完成节点存放后将整个数组进行排序（排序算法有多种）。</li>
+<li>客户端获取路由节点时，将自身进行 hash 也得到一个正整数；</li>
+<li>遍历这个数组直到找到一个数据大于等于当前客户端的 hash 值，就将当前节点作为该客户端所路由的节点。</li>
+<li>如果没有发现比客户端大的数据就返回第一个节点（满足环的特性）。</li>
+</ol>
+<p>先不考虑排序所消耗的时间，单看这个路由的时间复杂度：</p>
+<ul>
+<li>最好是第一次就找到，时间复杂度为<code>O(1)</code>。</li>
+<li>最差为遍历完数组后才找到，时间复杂度为<code>O(N)</code>。</li>
+</ul>
+<p>理论讲完了来看看具体实践。</p>
+<p>我自定义了一个类：<code>SortArrayMap</code></p>
+<p>他的使用方法及结果如下：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tKfTcly1g0mhj1byydj30qw06idgo.jpg" alt=""></p>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g0mhk48azdj308e026q2u.jpg" alt=""></p>
+<p>可见最终会按照 <code>key</code> 的大小进行排序，同时传入 <code>hashcode = 101</code> 时会按照顺时针找到 <code>hashcode = 1000</code> 这个节点进行返回。</p>
+<hr>
+<p>下面来看看具体的实现。</p>
+<p>成员变量和构造函数如下：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tKfTcly1g0mh751dkxj30qt087752.jpg" alt=""></p>
+<p>其中最核心的就是一个 <code>Node</code> 数组，用它来存放服务节点的 <code>hashcode</code> 以及 <code>value</code> 值。</p>
+<p>其中的内部类 <code>Node</code> 结构如下：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tKfTcly1g0mh9o18jpj30qw09nt9o.jpg" alt=""></p>
+<hr>
+<p>写入数据的方法如下：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g0mhfl2uzjj30qw0ayjsw.jpg" alt=""></p>
+<p>相信看过 <code>ArrayList</code> 的源码应该有印象，这里的写入逻辑和它很像。</p>
+<ul>
+<li>写入之前判断是否需要扩容，如果需要则复制原来大小的 1.5 倍数组来存放数据。</li>
+<li>之后就写入数组，同时数组大小 +1。</li>
+</ul>
+<p>但是存放时是按照写入顺序存放的，遍历时自然不会有序；因此提供了一个 <code>Sort</code> 方法，可以把其中的数据按照 <code>key</code> 其实也就是 <code>hashcode</code> 进行排序。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tKfTcly1g0miz5ovvrj30qy07074y.jpg" alt=""></p>
+<p>排序也比较简单，使用了 <code>Arrays</code> 这个数组工具进行排序，它其实是使用了一个 <code>TimSort</code> 的排序算法，效率还是比较高的。</p>
+<p>最后则需要按照一致性 Hash 的标准顺时针查找对应的节点：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g0mj5haovoj30qr0a0q3x.jpg" alt=""></p>
+<p>代码还是比较简单清晰的；遍历数组如果找到比当前 key 大的就返回，没有查到就取第一个。</p>
+<p>这样就基本实现了一致性 Hash 的要求。</p>
+<blockquote>
+<p>ps:这里并不包含具体的 hash 方法以及虚拟节点等功能（具体实现请看下文），这个可以由使用者来定，SortArrayMap 可作为一个底层的数据结构，提供有序 Map 的能力，使用场景也不局限于一致性 Hash 算法中。</p>
+</blockquote>
+<h1 id="TreeMap-实现"><a href="#TreeMap-实现" class="headerlink" title="TreeMap 实现"></a>TreeMap 实现</h1><p><code>SortArrayMap</code> 虽说是实现了一致性 hash 的功能，但效率还不够高，主要体现在 <code>sort</code> 排序处。</p>
+<p>下图是目前主流排序算法的时间复杂度：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g0mjhh19jfj30iz0aw755.jpg" alt=""></p>
+<p>最好的也就是 <code>O(N)</code> 了。</p>
+<p>这里完全可以换一个思路，不用对数据进行排序；而是在写入的时候就排好顺序，只是这样会降低写入的效率。</p>
+<p>比如二叉查找树，这样的数据结构 <code>jdk</code> 里有现成的实现；比如 <code>TreeMap</code> 就是使用红黑树来实现的，默认情况下它会对 key 进行自然排序。</p>
+<hr>
+<p>来看看使用 <code>TreeMap</code> 如何来达到同样的效果。<br><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g0mjvy0ts9j30qn07eq40.jpg" alt=""><br>运行结果：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">127.0.0.1000</div></pre></td></tr></table></figure>
+<p>效果和上文使用 <code>SortArrayMap</code> 是一致的。</p>
+<p>只使用了 TreeMap 的一些 API：</p>
+<ul>
+<li>写入数据候，<code>TreeMap</code> 可以保证 key 的自然排序。</li>
+<li><code>tailMap</code> 可以获取比当前 key 大的部分数据。</li>
+<li>当这个方法有数据返回时取第一个就是顺时针中的第一个节点了。</li>
+<li>如果没有返回那就直接取整个 <code>Map</code> 的第一个节点，同样也实现了环形结构。</li>
+</ul>
+<blockquote>
+<p>ps:这里同样也没有 hash 方法以及虚拟节点（具体实现请看下文），因为 TreeMap 和 SortArrayMap 一样都是作为基础数据结构来使用的。</p>
+</blockquote>
+<h2 id="性能对比"><a href="#性能对比" class="headerlink" title="性能对比"></a>性能对比</h2><p>为了方便大家选择哪一个数据结构，我用 <code>TreeMap</code> 和 <code>SortArrayMap</code> 分别写入了一百万条数据来对比。</p>
+<p>先是 <code>SortArrayMap</code>：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g0mk3iwql4j30qs09i3zt.jpg" alt=""></p>
+<p><strong>耗时 2237 毫秒。</strong></p>
+<p>TreeMap：</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tKfTcly1g0mk559xx3j30qv06bmyb.jpg" alt=""></p>
+<p><strong>耗时 1316毫秒。</strong></p>
+<p>结果是快了将近一倍，所以还是推荐使用 <code>TreeMap</code> 来进行实现，毕竟它不需要额外的排序损耗。</p>
+<h1 id="cim-中的实际应用"><a href="#cim-中的实际应用" class="headerlink" title="cim 中的实际应用"></a>cim 中的实际应用</h1><p>下面来看看在 <code>cim</code> 这个应用中是如何具体使用的，其中也包括上文提到的虚拟节点以及 hash 算法。</p>
+<h2 id="模板方法"><a href="#模板方法" class="headerlink" title="模板方法"></a>模板方法</h2><p>在应用的时候考虑到就算是一致性 hash 算法都有多种实现，为了方便其使用者扩展自己的一致性 hash 算法因此我定义了一个抽象类；其中定义了一些模板方法，这样大家只需要在子类中进行不同的实现即可完成自己的算法。</p>
+<p>AbstractConsistentHash，这个抽象类的主要方法如下：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g0mkee1l7nj30rm0hcjty.jpg" alt=""></p>
+<ul>
+<li><code>add</code> 方法自然是写入数据的。</li>
+<li><code>sort</code> 方法用于排序，但子类也不一定需要重写，比如 <code>TreeMap</code> 这样自带排序的容器就不用。</li>
+<li><code>getFirstNodeValue</code> 获取节点。</li>
+<li><code>process</code> 则是面向客户端的，最终只需要调用这个方法即可返回一个节点。</li>
+</ul>
+<p>下面我们来看看利用 <code>SortArrayMap</code> 以及 <code>AbstractConsistentHash</code> 是如何实现的。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g0mkk2ip82j30qy0emgny.jpg" alt=""></p>
+<p>就是实现了几个抽象方法，逻辑和上文是一样的，只是抽取到了不同的方法中。</p>
+<p>只是在 add 方法中新增了几个虚拟节点，相信大家也看得明白。</p>
+<blockquote>
+<p>把虚拟节点的控制放到子类而没有放到抽象类中也是为了灵活性考虑，可能不同的实现对虚拟节点的数量要求也不一样，所以不如自定义的好。</p>
+</blockquote>
+<p>但是 <code>hash</code> 方法确是放到了抽象类中，子类不用重写；因为这是一个基本功能，只需要有一个公共算法可以保证他散列地足够均匀即可。</p>
+<p>因此在 <code>AbstractConsistentHash</code> 中定义了 hash 方法。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g0mkomrvy6j30qo0f1mzs.jpg" alt=""></p>
+<blockquote>
+<p>这里的算法摘抄自 xxl_job，网上也有其他不同的实现，比如 <code>FNV1_32_HASH</code> 等；实现不同但是目的都一样。</p>
+</blockquote>
+<hr>
+<p>这样对于使用者来说就非常简单了：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g0mkqmi7agj30qo069my3.jpg" alt=""></p>
+<p>他只需要构建一个服务列表，然后把当前的客户端信息传入 <code>process</code> 方法中即可获得一个一致性 hash 算法的返回。</p>
+<hr>
+<p>同样的对于想通过 <code>TreeMap</code> 来实现也是一样的套路：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g0mktnu52uj30qw0dk76o.jpg" alt=""></p>
+<p>他这里不需要重写 sort 方法，因为自身写入时已经排好序了。</p>
+<p>而在使用时对于客户端来说只需求修改一个实现类，其他的啥都不用改就可以了。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g0mkvj19yyj30qs05wjsb.jpg" alt=""></p>
+<p>运行的效果也是一样的。</p>
+<p>这样大家想自定义自己的算法时只需要继承 <code>AbstractConsistentHash</code> 重写相关方法即可，<strong>客户端代码无须改动。</strong></p>
+<h2 id="路由算法扩展性"><a href="#路由算法扩展性" class="headerlink" title="路由算法扩展性"></a>路由算法扩展性</h2><p>但其实对于 <code>cim</code> 来说真正的扩展性是对路由算法来说的，比如它需要支持轮询、hash、一致性hash、随机、LRU等。</p>
+<p>只是一致性 hash 也有多种实现，他们的关系就如下图：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g0ml5qs9ahj30hm07sdg9.jpg" alt=""></p>
+<p>应用还需要满足对这一类路由策略的灵活支持，比如我也想自定义一个随机的策略。</p>
+<p>因此定义了一个接口：<code>RouteHandle</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">RouteHandle</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 再一批服务器里进行路由</div><div class="line">     * <span class="doctag">@param</span> values</div><div class="line">     * <span class="doctag">@param</span> key</div><div class="line">     * <span class="doctag">@return</span></div><div class="line">     */</div><div class="line">    <span class="function">String <span class="title">routeServer</span><span class="params">(List&lt;String&gt; values,String key)</span> </span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>其中只有一个方法，也就是路由方法；入参分别是服务列表以及客户端信息即可。</p>
+<p>而对于一致性 hash 算法来说也是只需要实现这个接口，同时在这个接口中选择使用 <code>SortArrayMapConsistentHash</code> 还是 <code>TreeMapConsistentHash</code> 即可。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tKfTcly1g0mlan84e2j30qz065mxx.jpg" alt=""></p>
+<p>这里还有一个 <code>setHash</code> 的方法，入参是 AbstractConsistentHash；这就是用于客户端指定需要使用具体的那种数据结构。</p>
+<hr>
+<p>而对于之前就存在的轮询策略来说也是同样的实现 <code>RouteHandle</code> 接口。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g0mlcibmmwj30qt07sab9.jpg" alt=""></p>
+<p>这里我只是把之前的代码搬过来了而已。</p>
+<p>接下来看看客户端到底是如何使用以及如何选择使用哪种算法。</p>
+<blockquote>
+<p>为了使客户端代码几乎不动，我将这个选择的过程放入了配置文件。</p>
+</blockquote>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g0mley1etvj30qp05k0u0.jpg" alt=""></p>
+<ol>
+<li>如果想使用原有的轮询策略，就配置实现了 <code>RouteHandle</code> 接口的轮询策略的全限定名。</li>
+<li>如果想使用一致性 hash 的策略，也只需要配置实现了 <code>RouteHandle</code> 接口的一致性 hash 算法的全限定名。</li>
+<li>当然目前的一致性 hash 也有多种实现，所以一旦配置为一致性 hash 后就需要再加一个配置用于决定使用 <code>SortArrayMapConsistentHash</code> 还是 <code>TreeMapConsistentHash</code> 或是自定义的其他方案。</li>
+<li>同样的也是需要配置继承了 <code>AbstractConsistentHash</code> 的全限定名。</li>
+</ol>
+<p>不管这里的策略如何改变，在使用处依然保持不变。</p>
+<p>只需要注入 <code>RouteHandle</code>，调用它的 <code>routeServer</code> 方法。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Autowired</span></div><div class="line"><span class="keyword">private</span> RouteHandle routeHandle ;</div><div class="line">String server = routeHandle.routeServer(serverCache.getAll(),String.valueOf(loginReqVO.getUserId()));</div></pre></td></tr></table></figure>
+<p>既然使用了注入，那其实这个策略切换的过程就在创建 <code>RouteHandle bean</code> 的时候完成的。</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g0mlm6bwt6j30qx08ftae.jpg" alt=""></p>
+<p>也比较简单，需要读取之前的配置文件来动态生成具体的实现类，主要是利用反射完成的。</p>
+<p>这样处理之后就比较灵活了，比如想新建一个随机的路由策略也是同样的套路；到时候只需要修改配置即可。</p>
+<blockquote>
+<p>感兴趣的朋友也可提交 PR 来新增更多的路由策略。</p>
+</blockquote>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>希望看到这里的朋友能对这个算法有所理解，同时对一些设计模式在实际的使用也能有所帮助。</p>
+<p>相信在金三银四的面试过程中还是能让面试官眼前一亮的，毕竟根据我这段时间的面试过程来看听过这个名词的都在少数😂（可能也是和候选人都在 1~3 年这个层级有关）。</p>
+<p>以上所有源码：</p>
+<p><a href="https://github.com/crossoverJie/cim" target="_blank" rel="external">https://github.com/crossoverJie/cim</a></p>
+<p>如果本文对你有所帮助还请不吝转发。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://ws1.sinaimg.cn/large/006tKfTcly1g0m9w97ajwj31hc0u0qjc.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;记得一年前分享过一篇&lt;a href=&quot;https://crossoverjie.top/2018/01/08/Consistent-Hash/&quot;&gt;《一致性 Hash 算法分析》&lt;/a&gt;，当时只是分析了这个算法的实现原理、解决了什么问题等。&lt;/p&gt;
+&lt;p&gt;但没有实际实现一个这样的算法，毕竟要加深印象还得自己撸一遍，于是本次就当前的一个路由需求来着手实现一次。&lt;/p&gt;
+&lt;h1 id=&quot;背景&quot;&gt;&lt;a href=&quot;#背景&quot; class=&quot;headerlink&quot; title=&quot;背景&quot;&gt;&lt;/a&gt;背景&lt;/h1&gt;&lt;p&gt;看过&lt;a href=&quot;https://crossoverjie.top/2019/01/02/netty/cim01-started/&quot;&gt;《为自己搭建一个分布式 IM(即时通讯) 系统》&lt;/a&gt;的朋友应该对其中的登录逻辑有所印象。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="算法" scheme="http://crossoverjie.top/categories/%E7%AE%97%E6%B3%95/"/>
+    
+    
+  </entry>
   
   <entry>
     <title>国产程序员的一天</title>
@@ -301,9 +495,9 @@
       <category term="cim" scheme="http://crossoverjie.top/categories/Netty/cim/"/>
     
     
-      <category term="Heartbeat" scheme="http://crossoverjie.top/tags/Heartbeat/"/>
-    
       <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
+    
+      <category term="Heartbeat" scheme="http://crossoverjie.top/tags/Heartbeat/"/>
     
   </entry>
   
@@ -948,9 +1142,9 @@
     
       <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
     
-      <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
-    
       <category term="Thread" scheme="http://crossoverjie.top/tags/Thread/"/>
+    
+      <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
     
       <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
     
@@ -1748,9 +1942,9 @@
     
       <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
     
-      <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
-    
       <category term="Thread" scheme="http://crossoverjie.top/tags/Thread/"/>
+    
+      <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
     
       <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
     
@@ -2558,129 +2752,6 @@
     
     
       <category term="Kafka" scheme="http://crossoverjie.top/tags/Kafka/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>「造个轮子」——cicada 设计全局上下文</title>
-    <link href="http://crossoverjie.top/2018/10/09/wheel/cicada4/"/>
-    <id>http://crossoverjie.top/2018/10/09/wheel/cicada4/</id>
-    <published>2018-10-08T17:19:36.000Z</published>
-    <updated>2018-10-08T15:48:20.672Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://ws4.sinaimg.cn/large/006tNbRwgy1fvyf0zkwadj31g80teqh0.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>本次 <a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">Cicada</a> 已经更新到了 <a href="https://maven-badges.herokuapp.com/maven-central/top.crossoverjie.opensource/cicada-core/" target="_blank" rel="external"><img src="https://maven-badges.herokuapp.com/maven-central/top.crossoverjie.opensource/cicada-core/badge.svg" alt=""></a> <code>v1.0.3</code>。</p>
-<p>主要是解决了两个 issue，<a href="https://github.com/TogetherOS/cicada/issues/9" target="_blank" rel="external">#9</a> <a href="https://github.com/TogetherOS/cicada/issues/8" target="_blank" rel="external">#8</a>。</p>
-<p>所以本次的主要更新为：</p>
-<ul>
-<li><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">Cicada</a> 采用合理的线程分配来处理接入请求线程以及 IO 线程。</li>
-<li>支持多种响应方式（以前只有 json，现在支持 text）。</li>
-<li>为了满足上者引入了 <code>context</code>。</li>
-<li>优雅停机。</li>
-</ul>
-<p>其中我觉得最核心也最有用的就是这个 <code>Context</code>，并为此重构了大部分代码。</p>
-<a id="more"></a>
-<h1 id="多种响应方式"><a href="#多种响应方式" class="headerlink" title="多种响应方式"></a>多种响应方式</h1><p>在起初 <code>Cicada</code> 默认只能响应 <code>json</code>，这一点确实不够灵活。加上后续也打算支持模板解析，所以不如直接在 API 中加入可让用户自行选择不同的响应方式。</p>
-<p>因此调整后的 API 如下。</p>
-<blockquote>
-<p>想要输出 <code>text/plain</code> 时。</p>
-</blockquote>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@CicadaAction</span>(<span class="string">"textAction"</span>)</div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TextAction</span> <span class="keyword">implements</span> <span class="title">WorkAction</span> </span>&#123;</div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">execute</span><span class="params">(CicadaContext context, Param param)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line">        String url = context.request().getUrl();</div><div class="line">        String method = context.request().getMethod();</div><div class="line">        context.text(<span class="string">"hello world url="</span> + url + <span class="string">" method="</span> + method);</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<blockquote>
-<p>而响应输出 <code>application/json</code> 时只需要把需要响应的对象写入到 <code>json()</code> 方法中.</p>
-</blockquote>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwgy1fvzq2nideej30ou0dlwh2.jpg" alt=""></p>
-<p>因此原有的业务 action 中也加入了一个上下文的参数：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * abstract execute method</div><div class="line"> * <span class="doctag">@param</span> context current context</div><div class="line"> * <span class="doctag">@param</span> param request params</div><div class="line"> * <span class="doctag">@throws</span> Exception throw exception</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">void</span> <span class="title">execute</span><span class="params">(CicadaContext context ,Param param)</span> <span class="keyword">throws</span> Exception</span>;</div></pre></td></tr></table></figure>
-<p>下面就来看看这个 <code>Context</code> 是如何完成的。</p>
-<h1 id="Cicada-Context"><a href="#Cicada-Context" class="headerlink" title="Cicada Context"></a>Cicada Context</h1><p>先看看有了这个上下文之后可以做什么。</p>
-<p>比如有些场景下我们需要拿到本次请求中的头信息，这时就可以通过这个 <code>Context</code> 对象直接获取。</p>
-<p>当然不止是头信息：</p>
-<ul>
-<li>获取请求头。</li>
-<li>设置响应头。</li>
-<li>设置 <code>cookie</code>。</li>
-<li>获取请求 <code>URL</code>。</li>
-<li>获取请求的 <code>method</code>（get/post）等。</li>
-</ul>
-<p>其实通过这些特点可以看出这些信息其实都和一次 <code>请求、响应</code> 密切相关，并且各个请求之间的信息应互不影响。</p>
-<p>这样的特性是不是非常熟悉，没错那就是 <code>ThreadLocal</code>，它可以将每个线程的信息存储起来互不影响。</p>
-<blockquote>
-<p>ThreadLocal 的原理本次不做过多分析，只谈它在 Cicada 中的应用。</p>
-</blockquote>
-<h2 id="CicadaContext-class"><a href="#CicadaContext-class" class="headerlink" title="CicadaContext.class"></a>CicadaContext.class</h2><p>先来看看 <code>CicadaContext</code> 这个类的主要成员变量以及方法。</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fvzqkl5ct6j30nl0kb0w7.jpg" alt=""></p>
-<p>成员变量是两个接口 <code>CicadaRequest、CicadaResponse</code>，名称就能看出肯定是存放请求和响应数据的。</p>
-<h2 id="HttpDispatcher-class"><a href="#HttpDispatcher-class" class="headerlink" title="HttpDispatcher.class"></a>HttpDispatcher.class</h2><p>想要存放本次请求的上下文自然是在真正请求分发的地方 <code>HttpDispatcher</code>。</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwgy1fvzqt0dlwhj30ne0kudjn.jpg" alt=""></p>
-<p>这里改的较大的就是两个红框处，第一部分是做上下文初始化及赋值。</p>
-<p>第二部分自然就是卸载上下文。</p>
-<blockquote>
-<p>先看初始化。</p>
-</blockquote>
-<p><code>CicadaRequest cicadaRequest = CicadaHttpRequest.init(defaultHttpRequest) ;</code></p>
-<p>首先是将 request 初始化：</p>
-<p><code>CicadaHttpRequest</code> 自然是实现了 <code>CicadaRequest</code> 接口：</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwgy1fvzqx6hvpcj30gt0c70u7.jpg" alt=""></p>
-<p>这里只保存了请求的 URL、method 等信息，后续要加的请求头也存放在此处即可。</p>
-<p><code>Response</code> 也是同理的。</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fvzqyz3bfjj30l20gigod.jpg" alt=""></p>
-<blockquote>
-<p>这两个具体的实现类都私有化了构造函数，防止外部破坏了整体性。</p>
-</blockquote>
-<p>接着将当前请求的上下文保存到了 <code>CicadaContext</code> 中。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">CicadaContext.setContext(<span class="keyword">new</span> CicadaContext(cicadaRequest,cicadaResponse));</div></pre></td></tr></table></figure>
-<p>而这个函数本质使用的则是 <code>ThreadLocal</code> 来存放 <code>CicadaContext</code>。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">setContext</span><span class="params">(CicadaContext context)</span></span>&#123;</div><div class="line">    ThreadLocalHolder.setCicadaContext(context) ;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> ThreadLocal&lt;CicadaContext&gt; CICADA_CONTEXT= <span class="keyword">new</span> ThreadLocal() ;</div><div class="line"></div><div class="line"><span class="comment">/**</span></div><div class="line"> * set cicada context</div><div class="line"> * <span class="doctag">@param</span> context current context</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">setCicadaContext</span><span class="params">(CicadaContext context)</span></span>&#123;</div><div class="line">    CICADA_CONTEXT.set(context) ;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<h2 id="处理业务及响应"><a href="#处理业务及响应" class="headerlink" title="处理业务及响应"></a>处理业务及响应</h2><p>接着就是处理业务，调用不同的 API 做不同响应。</p>
-<p>拿 <code>context.text()</code> 来说：</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwgy1fvzr73fkrsj30o404ygm8.jpg" alt=""></p>
-<p>其实就是设置了对应的响应方式、以及把响应内容写入了 <code>CicadaResponse</code> 的 <code>httpContent</code> 中。</p>
-<p>业务处理完后调用 <code>responseContent()</code> 进行响应：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">responseContent(ctx,CicadaContext.getResponse().getHttpContent());</div></pre></td></tr></table></figure>
-<p>其实就是在上下文中拿到的响应方式及响应内容返回给客户端。</p>
-<h2 id="卸载上下文"><a href="#卸载上下文" class="headerlink" title="卸载上下文"></a>卸载上下文</h2><p>最后有点非常重要，那就是 <strong>卸载上下文</strong>。</p>
-<p>如果这里不做处理，之后随着请求的增多，<code>ThreadLocal</code> 里存放的数据也越来越多，最终肯定会导致内存溢出。</p>
-<p>所以 <code>CicadaContext.removeContext()</code> 就是为了及时删除当前上下文。</p>
-<h1 id="优雅停机"><a href="#优雅停机" class="headerlink" title="优雅停机"></a>优雅停机</h1><p>最后还新增了一个停机的方法。</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwgy1fvzrfl6dsnj30j60bi75u.jpg" alt=""></p>
-<p>其实也就是利用 <code>Hook</code> 函数实现的。</p>
-<p>由于目前 <code>Cicada</code> 开的线程，占用的资源都不是特别多，所以只是关闭了 Netty 所使用的线程。</p>
-<p>如果后续新增了自身的线程等资源，那也可以全部放到这里来进行释放。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>Cicada</code> 已经更新了 4 个版本，雏形都有了。</p>
-<p>后续会重点实现模板解析和注解请求路由完成，把 <code>MVC</code> 中的 <code>view</code> 完成就差不多了。</p>
-<p>还没有了解的朋友可以点击下面链接进入主页了解下😋。</p>
-<p><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">https://github.com/TogetherOS/cicada</a></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://ws4.sinaimg.cn/large/006tNbRwgy1fvyf0zkwadj31g80teqh0.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;本次 &lt;a href=&quot;https://github.com/TogetherOS/cicada&quot;&gt;Cicada&lt;/a&gt; 已经更新到了 &lt;a href=&quot;https://maven-badges.herokuapp.com/maven-central/top.crossoverjie.opensource/cicada-core/&quot;&gt;&lt;img src=&quot;https://maven-badges.herokuapp.com/maven-central/top.crossoverjie.opensource/cicada-core/badge.svg&quot; alt=&quot;&quot;&gt;&lt;/a&gt; &lt;code&gt;v1.0.3&lt;/code&gt;。&lt;/p&gt;
-&lt;p&gt;主要是解决了两个 issue，&lt;a href=&quot;https://github.com/TogetherOS/cicada/issues/9&quot;&gt;#9&lt;/a&gt; &lt;a href=&quot;https://github.com/TogetherOS/cicada/issues/8&quot;&gt;#8&lt;/a&gt;。&lt;/p&gt;
-&lt;p&gt;所以本次的主要更新为：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;a href=&quot;https://github.com/TogetherOS/cicada&quot;&gt;Cicada&lt;/a&gt; 采用合理的线程分配来处理接入请求线程以及 IO 线程。&lt;/li&gt;
-&lt;li&gt;支持多种响应方式（以前只有 json，现在支持 text）。&lt;/li&gt;
-&lt;li&gt;为了满足上者引入了 &lt;code&gt;context&lt;/code&gt;。&lt;/li&gt;
-&lt;li&gt;优雅停机。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;其中我觉得最核心也最有用的就是这个 &lt;code&gt;Context&lt;/code&gt;，并为此重构了大部分代码。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="cicada" scheme="http://crossoverjie.top/categories/cicada/"/>
-    
-      <category term="轮子" scheme="http://crossoverjie.top/categories/cicada/%E8%BD%AE%E5%AD%90/"/>
-    
-    
-      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
-    
-      <category term="HTTP" scheme="http://crossoverjie.top/tags/HTTP/"/>
-    
-      <category term="Netty" scheme="http://crossoverjie.top/tags/Netty/"/>
-    
-      <category term="ThreadLocal" scheme="http://crossoverjie.top/tags/ThreadLocal/"/>
     
   </entry>
   
