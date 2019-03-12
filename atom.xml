@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-02-28T17:28:05.634Z</updated>
+  <updated>2019-03-12T09:56:50.777Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,140 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>一个线程罢工的诡异事件</title>
+    <link href="http://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/"/>
+    <id>http://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/</id>
+    <published>2019-03-12T00:15:36.000Z</published>
+    <updated>2019-03-12T09:56:50.777Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g0z9cox30rj31c00u010w.jpg" alt=""></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>事情（事故）是这样的，突然收到报警，线上某个应用里业务逻辑没有执行，导致的结果是数据库里的某些数据没有更新。</p>
+<p>虽然是前人写的代码，但作为 <code>Bug maker&amp;killer</code> 只能咬着牙上了。</p>
+<a id="more"></a>
+<p>因为之前没有接触过出问题这块的逻辑，所以简单理了下如图：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g101rrbfpuj30ha0kkmz7.jpg" alt=""></p>
+<ol>
+<li>有一个生产线程一直源源不断的往队列写数据。</li>
+<li>消费线程也一直不停的取出数据后写入后续的业务线程池。</li>
+<li>业务线程池里的线程会对每个任务进行入库操作。</li>
+</ol>
+<p>整个过程还是比较清晰的，就是一个典型的生产者消费者模型。</p>
+<h1 id="尝试定位"><a href="#尝试定位" class="headerlink" title="尝试定位"></a>尝试定位</h1><p>接下来便是尝试定位这个问题，首先例行检查了以下几项：</p>
+<ul>
+<li>是否内存有内存溢出？</li>
+<li>应用 GC 是否有异常？</li>
+</ul>
+<p>通过日志以及监控发现以上两项都是正常的。</p>
+<p>紧接着便 dump 了线程快照查看业务线程池中的线程都在干啥。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g102sbm3nzj31m20bm79h.jpg" alt=""></p>
+<p>结果发现所有业务线程池都处于 <code>waiting</code> 状态，队列也是空的。</p>
+<p>同时生产者使用的队列却已经满了，没有任何消费迹象。</p>
+<p>结合上面的流程图不难发现应该是消费队列的 <code>Consumer</code> 出问题了，导致上游的队列不能消费，下有的业务线程池没事可做。</p>
+<h2 id="review-代码"><a href="#review-代码" class="headerlink" title="review 代码"></a>review 代码</h2><p>于是查看了消费代码的业务逻辑，同时也发现消费线程是一个<strong>单线程</strong>。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g1039na4mtj31l40b2wjk.jpg" alt=""></p>
+<p>结合之前的线程快照，我发现这个消费线程也是处于 waiting 状态，和后面的业务线程池一模一样。</p>
+<p>他做的事情基本上就是对消息解析，之后丢到后面的业务线程池中，没有发现什么特别的地方。</p>
+<blockquote>
+<p>但是由于里面的分支特别多（switch case），看着有点头疼；所以我与写这个业务代码的同学沟通后他告诉我确实也只是入口处解析了一下数据，后续所有的业务逻辑都是丢到线程池中处理的，于是我便带着这个前提去排查了（埋下了伏笔）。</p>
+</blockquote>
+<p>因为这里消费的队列其实是一个 <code>disruptor</code> 队列；它和我们常用的 <code>BlockQueue</code> 不太一样，不是由开发者自定义一个消费逻辑进行处理的；而是在初始化队列时直接丢一个线程池进去，它会在内部使用这个线程池进行消费，同时回调一个方法，在这个方法里我们写自己的消费逻辑。</p>
+<p>所以对于开发者而言，这个消费逻辑其实是一个黑盒。</p>
+<p>于是在我反复 <code>review</code> 了消费代码中的数据解析逻辑发现不太可能出现问题后，便开始疯狂怀疑是不是 <code>disruptor</code> 自身的问题导致这个消费线程罢工了。</p>
+<p>再翻了一阵 <code>disruptor</code> 的源码后依旧没发现什么问题后我咨询对 <code>disruptor</code> 较熟的@咖啡拿铁，在他的帮助下在本地模拟出来和生产一样的情况。</p>
+<h1 id="本地模拟"><a href="#本地模拟" class="headerlink" title="本地模拟"></a>本地模拟</h1><p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g103njc7wzj31160jeq5p.jpg" alt=""><br><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g103og02o7j30y60is40t.jpg" alt=""></p>
+<p>本地也是创建了一个单线程的线程池，分别执行了两个任务。</p>
+<ul>
+<li>第一个任务没啥好说的，就是简单的打印。</li>
+<li>第二个任务会对一个数进行累加，加到 10 之后就抛出一个未捕获的异常。</li>
+</ul>
+<p>接着我们来运行一下。</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tKfTcly1g103zsuu2mj311k0cutdb.jpg" alt=""><br><img src="https://ws3.sinaimg.cn/large/006tKfTcly1g1044fe64gj31ma0aedkq.jpg" alt=""></p>
+<p>发现当任务中抛出一个没有捕获的异常时，线程池中的线程就会处于 <code>waiting</code> 状态，同时所有的堆栈都和生产相符。</p>
+<blockquote>
+<p>细心的朋友会发现正常运行的线程名称和异常后处于 waiting 状态的线程名称是不一样的，这个后续分析。</p>
+</blockquote>
+<h2 id="解决问题"><a href="#解决问题" class="headerlink" title="解决问题"></a>解决问题</h2><p><img src="https://ws4.sinaimg.cn/large/006tKfTcly1g1048r27i4j30w406y3ze.jpg" alt=""></p>
+<p>当加入异常捕获后又如何呢？</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g10480uffij31260lydnq.jpg" alt=""></p>
+<p>程序肯定会正常运行。</p>
+<blockquote>
+<p>同时会发现所有的任务都是由一个线程完成的。</p>
+</blockquote>
+<p>虽说就是加了一行代码，但我们还是要搞清楚这里面的门门道道。</p>
+<h1 id="源码分析"><a href="#源码分析" class="headerlink" title="源码分析"></a>源码分析</h1><p>于是只有直接 <code>debug</code> 线程池的源码最快了；</p>
+<hr>
+<p><img src="https://ws3.sinaimg.cn/large/006tKfTcly1g104asx28lj314m04emyr.jpg" alt=""></p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g104csaukgj31g90u0tgp.jpg" alt=""></p>
+<p>通过刚才的异常堆栈我们进入到 <code>ThreadPoolExecutor.java:1142</code> 处。</p>
+<ul>
+<li>发现线程池已经帮我们做了异常捕获，但依然会往上抛。</li>
+<li>在 <code>finally</code> 块中会执行 <code>processWorkerExit(w, completedAbruptly)</code> 方法。</li>
+</ul>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g104ey1gyaj31mu0pwq9c.jpg" alt=""></p>
+<p>看过之前<a href="https://crossoverjie.top/2018/07/29/java-senior/ThreadPool/">《如何优雅的使用和理解线程池》</a>的朋友应该还会有印象。</p>
+<p>线程池中的任务都会被包装为一个内部 <code>Worker</code> 对象执行。</p>
+<p><code>processWorkerExit</code> 可以简单的理解为是把当前运行的线程销毁（<code>workers.remove(w)</code>）、同时新增（<code>addWorker()</code>）一个 <code>Worker</code> 对象接着处理；</p>
+<blockquote>
+<p>就像是哪个零件坏掉后重新换了一个新的接着工作，但是旧零件负责的任务就没有了。</p>
+</blockquote>
+<p>接下来看看 <code>addWorker()</code> 做了什么事情：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g104lk6vdij31lc0u0107.jpg" alt=""></p>
+<p>只看这次比较关心的部分；添加成功后会直接执行他的 <code>start()</code> 的方法。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g104q4mzb4j31mm0u0tgu.jpg" alt=""></p>
+<p>由于 <code>Worker</code> 实现了 <code>Runnable</code> 接口，所以本质上就是调用了 <code>runWorker()</code> 方法。</p>
+<hr>
+<p>在 <code>runWorker()</code> 其实就是上文 <code>ThreadPoolExecutor</code> 抛出异常时的那个方法。</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g104st473vj31m40u0ai2.jpg" alt=""><br><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g104tzsj2gj31fv0u0aik.jpg" alt=""></p>
+<p>它会从队列里一直不停的获取待执行的任务，也就是 <code>getTask()</code>；在 <code>getTask</code> 也能看出它会一直从内置的队列取出任务。</p>
+<p>而一旦队列是空的，它就会 <code>waiting</code> 在 <code>workQueue.take()</code>，也就是我们从堆栈中发现的 1067 行代码。</p>
+<h2 id="线程名字的变化"><a href="#线程名字的变化" class="headerlink" title="线程名字的变化"></a>线程名字的变化</h2><p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g1050zwdylj31go0u0gtx.jpg" alt=""><br><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g1051ei4ehj31my0580u4.jpg" alt=""><br><img src="https://ws4.sinaimg.cn/large/006tKfTcly1g10529y0qhj31m008276j.jpg" alt=""></p>
+<p>上文还提到了异常后的线程名称发生了改变，其实在 <code>addWorker()</code> 方法中可以看到 <code>new Worker()</code>时就会重新命名线程的名称，默认就是把后缀的计数+1。</p>
+<p>这样一切都能解释得通了。</p>
+<blockquote>
+<p>在单个线程的线程池中一但抛出了未被捕获的异常时，线程池会回收当前的线程并创建一个新的 <code>Worker</code>；<br>它也会一直不断的从队列里获取任务来执行，但由于这是一个消费线程，根本没有生产者往里边丢任务，所以它会一直 waiting 在从队列里获取任务处，所以也就造成了线上的队列没有消费，业务线程池没有执行的问题。</p>
+</blockquote>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>所以之后线上的那个问题加上异常捕获之后也变得正常了，但我还是有点纳闷的是：</p>
+<blockquote>
+<p>既然后续所有的任务都是在线程池中执行的，也就是纯异步了，那即便是出现异常也不会抛到消费线程中啊。</p>
+</blockquote>
+<p>这不是把我之前储备的知识点推翻了嘛？不信邪！之后我让运维给了加上异常捕获后的线上错误日志。</p>
+<p>结果发现在上文提到的众多 <code>switch case</code> 中，最后一个竟然是直接操作的数据库，导致一个非空字段报错了🤬！！</p>
+<p>这事也给我个教训，还是得眼见为实啊。</p>
+<p>虽然这个问题改动很小解决了，但复盘整个过程还是有许多需要改进的：</p>
+<ol>
+<li>消费队列的线程名称竟然和业务线程的前缀一样，导致我光找它就花了许多时间，命名必须得调整。</li>
+<li>开发规范，防御式编程大家需要养成习惯。</li>
+<li>未知的技术栈需要谨慎，比如 <code>disruptor</code>，之前的团队应该只是看了个高性能的介绍就直接使用，并没有深究其原理；导致出现问题后对它拿不准。</li>
+</ol>
+<p>实例代码：</p>
+<p><a href="https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/thread/ThreadExceptionTest.java" target="_blank" rel="external">https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/thread/ThreadExceptionTest.java</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://ws1.sinaimg.cn/large/006tKfTcly1g0z9cox30rj31c00u010w.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;背景&quot;&gt;&lt;a href=&quot;#背景&quot; class=&quot;headerlink&quot; title=&quot;背景&quot;&gt;&lt;/a&gt;背景&lt;/h1&gt;&lt;p&gt;事情（事故）是这样的，突然收到报警，线上某个应用里业务逻辑没有执行，导致的结果是数据库里的某些数据没有更新。&lt;/p&gt;
+&lt;p&gt;虽然是前人写的代码，但作为 &lt;code&gt;Bug maker&amp;amp;killer&lt;/code&gt; 只能咬着牙上了。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="问题排查" scheme="http://crossoverjie.top/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/"/>
+    
+      <category term="Java 进阶" scheme="http://crossoverjie.top/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/Java-%E8%BF%9B%E9%98%B6/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="Thread" scheme="http://crossoverjie.top/tags/Thread/"/>
+    
+      <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
+    
+      <category term="disruptor" scheme="http://crossoverjie.top/tags/disruptor/"/>
+    
+  </entry>
   
   <entry>
     <title>一致性 Hash 算法的实际应用</title>
@@ -495,9 +629,9 @@
       <category term="cim" scheme="http://crossoverjie.top/categories/Netty/cim/"/>
     
     
-      <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
-    
       <category term="Heartbeat" scheme="http://crossoverjie.top/tags/Heartbeat/"/>
+    
+      <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
     
   </entry>
   
@@ -2559,199 +2693,6 @@
       <category term="Mock" scheme="http://crossoverjie.top/tags/Mock/"/>
     
       <category term="加密" scheme="http://crossoverjie.top/tags/%E5%8A%A0%E5%AF%86/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>从源码分析如何优雅的使用 Kafka 生产者</title>
-    <link href="http://crossoverjie.top/2018/10/11/kafka/kafka-product/"/>
-    <id>http://crossoverjie.top/2018/10/11/kafka/kafka-product/</id>
-    <published>2018-10-10T16:02:24.000Z</published>
-    <updated>2018-10-10T18:00:28.564Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://ws2.sinaimg.cn/large/006tNbRwgy1fw2g4pw7ooj31kw11xwjh.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>在上文 <a href="https://crossoverjie.top/2018/09/25/netty/million-sms-push/">设计一个百万级的消息推送系统</a> 中提到消息流转采用的是 <code>Kafka</code> 作为中间件。</p>
-<p>其中有朋友咨询在大量消息的情况下 <code>Kakfa</code> 是如何保证消息的高效及一致性呢？</p>
-<p>正好以这个问题结合 <code>Kakfa</code> 的源码讨论下如何正确、高效的发送消息。</p>
-<blockquote>
-<p>内容较多，对源码感兴趣的朋友请系好安全带😏(源码基于 <code>v0.10.0.0</code> 版本分析)。同时最好是有一定的 Kafka 使用经验，知晓基本的用法。</p>
-</blockquote>
-<a id="more"></a>
-<h1 id="简单的消息发送"><a href="#简单的消息发送" class="headerlink" title="简单的消息发送"></a>简单的消息发送</h1><p>在分析之前先看一个简单的消息发送是怎么样的。</p>
-<blockquote>
-<p>以下代码基于 SpringBoot 构建。</p>
-</blockquote>
-<p>首先创建一个 <code>org.apache.kafka.clients.producer.Producer</code> 的 bean。</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwgy1fw2hc2t8oij30n507g0u6.jpg" alt=""></p>
-<p>主要关注 <code>bootstrap.servers</code>，它是必填参数。指的是 Kafka 集群中的 broker 地址，例如 <code>127.0.0.1:9094</code>。</p>
-<blockquote>
-<p>其余几个参数暂时不做讨论，后文会有详细介绍。</p>
-</blockquote>
-<p>接着注入这个 bean 即可调用它的发送函数发送消息。</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwgy1fw2he841x7j30ou054751.jpg" alt=""></p>
-<p>这里我给某一个 Topic 发送了 10W 条数据，运行程序消息正常发送。</p>
-<p>但这仅仅只是做到了消息发送，对消息是否成功送达完全没管，等于是纯<code>异步</code>的方式。</p>
-<h2 id="同步"><a href="#同步" class="headerlink" title="同步"></a>同步</h2><p>那么我想知道消息到底发送成功没有该怎么办呢？</p>
-<p>其实 <code>Producer</code> 的 <code>API</code> 已经帮我们考虑到了，发送之后只需要调用它的 <code>get()</code> 方法即可同步获取发送结果。</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fw3fsyrkpbj3103065mya.jpg" alt=""></p>
-<p>发送结果：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fw3ftq0w5lj312g053770.jpg" alt=""></p>
-<p>这样的发送效率其实是比较低下的，因为每次都需要同步等待消息发送的结果。 </p>
-<h2 id="异步"><a href="#异步" class="headerlink" title="异步"></a>异步</h2><p>为此我们应当采取异步的方式发送，其实 <code>send()</code> 方法默认则是异步的，只要不手动调用  <code>get()</code> 方法。</p>
-<p>但这样就没法获知发送结果。</p>
-<p>所以查看 <code>send()</code> 的 API 可以发现还有一个参数。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="function">Future&lt;RecordMetadata&gt; <span class="title">send</span><span class="params">(ProducerRecord&lt;K, V&gt; producer, Callback callback)</span></span>;</div></pre></td></tr></table></figure>
-<p><code>Callback</code> 是一个回调接口，在消息发送完成之后可以回调我们自定义的实现。</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fw3g4hce6aj30zv0b0dhp.jpg" alt=""></p>
-<p>执行之后的结果：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fw3g54ne3oj31do06t0wl.jpg" alt=""></p>
-<p>同样的也能获取结果，同时发现回调的线程并不是上文同步时的<code>主线程</code>，这样也能证明是异步回调的。</p>
-<p>同时回调的时候会传递两个参数：</p>
-<ul>
-<li><code>RecordMetadata</code> 和上文一致的消息发送成功后的元数据。</li>
-<li><code>Exception</code> 消息发送过程中的异常信息。</li>
-</ul>
-<p>但是这两个参数并不会同时都有数据，只有发送失败才会有异常信息，同时发送元数据为空。</p>
-<p>所以正确的写法应当是：</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fw3g9fst9kj30zy07jab0.jpg" alt=""></p>
-<blockquote>
-<p>至于为什么会只有参数一个有值，在下文的源码分析中会一一解释。</p>
-</blockquote>
-<h1 id="源码分析"><a href="#源码分析" class="headerlink" title="源码分析"></a>源码分析</h1><p>现在只掌握了基本的消息发送，想要深刻的理解发送中的一些参数配置还是得源码说了算。</p>
-<p>首先还是来谈谈消息发送时的整个流程是怎么样的，<code>Kafka</code> 并不是简单的把消息通过网络发送到了 <code>broker</code> 中，在 Java 内部还是经过了许多优化和设计。</p>
-<h2 id="发送流程"><a href="#发送流程" class="headerlink" title="发送流程"></a>发送流程</h2><p>为了直观的了解发送的流程，简单的画了几个在发送过程中关键的步骤。</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fw3j5x05izj30a40btmxt.jpg" alt=""></p>
-<p>从上至下依次是：</p>
-<ul>
-<li>初始化以及真正发送消息的 <code>kafka-producer-network-thread</code> IO 线程。</li>
-<li>将消息序列化。</li>
-<li>得到需要发送的分区。</li>
-<li>写入内部的一个缓存区中。</li>
-<li>初始化的 IO 线程不断的消费这个缓存来发送消息。</li>
-</ul>
-<h2 id="步骤解析"><a href="#步骤解析" class="headerlink" title="步骤解析"></a>步骤解析</h2><p>接下来详解每个步骤。</p>
-<h3 id="初始化"><a href="#初始化" class="headerlink" title="初始化"></a>初始化</h3><p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fw3jc9hvwbj30rc0273yn.jpg" alt=""></p>
-<p>调用该构造方法进行初始化时，不止是简单的将基本参数写入 <code>KafkaProducer</code>。比较麻烦的是初始化 <code>Sender</code> 线程进行缓冲区消费。</p>
-<p>初始化 IO 线程处：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fw3jh4xtt2j31fo02pgms.jpg" alt=""></p>
-<p>可以看到 Sender 线程有需要成员变量，比如：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">acks,retries,requestTimeout</div></pre></td></tr></table></figure>
-<p>等，这些参数会在后文分析。</p>
-<h3 id="序列化消息"><a href="#序列化消息" class="headerlink" title="序列化消息"></a>序列化消息</h3><p>在调用 <code>send()</code> 函数后其实第一步就是序列化，毕竟我们的消息需要通过网络才能发送到 Kafka。</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fw3job8ejaj31fw05owg2.jpg" alt=""></p>
-<p>其中的 <code>valueSerializer.serialize(record.topic(), record.value());</code> 是一个接口，我们需要在初始化时候指定序列化实现类。</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fw3jq5h0nyj30p607oq4e.jpg" alt=""></p>
-<p>我们也可以自己实现序列化，只需要实现 <code>org.apache.kafka.common.serialization.Serializer</code> 接口即可。</p>
-<h3 id="路由分区"><a href="#路由分区" class="headerlink" title="路由分区"></a>路由分区</h3><p>接下来就是路由分区，通常我们使用的 <code>Topic</code> 为了实现扩展性以及高性能都会创建多个分区。</p>
-<p>如果是一个分区好说，所有消息都往里面写入即可。</p>
-<p>但多个分区就不可避免需要知道写入哪个分区。</p>
-<p>通常有三种方式。</p>
-<h4 id="指定分区"><a href="#指定分区" class="headerlink" title="指定分区"></a>指定分区</h4><p>可以在构建 <code>ProducerRecord</code> 为每条消息指定分区。</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fw3jxiet6mj30pj06smyb.jpg" alt=""></p>
-<p>这样在路由时会判断是否有指定，有就直接使用该分区。</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fw3jybsavdj30zj077abj.jpg" alt=""></p>
-<p>这种一般在特殊场景下会使用。</p>
-<h4 id="自定义路由策略"><a href="#自定义路由策略" class="headerlink" title="自定义路由策略"></a>自定义路由策略</h4><p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fw3k0giiy6j30zm079ta7.jpg" alt=""></p>
-<p>如果没有指定分区，则会调用 <code>partitioner.partition</code> 接口执行自定义分区策略。</p>
-<p>而我们也只需要自定义一个类实现 <code>org.apache.kafka.clients.producer.Partitioner</code> 接口，同时在创建 <code>KafkaProducer</code> 实例时配置 <code>partitioner.class</code> 参数。</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fw3k5uqf68j30rm04pt94.jpg" alt=""></p>
-<p>通常需要自定义分区一般是在想尽量的保证消息的顺序性。</p>
-<p>或者是写入某些特有的分区，由特别的消费者来进行处理等。</p>
-<h4 id="默认策略"><a href="#默认策略" class="headerlink" title="默认策略"></a>默认策略</h4><p>最后一种则是默认的路由策略，如果我们啥都没做就会执行该策略。</p>
-<p>该策略也会使得消息分配的比较均匀。</p>
-<p>来看看它的实现：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fw3kajn4iyj30r20g2772.jpg" alt=""></p>
-<p>简单的来说分为以下几步：</p>
-<ul>
-<li>获取 Topic 分区数。</li>
-<li>将内部维护的一个线程安全计数器 +1。</li>
-<li>与分区数取模得到分区编号。</li>
-</ul>
-<p>其实这就是很典型的轮询算法，所以只要分区数不频繁变动这种方式也会比较均匀。</p>
-<h3 id="写入内部缓存"><a href="#写入内部缓存" class="headerlink" title="写入内部缓存"></a>写入内部缓存</h3><p>在 <code>send()</code> 方法拿到分区后会调用一个 <code>append()</code> 函数：</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fw3khecuqej313704uwg9.jpg" alt=""></p>
-<p>该函数中会调用一个 <code>getOrCreateDeque()</code> 写入到一个内部缓存中 <code>batches</code>。</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fw3kih9wf1j30j005daaq.jpg" alt=""></p>
-<h3 id="消费缓存"><a href="#消费缓存" class="headerlink" title="消费缓存"></a>消费缓存</h3><p>在最开始初始化的 IO 线程其实是一个守护线程，它会一直消费这些数据。</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fw3kntf8xlj30sn0ju42o.jpg" alt=""></p>
-<p>通过图中的几个函数会获取到之前写入的数据。这块内容可以不必深究，但其中有个 <code>completeBatch</code> 方法却非常关键。</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fw3kqrk5rnj312e0jbjve.jpg" alt=""></p>
-<p>调用该方法时候肯定已经是消息发送完毕了，所以会调用 <code>batch.done()</code> 来完成之前我们在 <code>send()</code> 方法中定义的回调接口。</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fw3kuprn02j30zo09qgnr.jpg" alt=""></p>
-<blockquote>
-<p>从这里也可以看出为什么之前说发送完成后元数据和异常信息只会出现一个。</p>
-</blockquote>
-<h1 id="Producer-参数解析"><a href="#Producer-参数解析" class="headerlink" title="Producer 参数解析"></a>Producer 参数解析</h1><p>发送流程讲完了再来看看 <code>Producer</code> 中比较重要的几个参数。</p>
-<h2 id="acks"><a href="#acks" class="headerlink" title="acks"></a>acks</h2><p><code>acks</code> 是一个影响消息吞吐量的一个关键参数。</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fw3l52birsj30u607o0ta.jpg" alt=""></p>
-<p>主要有 <code>[all、-1, 0, 1]</code> 这几个选项，默认为 1。</p>
-<p>由于 <code>Kafka</code> 不是采取的主备模式，而是采用类似于 Zookeeper 的主备模式。</p>
-<blockquote>
-<p>前提是 <code>Topic</code> 配置副本数量 <code>replica &gt; 1</code>。 </p>
-</blockquote>
-<p>当 <code>acks = all/-1</code> 时：</p>
-<p>意味着会确保所有的 follower 副本都完成数据的写入才会返回。</p>
-<p>这样可以保证消息不会丢失！</p>
-<blockquote>
-<p>但同时性能和吞吐量却是最低的。</p>
-</blockquote>
-<p>当 <code>acks = 0</code> 时：</p>
-<p>producer 不会等待副本的任何响应，这样最容易丢失消息但同时性能却是最好的！</p>
-<p>当 <code>acks = 1</code> 时：</p>
-<p>这是一种折中的方案，它会等待副本 Leader 响应，但不会等到 follower 的响应。</p>
-<p>一旦 Leader 挂掉消息就会丢失。但性能和消息安全性都得到了一定的保证。</p>
-<h2 id="batch-size"><a href="#batch-size" class="headerlink" title="batch.size"></a>batch.size</h2><p>这个参数看名称就知道是内部缓存区的大小限制，对他适当的调大可以提高吞吐量。</p>
-<p>但也不能极端，调太大会浪费内存。小了也发挥不了作用，也是一个典型的时间和空间的权衡。</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fw3l2ydx4tj311l0e9ae3.jpg" alt=""></p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fw3l3mh0pqj312409940u.jpg" alt=""></p>
-<p>上图是几个使用的体现。</p>
-<h2 id="retries"><a href="#retries" class="headerlink" title="retries"></a>retries</h2><p><code>retries</code> 该参数主要是来做重试使用，当发生一些网络抖动都会造成重试。</p>
-<p>这个参数也就是限制重试次数。</p>
-<p>但也有一些其他问题。</p>
-<ul>
-<li>因为是重发所以消息顺序可能不会一致，这也是上文提到就算是一个分区消息也不会是完全顺序的情况。</li>
-<li>还是由于网络问题，本来消息已经成功写入了但是没有成功响应给 producer，进行重试时就可能会出现<code>消息重复</code>。这种只能是消费者进行幂等处理。</li>
-</ul>
-<h1 id="高效的发送方式"><a href="#高效的发送方式" class="headerlink" title="高效的发送方式"></a>高效的发送方式</h1><p>如果消息量真的非常大，同时又需要尽快的将消息发送到 <code>Kafka</code>。一个 <code>producer</code> 始终会收到缓存大小等影响。</p>
-<p>那是否可以创建多个 <code>producer</code> 来进行发送呢？</p>
-<ul>
-<li>配置一个最大 producer 个数。</li>
-<li>发送消息时首先获取一个 <code>producer</code>，获取的同时判断是否达到最大上限，没有就新建一个同时保存到内部的 <code>List</code> 中，保存时做好同步处理防止并发问题。</li>
-<li>获取发送者时可以按照默认的分区策略使用轮询的方式获取（保证使用均匀）。</li>
-</ul>
-<p>这样在大量、频繁的消息发送场景中可以提高发送效率减轻单个 <code>producer</code> 的压力。</p>
-<h1 id="关闭-Producer"><a href="#关闭-Producer" class="headerlink" title="关闭 Producer"></a>关闭 Producer</h1><p>最后则是 <code>Producer</code> 的关闭，Producer 在使用过程中消耗了不少资源（线程、内存、网络等）因此需要显式的关闭从而回收这些资源。</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fw3mw4a00rj311x0kp434.jpg" alt=""></p>
-<p>默认的 <code>close()</code> 方法和带有超时时间的方法都是在一定的时间后强制关闭。</p>
-<p>但在过期之前都会处理完剩余的任务。</p>
-<p>所以使用哪一个得视情况而定。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本文内容较多，从实例和源码的角度分析了 Kafka 生产者。</p>
-<p>希望看完的朋友能有收获，同时也欢迎留言讨论。</p>
-<p>不出意外下期会讨论 Kafka 消费者。</p>
-<blockquote>
-<p>如果对你有帮助还请分享让更多的人看到。</p>
-</blockquote>
-<p><strong>欢迎关注公众号一起交流：</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://ws2.sinaimg.cn/large/006tNbRwgy1fw2g4pw7ooj31kw11xwjh.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;在上文 &lt;a href=&quot;https://crossoverjie.top/2018/09/25/netty/million-sms-push/&quot;&gt;设计一个百万级的消息推送系统&lt;/a&gt; 中提到消息流转采用的是 &lt;code&gt;Kafka&lt;/code&gt; 作为中间件。&lt;/p&gt;
-&lt;p&gt;其中有朋友咨询在大量消息的情况下 &lt;code&gt;Kakfa&lt;/code&gt; 是如何保证消息的高效及一致性呢？&lt;/p&gt;
-&lt;p&gt;正好以这个问题结合 &lt;code&gt;Kakfa&lt;/code&gt; 的源码讨论下如何正确、高效的发送消息。&lt;/p&gt;
-&lt;blockquote&gt;
-&lt;p&gt;内容较多，对源码感兴趣的朋友请系好安全带😏(源码基于 &lt;code&gt;v0.10.0.0&lt;/code&gt; 版本分析)。同时最好是有一定的 Kafka 使用经验，知晓基本的用法。&lt;/p&gt;
-&lt;/blockquote&gt;
-    
-    </summary>
-    
-      <category term="Kafka" scheme="http://crossoverjie.top/categories/Kafka/"/>
-    
-      <category term="Java 进阶" scheme="http://crossoverjie.top/categories/Kafka/Java-%E8%BF%9B%E9%98%B6/"/>
-    
-    
-      <category term="Kafka" scheme="http://crossoverjie.top/tags/Kafka/"/>
     
   </entry>
   

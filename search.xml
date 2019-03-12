@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[一个线程罢工的诡异事件]]></title>
+    <url>%2F2019%2F03%2F12%2Ftroubleshoot%2Fthread-gone%2F</url>
+    <content type="text"><![CDATA[背景事情（事故）是这样的，突然收到报警，线上某个应用里业务逻辑没有执行，导致的结果是数据库里的某些数据没有更新。 虽然是前人写的代码，但作为 Bug maker&amp;killer 只能咬着牙上了。 因为之前没有接触过出问题这块的逻辑，所以简单理了下如图： 有一个生产线程一直源源不断的往队列写数据。 消费线程也一直不停的取出数据后写入后续的业务线程池。 业务线程池里的线程会对每个任务进行入库操作。 整个过程还是比较清晰的，就是一个典型的生产者消费者模型。 尝试定位接下来便是尝试定位这个问题，首先例行检查了以下几项： 是否内存有内存溢出？ 应用 GC 是否有异常？ 通过日志以及监控发现以上两项都是正常的。 紧接着便 dump 了线程快照查看业务线程池中的线程都在干啥。 结果发现所有业务线程池都处于 waiting 状态，队列也是空的。 同时生产者使用的队列却已经满了，没有任何消费迹象。 结合上面的流程图不难发现应该是消费队列的 Consumer 出问题了，导致上游的队列不能消费，下有的业务线程池没事可做。 review 代码于是查看了消费代码的业务逻辑，同时也发现消费线程是一个单线程。 结合之前的线程快照，我发现这个消费线程也是处于 waiting 状态，和后面的业务线程池一模一样。 他做的事情基本上就是对消息解析，之后丢到后面的业务线程池中，没有发现什么特别的地方。 但是由于里面的分支特别多（switch case），看着有点头疼；所以我与写这个业务代码的同学沟通后他告诉我确实也只是入口处解析了一下数据，后续所有的业务逻辑都是丢到线程池中处理的，于是我便带着这个前提去排查了（埋下了伏笔）。 因为这里消费的队列其实是一个 disruptor 队列；它和我们常用的 BlockQueue 不太一样，不是由开发者自定义一个消费逻辑进行处理的；而是在初始化队列时直接丢一个线程池进去，它会在内部使用这个线程池进行消费，同时回调一个方法，在这个方法里我们写自己的消费逻辑。 所以对于开发者而言，这个消费逻辑其实是一个黑盒。 于是在我反复 review 了消费代码中的数据解析逻辑发现不太可能出现问题后，便开始疯狂怀疑是不是 disruptor 自身的问题导致这个消费线程罢工了。 再翻了一阵 disruptor 的源码后依旧没发现什么问题后我咨询对 disruptor 较熟的@咖啡拿铁，在他的帮助下在本地模拟出来和生产一样的情况。 本地模拟 本地也是创建了一个单线程的线程池，分别执行了两个任务。 第一个任务没啥好说的，就是简单的打印。 第二个任务会对一个数进行累加，加到 10 之后就抛出一个未捕获的异常。 接着我们来运行一下。 发现当任务中抛出一个没有捕获的异常时，线程池中的线程就会处于 waiting 状态，同时所有的堆栈都和生产相符。 细心的朋友会发现正常运行的线程名称和异常后处于 waiting 状态的线程名称是不一样的，这个后续分析。 解决问题 当加入异常捕获后又如何呢？ 程序肯定会正常运行。 同时会发现所有的任务都是由一个线程完成的。 虽说就是加了一行代码，但我们还是要搞清楚这里面的门门道道。 源码分析于是只有直接 debug 线程池的源码最快了； 通过刚才的异常堆栈我们进入到 ThreadPoolExecutor.java:1142 处。 发现线程池已经帮我们做了异常捕获，但依然会往上抛。 在 finally 块中会执行 processWorkerExit(w, completedAbruptly) 方法。 看过之前《如何优雅的使用和理解线程池》的朋友应该还会有印象。 线程池中的任务都会被包装为一个内部 Worker 对象执行。 processWorkerExit 可以简单的理解为是把当前运行的线程销毁（workers.remove(w)）、同时新增（addWorker()）一个 Worker 对象接着处理； 就像是哪个零件坏掉后重新换了一个新的接着工作，但是旧零件负责的任务就没有了。 接下来看看 addWorker() 做了什么事情： 只看这次比较关心的部分；添加成功后会直接执行他的 start() 的方法。 由于 Worker 实现了 Runnable 接口，所以本质上就是调用了 runWorker() 方法。 在 runWorker() 其实就是上文 ThreadPoolExecutor 抛出异常时的那个方法。 它会从队列里一直不停的获取待执行的任务，也就是 getTask()；在 getTask 也能看出它会一直从内置的队列取出任务。 而一旦队列是空的，它就会 waiting 在 workQueue.take()，也就是我们从堆栈中发现的 1067 行代码。 线程名字的变化 上文还提到了异常后的线程名称发生了改变，其实在 addWorker() 方法中可以看到 new Worker()时就会重新命名线程的名称，默认就是把后缀的计数+1。 这样一切都能解释得通了。 在单个线程的线程池中一但抛出了未被捕获的异常时，线程池会回收当前的线程并创建一个新的 Worker；它也会一直不断的从队列里获取任务来执行，但由于这是一个消费线程，根本没有生产者往里边丢任务，所以它会一直 waiting 在从队列里获取任务处，所以也就造成了线上的队列没有消费，业务线程池没有执行的问题。 总结所以之后线上的那个问题加上异常捕获之后也变得正常了，但我还是有点纳闷的是： 既然后续所有的任务都是在线程池中执行的，也就是纯异步了，那即便是出现异常也不会抛到消费线程中啊。 这不是把我之前储备的知识点推翻了嘛？不信邪！之后我让运维给了加上异常捕获后的线上错误日志。 结果发现在上文提到的众多 switch case 中，最后一个竟然是直接操作的数据库，导致一个非空字段报错了🤬！！ 这事也给我个教训，还是得眼见为实啊。 虽然这个问题改动很小解决了，但复盘整个过程还是有许多需要改进的： 消费队列的线程名称竟然和业务线程的前缀一样，导致我光找它就花了许多时间，命名必须得调整。 开发规范，防御式编程大家需要养成习惯。 未知的技术栈需要谨慎，比如 disruptor，之前的团队应该只是看了个高性能的介绍就直接使用，并没有深究其原理；导致出现问题后对它拿不准。 实例代码： https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/thread/ThreadExceptionTest.java 你的点赞与分享是对我最大的支持]]></content>
+      <categories>
+        <category>问题排查</category>
+        <category>Java 进阶</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>Thread</tag>
+        <tag>concurrent</tag>
+        <tag>disruptor</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[一致性 Hash 算法的实际应用]]></title>
     <url>%2F2019%2F03%2F01%2Falgorithm%2Fconsistent-hash%2F</url>
     <content type="text"><![CDATA[前言记得一年前分享过一篇《一致性 Hash 算法分析》，当时只是分析了这个算法的实现原理、解决了什么问题等。 但没有实际实现一个这样的算法，毕竟要加深印象还得自己撸一遍，于是本次就当前的一个路由需求来着手实现一次。 背景看过《为自己搭建一个分布式 IM(即时通讯) 系统》的朋友应该对其中的登录逻辑有所印象。 先给新来的朋友简单介绍下 cim 是干啥的： 其中有一个场景是在客户端登录成功后需要从可用的服务端列表中选择一台服务节点返回给客户端使用。 而这个选择的过程就是一个负载策略的过程；第一版本做的比较简单，默认只支持轮询的方式。 虽然够用，但不够优雅😏。 因此我的规划是内置多种路由策略供使用者根据自己的场景选择，同时提供简单的 API 供用户自定义自己的路由策略。 先来看看一致性 Hash 算法的一些特点： 构造一个 0 ~ 2^32-1 大小的环。 服务节点经过 hash 之后将自身存放到环中的下标中。 客户端根据自身的某些数据 hash 之后也定位到这个环中。 通过顺时针找到离他最近的一个节点，也就是这次路由的服务节点。 考虑到服务节点的个数以及 hash 算法的问题导致环中的数据分布不均匀时引入了虚拟节点。 自定义有序 Map根据这些客观条件我们很容易想到通过自定义一个有序数组来模拟这个环。 这样我们的流程如下： 初始化一个长度为 N 的数组。 将服务节点通过 hash 算法得到的正整数，同时将节点自身的数据（hashcode、ip、端口等）存放在这里。 完成节点存放后将整个数组进行排序（排序算法有多种）。 客户端获取路由节点时，将自身进行 hash 也得到一个正整数； 遍历这个数组直到找到一个数据大于等于当前客户端的 hash 值，就将当前节点作为该客户端所路由的节点。 如果没有发现比客户端大的数据就返回第一个节点（满足环的特性）。 先不考虑排序所消耗的时间，单看这个路由的时间复杂度： 最好是第一次就找到，时间复杂度为O(1)。 最差为遍历完数组后才找到，时间复杂度为O(N)。 理论讲完了来看看具体实践。 我自定义了一个类：SortArrayMap 他的使用方法及结果如下： 可见最终会按照 key 的大小进行排序，同时传入 hashcode = 101 时会按照顺时针找到 hashcode = 1000 这个节点进行返回。 下面来看看具体的实现。 成员变量和构造函数如下： 其中最核心的就是一个 Node 数组，用它来存放服务节点的 hashcode 以及 value 值。 其中的内部类 Node 结构如下： 写入数据的方法如下： 相信看过 ArrayList 的源码应该有印象，这里的写入逻辑和它很像。 写入之前判断是否需要扩容，如果需要则复制原来大小的 1.5 倍数组来存放数据。 之后就写入数组，同时数组大小 +1。 但是存放时是按照写入顺序存放的，遍历时自然不会有序；因此提供了一个 Sort 方法，可以把其中的数据按照 key 其实也就是 hashcode 进行排序。 排序也比较简单，使用了 Arrays 这个数组工具进行排序，它其实是使用了一个 TimSort 的排序算法，效率还是比较高的。 最后则需要按照一致性 Hash 的标准顺时针查找对应的节点： 代码还是比较简单清晰的；遍历数组如果找到比当前 key 大的就返回，没有查到就取第一个。 这样就基本实现了一致性 Hash 的要求。 ps:这里并不包含具体的 hash 方法以及虚拟节点等功能（具体实现请看下文），这个可以由使用者来定，SortArrayMap 可作为一个底层的数据结构，提供有序 Map 的能力，使用场景也不局限于一致性 Hash 算法中。 TreeMap 实现SortArrayMap 虽说是实现了一致性 hash 的功能，但效率还不够高，主要体现在 sort 排序处。 下图是目前主流排序算法的时间复杂度： 最好的也就是 O(N) 了。 这里完全可以换一个思路，不用对数据进行排序；而是在写入的时候就排好顺序，只是这样会降低写入的效率。 比如二叉查找树，这样的数据结构 jdk 里有现成的实现；比如 TreeMap 就是使用红黑树来实现的，默认情况下它会对 key 进行自然排序。 来看看使用 TreeMap 如何来达到同样的效果。运行结果： 1127.0.0.1000 效果和上文使用 SortArrayMap 是一致的。 只使用了 TreeMap 的一些 API： 写入数据候，TreeMap 可以保证 key 的自然排序。 tailMap 可以获取比当前 key 大的部分数据。 当这个方法有数据返回时取第一个就是顺时针中的第一个节点了。 如果没有返回那就直接取整个 Map 的第一个节点，同样也实现了环形结构。 ps:这里同样也没有 hash 方法以及虚拟节点（具体实现请看下文），因为 TreeMap 和 SortArrayMap 一样都是作为基础数据结构来使用的。 性能对比为了方便大家选择哪一个数据结构，我用 TreeMap 和 SortArrayMap 分别写入了一百万条数据来对比。 先是 SortArrayMap： 耗时 2237 毫秒。 TreeMap： 耗时 1316毫秒。 结果是快了将近一倍，所以还是推荐使用 TreeMap 来进行实现，毕竟它不需要额外的排序损耗。 cim 中的实际应用下面来看看在 cim 这个应用中是如何具体使用的，其中也包括上文提到的虚拟节点以及 hash 算法。 模板方法在应用的时候考虑到就算是一致性 hash 算法都有多种实现，为了方便其使用者扩展自己的一致性 hash 算法因此我定义了一个抽象类；其中定义了一些模板方法，这样大家只需要在子类中进行不同的实现即可完成自己的算法。 AbstractConsistentHash，这个抽象类的主要方法如下： add 方法自然是写入数据的。 sort 方法用于排序，但子类也不一定需要重写，比如 TreeMap 这样自带排序的容器就不用。 getFirstNodeValue 获取节点。 process 则是面向客户端的，最终只需要调用这个方法即可返回一个节点。 下面我们来看看利用 SortArrayMap 以及 AbstractConsistentHash 是如何实现的。 就是实现了几个抽象方法，逻辑和上文是一样的，只是抽取到了不同的方法中。 只是在 add 方法中新增了几个虚拟节点，相信大家也看得明白。 把虚拟节点的控制放到子类而没有放到抽象类中也是为了灵活性考虑，可能不同的实现对虚拟节点的数量要求也不一样，所以不如自定义的好。 但是 hash 方法确是放到了抽象类中，子类不用重写；因为这是一个基本功能，只需要有一个公共算法可以保证他散列地足够均匀即可。 因此在 AbstractConsistentHash 中定义了 hash 方法。 这里的算法摘抄自 xxl_job，网上也有其他不同的实现，比如 FNV1_32_HASH 等；实现不同但是目的都一样。 这样对于使用者来说就非常简单了： 他只需要构建一个服务列表，然后把当前的客户端信息传入 process 方法中即可获得一个一致性 hash 算法的返回。 同样的对于想通过 TreeMap 来实现也是一样的套路： 他这里不需要重写 sort 方法，因为自身写入时已经排好序了。 而在使用时对于客户端来说只需求修改一个实现类，其他的啥都不用改就可以了。 运行的效果也是一样的。 这样大家想自定义自己的算法时只需要继承 AbstractConsistentHash 重写相关方法即可，客户端代码无须改动。 路由算法扩展性但其实对于 cim 来说真正的扩展性是对路由算法来说的，比如它需要支持轮询、hash、一致性hash、随机、LRU等。 只是一致性 hash 也有多种实现，他们的关系就如下图： 应用还需要满足对这一类路由策略的灵活支持，比如我也想自定义一个随机的策略。 因此定义了一个接口：RouteHandle 12345678910public interface RouteHandle &#123; /** * 再一批服务器里进行路由 * @param values * @param key * @return */ String routeServer(List&lt;String&gt; values,String key) ;&#125; 其中只有一个方法，也就是路由方法；入参分别是服务列表以及客户端信息即可。 而对于一致性 hash 算法来说也是只需要实现这个接口，同时在这个接口中选择使用 SortArrayMapConsistentHash 还是 TreeMapConsistentHash 即可。 这里还有一个 setHash 的方法，入参是 AbstractConsistentHash；这就是用于客户端指定需要使用具体的那种数据结构。 而对于之前就存在的轮询策略来说也是同样的实现 RouteHandle 接口。 这里我只是把之前的代码搬过来了而已。 接下来看看客户端到底是如何使用以及如何选择使用哪种算法。 为了使客户端代码几乎不动，我将这个选择的过程放入了配置文件。 如果想使用原有的轮询策略，就配置实现了 RouteHandle 接口的轮询策略的全限定名。 如果想使用一致性 hash 的策略，也只需要配置实现了 RouteHandle 接口的一致性 hash 算法的全限定名。 当然目前的一致性 hash 也有多种实现，所以一旦配置为一致性 hash 后就需要再加一个配置用于决定使用 SortArrayMapConsistentHash 还是 TreeMapConsistentHash 或是自定义的其他方案。 同样的也是需要配置继承了 AbstractConsistentHash 的全限定名。 不管这里的策略如何改变，在使用处依然保持不变。 只需要注入 RouteHandle，调用它的 routeServer 方法。 123@Autowiredprivate RouteHandle routeHandle ;String server = routeHandle.routeServer(serverCache.getAll(),String.valueOf(loginReqVO.getUserId())); 既然使用了注入，那其实这个策略切换的过程就在创建 RouteHandle bean 的时候完成的。 也比较简单，需要读取之前的配置文件来动态生成具体的实现类，主要是利用反射完成的。 这样处理之后就比较灵活了，比如想新建一个随机的路由策略也是同样的套路；到时候只需要修改配置即可。 感兴趣的朋友也可提交 PR 来新增更多的路由策略。 总结希望看到这里的朋友能对这个算法有所理解，同时对一些设计模式在实际的使用也能有所帮助。 相信在金三银四的面试过程中还是能让面试官眼前一亮的，毕竟根据我这段时间的面试过程来看听过这个名词的都在少数😂（可能也是和候选人都在 1~3 年这个层级有关）。 以上所有源码： https://github.com/crossoverJie/cim 如果本文对你有所帮助还请不吝转发。]]></content>
@@ -38,8 +53,8 @@
         <category>cim</category>
       </categories>
       <tags>
-        <tag>IM</tag>
         <tag>Heartbeat</tag>
+        <tag>IM</tag>
       </tags>
   </entry>
   <entry>
@@ -514,8 +529,8 @@
       </categories>
       <tags>
         <tag>SpringBoot</tag>
-        <tag>Heartbeat</tag>
         <tag>TCP</tag>
+        <tag>Heartbeat</tag>
       </tags>
   </entry>
   <entry>
@@ -820,6 +835,18 @@
       </tags>
   </entry>
   <entry>
+    <title><![CDATA[科普-为自己的博客免费加上小绿锁]]></title>
+    <url>%2F2017%2F05%2F07%2Fhttps%2F</url>
+    <content type="text"><![CDATA[在如今的HTTPS大当其道的情况下自己的博客要是还没有用上。作为互联网的螺丝钉(码农)岂不是很没面子。 使用CLOUDFLARE这里使用CLOUDFLARE来提供HTTPS服务。 在其官网进行注册，按照提示添加好自己的域名即可。 之后需要在自己域名的提供商处修改DNS服务器，我是在万网购买的修改后如下图：其中的DNS服务器地址由CLOUDFLARE是提供的。修改完成之后通常需要等待一段时间才能生效。 接着在CLOUDFLARE配置DNS解析：点击CLOUDFLARE顶部的DNS进行如我上图中的配置，和之前的配置没有什么区别。 等待一段时间之后发现使用HTTP,HTTPS都能访问，但是最好还是能在访问HTTP的时候能强制跳转到HTTPS. 在CLOUDFLARE菜单栏点击page-rules之后新建一个page rule：这样整个网站的请求都会强制到请求到HTTPS. 主题配置由于我才用的是Hexo中的Next主题，其中配置了CNZZ站长统计。其中配置的CNZZ统计JS是才用的HTTP。导致在首页的时候chrome一直提示感叹号。修改站点themes/next/layout/_scripts/third-party/analytics目录下的cnzz-analytics.swig文件1234567&#123;% if theme.cnzz_siteid %&#125; &lt;div style=&quot;display: none;&quot;&gt; &lt;script src=&quot;https://s6.cnzz.com/stat.php?id=&#123;&#123; theme.cnzz_siteid &#125;&#125;&amp;web_id=&#123;&#123; theme.cnzz_siteid &#125;&#125;&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt; &lt;/div&gt;&#123;% endif %&#125; 之后再进行构建的时候就会使用HTTPS. 值得注意一点的是之后文章中所使用的图片都要用HTTPS的地址了，不然chrome会提示感叹号。 个人博客地址：http://crossoverjie.top。 GitHub地址：https://github.com/crossoverJie。]]></content>
+      <categories>
+        <category>科普</category>
+      </categories>
+      <tags>
+        <tag>HTTP</tag>
+        <tag>HTTPS</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[SSM(十三) 将dubbo暴露出HTTP服务]]></title>
     <url>%2F2017%2F05%2F07%2FSSM13%2F</url>
     <content type="text"><![CDATA[前言通常来说一个dubbo服务都是对内给内部调用的，但也有可能一个服务就是需要提供给外部使用，并且还不能有使用语言的局限性。 比较标准的做法是对外的服务我们统一提供一个openAPI，这样的调用方需要按照标准提供相应的appID以及密钥来进行验签才能使用。这样固然是比较规范和安全，但复杂度也不亚于开发一个单独的系统了。 这里所讲到的没有那么复杂，就只是把一个不需要各种权限检验的dubbo服务对外提供为HTTP服务。 调用示例: 准备工作以下是本文所涉及到的一些知识点： Spring相关知识。 Java反射相关知识。 SpringMVC相关知识。 其实思路很简单，就是利用SpringMVC提供一个HTTP接口。在该接口中通过入参进行反射找到具体的dubbo服务实现进行调用。 HttpProviderConf配置类首先需要定义一个HttpProviderConf类用于保存声明需要对外提供服务的包名，毕竟我们反射时需要用到一个类的全限定名： 12345678public class HttpProviderConf &#123; /** * 提供http访问的包 */ private List&lt;String&gt; usePackage ; //省略getter setter方法&#125; 就只有一个usePackage成员变量，用于存放需要包名。至于用List的原因是允许有多个。 请求响应入参、出参HttpRequest入参123456public class HttpRequest &#123; private String param ;//入参 private String service ;//请求service private String method ;//请求方法 //省略getter setter方法&#125; 其中param是用于存放真正调用dubbo服务时的入参，传入json在调用的时候解析成具体的参数对象。 service存放dubbo服务声明的interface API的包名。 method则是真正调用的方法名称。 HttpResponse 响应1234567891011public class HttpResponse implements Serializable&#123; private static final long serialVersionUID = -552828440320737814L; private boolean success;//成功标志 private String code;//信息码 private String description;//描述 //省略getter setter方法&#125; 这里只是封装了常用的HTTP服务的响应数据。 暴露服务controller最重要的则是controller里的实现代码了。 先贴代码：123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899100101102103104105106107108109110111112113114115116117118119120121122123124125126127128129130131132133134135136137138139140141142143144145146147148149150151152153154155@Controller@RequestMapping("/dubboAPI")public class DubboController implements ApplicationContextAware&#123; private final static Logger logger = LoggerFactory.getLogger(DubboController.class); @Autowired private HttpProviderConf httpProviderConf; //缓存作用的map private final Map&lt;String, Class&lt;?&gt;&gt; cacheMap = new HashMap&lt;String, Class&lt;?&gt;&gt;(); protected ApplicationContext applicationContext; @ResponseBody @RequestMapping(value = "/&#123;service&#125;/&#123;method&#125;",method = RequestMethod.POST) public String api(HttpRequest httpRequest, HttpServletRequest request, @PathVariable String service, @PathVariable String method) &#123; logger.debug("ip:&#123;&#125;-httpRequest:&#123;&#125;",getIP(request), JSON.toJSONString(httpRequest)); String invoke = invoke(httpRequest, service, method); logger.debug("callback :"+invoke) ; return invoke ; &#125; private String invoke(HttpRequest httpRequest,String service,String method)&#123; httpRequest.setService(service); httpRequest.setMethod(method); HttpResponse response = new HttpResponse() ; logger.debug("input param:"+JSON.toJSONString(httpRequest)); if (!CollectionUtils.isEmpty(httpProviderConf.getUsePackage()))&#123; boolean isPac = false ; for (String pac : httpProviderConf.getUsePackage()) &#123; if (service.startsWith(pac))&#123; isPac = true ; break ; &#125; &#125; if (!isPac)&#123; //调用的是未经配置的包 logger.error("service is not correct,service="+service); response.setCode("2"); response.setSuccess(false); response.setDescription("service is not correct,service="+service); &#125; &#125; try &#123; Class&lt;?&gt; serviceCla = cacheMap.get(service); if (serviceCla == null)&#123; serviceCla = Class.forName(service) ; logger.debug("serviceCla:"+JSON.toJSONString(serviceCla)); //设置缓存 cacheMap.put(service,serviceCla) ; &#125; Method[] methods = serviceCla.getMethods(); Method targetMethod = null ; for (Method m : methods) &#123; if (m.getName().equals(method))&#123; targetMethod = m ; break ; &#125; &#125; if (method == null)&#123; logger.error("method is not correct,method="+method); response.setCode("2"); response.setSuccess(false); response.setDescription("method is not correct,method="+method); &#125; Object bean = this.applicationContext.getBean(serviceCla); Object result = null ; Class&lt;?&gt;[] parameterTypes = targetMethod.getParameterTypes(); if (parameterTypes.length == 0)&#123; //没有参数 result = targetMethod.invoke(bean); &#125;else if (parameterTypes.length == 1)&#123; Object json = JSON.parseObject(httpRequest.getParam(), parameterTypes[0]); result = targetMethod.invoke(bean,json) ; &#125;else &#123; logger.error("Can only have one parameter"); response.setSuccess(false); response.setCode("2"); response.setDescription("Can only have one parameter"); &#125; return JSON.toJSONString(result) ; &#125;catch (ClassNotFoundException e)&#123; logger.error("class not found",e); response.setSuccess(false); response.setCode("2"); response.setDescription("class not found"); &#125; catch (InvocationTargetException e) &#123; logger.error("InvocationTargetException",e); response.setSuccess(false); response.setCode("2"); response.setDescription("InvocationTargetException"); &#125; catch (IllegalAccessException e) &#123; logger.error("IllegalAccessException",e); response.setSuccess(false); response.setCode("2"); response.setDescription("IllegalAccessException"); &#125; return JSON.toJSONString(response) ; &#125; /** * 获取IP * @param request * @return */ private String getIP(HttpServletRequest request) &#123; if (request == null) return null; String s = request.getHeader("X-Forwarded-For"); if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getHeader("Proxy-Client-IP"); &#125; if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getHeader("WL-Proxy-Client-IP"); &#125; if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getHeader("HTTP_CLIENT_IP"); &#125; if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getHeader("HTTP_X_FORWARDED_FOR"); &#125; if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getRemoteAddr(); &#125; if ("127.0.0.1".equals(s) || "0:0:0:0:0:0:0:1".equals(s)) try &#123; s = InetAddress.getLocalHost().getHostAddress(); &#125; catch (UnknownHostException unknownhostexception) &#123; return ""; &#125; return s; &#125; public void setApplicationContext(ApplicationContext applicationContext) throws BeansException &#123; this.applicationContext = applicationContext; &#125; 先一步一步的看： 首先是定义了一个DubboController,并使用了SpringMVC的注解对外暴露HTTP服务。 实现了org.springframework.context.ApplicationContextAware类，实现了setApplicationContext()方法用于初始化Spring上下文对象，在之后可以获取到容器里的相应对象。 核心的invoke()方法。 调用时：http://127.0.0.1:8080/SSM-SERVICE/dubboAPI/com.crossoverJie.api.UserInfoApi/getUserInfo。 具体如上文的调用实例。先将com.crossoverJie.api.UserInfoApi、getUserInfo赋值到httpRequest入参中。 判断传入的包是否是对外提供的。如下配置：1234567891011&lt;!--dubbo服务暴露为http服务--&gt;&lt;bean class="com.crossoverJie.dubbo.http.conf.HttpProviderConf"&gt; &lt;property name="usePackage"&gt; &lt;list&gt; &lt;!--需要暴露服务的接口包名，可多个--&gt; &lt;value&gt;com.crossoverJie.api&lt;/value&gt; &lt;/list&gt; &lt;/property&gt;&lt;/bean&gt;&lt;!--扫描暴露包--&gt;&lt;context:component-scan base-package="com.crossoverJie.dubbo.http"/&gt; 其中的com.crossoverJie.api就是自己需要暴露的包名，可以多个。 接着在缓存map中取出反射获取到的接口类类型，如果获取不到则通过反射获取，并将值设置到缓存map中，这样不用每次都反射获取，可以节省系统开销(反射很耗系统资源)。 接着也是判断该接口中是否有传入的getUserInfo方法。 取出该方法的参数列表，如果没有参数则直接调用。 如果有参数，判断个数。这里最多只运行一个参数。也就是说在真正的dubbo调用的时候只能传递一个BO类型，具体的参数列表可以写到BO中。因为如果有多个在进行json解析的时候是无法赋值到两个参数对象中去的。 之后进行调用，将调用返回的数据进行返回即可。 总结通常来说这样提供的HTTP接口再实际中用的不多，但是很方便调试。 比如写了一个dubbo的查询接口，在测试环境或者是预发布环境中就可以直接通过HTTP请求的方式进行简单的测试，或者就是查询数据。比在Java中写单测来测试或查询快的很多。 安装1git clone https://github.com/crossoverJie/SSM-DUBBO-HTTP.git 1cd SSM-DUBBO-HTTP 1mvn clean 1mvn install 使用12345&lt;dependency&gt; &lt;groupId&gt;com.crossoverJie&lt;/groupId&gt; &lt;artifactId&gt;SSM-HTTP-PROVIDER&lt;/artifactId&gt; &lt;version&gt;1.0.0&lt;/version&gt;&lt;/dependency&gt; spring配置1234567891011&lt;!--dubbo服务暴露为http服务--&gt;&lt;bean class="com.crossoverJie.dubbo.http.conf.HttpProviderConf"&gt; &lt;property name="usePackage"&gt; &lt;list&gt; &lt;!--需要暴露服务的接口包名，可多个--&gt; &lt;value&gt;com.crossoverJie.api&lt;/value&gt; &lt;/list&gt; &lt;/property&gt;&lt;/bean&gt;&lt;!--扫描暴露包--&gt;&lt;context:component-scan base-package="com.crossoverJie.dubbo.http"/&gt; 插件地址：https://github.com/crossoverJie/SSM-DUBBO-HTTP 项目地址：https://github.com/crossoverJie/SSM.git 个人博客地址：http://crossoverjie.top。 GitHub地址：https://github.com/crossoverJie。]]></content>
@@ -830,18 +857,6 @@
         <tag>Java</tag>
         <tag>dubbo</tag>
         <tag>HTTP</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title><![CDATA[科普-为自己的博客免费加上小绿锁]]></title>
-    <url>%2F2017%2F05%2F07%2Fhttps%2F</url>
-    <content type="text"><![CDATA[在如今的HTTPS大当其道的情况下自己的博客要是还没有用上。作为互联网的螺丝钉(码农)岂不是很没面子。 使用CLOUDFLARE这里使用CLOUDFLARE来提供HTTPS服务。 在其官网进行注册，按照提示添加好自己的域名即可。 之后需要在自己域名的提供商处修改DNS服务器，我是在万网购买的修改后如下图：其中的DNS服务器地址由CLOUDFLARE是提供的。修改完成之后通常需要等待一段时间才能生效。 接着在CLOUDFLARE配置DNS解析：点击CLOUDFLARE顶部的DNS进行如我上图中的配置，和之前的配置没有什么区别。 等待一段时间之后发现使用HTTP,HTTPS都能访问，但是最好还是能在访问HTTP的时候能强制跳转到HTTPS. 在CLOUDFLARE菜单栏点击page-rules之后新建一个page rule：这样整个网站的请求都会强制到请求到HTTPS. 主题配置由于我才用的是Hexo中的Next主题，其中配置了CNZZ站长统计。其中配置的CNZZ统计JS是才用的HTTP。导致在首页的时候chrome一直提示感叹号。修改站点themes/next/layout/_scripts/third-party/analytics目录下的cnzz-analytics.swig文件1234567&#123;% if theme.cnzz_siteid %&#125; &lt;div style=&quot;display: none;&quot;&gt; &lt;script src=&quot;https://s6.cnzz.com/stat.php?id=&#123;&#123; theme.cnzz_siteid &#125;&#125;&amp;web_id=&#123;&#123; theme.cnzz_siteid &#125;&#125;&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt; &lt;/div&gt;&#123;% endif %&#125; 之后再进行构建的时候就会使用HTTPS. 值得注意一点的是之后文章中所使用的图片都要用HTTPS的地址了，不然chrome会提示感叹号。 个人博客地址：http://crossoverjie.top。 GitHub地址：https://github.com/crossoverJie。]]></content>
-      <categories>
-        <category>科普</category>
-      </categories>
-      <tags>
-        <tag>HTTP</tag>
-        <tag>HTTPS</tag>
       </tags>
   </entry>
   <entry>
@@ -999,8 +1014,8 @@
       </categories>
       <tags>
         <tag>Java</tag>
-        <tag>IDEA</tag>
         <tag>Lucene</tag>
+        <tag>IDEA</tag>
       </tags>
   </entry>
   <entry>
@@ -1012,10 +1027,10 @@
       </categories>
       <tags>
         <tag>Java</tag>
+        <tag>IDEA</tag>
         <tag>Spring</tag>
         <tag>SpringMVC</tag>
         <tag>Mybatis</tag>
-        <tag>IDEA</tag>
       </tags>
   </entry>
   <entry>
