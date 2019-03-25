@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-03-20T14:57:06.443Z</updated>
+  <updated>2019-03-25T17:12:01.336Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,110 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>线程池中你不容错过的一些细节</title>
+    <link href="http://crossoverjie.top/2019/03/26/troubleshoot/thread-gone2/"/>
+    <id>http://crossoverjie.top/2019/03/26/troubleshoot/thread-gone2/</id>
+    <published>2019-03-26T00:15:36.000Z</published>
+    <updated>2019-03-25T17:12:01.336Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://ws4.sinaimg.cn/large/006tKfTcly1g14ndc0hrkj31hc0u0ae4.jpg" alt=""></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>上周分享了一篇<a href="https://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/">《一个线程罢工的诡异事件》</a>，最近也在公司内部分享了这个案例。</p>
+<p>无独有偶，在内部分享的时候也有小伙伴问了之前分享时所提出的一类问题：</p>
+<a id="more"></a>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g1fftbaa1vj30lq050ab1.jpg" alt=""></p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g13jch6xtkj30yu0u0ah3.jpg" alt=""></p>
+<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g13je0xu1qj30vv0u0aj0.jpg" alt=""></p>
+<p><img src="https://ws4.sinaimg.cn/large/006tKfTcly1g1fgah6l5tj30i00l5wiu.jpg" alt=""></p>
+<p>这其实是一类共性问题，我认为主要还是两个原因：</p>
+<ul>
+<li>我自己确实也没讲清楚，之前画的那张图还需要再完善，有些误导。</li>
+<li>第二还是大家对线程池的理解不够深刻，比如今天要探讨的内容。</li>
+</ul>
+<h1 id="线程池的工作原理"><a href="#线程池的工作原理" class="headerlink" title="线程池的工作原理"></a>线程池的工作原理</h1><p>首先还是来复习下线程池的基本原理。</p>
+<p>我认为线程池它就是一个<strong>调度任务</strong>的工具。</p>
+<p>众所周知在初始化线程池会给定线程池的大小，假设现在我们有 1000 个线程任务需要运行，而线程池的大小为 10~20，在真正运行任务的过程中他肯定不会创建这1000个线程同时运行，而是充分利用线程池里这 10~20 个线程来调度这1000个任务。</p>
+<p>而这里的 10~20 个线程最后会由线程池封装为 <code>ThreadPoolExecutor.Worker</code> 对象，而这个 <code>Worker</code> 是实现了 Runnable 接口的，所以他自己本身就是一个线程。</p>
+<h1 id="深入分析"><a href="#深入分析" class="headerlink" title="深入分析"></a>深入分析</h1><p><img src="https://ws3.sinaimg.cn/large/006tKfTcly1g1fhhl9mwoj30g402j0sr.jpg" alt=""></p>
+<p>这里我们来做一个模拟，创建了一个核心线程、最大线程数、阻塞队列都为2的线程池。</p>
+<p>这里假设线程池已经完成了预热，也就是线程池内部已经创建好了两个线程 <code>Worker</code>。</p>
+<p>当我们往一个线程池丢一个任务会发生什么事呢？</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tKfTcly1g1fhfvpuvuj30ej0bu0tn.jpg" alt=""></p>
+<ul>
+<li>第一步是生产者，也就是任务提供者他执行了一个 execute() 方法，本质上就是往这个内部队列里放了一个任务。</li>
+<li>之前已经创建好了的 Worker 线程会执行一个 <code>while</code> 循环 —&gt; 不停的从这个<code>内部队列</code>里获取任务。(这一步是竞争的关系，都会抢着从队列里获取任务，由这个队列内部实现了线程安全。)</li>
+<li>获取得到一个任务后，其实也就是拿到了一个 <code>Runnable</code> 对象(也就是 <code>execute(Runnable task)</code> 这里所提交的任务)，接着执行这个 <code>Runnable</code> 的 <strong>run() 方法，而不是 start()</strong>，这点需要注意后文分析原因。</li>
+</ul>
+<p>结合源码来看：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tKfTcly1g1fhr8q4iyj30tq0kjtcy.jpg" alt=""></p>
+<p>从图中其实就对应了刚才提到的二三两步：</p>
+<ul>
+<li><code>while</code> 循环，从 <code>getTask()</code> 方法中一直不停的获取任务。</li>
+<li>拿到任务后，执行它的 run() 方法。</li>
+</ul>
+<p>这样一个线程就调度完毕，然后再次进入循环从队列里取任务并不断的进行调度。</p>
+<h1 id="再次解释之前的问题"><a href="#再次解释之前的问题" class="headerlink" title="再次解释之前的问题"></a>再次解释之前的问题</h1><p>接下来回顾一下我们上一篇文章所提到的，导致一个线程没有运行的根本原因是：</p>
+<blockquote>
+<p>在单个线程的线程池中一但抛出了未被捕获的异常时，线程池会回收当前的线程并创建一个新的 <code>Worker</code>；<br>它也会一直不断的从队列里获取任务来执行，但由于这是一个消费线程，<strong>根本没有生产者往里边丢任务</strong>，所以它会一直 waiting 在从队列里获取任务处，所以也就造成了线上的队列没有消费，业务线程池没有执行的问题。</p>
+</blockquote>
+<p>结合之前的那张图来看：</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g101rrbfpuj30ha0kkmz7.jpg" alt=""></p>
+<p>这里大家问的最多的一个点是，为什么会没有是<code>根本没有生产者往里边丢任务</code>，图中不是明明画的有一个 <code>product</code> 嘛？</p>
+<p>这里确实是有些不太清楚，再次强调一次：</p>
+<p><strong>图中的 product 是往内部队列里写消息的生产者，并不是往这个 Consumer 所在的线程池中写任务的生产者。</strong></p>
+<p>因为即便 <code>Consumer</code> 是一个单线程的线程池，它依然具有一个常规线程池所具备的所有条件：</p>
+<ul>
+<li>Worker 调度线程，也就是线程池运行的线程；虽然只有一个。</li>
+<li>内部的阻塞队列；虽然长度只有1。</li>
+</ul>
+<p>再次结合图来看：</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tKfTcly1g1fi8yth6gj30f70ca3ze.jpg" alt=""></p>
+<p>所以之前提到的【没有生产者往里边丢任务】是指右图放大后的那一块，也就是内部队列并没有其他线程往里边丢任务执行 <code>execute()</code> 方法。</p>
+<p>而一旦发生未捕获的异常后，<code>Worker1</code> 被回收，顺带的它所调度的线程 <code>task1</code>（这个task1 也就是在执行一个 while 循环消费左图中的那个队列） 也会被回收掉。</p>
+<p>新创建的 <code>Worker2</code> 会取代 <code>Worker1</code> 继续执行 <code>while</code> 循环从内部队列里获取任务，但此时这个队列就一直会是空的，所以也就是处于 <code>Waiting</code> 状态。</p>
+<blockquote>
+<p>我觉得这波解释应该还是讲清楚了，欢迎还没搞明白的朋友留言讨论。</p>
+</blockquote>
+<h1 id="为什是-run-而不是-start"><a href="#为什是-run-而不是-start" class="headerlink" title="为什是 run() 而不是 start()"></a>为什是 run() 而不是 start()</h1><p>问题搞清楚后来想想为什么线程池在调度的时候执行的是 <code>Runnable</code> 的 <code>run()</code> 方法，而不是 <code>start()</code> 方法呢？</p>
+<p>我相信大部分没有看过源码的同学心中第一个印象就应该是执行的 <code>start()</code> 方法；</p>
+<p>因为不管是学校老师，还是网上大牛讲的都是只有执行了<code>start()</code> 方法后操作系统才会给我们创建一个独立的线程来运行，而 <code>run()</code> 方法只是一个普通的方法调用。</p>
+<p>而在线程池这个场景中却恰好就是要利用它<strong>只是一个普通方法调用</strong>。</p>
+<p>回到我在文初中所提到的：我认为线程池它就是一个<strong>调度任务</strong>的工具。</p>
+<p>假设这里是调用的 <code>Runnable</code> 的 <code>start</code> 方法，那会发生什么事情。</p>
+<p>如果我们往一个核心、最大线程数为 2 的线程池里丢了 1000 个任务，<strong>那么它会额外的创建 1000 个线程，同时每个任务都是异步执行的，一下子就执行完毕了</strong>。</p>
+<p>从而没法做到由这两个 <code>Worker</code> 线程来调度这 1000 个任务，而只有当做一个同步阻塞的 <code>run()</code> 方法调用时才能满足这个要求。</p>
+<blockquote>
+<p>这事也让我发现一个奇特的现象：就是网上几乎没人讲过为什么在线程池里是 run 而不是 start，不知道是大家都觉得这是基操还是没人仔细考虑过。</p>
+</blockquote>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>针对之前线上事故的总结上次已经写得差不多了，感兴趣的可以翻回去看看。</p>
+<p>这次呢可能更多是我自己的总结，比如写一篇技术博客时如果大部分人对某一个知识点讨论的比较热烈时，那一定是作者要么讲错了，要么没讲清楚。</p>
+<p>这点确实是要把自己作为一个读者的角度来看，不然很容易出现之前的一些误解。</p>
+<p>在这之外呢，我觉得对于线程池把这两篇都看完同时也理解后对于大家理解线程池，利用线程池完成工作也是有很大好处的。</p>
+<p>如果有在面试中加分的记得回来点赞、分享啊。</p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://ws4.sinaimg.cn/large/006tKfTcly1g14ndc0hrkj31hc0u0ae4.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;背景&quot;&gt;&lt;a href=&quot;#背景&quot; class=&quot;headerlink&quot; title=&quot;背景&quot;&gt;&lt;/a&gt;背景&lt;/h1&gt;&lt;p&gt;上周分享了一篇&lt;a href=&quot;https://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/&quot;&gt;《一个线程罢工的诡异事件》&lt;/a&gt;，最近也在公司内部分享了这个案例。&lt;/p&gt;
+&lt;p&gt;无独有偶，在内部分享的时候也有小伙伴问了之前分享时所提出的一类问题：&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="问题排查" scheme="http://crossoverjie.top/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/"/>
+    
+      <category term="Java 进阶" scheme="http://crossoverjie.top/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/Java-%E8%BF%9B%E9%98%B6/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="Thread" scheme="http://crossoverjie.top/tags/Thread/"/>
+    
+      <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
+    
+  </entry>
   
   <entry>
     <title>VLOG-006:一个程序员的周末（上）</title>
@@ -1137,9 +1241,9 @@
     
       <category term="Zookeeper" scheme="http://crossoverjie.top/tags/Zookeeper/"/>
     
-      <category term="推送" scheme="http://crossoverjie.top/tags/%E6%8E%A8%E9%80%81/"/>
-    
       <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
+    
+      <category term="推送" scheme="http://crossoverjie.top/tags/%E6%8E%A8%E9%80%81/"/>
     
       <category term="IOT" scheme="http://crossoverjie.top/tags/IOT/"/>
     
@@ -2522,145 +2626,6 @@
       <category term="SpringBoot" scheme="http://crossoverjie.top/tags/SpringBoot/"/>
     
       <category term="ThreadPool" scheme="http://crossoverjie.top/tags/ThreadPool/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>利用责任链模式设计一个拦截器</title>
-    <link href="http://crossoverjie.top/2018/10/22/wheel/cicada5/"/>
-    <id>http://crossoverjie.top/2018/10/22/wheel/cicada5/</id>
-    <published>2018-10-21T16:19:36.000Z</published>
-    <updated>2018-10-21T17:48:15.268Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fwg8mtmstrj31c5104nfw.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>近期在做 <a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">Cicada</a> 的拦截器功能，正好用到了责任链模式。</p>
-<p>这个设计模式在日常使用中频率还是挺高的，借此机会来分析分析。</p>
-<h1 id="责任链模式"><a href="#责任链模式" class="headerlink" title="责任链模式"></a>责任链模式</h1><p>先来看看什么是责任链模式。</p>
-<p>引用一段维基百科对其的解释：</p>
-<blockquote>
-<p>责任链模式在面向对象程式设计里是一种软件设计模式，它包含了一些命令对象和一系列的处理对象。每一个处理对象决定它能处理哪些命令对象，它也知道如何将它不能处理的命令对象传递给该链中的下一个处理对象。该模式还描述了往该处理链的末尾添加新的处理对象的方法。</p>
-</blockquote>
-<p>光看这段描述可能大家会觉得懵，简单来说就是该设计模式用于对某个对象或者请求进行一系列的处理，这些处理逻辑正好组成一个链条。</p>
-<p>下面来简单演示使用与不使用责任链模式有什么区别和优势。</p>
-<a id="more"></a>
-<h1 id="责任链模式的应用"><a href="#责任链模式的应用" class="headerlink" title="责任链模式的应用"></a>责任链模式的应用</h1><h2 id="传统实现"><a href="#传统实现" class="headerlink" title="传统实现"></a>传统实现</h2><p>假设这样的场景：传入了一段内容，需要对这段文本进行加工；比如过滤敏感词、错别字修改、最后署上版权等操作。</p>
-<p>常见的写法如下：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Main</span> </span>&#123;</div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</div><div class="line">        String msg = <span class="string">"内容内容内容"</span> ;</div><div class="line"></div><div class="line">        String result = Process.sensitiveWord()</div><div class="line">                .typo()</div><div class="line">                .copyright();</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>这样看似没啥问题也能解决需求，但如果我还需要为为内容加上一个统一的标题呢？在现有的方式下就不得不新增处理方法，并且是在这个客户端（<code>Process</code>）的基础上进行新增。</p>
-<p>显然这样的扩展性不好。</p>
-<h2 id="责任链模式实现"><a href="#责任链模式实现" class="headerlink" title="责任链模式实现"></a>责任链模式实现</h2><p>这时候就到了责任链模式发挥作用了。</p>
-<p>该需求非常的符合对某一个对象、请求进行一系列处理的特征。</p>
-<p>于是我们将代码修改：</p>
-<p>这时 <code>Process</code> 就是一个接口了，用于定义真正的处理函数。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Process</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 执行处理</div><div class="line">     * <span class="doctag">@param</span> msg</div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">void</span> <span class="title">doProcess</span><span class="params">(String msg)</span> </span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>同时之前对内容的各种处理只需要实现该接口即可：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">SensitiveWordProcess</span> <span class="keyword">implements</span> <span class="title">Process</span> </span>&#123;</div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">doProcess</span><span class="params">(String msg)</span> </span>&#123;</div><div class="line">        System.out.println(msg + <span class="string">"敏感词处理"</span>);</div><div class="line">    &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CopyrightProcess</span> <span class="keyword">implements</span> <span class="title">Process</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">doProcess</span><span class="params">(String msg)</span> </span>&#123;</div><div class="line">        System.out.println(msg + <span class="string">"版权处理"</span>);</div><div class="line">    &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CopyrightProcess</span> <span class="keyword">implements</span> <span class="title">Process</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">doProcess</span><span class="params">(String msg)</span> </span>&#123;</div><div class="line">        System.out.println(msg + <span class="string">"版权处理"</span>);</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>然后只需要给客户端提供一个执行入口以及添加责任链的入口即可：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MsgProcessChain</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="keyword">private</span> List&lt;Process&gt; chains = <span class="keyword">new</span> ArrayList&lt;&gt;() ;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 添加责任链</div><div class="line">     * <span class="doctag">@param</span> process</div><div class="line">     * <span class="doctag">@return</span></div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">public</span> MsgProcessChain <span class="title">addChain</span><span class="params">(Process process)</span></span>&#123;</div><div class="line">        chains.add(process) ;</div><div class="line">        <span class="keyword">return</span> <span class="keyword">this</span> ;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 执行处理</div><div class="line">     * <span class="doctag">@param</span> msg</div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">process</span><span class="params">(String msg)</span></span>&#123;</div><div class="line">        <span class="keyword">for</span> (Process chain : chains) &#123;</div><div class="line">            chain.doProcess(msg);</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>这样使用起来就非常简单：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Main</span> </span>&#123;</div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</div><div class="line">        String msg = <span class="string">"内容内容内容=="</span> ;</div><div class="line"></div><div class="line">        MsgProcessChain chain = <span class="keyword">new</span> MsgProcessChain()</div><div class="line">                .addChain(<span class="keyword">new</span> SensitiveWordProcess())</div><div class="line">                .addChain(<span class="keyword">new</span> TypoProcess())</div><div class="line">                .addChain(<span class="keyword">new</span> CopyrightProcess()) ;</div><div class="line"></div><div class="line">        chain.process(msg) ;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>当我需要再增加一个处理逻辑时只需要添加一个处理单元即可（<code>addChain(Process process)</code>），并对客户端 <code>chain.process(msg)</code> 是无感知的，不需要做任何的改动。</p>
-<p>可能大家没有直接写过责任链模式的相关代码，但不经意间使用到的却不少。</p>
-<p>比如 <code>Netty</code> 中的 <code>pipeline</code> 就是一个典型的责任链模式，它可以让一个请求在整个管道中进行流转。</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fwgb3k3zz0j30zo0aq0uu.jpg" alt=""></p>
-<p>通过官方图就可以非常清楚的看出是一个责任链模式：</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fwgb6c3uxaj30ye102wih.jpg" alt=""></p>
-<h1 id="用责任链模式设计一个拦截器"><a href="#用责任链模式设计一个拦截器" class="headerlink" title="用责任链模式设计一个拦截器"></a>用责任链模式设计一个拦截器</h1><p>对于拦截器来说使用责任链模式再好不过了。</p>
-<p>下面来看看在 <code>Cicada</code> 中的实现：</p>
-<p>首先是定义了和上文 <code>Process</code> 接口类似的 <code>CicadaInterceptor</code> 抽象类：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">CicadaInterceptor</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">before</span><span class="params">(CicadaContext context,Param param)</span> <span class="keyword">throws</span> Exception</span>&#123;</div><div class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">after</span><span class="params">(CicadaContext context,Param param)</span> <span class="keyword">throws</span> Exception</span>&#123;&#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>同时定义了一个 <code>InterceptProcess</code> 的客户端：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgbkkvvhmj31dc0fsaef.jpg" alt=""></p>
-<p>其中的 <code>loadInterceptors()</code> 会将所有的拦截器加入到责任链中。</p>
-<p>再提供了两个函数分别对应了拦截前和拦截后的入口：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgblxcj46j315a0osq79.jpg" alt=""></p>
-<h2 id="实际应用"><a href="#实际应用" class="headerlink" title="实际应用"></a>实际应用</h2><p>现在来看看具体是怎么使用的吧。</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fwgbp7vwhpj313w0o6tda.jpg" alt=""></p>
-<p>在请求的 <code>handle</code> 中首先进行加载（<code>loadInterceptors(AppConfig appConfig)</code>），也就是初始化责任链。</p>
-<p>接下来则是客户端的入口；调用拦截前后的入口方法即可。</p>
-<blockquote>
-<p>由于是拦截器，那么在 <code>before</code> 函数中是可以对请求进行拦截的。只要返回 <code>false</code> 就不会继续向后处理。所以这里做了一个返回值的判断。</p>
-</blockquote>
-<p>同时对于使用者来说只需要创建拦截器类继承 <code>CicadaInterceptor</code> 类即可。</p>
-<p>这里做了一个演示，分别有两个拦截器：</p>
-<ol>
-<li>记录一个业务 <code>handle</code> 的执行时间。</li>
-<li>在 <code>after</code> 里打印了请求参数。</li>
-<li>同时可在第一个拦截器中返回 <code>false</code> 让请求被拦截。</li>
-</ol>
-<p>先来做前两个试验：</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fwgbx5806kj31ca0eoq6i.jpg" alt=""></p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fwgbxm6sblj319o0l2n15.jpg" alt=""></p>
-<hr>
-<p>这样当我请求其中一个接口时会将刚才的日志打印出来：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgbyfrxe7j31kw07jwix.jpg" alt=""></p>
-<hr>
-<p>接下来我让打印执行时间的拦截器中拦截请求，同时输入向前端输入一段文本：</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fwgc0ry7vuj316i0nkn1r.jpg" alt=""></p>
-<hr>
-<p>请求接口可以看到如下内容：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgc1j835bj31560b4ta6.jpg" alt=""></p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgc1wziv5j31kw04ujuc.jpg" alt=""></p>
-<p>同时后面的请求参数也没有打印出来，说明请求确实被拦截下来。</p>
-<hr>
-<p>同时我也可以调整拦截顺序，只需要在<code>@Interceptor(order = 1)</code> 注解中定义这个 <code>order</code> 属性即可（默认值是 0，越小越先执行）。</p>
-<p>之前是打印请求参数的拦截器先执行，这次我手动将它的 order 调整为 2，而打印时间的 order 为 1 。</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fwgc6sjzu1j318m0g8tc5.jpg" alt=""></p>
-<p>再次请求接口观察后台日志：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fwgc9n4x9mj31kw05mgop.jpg" alt=""></p>
-<p>发现打印执行时间的拦截器先执行。</p>
-<p>那这个执行执行顺序如何实现自定义配置的呢？</p>
-<p>其实也比较简单，有以下几步：</p>
-<ul>
-<li>在加载拦截器时将注解里的 <code>order</code> 保存起来。</li>
-<li>设置拦截器到责任链中时通过反射将 <code>order</code> 的值保存到各个拦截器中。</li>
-<li>最终通过排序重新排列这个责任链的顺序。</li>
-</ul>
-<p>贴一些核心代码。</p>
-<p>扫描拦截器时保存 <code>order</code> 值：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgcdc8iifj316c08ota5.jpg" alt=""></p>
-<hr>
-<p>保存 <code>order</code> 值到拦截器中：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fwgcf5tlrqj31bg0gigpt.jpg" alt=""></p>
-<hr>
-<p>重新对责任链排序：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwgcft8uftj31800ck40d.jpg" alt=""></p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>整个责任链模式已经讲完，希望对这个设计模式还不了解的朋友带来些帮助。</p>
-<p>上文中的源码如下：</p>
-<ul>
-<li><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">https://github.com/TogetherOS/cicada:一个高性能、轻量 HTTP 框架</a></li>
-<li><a href="https://git.io/fxKid" target="_blank" rel="external">https://git.io/fxKid</a></li>
-</ul>
-<p><strong>欢迎关注公众号一起交流：</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://ws2.sinaimg.cn/large/006tNbRwly1fwg8mtmstrj31c5104nfw.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;近期在做 &lt;a href=&quot;https://github.com/TogetherOS/cicada&quot;&gt;Cicada&lt;/a&gt; 的拦截器功能，正好用到了责任链模式。&lt;/p&gt;
-&lt;p&gt;这个设计模式在日常使用中频率还是挺高的，借此机会来分析分析。&lt;/p&gt;
-&lt;h1 id=&quot;责任链模式&quot;&gt;&lt;a href=&quot;#责任链模式&quot; class=&quot;headerlink&quot; title=&quot;责任链模式&quot;&gt;&lt;/a&gt;责任链模式&lt;/h1&gt;&lt;p&gt;先来看看什么是责任链模式。&lt;/p&gt;
-&lt;p&gt;引用一段维基百科对其的解释：&lt;/p&gt;
-&lt;blockquote&gt;
-&lt;p&gt;责任链模式在面向对象程式设计里是一种软件设计模式，它包含了一些命令对象和一系列的处理对象。每一个处理对象决定它能处理哪些命令对象，它也知道如何将它不能处理的命令对象传递给该链中的下一个处理对象。该模式还描述了往该处理链的末尾添加新的处理对象的方法。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;p&gt;光看这段描述可能大家会觉得懵，简单来说就是该设计模式用于对某个对象或者请求进行一系列的处理，这些处理逻辑正好组成一个链条。&lt;/p&gt;
-&lt;p&gt;下面来简单演示使用与不使用责任链模式有什么区别和优势。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="cicada" scheme="http://crossoverjie.top/categories/cicada/"/>
-    
-      <category term="轮子" scheme="http://crossoverjie.top/categories/cicada/%E8%BD%AE%E5%AD%90/"/>
-    
-    
-      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
-    
-      <category term="HTTP" scheme="http://crossoverjie.top/tags/HTTP/"/>
-    
-      <category term="Netty" scheme="http://crossoverjie.top/tags/Netty/"/>
-    
-      <category term="责任链" scheme="http://crossoverjie.top/tags/%E8%B4%A3%E4%BB%BB%E9%93%BE/"/>
     
   </entry>
   
