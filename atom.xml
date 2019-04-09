@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-03-31T13:25:30.923Z</updated>
+  <updated>2019-04-09T12:28:26.470Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,161 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>『并发包入坑指北』之阻塞队列</title>
+    <link href="http://crossoverjie.top/2019/04/09/concurrent/ArrayBlockingQueue/"/>
+    <id>http://crossoverjie.top/2019/04/09/concurrent/ArrayBlockingQueue/</id>
+    <published>2019-04-09T00:20:00.000Z</published>
+    <updated>2019-04-09T12:28:26.470Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://ws4.sinaimg.cn/large/006tNc79ly1g1vn9xpgp4j31ak0u013m.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>较长一段时间以来我都发现不少开发者对 jdk 中的 <code>J.U.C</code>（java.util.concurrent）也就是 Java 并发包的使用甚少，更别谈对它的理解了；但这却也是我们进阶的必备关卡。</p>
+<p>之前或多或少也分享过相关内容，但都不成体系；于是便想整理一套与并发包相关的系列文章。</p>
+<p>其中的内容主要包含以下几个部分：</p>
+<ul>
+<li>根据定义自己实现一个并发工具。</li>
+<li>JDK 的标准实现。</li>
+<li>实践案例。</li>
+</ul>
+<p>基于这三点我相信大家对这部分内容不至于一问三不知。</p>
+<p>既然开了一个新坑，就不想做的太差；所以我打算将这个列表下的大部分类都讲到。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNc79ly1g1vpwdqbkrj30ab09nmy9.jpg" alt=""></p>
+<p>所以本次重点讨论 <code>ArrayBlockingQueue</code>。</p>
+<h1 id="自己实现"><a href="#自己实现" class="headerlink" title="自己实现"></a>自己实现</h1><p>在自己实现之前先搞清楚阻塞队列的几个特点：</p>
+<ul>
+<li>基本队列特性：先进先出。</li>
+<li>写入队列空间不可用时会阻塞。</li>
+<li>获取队列数据时当队列为空时将阻塞。</li>
+</ul>
+<p>实现队列的方式多种，总的来说就是数组和链表；其实我们只需要搞清楚其中一个即可，不同的特性主要表现为数组和链表的区别。</p>
+<p>这里的 <code>ArrayBlockingQueue</code> 看名字很明显是由数组实现。</p>
+<p>我们先根据它这三个特性尝试自己实现试试。</p>
+<h2 id="初始化队列"><a href="#初始化队列" class="headerlink" title="初始化队列"></a>初始化队列</h2><p>我这里自定义了一个类：<code>ArrayQueue</code>，它的构造函数如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="title">ArrayQueue</span><span class="params">(<span class="keyword">int</span> size)</span> </span>&#123;</div><div class="line">    items = <span class="keyword">new</span> Object[size];</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>很明显这里的 <code>items</code> 就是存放数据的数组；在初始化时需要根据大小创建数组。</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNc79ly1g1wd71n229j30wb0u043w.jpg" alt=""></p>
+<h2 id="写入队列"><a href="#写入队列" class="headerlink" title="写入队列"></a>写入队列</h2><p>写入队列比较简单，只需要依次把数据存放到这个数组中即可，如下图：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNc79ly1g1we7yeykej30b0060mxc.jpg" alt=""></p>
+<p>但还是有几个需要注意的点：</p>
+<ul>
+<li>队列满的时候，写入的线程需要被阻塞。</li>
+<li>写入过队列的数量大于队列大小时需要从第一个下标开始写。</li>
+</ul>
+<p>先看第一个<code>队列满的时候，写入的线程需要被阻塞</code>，先来考虑下如何才能使一个线程被<strong>阻塞</strong>，看起来的表象线程卡住啥事也做不了。</p>
+<p>有几种方案可以实现这个效果:</p>
+<ul>
+<li><code>Thread.sleep(timeout)</code>线程休眠。</li>
+<li><code>object.wait()</code> 让线程进入 <code>waiting</code> 状态。</li>
+</ul>
+<blockquote>
+<p>当然还有一些 <code>join、LockSupport.part</code> 等不在本次的讨论范围。</p>
+</blockquote>
+<p>阻塞队列还有一个非常重要的特性是：当队列空间可用时（取出队列），写入线程需要被唤醒让数据可以写入进去。</p>
+<p>所以很明显<code>Thread.sleep(timeout)</code>不合适，它在到达超时时间之后便会继续运行；达不到<strong>空间可用时</strong>才唤醒继续运行这个特点。</p>
+<p>其实这样的一个特点很容易让我们想到 Java 的等待通知机制来实现线程间通信；更多线程见通信的方案可以参考这里：<a href="https://crossoverjie.top/2018/03/16/java-senior/thread-communication/#%E7%AD%89%E5%BE%85%E9%80%9A%E7%9F%A5%E6%9C%BA%E5%88%B6">深入理解线程通信</a></p>
+<p>所以我这里的做法是，一旦队列满时就将写入线程调用 <code>object.wait()</code> 进入 <code>waiting</code> 状态，直到空间可用时再进行唤醒。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * 队列满时的阻塞锁</div><div class="line"> */</div><div class="line"><span class="keyword">private</span> Object full = <span class="keyword">new</span> Object();</div><div class="line"></div><div class="line"><span class="comment">/**</span></div><div class="line"> * 队列空时的阻塞锁</div><div class="line"> */</div><div class="line"><span class="keyword">private</span> Object empty = <span class="keyword">new</span> Object();</div></pre></td></tr></table></figure>
+<p><img src="https://ws2.sinaimg.cn/large/006tNc79ly1g1wf8de8jzj30te0tin1i.jpg" alt=""></p>
+<p>所以这里声明了两个对象用于队列满、空情况下的互相通知作用。</p>
+<p>在写入数据成功后需要使用 <code>empty.notify()</code>，这样的目的是当获取队列为空时，一旦写入数据成功就可以把消费队列的线程唤醒。</p>
+<blockquote>
+<p>这里的 wait 和 notify 操作都需要对各自的对象使用 <code>synchronized</code> 方法块，这是因为 wait 和 notify 都需要获取到各自的锁。</p>
+</blockquote>
+<h2 id="消费队列"><a href="#消费队列" class="headerlink" title="消费队列"></a>消费队列</h2><p>上文也提到了：当队列为空时，获取队列的线程需要被阻塞，直到队列中有数据时才被唤醒。</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNc79ly1g1wfhr3r6qj30tg0tiwit.jpg" alt=""></p>
+<p>代码和写入的非常类似，也很好理解；只是这里的等待、唤醒恰好是相反的，通过下面这张图可以很好理解：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNc79ly1g1wfwr016gj30o20ksq59.jpg" alt=""></p>
+<p>总的来说就是：</p>
+<ul>
+<li>写入队列满时会阻塞直到获取线程消费了队列数据后唤醒<strong>写入线程</strong>。</li>
+<li>消费队列空时会阻塞直到写入线程写入了队列数据后唤醒<strong>消费线程</strong>。</li>
+</ul>
+<h2 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h2><p>先来一个基本的测试：单线程的写入和消费。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNc79ly1g1wg97uqgpj30uu0dqwgu.jpg" alt=""></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">3</div><div class="line">123</div><div class="line">1234</div><div class="line">12345</div></pre></td></tr></table></figure>
+<p>通过结果来看没什么问题。</p>
+<hr>
+<p>当写入的数据超过队列的大小时，就只能消费之后才能接着写入。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNc79ly1g1wgmshqfyj316o0n2ae5.jpg" alt=""></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">2019-04-09 16:24:41.040 [Thread-0] INFO  c.c.concurrent.ArrayQueueTest - [Thread-0]123</div><div class="line">2019-04-09 16:24:41.040 [main] INFO  c.c.concurrent.ArrayQueueTest - size=3</div><div class="line">2019-04-09 16:24:41.047 [main] INFO  c.c.concurrent.ArrayQueueTest - 1234</div><div class="line">2019-04-09 16:24:41.048 [main] INFO  c.c.concurrent.ArrayQueueTest - 12345</div><div class="line">2019-04-09 16:24:41.048 [main] INFO  c.c.concurrent.ArrayQueueTest - 123456</div></pre></td></tr></table></figure>
+<p>从运行结果也能看出只有当消费数据后才能接着往队列里写入数据。</p>
+<hr>
+<p><img src="https://ws3.sinaimg.cn/large/006tNc79ly1g1wiskvki8j30yy0eo0ve.jpg" alt=""></p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNc79ly1g1witm4twpj31q60ai0vz.jpg" alt=""></p>
+<p>而当没有消费时，再往队列里写数据则会导致写入线程被阻塞。</p>
+<h3 id="并发测试"><a href="#并发测试" class="headerlink" title="并发测试"></a>并发测试</h3><p><img src="https://ws3.sinaimg.cn/large/006tNc79ly1g1wiwyz4j5j30vz0u044f.jpg" alt=""></p>
+<p>三个线程并发写入300条数据，其中一个线程消费一条。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">=====0</div><div class="line">299</div></pre></td></tr></table></figure>
+<p>最终的队列大小为 299，可见线程也是安全的。</p>
+<blockquote>
+<p>由于不管是写入还是获取方法里的操作都需要获取锁才能操作，所以整个队列是线程安全的。</p>
+</blockquote>
+<h1 id="ArrayBlockingQueue"><a href="#ArrayBlockingQueue" class="headerlink" title="ArrayBlockingQueue"></a>ArrayBlockingQueue</h1><p>下面来看看 JDK 标准的 <code>ArrayBlockingQueue</code> 的实现，有了上面的基础会更好理解。</p>
+<h2 id="初始化队列-1"><a href="#初始化队列-1" class="headerlink" title="初始化队列"></a>初始化队列</h2><p><img src="https://ws1.sinaimg.cn/large/006tNc79ly1g1wkaau8w7j30ze0lcagb.jpg" alt=""></p>
+<p>看似要复杂些，但其实逐步拆分后也很好理解：</p>
+<p>第一步其实和我们自己写的一样，初始化一个队列大小的数组。</p>
+<p>第二步初始化了一个重入锁，这里其实就和我们之前使用的 <code>synchronized</code> 作用一致的；</p>
+<p>只是这里在初始化重入锁的时候默认是<code>非公平锁</code>，当然也可以指定为 <code>true</code> 使用公平锁；这样就会按照队列的顺序进行写入和消费。</p>
+<blockquote>
+<p>更多关于 <code>ReentrantLock</code> 的使用和原理请参考这里：<a href="https://crossoverjie.top/2018/01/25/ReentrantLock/">ReentrantLock 实现原理</a></p>
+</blockquote>
+<p>三四两步则是创建了 <code>notEmpty notFull</code> 这两个条件，他的作用于用法和之前使用的 <code>object.wait/notify</code> 类似。</p>
+<p>这就是整个初始化的内容，其实和我们自己实现的非常类似。</p>
+<h2 id="写入队列-1"><a href="#写入队列-1" class="headerlink" title="写入队列"></a>写入队列</h2><p><img src="https://ws2.sinaimg.cn/large/006tNc79ly1g1wktuhxzuj30tk0bqq55.jpg" alt=""><br><img src="https://ws2.sinaimg.cn/large/006tNc79ly1g1wktfkwu2j30ug09ugnn.jpg" alt=""></p>
+<p>其实会发现阻塞写入的原理都是差不多的，只是这里使用的是 Lock 来显式获取和释放锁。</p>
+<p>同时其中的 <code>notFull.await();notEmpty.signal();</code> 和我们之前使用的 <code>object.wait/notify</code> 的用法和作用也是一样的。</p>
+<p>当然它还是实现了超时阻塞的 <code>API</code>。</p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNc79ly1g1wl1n7ir5j30vm0iqdjb.jpg" alt=""></p>
+<p>也是比较简单，使用了一个具有超时时间的等待方法。 </p>
+<h2 id="消费队列-1"><a href="#消费队列-1" class="headerlink" title="消费队列"></a>消费队列</h2><p>再看消费队列：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNc79ly1g1wl3vcsioj30tc0ayq4y.jpg" alt=""><br><img src="https://ws4.sinaimg.cn/large/006tNc79ly1g1wl4cfrnlj30u00eq0vm.jpg" alt=""></p>
+<p>也是差不多的，一看就懂。</p>
+<p>而其中的超时 API 也是使用了 <code>notEmpty.awaitNanos(nanos)</code> 来实现超时返回的，就不具体说了。</p>
+<h1 id="实际案例"><a href="#实际案例" class="headerlink" title="实际案例"></a>实际案例</h1><p>说了这么多，来看一个队列的实际案例吧。</p>
+<p>背景是这样的：</p>
+<blockquote>
+<p>有一个定时任务会按照一定的间隔时间从数据库中读取一批数据，需要对这些数据做校验同时调用一个远程接口。</p>
+</blockquote>
+<p>简单的做法就是由这个定时任务的线程去完成读取数据、消息校验、调用接口等整个全流程；但这样会有一个问题：</p>
+<p>假设调用外部接口出现了异常、网络不稳导致耗时增加就会造成整个任务的效率降低，因为他都是串行会互相影响。</p>
+<p>所以我们改进了方案：</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNc79ly1g1wm1v7mfxj30qs0aiq4g.jpg" alt=""></p>
+<p>其实就是一个典型的生产者消费者模型：</p>
+<ul>
+<li>生产线程从数据库中读取消息丢到队列里。</li>
+<li>消费线程从队列里获取数据做业务逻辑。</li>
+</ul>
+<p>这样两个线程就可以通过这个队列来进行解耦，互相不影响，同时这个队列也能起到缓冲的作用。</p>
+<p>但在使用过程中也有一些小细节值得注意。</p>
+<p>因为这个外部接口是支持批量执行的，所以在消费线程取出数据后会在内存中做一个累加，一旦达到阈值或者是累计了一个时间段便将这批累计的数据处理掉。</p>
+<p>但由于开发者的大意，在消费的时候使用的是 <code>queue.take()</code> 这个阻塞的 API；正常运行没啥问题。</p>
+<p>可一旦原始的数据源，也就是 DB 中没数据了，导致队列里的数据也被消费完后这个消费线程便会被阻塞。</p>
+<p>这样上一轮积累在内存中的数据便一直没机会使用，直到数据源又有数据了，一旦中间间隔较长时便可能会导致严重的业务异常。</p>
+<p>所以我们最好是使用 <code>queue.poll(timeout)</code> 这样带超时时间的 api，除非业务上有明确的要求需要阻塞。</p>
+<p>这个习惯同样适用于其他场景，比如调用 http、rpc 接口等都需要设置合理的超时时间。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>关于 <code>ArrayBlockingQueue</code> 的相关分享便到此结束，接着会继续更新其他并发容器及并发工具。</p>
+<p>对本文有任何相关问题都可以留言讨论。</p>
+<p>本文涉及到的所有源码：</p>
+<p><a href="https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/concurrent/ArrayQueue.java" target="_blank" rel="external">https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/concurrent/ArrayQueue.java</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://ws4.sinaimg.cn/large/006tNc79ly1g1vn9xpgp4j31ak0u013m.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; tit
+    
+    </summary>
+    
+      <category term="并发" scheme="http://crossoverjie.top/categories/%E5%B9%B6%E5%8F%91/"/>
+    
+    
+      <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
+    
+      <category term="ArrayBlockingQueue" scheme="http://crossoverjie.top/tags/ArrayBlockingQueue/"/>
+    
+  </entry>
   
   <entry>
     <title>VLOG-007:一个程序员的周末（中）</title>
@@ -1274,9 +1429,9 @@
     
       <category term="Zookeeper" scheme="http://crossoverjie.top/tags/Zookeeper/"/>
     
-      <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
-    
       <category term="推送" scheme="http://crossoverjie.top/tags/%E6%8E%A8%E9%80%81/"/>
+    
+      <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
     
       <category term="IOT" scheme="http://crossoverjie.top/tags/IOT/"/>
     
@@ -2349,131 +2504,6 @@
     
       <category term="GitHub" scheme="http://crossoverjie.top/categories/Person/GitHub/"/>
     
-    
-  </entry>
-  
-  <entry>
-    <title>一份针对于新手的多线程实践--进阶篇</title>
-    <link href="http://crossoverjie.top/2018/10/31/java-senior/concurrent-in-action2/"/>
-    <id>http://crossoverjie.top/2018/10/31/java-senior/concurrent-in-action2/</id>
-    <published>2018-10-30T17:10:16.000Z</published>
-    <updated>2018-10-30T18:10:13.180Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://ws1.sinaimg.cn/large/72fbb941ly1fwqq35o0ubj21g80vyb2b.jpg" alt="img"></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>在上文<a href="https://crossoverjie.top/2018/10/29/java-senior/concurrent-in-action/#%E6%9B%B4%E5%A4%9A%E6%80%9D%E8%80%83">《一份针对于新手的多线程实践》</a>留下了一个问题：</p>
-<blockquote>
-<p>这只是多线程其中的一个用法，相信看到这里的朋友应该多它的理解更进一步了。</p>
-<p>再给大家留个阅后练习，场景也是类似的：</p>
-<blockquote>
-<p>在 Redis 或者其他存储介质中存放有上千万的手机号码数据，每个号码都是唯一的，需要在最快的时间内把这些号码全部都遍历一遍。</p>
-</blockquote>
-<p>有想法感兴趣的朋友欢迎在文末留言参与讨论🤔🤨。</p>
-</blockquote>
-<h2 id="网友们的方案"><a href="#网友们的方案" class="headerlink" title="网友们的方案"></a>网友们的方案</h2><a id="more"></a>
-<p>我在公众号以及其他一些平台收到了大家的回复，果然是<code>众人拾柴火焰高</code>啊。</p>
-<p><img src="https://ws1.sinaimg.cn/large/72fbb941ly1fwqqe92n6hj20yc0rkn5u.jpg" alt=""></p>
-<hr>
-<p><img src="https://ws1.sinaimg.cn/large/72fbb941ly1fwqqh8os15j20y60t2qdl.jpg" alt=""></p>
-<hr>
-<p><img src="https://ws1.sinaimg.cn/large/72fbb941ly1fwqqk8wbc4j21a80dedjp.jpg" alt=""></p>
-<hr>
-<p>感谢每一位参与的朋友。</p>
-<p>其实看了大家的方案大多都想到了数据肯定要分段，因为大量的数据肯定没法一次性 <code>load</code> 到内存。</p>
-<p>但怎么加载就要考虑清楚了，有些人说放在数据库中通过分页的方式进行加载，然后将每页的数据丢到一个线程里去做遍历。</p>
-<p>其实想法挺不错的，但有个问题就是：</p>
-<blockquote>
-<p>这样肯定会导致有一个主线程去遍历所有的号码，即便是分页查询的那也得全部查询一遍，效率还是很低。</p>
-<p>即便是分页加载号码用多线程，那就会涉及到锁的问题，怎么保证每个线程读取的数据是互不冲突的。</p>
-</blockquote>
-<p>但如果存储换成 <code>Redis</code> 的 <code>String</code> 结构这样就更行不通了。</p>
-<h1 id="遍历数据方案"><a href="#遍历数据方案" class="headerlink" title="遍历数据方案"></a>遍历数据方案</h1><p>有没有一种利用多线程加载效率高，并且线程之间互相不需要竞争锁的方案呢？</p>
-<p>下面来看看这个方案：</p>
-<p>首先在存储这千万号码的时候我们把它的号段单独提出来并冗余存储一次。</p>
-<p>比如有个号码是 <code>18523981123</code> 那么就还需要存储一个号段：<code>1852398</code>。</p>
-<p>这样当我们有以下这些号码时：</p>
-<p><code>18523981123 18523981124 18523981125 13123874321 13123874322 13123874323</code></p>
-<p>我们就还会维护一个号段数据为：</p>
-<p><code>1852398 1312387</code></p>
-<p>这样我想大家应该明白下一步应当怎么做了吧。</p>
-<p>在需要遍历时：</p>
-<ul>
-<li>通过主线程先把所有的号段加载到内存，即便是千万的号码号段也顶多几千条数据。</li>
-<li>遍历这个号段，将每个号段提交到一个 <code>task</code> 线程中。</li>
-<li>由这个线程通过号段再去查询真正的号码进行遍历。</li>
-<li>最后所有的号段都提交完毕再等待所有的线程执行完毕即可遍历所有的号码。</li>
-</ul>
-<p>这样做的根本原因其实是避免了线程之间加锁，通过号段可以让每个线程只取自己那一部分数据。</p>
-<p>可能会有人说，如果号码持续增多导致号段的数据也达到了上万甚至几十万这怎么办呢？</p>
-<p>那其实也是同样的思路，可以再把号段进行拆分。</p>
-<p>比如之前是 <code>1852398</code> 的号段，那我继续拆分为 <code>1852</code> 。</p>
-<p>这样只需要在之前的基础上再启动一个线程去查询子号段即可，有点 <code>fork/join</code> 的味道。</p>
-<blockquote>
-<p>这样的思路其实也和 JDK1.7 中的 ConcurrentHashMap 类似，定位一个真正的数据需要两次定位。</p>
-</blockquote>
-<p><img src="https://ws4.sinaimg.cn/large/006tNc79gy1ftj0evlsrgj30dw073gm2.jpg" alt=""></p>
-<h1 id="分布式方案"><a href="#分布式方案" class="headerlink" title="分布式方案"></a>分布式方案</h1><p>上面的方案也是由局限性的，毕竟说到底还是一个单机应用。没法扩展；处理的数据始终是有上限。</p>
-<p>这个上限就和服务器的配置以及线程数这些相关，说的高大上一点其实就是<code>垂直扩展</code>增加单机的处理性能。</p>
-<p>因此随着数据量的提升我们肯定得需要通过<code>水平扩展</code>的方式才能达到最好的性能，这就是分布式的方案。</p>
-<p>假设我现在有上亿的数据需要遍历，但我当前的服务器配置只能支撑一个应用启动 N 个线程 5 分钟跑<code>5000W</code> 的数据。</p>
-<p>于是我水平扩展，在三台服务器上启动了三个独立的进程。假设一个应用能跑 5000W ，那么理论上来说三个应用就可以跑<strong>1.5亿</strong>的数据了。</p>
-<p>但这个的前提还是和上文一样：每个应用只能<strong>处理自己的数据</strong>，不能出现加锁的情况（这样会大大的降低性能）。</p>
-<p>所以我们得对刚才的号段进行分组。</p>
-<p>先通过一张图来直观的表示这个逻辑：</p>
-<p><img src="https://ws1.sinaimg.cn/large/72fbb941ly1fwqrmjixdsj20q00dimy8.jpg" alt=""></p>
-<p>假设现在我有 9 个号段，那么我就得按照图中的方式把数据隔离开来。</p>
-<p>第一个数据给应用0，第二个数据给应用1，第三个数据给应用2。后面的数据以此类推（就是一个简单的取模运算）。</p>
-<p>这样就可以将号段均匀的分配给不同的应用来进行处理，然后每个应用再按照上文提到的将分配给自己的号段丢到线程池中由具体的线程去查询、遍历即可。</p>
-<h2 id="分布式带来的问题"><a href="#分布式带来的问题" class="headerlink" title="分布式带来的问题"></a>分布式带来的问题</h2><p>这样看似没啥问题，但一旦引入了分布式之后就不可避免的会出现 <code>CAP</code> 的取舍，这里不做过多讨论，感兴趣的朋友可以自行搜索。</p>
-<p>首先要解决的一个问题就是：</p>
-<p>这三个应用怎么知道它自己应该取哪些号段的数据呢？比如 0 号应用就取 <code>0 3 6</code>（这个相当于号段的下标），难道在配置文件里配置嘛？</p>
-<p>那如果数据量又增大了，对应的机器数也增加到了 5 台，那自然 0 号应用就不是取 <code>0 3 6</code> 了（取模之后数据会变）。</p>
-<blockquote>
-<p>所以我们得需要一个统一的调度来分配各个应用他们应当取哪些号段，这也就是<strong>数据分片</strong>。</p>
-</blockquote>
-<p>假设我这里有一个统一的分配中心，他知道现在有多少个应用来处理数据。还是假设上文的三个应用吧。</p>
-<p>在真正开始遍历数据的时候，这个分配中心就会去告诉这三个应用：</p>
-<blockquote>
-<p>你们要开始工作了啊，0 号应用你的工作内容是 <strong>0 3 6</strong>，1 号应用你的工作内容是 <strong>1 4 7</strong>，2 号应用你的工作内容是 <strong>2 5 8</strong>。</p>
-</blockquote>
-<p>这样各个应用就知道他们所应当处理的数据了。</p>
-<p>当我们新增了一个应用来处理数据时也很简单，同样这个分配中心知道现在有多少台应用会工作。</p>
-<p>他会再拿着现有的号段对 4(3+1台应用) 进行取模然后对数据进行重新分配，这样就可以再次保证数据分配均匀了。</p>
-<blockquote>
-<p>只是分配中心如何知道有多少应用呢，其实也简单，只要中心和应用之间通信就可以了。比如启动的时候调用分配中心的接口即可。</p>
-</blockquote>
-<p>上面提到的这个分配中心其实就是一个常见的定时任务的分布式调度中心，由它来统一发起调度，当然<strong>分片</strong>只是它其中的一个功能而已（关于调度中心之后有兴趣再细说）。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本次探讨了多线程的更多应用方式，如要是如何高效的运行。最主要的一点其实就是尽量的避免加锁。</p>
-<p>同时对分布式水平扩展谈了一些处理建议，本次也是难得的一行代码都没贴，大家感兴趣的话在后面更新相关代码。</p>
-<blockquote>
-<p>也欢迎大家留言讨论。😄</p>
-</blockquote>
-<p><strong>你的点赞与转发是最大的支持。</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://ws1.sinaimg.cn/large/72fbb941ly1fwqq35o0ubj21g80vyb2b.jpg&quot; alt=&quot;img&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;在上文&lt;a href=&quot;https://crossoverjie.top/2018/10/29/java-senior/concurrent-in-action/#%E6%9B%B4%E5%A4%9A%E6%80%9D%E8%80%83&quot;&gt;《一份针对于新手的多线程实践》&lt;/a&gt;留下了一个问题：&lt;/p&gt;
-&lt;blockquote&gt;
-&lt;p&gt;这只是多线程其中的一个用法，相信看到这里的朋友应该多它的理解更进一步了。&lt;/p&gt;
-&lt;p&gt;再给大家留个阅后练习，场景也是类似的：&lt;/p&gt;
-&lt;blockquote&gt;
-&lt;p&gt;在 Redis 或者其他存储介质中存放有上千万的手机号码数据，每个号码都是唯一的，需要在最快的时间内把这些号码全部都遍历一遍。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;p&gt;有想法感兴趣的朋友欢迎在文末留言参与讨论🤔🤨。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2 id=&quot;网友们的方案&quot;&gt;&lt;a href=&quot;#网友们的方案&quot; class=&quot;headerlink&quot; title=&quot;网友们的方案&quot;&gt;&lt;/a&gt;网友们的方案&lt;/h2&gt;
-    
-    </summary>
-    
-      <category term="Java 进阶" scheme="http://crossoverjie.top/categories/Java-%E8%BF%9B%E9%98%B6/"/>
-    
-    
-      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
-    
-      <category term="SpringBoot" scheme="http://crossoverjie.top/tags/SpringBoot/"/>
-    
-      <category term="ThreadPool" scheme="http://crossoverjie.top/tags/ThreadPool/"/>
     
   </entry>
   
