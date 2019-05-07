@@ -102,10 +102,10 @@ LinkedHashMap 的排序方式有两种：
 LinkedHashMap 的排序方式有两种：
 
 根据写入顺序">
-<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tNc79ly1fo6w785brkj31g80ytjx5.jpg">
-<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tKfTcly1fo6l9xp91lj319m0s4tgi.jpg">
-<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tKfTcgy1fodggwc523j30za0n4wgj.jpg">
-<meta property="og:updated_time" content="2018-03-19T05:04:40.000Z">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba27b00e4.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba2adf7c0.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba2d418b6.jpg">
+<meta property="og:updated_time" content="2019-05-07T17:03:25.523Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="LinkedHashMap 底层分析">
 <meta name="twitter:description" content="众所周知 HashMap 是一个无序的 Map，因为每次根据 key 的 hashcode 映射到 Entry 数组上，所以遍历出来的顺序并不是写入的顺序。
@@ -114,7 +114,7 @@ LinkedHashMap 的排序方式有两种：
 LinkedHashMap 的排序方式有两种：
 
 根据写入顺序">
-<meta name="twitter:image" content="https://ws2.sinaimg.cn/large/006tNc79ly1fo6w785brkj31g80ytjx5.jpg">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1ba27b00e4.jpg">
 
 
 
@@ -426,7 +426,7 @@ LinkedHashMap 的排序方式有两种：
       
 
       
-        <p><img src="https://ws2.sinaimg.cn/large/006tNc79ly1fo6w785brkj31g80ytjx5.jpg" alt=""></p>
+        <p><img src="https://i.loli.net/2019/05/08/5cd1ba27b00e4.jpg" alt=""></p>
 <p>众所周知 <a href="https://github.com/crossoverJie/Java-Interview/blob/master/MD/HashMap.md" target="_blank" rel="external">HashMap</a> 是一个无序的 <code>Map</code>，因为每次根据 <code>key</code> 的 <code>hashcode</code> 映射到 <code>Entry</code> 数组上，所以遍历出来的顺序并不是写入的顺序。</p>
 <p>因此 JDK 推出一个基于 <code>HashMap</code> 但具有顺序的 <code>LinkedHashMap</code> 来解决有排序需求的场景。</p>
 <p>它的底层是继承于 <code>HashMap</code> 实现的，由一个双向链表所构成。</p>
@@ -439,13 +439,13 @@ LinkedHashMap 的排序方式有两种：
 <a id="more"></a>
 <h2 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Test</span></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">test</span><span class="params">()</span></span>&#123;</div><div class="line">	Map&lt;String, Integer&gt; map = <span class="keyword">new</span> LinkedHashMap&lt;String, Integer&gt;();</div><div class="line">	map.put(<span class="string">"1"</span>,<span class="number">1</span>) ;</div><div class="line">	map.put(<span class="string">"2"</span>,<span class="number">2</span>) ;</div><div class="line">	map.put(<span class="string">"3"</span>,<span class="number">3</span>) ;</div><div class="line">	map.put(<span class="string">"4"</span>,<span class="number">4</span>) ;</div><div class="line">	map.put(<span class="string">"5"</span>,<span class="number">5</span>) ;</div><div class="line">	System.out.println(map.toString());</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>调试可以看到 <code>map</code> 的组成：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1fo6l9xp91lj319m0s4tgi.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1ba2adf7c0.jpg" alt=""></p>
 <p>打开源码可以看到：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * The head of the doubly linked list.</div><div class="line"> */</div><div class="line"><span class="keyword">private</span> <span class="keyword">transient</span> Entry&lt;K,V&gt; header;</div><div class="line"></div><div class="line"><span class="comment">/**</span></div><div class="line"> * The iteration ordering method for this linked hash map: &lt;tt&gt;true&lt;/tt&gt;</div><div class="line"> * for access-order, &lt;tt&gt;false&lt;/tt&gt; for insertion-order.</div><div class="line"> *</div><div class="line"> * <span class="doctag">@serial</span></div><div class="line"> */</div><div class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">boolean</span> accessOrder;</div><div class="line"></div><div class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">Entry</span>&lt;<span class="title">K</span>,<span class="title">V</span>&gt; <span class="keyword">extends</span> <span class="title">HashMap</span>.<span class="title">Entry</span>&lt;<span class="title">K</span>,<span class="title">V</span>&gt; </span>&#123;</div><div class="line">    <span class="comment">// These fields comprise the doubly linked list used for iteration.</span></div><div class="line">    Entry&lt;K,V&gt; before, after;</div><div class="line"></div><div class="line">    Entry(<span class="keyword">int</span> hash, K key, V value, HashMap.Entry&lt;K,V&gt; next) &#123;</div><div class="line">        <span class="keyword">super</span>(hash, key, value, next);</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>其中 <code>Entry</code> 继承于 <code>HashMap</code> 的 <code>Entry</code>，并新增了上下节点的指针，也就形成了双向链表。</p>
 <p>还有一个 <code>header</code> 的成员变量，是这个双向链表的头结点。 </p>
 <p>上边的 demo 总结成一张图如下：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tKfTcgy1fodggwc523j30za0n4wgj.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1ba2d418b6.jpg" alt=""></p>
 <p>第一个类似于 <code>HashMap</code> 的结构，利用 <code>Entry</code> 中的 <code>next</code> 指针进行关联。</p>
 <p>下边则是 <code>LinkedHashMap</code> 如何达到有序的关键。</p>
 <p>就是利用了头节点和其余的各个节点之间通过 <code>Entry</code> 中的 <code>after</code> 和 <code>before</code> 指针进行关联。</p>
