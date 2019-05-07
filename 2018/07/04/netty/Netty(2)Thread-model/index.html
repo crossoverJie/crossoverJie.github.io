@@ -102,11 +102,11 @@
 传统 IO在 Netty 以及 NIO 出现之前，我们写 IO 应用其实用的都是用 java.io.* 下所提供的包。  
 比如下面的伪代码：
 123456789ServeSocket serverSocket">
-<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNc79gy1fsx42fcwsxj312v0ocjve.jpg">
-<meta property="og:image" content="https://ws4.sinaimg.cn/large/006tNc79gy1fsx4by9581j30k60aygn7.jpg">
-<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tNc79gy1fsx4cctol0j30k70dq40n.jpg">
-<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNc79gy1fsx4iv4kmxj30gb0c0dha.jpg">
-<meta property="og:updated_time" content="2018-07-03T16:58:22.849Z">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d5154c72b.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d517b9784.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d51b21bb6.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d51da676a.jpg">
+<meta property="og:updated_time" content="2019-05-07T18:58:21.929Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Netty(二) 从线程模型的角度看 Netty 为什么是高性能的？">
 <meta name="twitter:description" content="前言在之前的 SpringBoot 整合长连接心跳机制 一文中认识了 Netty。
@@ -115,7 +115,7 @@
 传统 IO在 Netty 以及 NIO 出现之前，我们写 IO 应用其实用的都是用 java.io.* 下所提供的包。  
 比如下面的伪代码：
 123456789ServeSocket serverSocket">
-<meta name="twitter:image" content="https://ws1.sinaimg.cn/large/006tNc79gy1fsx42fcwsxj312v0ocjve.jpg">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1d5154c72b.jpg">
 
 
 
@@ -427,7 +427,7 @@
       
 
       
-        <p><img src="https://ws1.sinaimg.cn/large/006tNc79gy1fsx42fcwsxj312v0ocjve.jpg" alt=""></p>
+        <p><img src="https://i.loli.net/2019/05/08/5cd1d5154c72b.jpg" alt=""></p>
 <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>在之前的 <a href="http://t.cn/Rd7He1Z" target="_blank" rel="external">SpringBoot 整合长连接心跳机制</a> 一文中认识了 Netty。</p>
 <p>但其实只是能用，为什么要用 Netty？它有哪些优势？这些其实都不清楚。</p>
 <p>本文就来从历史源头说道说道。</p>
@@ -445,20 +445,20 @@
 <h2 id="Reactor-模型"><a href="#Reactor-模型" class="headerlink" title="Reactor 模型"></a>Reactor 模型</h2><p>因此业界常用的高性能 IO 模型是 <code>Reactor</code>。</p>
 <p>它是一种异步、非阻塞的事件驱动模型。</p>
 <p>通常也表现为以下三种方式：</p>
-<h3 id="单线程"><a href="#单线程" class="headerlink" title="单线程"></a>单线程</h3><p><img src="https://ws4.sinaimg.cn/large/006tNc79gy1fsx4by9581j30k60aygn7.jpg" alt=""></p>
+<h3 id="单线程"><a href="#单线程" class="headerlink" title="单线程"></a>单线程</h3><p><img src="https://i.loli.net/2019/05/08/5cd1d517b9784.jpg" alt=""></p>
 <p>从图中可以看出：</p>
 <p>它是由一个线程来接收客户端的连接，并将该请求分发到对应的事件处理 handler 中，整个过程完全是异步非阻塞的；并且完全不存在共享资源的问题。所以理论上来说吞吐量也还不错。</p>
 <blockquote>
 <p>但由于是一个线程，对多核 CPU 利用率不高，一旦有大量的客户端连接上来性能必然下降，甚至会有大量请求无法响应。<br>最坏的情况是一旦这个线程哪里没有处理好进入了死循环那整个服务都将不可用！</p>
 </blockquote>
-<h3 id="多线程"><a href="#多线程" class="headerlink" title="多线程"></a>多线程</h3><p><img src="https://ws2.sinaimg.cn/large/006tNc79gy1fsx4cctol0j30k70dq40n.jpg" alt=""></p>
+<h3 id="多线程"><a href="#多线程" class="headerlink" title="多线程"></a>多线程</h3><p><img src="https://i.loli.net/2019/05/08/5cd1d51b21bb6.jpg" alt=""></p>
 <p>因此产生了多线程模型。</p>
 <p>其实最大的改进就是将原有的事件处理改为了多线程。</p>
 <p>可以基于 Java 自身的线程池实现，这样在大量请求的处理上性能提示是巨大的。</p>
 <p>虽然如此，但理论上来说依然有一个地方是单点的；那就是处理客户端连接的线程。</p>
 <p>因为大多数服务端应用或多或少在连接时都会处理一些业务，如鉴权之类的，当连接的客户端越来越多时这一个线程依然会存在性能问题。</p>
 <p>于是又有了下面的线程模型。</p>
-<h3 id="主从多线程"><a href="#主从多线程" class="headerlink" title="主从多线程"></a>主从多线程</h3><p><img src="https://ws1.sinaimg.cn/large/006tNc79gy1fsx4iv4kmxj30gb0c0dha.jpg" alt=""></p>
+<h3 id="主从多线程"><a href="#主从多线程" class="headerlink" title="主从多线程"></a>主从多线程</h3><p><img src="https://i.loli.net/2019/05/08/5cd1d51da676a.jpg" alt=""></p>
 <p>该模型将客户端连接那一块的线程也改为多线程，称为主线程。</p>
 <p>同时也是多个子线程来处理事件响应，这样无论是连接还是事件都是高性能的。</p>
 <h2 id="Netty-实现"><a href="#Netty-实现" class="headerlink" title="Netty 实现"></a>Netty 实现</h2><p>以上谈了这么多其实 Netty 的线程模型与之的类似。</p>

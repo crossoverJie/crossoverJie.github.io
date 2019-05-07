@@ -95,16 +95,16 @@
 <meta property="og:description" content="背景上周分享了一篇《一个线程罢工的诡异事件》，最近也在公司内部分享了这个案例。
 无独有偶，在内部分享的时候也有小伙伴问了之前分享时所提出的一类问题：">
 <meta property="og:image" content="https://i.loli.net/2019/04/29/5cc655fb0f18c.jpg">
-<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tKfTcly1g1fftbaa1vj30lq050ab1.jpg">
-<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tKfTcly1g13jch6xtkj30yu0u0ah3.jpg">
-<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tKfTcly1g13je0xu1qj30vv0u0aj0.jpg">
-<meta property="og:image" content="https://ws4.sinaimg.cn/large/006tKfTcly1g1fgah6l5tj30i00l5wiu.jpg">
-<meta property="og:image" content="https://ws3.sinaimg.cn/large/006tKfTcly1g1fhhl9mwoj30g402j0sr.jpg">
-<meta property="og:image" content="https://ws3.sinaimg.cn/large/006tKfTcly1g1fhfvpuvuj30ej0bu0tn.jpg">
-<meta property="og:image" content="https://ws3.sinaimg.cn/large/006tKfTcly1g1fhr8q4iyj30tq0kjtcy.jpg">
-<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tKfTcly1g101rrbfpuj30ha0kkmz7.jpg">
-<meta property="og:image" content="https://ws4.sinaimg.cn/large/006tKfTcly1g1fi8yth6gj30f70ca3ze.jpg">
-<meta property="og:updated_time" content="2019-04-29T01:40:25.089Z">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bec753b00.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bec8136a7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bec8ca8f7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bec980288.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bec9eea43.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bed130c18.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bed1e2402.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bed23cd35.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bed2bd074.jpg">
+<meta property="og:updated_time" content="2019-05-07T17:23:14.862Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="线程池中你不容错过的一些细节">
 <meta name="twitter:description" content="背景上周分享了一篇《一个线程罢工的诡异事件》，最近也在公司内部分享了这个案例。
@@ -437,10 +437,10 @@
 <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>上周分享了一篇<a href="https://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/">《一个线程罢工的诡异事件》</a>，最近也在公司内部分享了这个案例。</p>
 <p>无独有偶，在内部分享的时候也有小伙伴问了之前分享时所提出的一类问题：</p>
 <a id="more"></a>
-<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g1fftbaa1vj30lq050ab1.jpg" alt=""></p>
-<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g13jch6xtkj30yu0u0ah3.jpg" alt=""></p>
-<p><img src="https://ws1.sinaimg.cn/large/006tKfTcly1g13je0xu1qj30vv0u0aj0.jpg" alt=""></p>
-<p><img src="https://ws4.sinaimg.cn/large/006tKfTcly1g1fgah6l5tj30i00l5wiu.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bec753b00.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bec8136a7.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bec8ca8f7.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bec980288.jpg" alt=""></p>
 <p>这其实是一类共性问题，我认为主要还是两个原因：</p>
 <ul>
 <li>我自己确实也没讲清楚，之前画的那张图还需要再完善，有些误导。</li>
@@ -450,18 +450,18 @@
 <p>我认为线程池它就是一个<strong>调度任务</strong>的工具。</p>
 <p>众所周知在初始化线程池会给定线程池的大小，假设现在我们有 1000 个线程任务需要运行，而线程池的大小为 10~20，在真正运行任务的过程中他肯定不会创建这1000个线程同时运行，而是充分利用线程池里这 10~20 个线程来调度这1000个任务。</p>
 <p>而这里的 10~20 个线程最后会由线程池封装为 <code>ThreadPoolExecutor.Worker</code> 对象，而这个 <code>Worker</code> 是实现了 Runnable 接口的，所以他自己本身就是一个线程。</p>
-<h1 id="深入分析"><a href="#深入分析" class="headerlink" title="深入分析"></a>深入分析</h1><p><img src="https://ws3.sinaimg.cn/large/006tKfTcly1g1fhhl9mwoj30g402j0sr.jpg" alt=""></p>
+<h1 id="深入分析"><a href="#深入分析" class="headerlink" title="深入分析"></a>深入分析</h1><p><img src="https://i.loli.net/2019/05/08/5cd1bec9eea43.jpg" alt=""></p>
 <p>这里我们来做一个模拟，创建了一个核心线程、最大线程数、阻塞队列都为2的线程池。</p>
 <p>这里假设线程池已经完成了预热，也就是线程池内部已经创建好了两个线程 <code>Worker</code>。</p>
 <p>当我们往一个线程池丢一个任务会发生什么事呢？</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tKfTcly1g1fhfvpuvuj30ej0bu0tn.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bed130c18.jpg" alt=""></p>
 <ul>
 <li>第一步是生产者，也就是任务提供者他执行了一个 execute() 方法，本质上就是往这个内部队列里放了一个任务。</li>
 <li>之前已经创建好了的 Worker 线程会执行一个 <code>while</code> 循环 —&gt; 不停的从这个<code>内部队列</code>里获取任务。(这一步是竞争的关系，都会抢着从队列里获取任务，由这个队列内部实现了线程安全。)</li>
 <li>获取得到一个任务后，其实也就是拿到了一个 <code>Runnable</code> 对象(也就是 <code>execute(Runnable task)</code> 这里所提交的任务)，接着执行这个 <code>Runnable</code> 的 <strong>run() 方法，而不是 start()</strong>，这点需要注意后文分析原因。</li>
 </ul>
 <p>结合源码来看：</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tKfTcly1g1fhr8q4iyj30tq0kjtcy.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bed1e2402.jpg" alt=""></p>
 <p>从图中其实就对应了刚才提到的二三两步：</p>
 <ul>
 <li><code>while</code> 循环，从 <code>getTask()</code> 方法中一直不停的获取任务。</li>
@@ -473,7 +473,7 @@
 <p>在单个线程的线程池中一但抛出了未被捕获的异常时，线程池会回收当前的线程并创建一个新的 <code>Worker</code>；<br>它也会一直不断的从队列里获取任务来执行，但由于这是一个消费线程，<strong>根本没有生产者往里边丢任务</strong>，所以它会一直 waiting 在从队列里获取任务处，所以也就造成了线上的队列没有消费，业务线程池没有执行的问题。</p>
 </blockquote>
 <p>结合之前的那张图来看：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tKfTcly1g101rrbfpuj30ha0kkmz7.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bed23cd35.jpg" alt=""></p>
 <p>这里大家问的最多的一个点是，为什么会没有是<code>根本没有生产者往里边丢任务</code>，图中不是明明画的有一个 <code>product</code> 嘛？</p>
 <p>这里确实是有些不太清楚，再次强调一次：</p>
 <p><strong>图中的 product 是往内部队列里写消息的生产者，并不是往这个 Consumer 所在的线程池中写任务的生产者。</strong></p>
@@ -483,7 +483,7 @@
 <li>内部的阻塞队列；虽然长度只有1。</li>
 </ul>
 <p>再次结合图来看：</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tKfTcly1g1fi8yth6gj30f70ca3ze.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bed2bd074.jpg" alt=""></p>
 <p>所以之前提到的【没有生产者往里边丢任务】是指右图放大后的那一块，也就是内部队列并没有其他线程往里边丢任务执行 <code>execute()</code> 方法。</p>
 <p>而一旦发生未捕获的异常后，<code>Worker1</code> 被回收，顺带的它所调度的线程 <code>task1</code>（这个task1 也就是在执行一个 while 循环消费左图中的那个队列） 也会被回收掉。</p>
 <p>新创建的 <code>Worker2</code> 会取代 <code>Worker1</code> 继续执行 <code>while</code> 循环从内部队列里获取任务，但此时这个队列就一直会是空的，所以也就是处于 <code>Waiting</code> 状态。</p>

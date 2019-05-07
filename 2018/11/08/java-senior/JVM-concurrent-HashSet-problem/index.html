@@ -68,7 +68,7 @@
 <link href="/css/main.css?v=5.0.1" rel="stylesheet" type="text/css" />
 
 
-  <meta name="keywords" content="Java,Thread,concurrent,JVM,HashSet,HashMap," />
+  <meta name="keywords" content="Java,Thread,concurrent,HashMap,JVM,HashSet," />
 
 
 
@@ -98,20 +98,20 @@
 心中暗道不好，因为监控系统从来不会告诉我应用完美无 bug，其实系统挺猥琐。
 打开邮件一看，果然告知我有一个应用的线程池队列达到阈值触发了报警。
 由于这个应用出问题非常影响用户体验；于是立马让运维保留现场 dump 线程和内存同时重启应用，还好重启之后恢复正常。于是开始着手排查问题。">
-<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fwztw0m8okj31hc0u0tbz.jpg">
-<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tNbRwly1fwzum85fz9j30n30hsadh.jpg">
-<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fwzwvpjxzpj30ob08q76a.jpg">
-<meta property="og:image" content="https://ws3.sinaimg.cn/large/006tNbRwly1fwzx8rod8yj30f405cmyh.jpg">
-<meta property="og:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fwzwvpjxzpj30ob08q76a.jpg">
-<meta property="og:image" content="https://ws2.sinaimg.cn/large/006tNbRwly1fwzy1tp1ftj30rd08ct9x.jpg">
-<meta property="og:updated_time" content="2018-11-09T04:55:15.911Z">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c669d9581.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c66f983e1.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c67e5a9b5.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c67c5e613.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c67e5a9b5.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c687f186c.jpg">
+<meta property="og:updated_time" content="2019-05-07T17:56:08.128Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="一次 HashSet 所引起的并发问题">
 <meta name="twitter:description" content="背景上午刚到公司，准备开始一天的摸鱼之旅时突然收到了一封监控中心的邮件。
 心中暗道不好，因为监控系统从来不会告诉我应用完美无 bug，其实系统挺猥琐。
 打开邮件一看，果然告知我有一个应用的线程池队列达到阈值触发了报警。
 由于这个应用出问题非常影响用户体验；于是立马让运维保留现场 dump 线程和内存同时重启应用，还好重启之后恢复正常。于是开始着手排查问题。">
-<meta name="twitter:image" content="https://ws1.sinaimg.cn/large/006tNbRwly1fwztw0m8okj31hc0u0tbz.jpg">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1c669d9581.jpg">
 
 
 
@@ -423,7 +423,7 @@
       
 
       
-        <p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwztw0m8okj31hc0u0tbz.jpg" alt=""></p>
+        <p><img src="https://i.loli.net/2019/05/08/5cd1c669d9581.jpg" alt=""></p>
 <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>上午刚到公司，准备开始一天的摸鱼之旅时突然收到了一封监控中心的邮件。</p>
 <p>心中暗道不好，因为监控系统从来不会告诉我应用完美无 <code>bug</code>，其实系统挺猥琐。</p>
 <p>打开邮件一看，果然告知我有一个应用的线程池队列达到阈值触发了报警。</p>
@@ -437,7 +437,7 @@
 <p>采用的是默认的 <code>LinkedBlockingQueue</code> 并没有指定大小（这也是个坑），于是这个队列的默认大小为 <code>Integer.MAX_VALUE</code>。</p>
 <p>由于应用已经重启，只能从仅存的线程快照和内存快照进行分析。</p>
 <h2 id="内存分析"><a href="#内存分析" class="headerlink" title="内存分析"></a>内存分析</h2><p>先利用 <code>MAT</code> 分析了内存，的到了如下报告。</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fwzum85fz9j30n30hsadh.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c66f983e1.jpg" alt=""></p>
 <p>其中有两个比较大的对象，一个就是之前线程池存放任务的 <code>LinkedBlockingQueue</code>，还有一个则是 <code>HashSet</code>。</p>
 <p>当然其中队列占用了大量的内存，所以优先查看，<code>HashSet</code> 一会儿再看。</p>
 <blockquote>
@@ -446,7 +446,7 @@
 <h2 id="线程分析"><a href="#线程分析" class="headerlink" title="线程分析"></a>线程分析</h2><p>再来看看线程的分析，这里利用 <a href="http://fastthread.io/index.jsp" target="_blank" rel="external">fastthread.io</a> 这个网站进行线程分析。</p>
 <p>因为从表现来看线程池里的任务迟迟没有执行完毕，所以主要看看它们在干嘛。</p>
 <p>正好他们都处于 <strong>RUNNABLE</strong> 状态，同时堆栈如下：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwzwvpjxzpj30ob08q76a.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c67e5a9b5.jpg" alt=""></p>
 <p>发现正好就是在处理上文提到的 <code>HashSet</code>，看这个堆栈是在查询 <code>key</code> 是否存在。通过查看 312 行的业务代码确实也是如此。</p>
 <blockquote>
 <p>这里的线程名字也是个坑，让我找了好久。</p>
@@ -457,7 +457,7 @@
 <p>到了早上上班时才发现并立即 <code>dump</code> 了上面的证据。</p>
 <p>所有有一个很重要的事实：<strong>这几个业务线程在查询 <code>HashSet</code> 的时候运行了 6 7 个小时都没有返回</strong>。</p>
 <p>通过之前的监控曲线图也可以看出：</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fwzx8rod8yj30f405cmyh.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c67c5e613.jpg" alt=""></p>
 <p>操作系统在之前一直处于高负载中，直到我们早上看到报警重启之后才降低。</p>
 <p>同时发现这个应用生产上运行的是 <code>JDK1.7</code> ，所以我初步认为应该是在查询 key 的时候进入了 <code>HashMap</code> 的环形链表导致 <code>CPU</code> 高负载同时也进入了死循环。</p>
 <p>为了验证这个问题再次 review 了代码。</p>
@@ -480,9 +480,9 @@
 <p>第一个问题相对于第二个还能接受。</p>
 <p>通过上文的内存分析我们已经知道这个 set 中的数据已经不少了。同时由于初始化时并没有指定大小，仅仅只是默认值，所以在大量的并发写入时候会导致频繁的扩容，而在 1.7 的条件下又可能会形成<strong>环形链表</strong>。</p>
 <p>不巧的是代码中也有查询操作（<code>contains()</code>）,观察上文的堆栈情况：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fwzwvpjxzpj30ob08q76a.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c67e5a9b5.jpg" alt=""></p>
 <p>发现是运行在 <code>HashMap</code> 的 465 行，来看看 1.7 中那里具体在做什么：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fwzy1tp1ftj30rd08ct9x.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c687f186c.jpg" alt=""></p>
 <p>已经很明显了。这里在遍历链表，同时由于形成了环形链表导致这个 <code>e.next</code> 永远不为空，所以这个循环也不会退出了。</p>
 <p>到这里其实已经找到问题了，但还有一个疑问是为什么线程池里的任务队列会越堆越多。我第一直觉是任务执行太慢导致的。</p>
 <p>仔细查看了代码发现只有一个地方可能会慢：也就是有一个<strong>数据库的查询</strong>。</p>
@@ -563,11 +563,11 @@
           
             <a href="/tags/concurrent/" rel="tag">#concurrent</a>
           
+            <a href="/tags/HashMap/" rel="tag">#HashMap</a>
+          
             <a href="/tags/JVM/" rel="tag">#JVM</a>
           
             <a href="/tags/HashSet/" rel="tag">#HashSet</a>
-          
-            <a href="/tags/HashMap/" rel="tag">#HashMap</a>
           
         </div>
       

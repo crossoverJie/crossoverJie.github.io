@@ -96,21 +96,21 @@
 <meta property="og:description" content="前言OutOfMemoryError 问题相信很多朋友都遇到过，相对于常见的业务异常（数组越界、空指针等）来说这类问题是很难定位和解决的。
 本文以最近碰到的一次线上内存溢出的定位、解决问题的方式展开；希望能对碰到类似问题的同学带来思路和帮助。
 主要从表现--&amp;gt;排查--&amp;gt;定位--&amp;gt;解决 四个步骤来分析和解决问题。">
-<meta property="og:image" content="https://ws2.sinaimg.cn/large/0069RVTdgy1fupvtq0tf1j31kw11x1ab.jpg">
-<meta property="og:image" content="https://ws1.sinaimg.cn/large/0069RVTdgy1fupwodz2tlj30rd0b1tcj.jpg">
-<meta property="og:image" content="https://ws4.sinaimg.cn/large/0069RVTdly1fupx2amu1lj30t90b17oe.jpg">
-<meta property="og:image" content="https://ws2.sinaimg.cn/large/0069RVTdly1fupxfovjhgj30vl0kywps.jpg">
-<meta property="og:image" content="https://ws4.sinaimg.cn/large/0069RVTdly1fupxcg3yh7j31kw0xi122.jpg">
-<meta property="og:image" content="https://ws2.sinaimg.cn/large/0069RVTdly1fupxqxqjdcj318c0q4kb3.jpg">
-<meta property="og:image" content="https://ws4.sinaimg.cn/large/0069RVTdly1fupy48es6lj30jd0b9dhu.jpg">
-<meta property="og:image" content="https://ws4.sinaimg.cn/large/0069RVTdly1fupyds04cij31kw0xial3.jpg">
-<meta property="og:updated_time" content="2018-08-28T18:16:02.894Z">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2226b558.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d229ad931.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22b93e86.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22c8db27.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22d99ae5.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d234c531b.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d235d0fac.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2379a1ce.jpg">
+<meta property="og:updated_time" content="2019-05-07T18:45:59.723Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="强如 Disruptor 也发生内存溢出？">
 <meta name="twitter:description" content="前言OutOfMemoryError 问题相信很多朋友都遇到过，相对于常见的业务异常（数组越界、空指针等）来说这类问题是很难定位和解决的。
 本文以最近碰到的一次线上内存溢出的定位、解决问题的方式展开；希望能对碰到类似问题的同学带来思路和帮助。
 主要从表现--&amp;gt;排查--&amp;gt;定位--&amp;gt;解决 四个步骤来分析和解决问题。">
-<meta name="twitter:image" content="https://ws2.sinaimg.cn/large/0069RVTdgy1fupvtq0tf1j31kw11x1ab.jpg">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1d2226b558.jpg">
 
 
 
@@ -422,7 +422,7 @@
       
 
       
-        <p><img src="https://ws2.sinaimg.cn/large/0069RVTdgy1fupvtq0tf1j31kw11x1ab.jpg" alt=""></p>
+        <p><img src="https://i.loli.net/2019/05/08/5cd1d2226b558.jpg" alt=""></p>
 <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p><code>OutOfMemoryError</code> 问题相信很多朋友都遇到过，相对于常见的业务异常（数组越界、空指针等）来说这类问题是很难定位和解决的。</p>
 <p>本文以最近碰到的一次线上内存溢出的定位、解决问题的方式展开；希望能对碰到类似问题的同学带来思路和帮助。</p>
 <p>主要从<code>表现--&gt;排查--&gt;定位--&gt;解决</code> 四个步骤来分析和解决问题。</p>
@@ -434,10 +434,10 @@
 <p>重启大法虽好，可是依然不能根本解决问题。</p>
 </blockquote>
 <h1 id="排查"><a href="#排查" class="headerlink" title="排查"></a>排查</h1><p>于是我们想根据运维之前收集到的内存数据、GC 日志尝试判断哪里出现问题。</p>
-<p><img src="https://ws1.sinaimg.cn/large/0069RVTdgy1fupwodz2tlj30rd0b1tcj.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d229ad931.jpg" alt=""></p>
 <p>结果发现老年代的内存使用就算是发生 GC 也一直居高不下，而且随着时间推移也越来越高。</p>
 <p>结合 jstat 的日志发现就算是发生了 FGC 老年代也已经回收不了，内存已经到顶。</p>
-<p><img src="https://ws4.sinaimg.cn/large/0069RVTdly1fupx2amu1lj30t90b17oe.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22b93e86.jpg" alt=""></p>
 <p>甚至有几台应用 FGC 达到了上百次，时间也高的可怕。</p>
 <p>这说明应用的内存使用肯定是有问题的，有许多赖皮对象始终回收不掉。</p>
 <h1 id="定位"><a href="#定位" class="headerlink" title="定位"></a>定位</h1><p>由于生产上的内存 dump 文件非常大，达到了几十G。也是由于我们的内存设置太大有关。</p>
@@ -447,16 +447,16 @@
 <p>然后在消费 Kafka 那里 Mock 为一个 while 循环一直不断的生成数据。</p>
 <p>同时当应用启动之后利用 VisualVM 连上应用实时监控内存、GC 的使用情况。</p>
 <p>结果跑了 10 几分钟内存使用并没有什么问题。根据图中可以看出，每产生一次 GC 内存都能有效的回收，所以这样并没有复现问题。</p>
-<p><img src="https://ws2.sinaimg.cn/large/0069RVTdly1fupxfovjhgj30vl0kywps.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22c8db27.jpg" alt=""></p>
 <p>没法复现问题就很难定位了。于是我们 review 代码，发现生产的逻辑和我们用 while 循环 Mock 数据还不太一样。</p>
 <p>查看生产的日志发现每次从 Kafka 中取出的都是几百条数据，而我们 Mock 时每次只能产生<strong>一条</strong>。</p>
 <p>为了尽可能的模拟生产情况便在服务器上跑着一个生产者程序，一直源源不断的向 Kafka 中发送数据。</p>
 <p>果然不出意外只跑了一分多钟内存就顶不住了，观察左图发现 GC 的频次非常高，但是内存的回收却是相形见拙。</p>
-<p><img src="https://ws4.sinaimg.cn/large/0069RVTdly1fupxcg3yh7j31kw0xi122.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22d99ae5.jpg" alt=""></p>
 <p>同时后台也开始打印内存溢出了，这样便复现出问题。</p>
 <h1 id="解决"><a href="#解决" class="headerlink" title="解决"></a>解决</h1><p>从目前的表现来看就是内存中有许多对象一直存在强引用关系导致得不到回收。</p>
 <p>于是便想看看到底是什么对象占用了这么多的内存，利用 VisualVM 的 HeapDump 功能可以立即 dump 出当前应用的内存情况。</p>
-<p><img src="https://ws2.sinaimg.cn/large/0069RVTdly1fupxqxqjdcj318c0q4kb3.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d234c531b.jpg" alt=""></p>
 <p>结果发现 <code>com.lmax.disruptor.RingBuffer</code> 类型的对象占用了将近 50% 的内存。</p>
 <p>看到这个包自然就想到了 <code>Disruptor</code> 环形队列。</p>
 <p>再次 review 代码发现：从 Kafka 里取出的 700 条数据是直接往 Disruptor 里丢的。</p>
@@ -464,14 +464,14 @@
 <p>模拟的时候是一个对象放进队列里，而生产的情况是 700 条数据放进队列里。这个数据量是 700 倍的差距。</p>
 <p>而 Disruptor 作为一个环形队列，再对象没有被覆盖之前是一直存在的。</p>
 <p>我也做了一个实验，证明确实如此。</p>
-<p><img src="https://ws4.sinaimg.cn/large/0069RVTdly1fupy48es6lj30jd0b9dhu.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d235d0fac.jpg" alt=""></p>
 <p>我设置队列大小为 8 ，从 0~9 往里面写 10 条数据，当写到 8 的时候就会把之前 0 的位置覆盖掉，后面的以此类推（类似于 HashMap 的取模定位）。</p>
 <p>所以在生产上假设我们的队列大小是 1024，那么随着系统的运行最终肯定会导致 1024 个位置上装满了对象，而且每个位置是 700 个！</p>
 <p>于是查看了生产上 Disruptor 的 RingBuffer 配置，结果是：<code>1024*1024</code>。</p>
 <p>这个数量级就非常吓人了。</p>
 <p>为了验证是否是这个问题，我在本地将该值换为 2 ，一个最小值试试。</p>
 <p>同样的 128M 内存，也是通过 Kafka 一直源源不断的取出数据。通过监控如下：</p>
-<p><img src="https://ws4.sinaimg.cn/large/0069RVTdly1fupyds04cij31kw0xial3.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2379a1ce.jpg" alt=""></p>
 <p>跑了 20 几分钟系统一切正常，每当一次 GC 都能回收大部分内存，最终呈现锯齿状。</p>
 <p>这样问题就找到了，不过生产上这个值具体设置多少还得根据业务情况测试才能知道，但原有的 1024*1024 是绝对不能再使用了。</p>
 <h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>虽然到了最后也就改了一行代码(还没改，直接修改配置)，但这排查过程我觉得是有意义的。</p>
