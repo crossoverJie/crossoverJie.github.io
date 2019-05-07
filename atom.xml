@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-04-28T17:07:12.202Z</updated>
+  <updated>2019-05-07T18:47:46.780Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,74 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>图床失效了？也许你应该试试这个工具</title>
+    <link href="http://crossoverjie.top/2019/05/08/tools/blog-toolbox/"/>
+    <id>http://crossoverjie.top/2019/05/08/tools/blog-toolbox/</id>
+    <published>2019-05-07T17:50:36.000Z</published>
+    <updated>2019-05-07T18:47:46.780Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/05/08/5cd1cbf638ec7.png" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>经过几个小伙伴的提醒，发现个人博客中的许多图片都裂了无法访问；原因就不多说了，既然出现问题就得要解决。</p>
+<a id="more"></a>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c6bfd8ff2.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1cc4598afb.jpg" alt=""></p>
+<p>原本我的处理方式非常简单粗暴：找到原有的图片重新下载下来上传到新的可用图床再把图片地址替换。</p>
+<p>这样搞了一两篇之后我就绝望了。。。</p>
+<p>之前为了代码能在公众号里也有好的阅读体验，所以能截图的我绝不贴代码，导致一篇文章多的得有十几张图片。</p>
+<p>好在哪位大佬说过“以人肉XX为耻”，这种重复劳动力完全可自动化；于是便有了本次的这个工具。</p>
+<p>它可以一行命令把你所有 <code>Markdown</code> 写的内容中的图片全部替换为新的图床。</p>
+<p>运行效果如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1cc7612c25.gif" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1cd6062d2a.png" alt=""></p>
+<h1 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h1><p>可以直接在这个地址下载 jar 包运行：<a href="https://github.com/crossoverJie/blog.toolbox/releases/download/v0.0.1/blog.toolbox-0.0.1-SNAPSHOT.jar" target="_blank" rel="external">https://github.com/crossoverJie/blog.toolbox/releases/download/v0.0.1/blog.toolbox-0.0.1-SNAPSHOT.jar</a></p>
+<p>当然也可以下载源码编译运行：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">git clone https://github.com/crossoverJie/blog.toolbox</div><div class="line">mvn clean package</div><div class="line">java -jar nows-0.0.1-SNAPSHOT.jar --app.downLoad.path=/xx/img /xx/xx/path 100</div></pre></td></tr></table></figure>
+<p>看运行方式也知道，其实就是用 <code>SpringBoot</code> 写了一个工具用于批量下载文中出现的图片同时上传后完成替换。</p>
+<ul>
+<li>其中 <code>app.downLoad.path</code> 是用于将下载的图片保存到本地磁盘的目录。</li>
+<li><code>/xx/xx/path</code> 则是扫描 <code>.md</code> 文件的目录，会递归扫描所有出所有文件。</li>
+<li>100 则是需要替换文件的数量，默认是按照文件修改时间排序。</li>
+</ul>
+<p>如果自己的图片较多的话还是有几个坑需要注意下。</p>
+<h2 id="线程数量"><a href="#线程数量" class="headerlink" title="线程数量"></a>线程数量</h2><p>默认是启动了两个线程去遍历文件、上传下载图片、更新文本等内容，其中的网络 IO 其实挺耗时的，所以其实可以适当的多开些线程来提高任务的执行效率。</p>
+<p>但线程过多也许会触发图床的保护机制，同时也和自己电脑配置有关，这个得结合实际情况考虑了。</p>
+<p>所以可以通过 <code>--app.thread=6</code> 这样的参数来调整线程数量。</p>
+<h2 id="图床限制"><a href="#图床限制" class="headerlink" title="图床限制"></a>图床限制</h2><p>这个一旦图片过多一定是大概率出现的，一旦上传请求的频次过高很容易被限流封 IP。</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">&#123;<span class="attr">"code"</span>:<span class="string">"error"</span>,<span class="attr">"msg"</span>:<span class="string">"Upload file count limit. Time left 1027 second."</span>&#125;</div></pre></td></tr></table></figure>
+<p>目前来看是封 IP 居多，所以可以通过走代理、换网络的方式来解决。</p>
+<p>当然如果是自搭图床可以无视。</p>
+<h2 id="重试"><a href="#重试" class="headerlink" title="重试"></a>重试</h2><p>由于我使用的是免费图床，上传过程中偶尔也会出现上传失败的情况，因此默认是有 5 次重试机制的；如果五次都失败了那么大概率是 IP 被封了。</p>
+<h2 id="图片保存"><a href="#图片保存" class="headerlink" title="图片保存"></a>图片保存</h2><p><img src="https://i.loli.net/2019/05/08/5cd1d002b6cff.jpg" alt=""></p>
+<p>默认情况下下载的图片会保存在本地，我也建议借此机会自己本地都存一份，同时名字还和文中的名字一样，避免今后图床彻底挂掉后连恢复的机会都没有。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这个程序的代码就没怎么讲了，确实也挺简单，感兴趣的可以自己下来看看。</p>
+<p>目前功能也很单一，自用完全够了；看后续大家是否还有其他需求再逐渐完善吧，比如：</p>
+<ul>
+<li>图床上传失败自动切换到可用图床。</li>
+<li>整体处理效率提升。</li>
+<li>任务执行过程中更好的进度展现。</li>
+</ul>
+<p>再次贴一下源码地址：</p>
+<p><a href="https://github.com/crossoverJie/blog.toolbox" target="_blank" rel="external">https://github.com/crossoverJie/blog.toolbox</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/05/08/5cd1cbf638ec7.png&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;经过几个小伙伴的提醒，发现个人博客中的许多图片都裂了无法访问；原因就不多说了，既然出现问题就得要解决。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="工具" scheme="http://crossoverjie.top/categories/%E5%B7%A5%E5%85%B7/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="策略模式" scheme="http://crossoverjie.top/tags/%E7%AD%96%E7%95%A5%E6%A8%A1%E5%BC%8F/"/>
+    
+  </entry>
   
   <entry>
     <title>『并发包入坑指北』之向大佬汇报任务</title>
@@ -1260,9 +1328,9 @@
       <category term="cim" scheme="http://crossoverjie.top/categories/Netty/cim/"/>
     
     
-      <category term="Heartbeat" scheme="http://crossoverjie.top/tags/Heartbeat/"/>
-    
       <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
+    
+      <category term="Heartbeat" scheme="http://crossoverjie.top/tags/Heartbeat/"/>
     
   </entry>
   
@@ -2320,156 +2388,6 @@
     
     
       <category term="Kafka" scheme="http://crossoverjie.top/tags/Kafka/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>设计一个可拔插的 IOC 容器</title>
-    <link href="http://crossoverjie.top/2018/11/15/wheel/cicada6/"/>
-    <id>http://crossoverjie.top/2018/11/15/wheel/cicada6/</id>
-    <published>2018-11-15T00:19:36.000Z</published>
-    <updated>2018-11-14T16:17:00.628Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7y63ed53j31hc0u046a.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>磨了许久，借助最近的一次通宵上线 <a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">cicada</a> 终于更新了 <code>v2.0.0</code> 版本。</p>
-<p>之所以大的版本号变为 2，确实是向下不兼容了；主要表现为：</p>
-<ul>
-<li>修复了几个反馈的 <code>bug</code>。</li>
-<li>灵活的路由方式。</li>
-<li>可拔插的 <code>IOC</code> 容器选择。</li>
-</ul>
-<p>其中重点是后面两个。</p>
-<a id="more"></a>
-<h1 id="新的路由方式"><a href="#新的路由方式" class="headerlink" title="新的路由方式"></a>新的路由方式</h1><p>先来看第一个：路由方式的更新。</p>
-<p>在之前的版本想要写一个接口必须的实现一个 <code>WorkAction</code>；而且最麻烦的是一个实现类只能做一个接口。</p>
-<p>因此也有朋友给我提过这个 <a href="https://github.com/TogetherOS/cicada/issues/12" target="_blank" rel="external">issue</a>。</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7ytq4sj0j30sz0o40zv.jpg" alt=""></p>
-<hr>
-<p>于是改进后的使用方式如下：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7yuvz6o1j30od0gcwhm.jpg" alt=""></p>
-<blockquote>
-<p>是否有点似曾相识的感觉😊。</p>
-</blockquote>
-<p>如上图所示，不需要实现某个特定的接口；只需要使用不同的注解即可。</p>
-<p>同时也支持自定义 <code>pojo</code>, <code>cicada</code> 会在调用过程中对参数进行实例化。</p>
-<p>拿这个 <code>getUser</code> 接口为例，当这样请求时这些参数就会被封装进 <code>DemoReq</code> 中.</p>
-<p><a href="http://127.0.0.1:5688/cicada-example/routeAction/getUser?id=1234&amp;name=zhangsan" target="_blank" rel="external">http://127.0.0.1:5688/cicada-example/routeAction/getUser?id=1234&amp;name=zhangsan</a></p>
-<p>同时得到响应：</p>
-<figure class="highlight json"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">&#123;<span class="attr">"message"</span>:<span class="string">"hello =zhangsan"</span>&#125;</div></pre></td></tr></table></figure>
-<p>实现过程也挺简单，大家查看源码便会发现；这里贴一点比较核心的步骤。</p>
-<ul>
-<li>扫描所有使用 <code>@CicadaAction</code> 注解的类。</li>
-<li>扫描所有使用 <code>@CicadaRoute</code> 注解的方法。</li>
-<li>将他们的映射关系存入 <code>Map</code> 中。</li>
-<li>请求时根据 <code>URL</code> 去 <code>Map</code> 中查找这个关系。</li>
-<li>反射构建参数及方法调用。</li>
-</ul>
-<p><strong>扫描类以及写入映射关系</strong></p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fx7z8xeztxj30tu094abn.jpg" alt=""></p>
-<hr>
-<p><strong>请求时查询映射关系</strong></p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7z9opcx8j30lb0a6jsz.jpg" alt=""></p>
-<hr>
-<p><strong>反射调用这些方法</strong></p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx7zckbkh3j30ov07cgmy.jpg" alt=""></p>
-<h1 id="是否需要-IOC-容器"><a href="#是否需要-IOC-容器" class="headerlink" title="是否需要 IOC 容器"></a>是否需要 IOC 容器</h1><p>上面那几个步骤其实我都是一把梭写完的，但当我写到执行具体方法时感觉<code>有点意思</code>了。</p>
-<p>大家都知道反射调用方法有两个重要的参数：</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fx7zfd77kaj30np0in44c.jpg" alt=""></p>
-<ul>
-<li><code>obj</code> 方法执行的实例。</li>
-<li><code>args..</code> 自然是方法的参数。</li>
-</ul>
-<p>我第一次写的时候是这样的：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">method.invoke(method.getDeclaringClass().newInstance(), object);</div></pre></td></tr></table></figure>
-<p>然后一测试，也没问题。</p>
-<p>当我写完之后 <code>review</code> 代码时发现不对：这样这里每次都会创建一个新的实例，而且反射调用 <code>newInstance()</code> 效率也不高。</p>
-<p>这时我不自觉的想到了 Spring 中 IOC 容器，和这里场景也非常的类似。</p>
-<blockquote>
-<p>在应用初始化时将所有的接口实例化并保存到 bean 容器中，当需要使用时只需要从容器中获取即可。</p>
-</blockquote>
-<p>这样只是会在启动时做很多加载工作，但造福后代啊。</p>
-<h1 id="可拔插的-IOC-容器"><a href="#可拔插的-IOC-容器" class="headerlink" title="可拔插的 IOC 容器"></a>可拔插的 IOC 容器</h1><p>于是我打算自己实现一个这样的 bean 容器。</p>
-<p>但在实现之前又想到一个 feature:</p>
-<blockquote>
-<p>不如把实现 bean 容器的方案交给使用者选择，可以选择使用 bean 容器，也可以就用之前的每次都创建新的实例，就像 Spring 中的 prototype 作用域一样。</p>
-</blockquote>
-<p>甚至可以自定义容器实现，比如将 bean 存放到数据库、Redis 都行；当然一般人也不会这么干。</p>
-<p>和 <code>SPI</code> 的机制也有点类似。</p>
-<p>要实现上述的需求大致需要以下步骤：</p>
-<ul>
-<li>一个通用的接口，包含了注册容器、从容器中获取实例等方法。</li>
-<li><code>BeanManager</code> 类，由它来管理具体使用哪种 <code>IOC</code> 容器。</li>
-</ul>
-<p>所以首先定义了一个接口；<code>CicadaBeanFactory</code>:</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fx805jyttnj30e003ewer.jpg" alt=""></p>
-<p>包含了注册和获取实例的接口。</p>
-<p>同时分别有两个不同的容器实现方案。</p>
-<p>默认实现；<code>CicadaDefaultBean</code>：<br><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fx8074vywrj30hj05yaap.jpg" alt=""></p>
-<p>也就是文中说道的，每次都会创建实例；由于这种方式其实根本就没有 bean 容器，所以也不存在注册了。</p>
-<p>接下来是真正的 IOC 容器；<code>CicadaIoc</code>：</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx808jz2dtj30jx06nmy7.jpg" alt=""></p>
-<blockquote>
-<p>它将所有的实例都存放在一个 Map 中。</p>
-</blockquote>
-<p>当然也少不了刚才提到的 <code>CicadaBeanManager</code>，它会在应用启动的时候将所有的实例注册到 <code>bean</code> 容器中。</p>
-<p><img src="https://ws3.sinaimg.cn/large/006tNbRwly1fx80baammgj30kw08mgn2.jpg" alt=""></p>
-<p>重点是图中标红的部分：</p>
-<ul>
-<li>需要根据用户的选择实例化 <code>CicadaBeanFactory</code> 接口。</li>
-<li>将所有的实例注册到 CicadaBeanFactory 接口中。</li>
-</ul>
-<p>同时也提供了一个获取实例的方法：</p>
-<p><img src="https://ws2.sinaimg.cn/large/006tNbRwly1fx80dmej6mj30f805emxm.jpg" alt=""></p>
-<p>就是直接调用 <code>CicadaBeanFactory</code> 接口的方法。</p>
-<hr>
-<p>然后在上文提到的反射调用方法处就变为：</p>
-<p><img src="https://ws4.sinaimg.cn/large/006tNbRwly1fx80efy38xj30m004rgmd.jpg" alt=""></p>
-<p>从 <code>bean</code> 容器中获取实例了；获取的过程可以是每次都创建一个新的对象，也可以是直接从容器中获取实例。这点对于这里的调用者来说<strong>并不关心</strong>。</p>
-<p>所以这也实现了标题所说的：<code>可拔插</code>。</p>
-<p>为了实现这个目的，我将 <code>CicadaIoc</code> 的实现单独放到一个模块中，以 jar 包的形式提供实现。</p>
-<p><img src="https://ws1.sinaimg.cn/large/006tNbRwly1fx80hpjmcoj30ph064q43.jpg" alt=""></p>
-<p>所以如果你想要使用 <code>IOC</code> 容器的方式获取实例时只需要在你的应用中额外加入这个 jar 包即可。</p>
-<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>top.crossoverjie.opensource<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>cicada-ioc<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>2.0.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></div><div class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></div></pre></td></tr></table></figure>
-<p>如果不使用则是默认的 <code>CicadaDefaultBean</code> 实现，也就是每次都会创建对象。</p>
-<p>这样有个好处：</p>
-<p>当你自己想实现一个 <code>IOC</code> 容器时；只需要实现 <code>cicada</code> 提供的 <code>CicadaBeanFactory</code> 接口，并在你的应用中只加入你的 <code>jar</code> 包即可。</p>
-<p><strong>其余所有的代码都不需要改变，便可随意切换不的容器。</strong></p>
-<blockquote>
-<p>当然我是推荐大家使用 <code>IOC</code> 容器的（其实就是单例），牺牲一点应用启动时间带来后续性能的提升是值得的。</p>
-</blockquote>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>cicada</code> 的大坑填的差不多了，后续也会做一些小功能的迭代。</p>
-<p>还没有关注的朋友赶紧关注一波：</p>
-<p><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">https://github.com/TogetherOS/cicada</a></p>
-<blockquote>
-<p>PS：虽然没有仔细分析 Spring IOC 的实现，但相信看完此篇的朋友应该对 Spring IOC 以及 SpringMVC 会有一些自己的理解。</p>
-</blockquote>
-<p><strong>你的点赞与分享是对我最大的支持</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://ws1.sinaimg.cn/large/006tNbRwly1fx7y63ed53j31hc0u046a.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;磨了许久，借助最近的一次通宵上线 &lt;a href=&quot;https://github.com/TogetherOS/cicada&quot;&gt;cicada&lt;/a&gt; 终于更新了 &lt;code&gt;v2.0.0&lt;/code&gt; 版本。&lt;/p&gt;
-&lt;p&gt;之所以大的版本号变为 2，确实是向下不兼容了；主要表现为：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;修复了几个反馈的 &lt;code&gt;bug&lt;/code&gt;。&lt;/li&gt;
-&lt;li&gt;灵活的路由方式。&lt;/li&gt;
-&lt;li&gt;可拔插的 &lt;code&gt;IOC&lt;/code&gt; 容器选择。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;其中重点是后面两个。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="cicada" scheme="http://crossoverjie.top/categories/cicada/"/>
-    
-      <category term="轮子" scheme="http://crossoverjie.top/categories/cicada/%E8%BD%AE%E5%AD%90/"/>
-    
-    
-      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
-    
-      <category term="HTTP" scheme="http://crossoverjie.top/tags/HTTP/"/>
-    
-      <category term="Netty" scheme="http://crossoverjie.top/tags/Netty/"/>
     
   </entry>
   
