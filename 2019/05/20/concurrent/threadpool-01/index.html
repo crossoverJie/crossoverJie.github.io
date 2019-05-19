@@ -1,0 +1,1288 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/vendors/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/vendors/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="concurrent,ThreadPool," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml" />
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.1" />
+
+
+
+
+
+
+<meta name="description" content="前言原以为线程池还挺简单的（平时常用，也分析过原理），这次是想自己动手写一个线程池来更加深入的了解它；但在动手写的过程中落地到细节时发现并没想的那么容易。结合源码对比后确实不得不佩服 Doug Lea 。
+我觉得大部分人直接去看 java.util.concurrent.ThreadPoolExecutor 的源码时都是看一个大概，因为其中涉及到了许多细节处理，还有部分 AQS 的内容，所以想要">
+<meta property="og:type" content="article">
+<meta property="og:title" content="没那么简单的线程池">
+<meta property="og:url" content="http://crossoverjie.top/2019/05/20/concurrent/threadpool-01/index.html">
+<meta property="og:site_name" content="crossoverJie's Blog">
+<meta property="og:description" content="前言原以为线程池还挺简单的（平时常用，也分析过原理），这次是想自己动手写一个线程池来更加深入的了解它；但在动手写的过程中落地到细节时发现并没想的那么容易。结合源码对比后确实不得不佩服 Doug Lea 。
+我觉得大部分人直接去看 java.util.concurrent.ThreadPoolExecutor 的源码时都是看一个大概，因为其中涉及到了许多细节处理，还有部分 AQS 的内容，所以想要">
+<meta property="og:image" content="http://ww1.sinaimg.cn/large/006tNc79ly1g35i5gigsjj31900u0tex.jpg">
+<meta property="og:image" content="http://ww2.sinaimg.cn/large/006tNc79ly1g35toh0n5oj30jh09qq4g.jpg">
+<meta property="og:image" content="http://ww1.sinaimg.cn/large/006tNc79ly1g35trsbnwlj30jd0g40ya.jpg">
+<meta property="og:image" content="http://ww2.sinaimg.cn/large/006tNc79ly1g35l3nq81aj30kr0580t9.jpg">
+<meta property="og:image" content="http://ww4.sinaimg.cn/large/006tNc79ly1g35utf911jj30r20aijtb.jpg">
+<meta property="og:image" content="http://ww4.sinaimg.cn/large/006tNc79ly1g35uxtjf10g30go07s4hl.gif">
+<meta property="og:image" content="http://ww1.sinaimg.cn/large/006tNc79ly1g35kpk2498j30sr09oaby.jpg">
+<meta property="og:image" content="http://ww3.sinaimg.cn/large/006tNc79ly1g35u4vb4auj30qp0fwq5i.jpg">
+<meta property="og:image" content="http://ww1.sinaimg.cn/large/006tNc79ly1g35vzy0gdrj30jf0abjsd.jpg">
+<meta property="og:image" content="http://ww2.sinaimg.cn/large/006tNc79ly1g35wsuhafbj30s30a20uc.jpg">
+<meta property="og:image" content="http://ww3.sinaimg.cn/large/006tNc79ly1g35wuif0dkj30st04kt9b.jpg">
+<meta property="og:image" content="http://ww2.sinaimg.cn/large/006tNc79ly1g35wvxlh24j30sl022dfv.jpg">
+<meta property="og:image" content="http://ww1.sinaimg.cn/large/006tNc79ly1g35vzy0gdrj30jf0abjsd.jpg">
+<meta property="og:image" content="http://ww3.sinaimg.cn/large/006tNc79ly1g35x3xh4f5j30sk09fgmt.jpg">
+<meta property="og:image" content="http://ww1.sinaimg.cn/large/006tNc79ly1g35x52t159j30ss0a43zr.jpg">
+<meta property="og:image" content="http://ww1.sinaimg.cn/large/006tNc79ly1g35xaweaddj30jd0acwi1.jpg">
+<meta property="og:image" content="http://ww4.sinaimg.cn/large/006tNc79ly1g35yksnw2aj30sj0d8wge.jpg">
+<meta property="og:image" content="http://ww2.sinaimg.cn/large/006tNc79ly1g35zd453d9j30ss0fqten.jpg">
+<meta property="og:image" content="http://ww4.sinaimg.cn/large/006tNc79ly1g35zmf77e7j30sn0g276j.jpg">
+<meta property="og:image" content="http://ww3.sinaimg.cn/large/006tNc79ly1g35zpt0t7zj30qo06lwg9.jpg">
+<meta property="og:image" content="http://ww3.sinaimg.cn/large/006tNc79ly1g35zubl8s4j30sg09zwgj.jpg">
+<meta property="og:image" content="http://ww1.sinaimg.cn/large/006tNc79ly1g35zx875dzj30pt09tju3.jpg">
+<meta property="og:image" content="http://ww1.sinaimg.cn/large/006tNc79ly1g3605qghjbj30se0b3mza.jpg">
+<meta property="og:image" content="http://ww3.sinaimg.cn/large/006tNc79ly1g36062214wj30pa06dabo.jpg">
+<meta property="og:image" content="http://ww1.sinaimg.cn/large/006tNc79ly1g3607gvhysj30sr07sgmt.jpg">
+<meta property="og:image" content="http://ww3.sinaimg.cn/large/006tNc79ly1g360cnm39rj30t002gwer.jpg">
+<meta property="og:image" content="http://ww4.sinaimg.cn/large/006tNc79ly1g360dbkwy8j30st02pglt.jpg">
+<meta property="og:image" content="http://ww3.sinaimg.cn/large/006tNc79ly1g360ejafsmj30vp0fwjut.jpg">
+<meta property="og:image" content="http://ww3.sinaimg.cn/large/006tNc79ly1g360cnm39rj30t002gwer.jpg">
+<meta property="og:image" content="http://ww4.sinaimg.cn/large/006tNc79ly1g360dbkwy8j30st02pglt.jpg">
+<meta property="og:image" content="http://ww3.sinaimg.cn/large/006tNc79ly1g360jf1rpuj30ss0kn794.jpg">
+<meta property="og:updated_time" content="2019-05-19T10:43:58.001Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="没那么简单的线程池">
+<meta name="twitter:description" content="前言原以为线程池还挺简单的（平时常用，也分析过原理），这次是想自己动手写一个线程池来更加深入的了解它；但在动手写的过程中落地到细节时发现并没想的那么容易。结合源码对比后确实不得不佩服 Doug Lea 。
+我觉得大部分人直接去看 java.util.concurrent.ThreadPoolExecutor 的源码时都是看一个大概，因为其中涉及到了许多细节处理，还有部分 AQS 的内容，所以想要">
+<meta name="twitter:image" content="http://ww1.sinaimg.cn/large/006tNc79ly1g35i5gigsjj31900u0tex.jpg">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: 555390,
+      author: 'crossoverJie'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="http://crossoverjie.top/2019/05/20/concurrent/threadpool-01/"/>
+
+  <title> 没那么简单的线程池 | crossoverJie's Blog </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+
+
+
+
+
+
+
+
+  <div style="display: none;">
+    <script src="https://s6.cnzz.com/stat.php?id=1259025147&web_id=1259025147" type="text/javascript"></script>
+  </div>
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">crossoverJie's Blog</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle">baller</p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            Home
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            Categories
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            About
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            Archives
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            Tags
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-photo">
+          <a href="/favourite" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-photo"></i> <br />
+            
+            photo
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-jcsprout">
+          <a href="https://crossoverjie.top/JCSprout/#/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-leaf"></i> <br />
+            
+            JCSprout
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-cicada">
+          <a href="https://github.com/TogetherOS/cicada" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-github"></i> <br />
+            
+            cicada
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-cim">
+          <a href="https://github.com/crossoverjie/cim" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-far fa-comment"></i> <br />
+            
+            CIM
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="#" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br />
+            
+            Search
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup">
+ <span class="search-icon fa fa-search"></span>
+ <input type="text" id="local-search-input">
+ <div id="local-search-result"></div>
+ <span class="popup-btn-close">close</span>
+</div>
+
+
+    </div>
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                没那么简单的线程池
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">Posted on</span>
+            <time itemprop="dateCreated" datetime="2019-05-20T08:20:00+08:00" content="2019-05-20">
+              2019-05-20
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/并发/" itemprop="url" rel="index">
+                    <span itemprop="name">并发</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/2019/05/20/concurrent/threadpool-01/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2019/05/20/concurrent/threadpool-01/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+             <span id="/2019/05/20/concurrent/threadpool-01/" class="leancloud_visitors" data-flag-title="没那么简单的线程池">
+               &nbsp; | &nbsp;
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               <span class="post-meta-item-text">visitors </span>
+               <span class="leancloud-visitors-count"></span>
+              </span>
+          
+
+          
+              &nbsp; | &nbsp;
+              <span class="page-pv">本文总阅读量
+              <span class="busuanzi-value" id="busuanzi_value_page_pv" ></span>次
+              </span>
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35i5gigsjj31900u0tex.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>原以为线程池还挺简单的（平时常用，也分析过原理），这次是想自己动手写一个线程池来更加深入的了解它；但在动手写的过程中落地到细节时发现并没想的那么容易。结合源码对比后确实不得不佩服 <code>Doug Lea</code> 。</p>
+<p>我觉得大部分人直接去看 <code>java.util.concurrent.ThreadPoolExecutor</code> 的源码时都是看一个大概，因为其中涉及到了许多细节处理，还有部分 <code>AQS</code> 的内容，所以想要理清楚具体细节并不是那么容易。</p>
+<a id="more"></a>
+<p>与其挨个分析源码不如自己实现一个简版，当然简版并不意味着功能缺失，需要保证核心逻辑一致。</p>
+<p>所以也是本篇文章的目的：</p>
+<blockquote>
+<p>自己动手写一个五脏俱全的线程池，同时会了解到线程池的工作原理，以及如何在工作中合理的利用线程池。</p>
+</blockquote>
+<p>再开始之前建议对线程池不是很熟悉的朋友看看这几篇：</p>
+<p>这里我截取了部分内容，也许可以埋个伏笔（坑）。</p>
+<p><img src="http://ww2.sinaimg.cn/large/006tNc79ly1g35toh0n5oj30jh09qq4g.jpg" alt=""></p>
+<hr>
+<p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35trsbnwlj30jd0g40ya.jpg" alt=""></p>
+<p>具体请看这两个链接。</p>
+<ul>
+<li><a href="https://crossoverjie.top/2018/07/29/java-senior/ThreadPool/">如何优雅的使用和理解线程池</a></li>
+<li><a href="https://crossoverjie.top/2019/03/26/troubleshoot/thread-gone2/">线程池中你不容错过的一些细节</a></li>
+</ul>
+<p>由于篇幅限制，本次可能会分为上下两篇。</p>
+<h1 id="创建线程池"><a href="#创建线程池" class="headerlink" title="创建线程池"></a>创建线程池</h1><p>现在进入正题，新建了一个 <code>CustomThreadPool</code> 类,它的工作原理如下：</p>
+<p><img src="http://ww2.sinaimg.cn/large/006tNc79ly1g35l3nq81aj30kr0580t9.jpg" alt=""></p>
+<p>简单来说就是往线程池里边丢任务，丢的任务会缓冲到队列里；线程池里存储的其实就是一个个的 <code>Thread</code> ，他们会一直不停的从刚才缓冲的队列里获取任务执行。</p>
+<p>流程还是挺简单。</p>
+<p>先来看看我们这个自创的线程池的效果如何吧：<br><img src="http://ww4.sinaimg.cn/large/006tNc79ly1g35utf911jj30r20aijtb.jpg" alt=""><br><img src="http://ww4.sinaimg.cn/large/006tNc79ly1g35uxtjf10g30go07s4hl.gif" alt=""></p>
+<p>初始化了一个核心为3、最大线程数为5、队列大小为 4 的线程池。</p>
+<p>先往其中丢了 10 个任务，由于阻塞队列的大小为 4 ，最大线程数为 5 ，所以由于队列里缓冲不了最终会创建 5 个线程（上限）。</p>
+<p>过段时间没有任务提交后（<code>sleep</code>）则会自动缩容到三个线程（保证不会小于核心线程数）。</p>
+<h2 id="构造函数"><a href="#构造函数" class="headerlink" title="构造函数"></a>构造函数</h2><p>来看看具体是如何实现的。</p>
+<p>下面则是这个线程池的构造函数：</p>
+<p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35kpk2498j30sr09oaby.jpg" alt=""></p>
+<p>会有以下几个核心参数：</p>
+<ul>
+<li><code>miniSize</code> 最小线程数，等效于 <code>ThreadPool</code> 中的核心线程数。</li>
+<li><code>maxSize</code> 最大线程数。</li>
+<li><code>keepAliveTime</code> 线程保活时间。</li>
+<li><code>workQueue</code> 阻塞队列。</li>
+<li><code>notify</code> 通知接口。</li>
+</ul>
+<p>大致上都和 <code>ThreadPool</code> 中的参数相同，并且作用也是类似的。</p>
+<p>需要注意的是其中初始化了一个 <code>workers</code> 成员变量：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * 存放线程池</div><div class="line"> */</div><div class="line"><span class="keyword">private</span> <span class="keyword">volatile</span> Set&lt;Worker&gt; workers;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="title">CustomThreadPool</span><span class="params">(<span class="keyword">int</span> miniSize, <span class="keyword">int</span> maxSize, <span class="keyword">long</span> keepAliveTime,</span></span></div><div class="line">                        TimeUnit unit, BlockingQueue&lt;Runnable&gt; workQueue, Notify notify) &#123;</div><div class="line">   </div><div class="line">    workers = <span class="keyword">new</span> ConcurrentHashSet&lt;&gt;();</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p><code>workers</code> 是最终存放线程池中运行的线程，在 <code>j.u.c</code> 源码中是一个 <code>HashSet</code> 所以对他所有的操作都是需要加锁。</p>
+<p>我这里为了简便起见就自己定义了一个线程安全的 <code>Set</code> 称为 <code>ConcurrentHashSet</code>。</p>
+<p><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g35u4vb4auj30qp0fwq5i.jpg" alt=""></p>
+<p>其实原理也非常简单，和 <code>HashSet</code> 类似也是借助于 <code>HashMap</code> 来存放数据，利用其 <code>key</code> 不可重复的特性来实现 <code>set</code> ，只是这里的 <code>HashMap</code> 是用并发安全的 <code>ConcurrentHashMap</code> 来实现的。</p>
+<p>这样就能保证对它的写入、删除都是线程安全的。</p>
+<p>不过由于 <code>ConcurrentHashMap</code> 的 <code>size()</code> 函数并不准确，所以我这里单独利用了一个 <code>AtomicInteger</code> 来统计容器大小。</p>
+<h2 id="创建核心线程"><a href="#创建核心线程" class="headerlink" title="创建核心线程"></a>创建核心线程</h2><p>往线程池中丢一个任务的时候其实要做的事情还蛮多的，最重要的事情莫过于创建线程存放到线程池中了。</p>
+<p>当然我们不能无限制的创建线程，不然拿线程池来就没任何意义了。于是 <code>miniSize maxSize</code> 这两个参数就有了它的意义。</p>
+<p>但这两个参数再哪一步的时候才起到作用呢？这就是首先需要明确的。</p>
+<p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35vzy0gdrj30jf0abjsd.jpg" alt=""></p>
+<p>从这个流程图可以看出第一步是需要判断是否大于核心线程数，如果没有则创建。</p>
+<p><img src="http://ww2.sinaimg.cn/large/006tNc79ly1g35wsuhafbj30s30a20uc.jpg" alt=""><br><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g35wuif0dkj30st04kt9b.jpg" alt=""></p>
+<p>结合代码可以发现在执行任务的时候会判断是否大于核心线程数，从而创建线程。</p>
+<blockquote>
+<p><code>worker.startTask()</code> 执行任务部分放到后面分析。</p>
+</blockquote>
+<p><img src="http://ww2.sinaimg.cn/large/006tNc79ly1g35wvxlh24j30sl022dfv.jpg" alt=""></p>
+<p>这里的 <code>miniSize</code> 由于会在多线程场景下使用，所以也用 <code>volatile</code> 关键字来保证可见性。</p>
+<h2 id="队列缓冲"><a href="#队列缓冲" class="headerlink" title="队列缓冲"></a>队列缓冲</h2><p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35vzy0gdrj30jf0abjsd.jpg" alt=""></p>
+<p>结合上面的流程图，第二步自然是要判断队列是否可以存放任务（是否已满）。</p>
+<p><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g35x3xh4f5j30sk09fgmt.jpg" alt=""></p>
+<p>优先会往队列里存放。</p>
+<h2 id="上至封顶"><a href="#上至封顶" class="headerlink" title="上至封顶"></a>上至封顶</h2><p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35x52t159j30ss0a43zr.jpg" alt=""></p>
+<p>一旦写入失败则会判断当前线程池的大小是否大于最大线程数，如果没有则继续创建线程执行。</p>
+<p>不然则执行会尝试阻塞写入队列（<code>j.u.c</code> 会在这里执行拒绝策略）</p>
+<p>以上的步骤和刚才那张流程图是一样的，这样大家是否有看出什么坑嘛？</p>
+<h2 id="时刻小心"><a href="#时刻小心" class="headerlink" title="时刻小心"></a>时刻小心</h2><p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35xaweaddj30jd0acwi1.jpg" alt=""></p>
+<p>从上面流程图的这两步可以看出会直接<strong>创建新的线程</strong>。</p>
+<p>这个过程相对于中间<strong>直接写入阻塞队列</strong>的开销是非常大的，主要有以下两个原因：</p>
+<ul>
+<li>创建线程会加锁，虽说最终用的是 ConcurrentHashMap 的写入函数，但依然存在加锁的可能。</li>
+<li>会创建新的线程，创建线程还需要调用操作系统的 API 开销较大。</li>
+</ul>
+<blockquote>
+<p>所以理想情况下我们应该避免这两步，尽量让丢入线程池中的任务进入阻塞队列中。</p>
+</blockquote>
+<h1 id="执行任务"><a href="#执行任务" class="headerlink" title="执行任务"></a>执行任务</h1><p>任务是添加进来了，那是如何执行的？</p>
+<p>在创建任务的时候提到过 <code>worker.startTask()</code> 函数：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * 添加任务，需要加锁</div><div class="line"> * <span class="doctag">@param</span> runnable 任务</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">addWorker</span><span class="params">(Runnable runnable)</span> </span>&#123;</div><div class="line">    Worker worker = <span class="keyword">new</span> Worker(runnable, <span class="keyword">true</span>);</div><div class="line">    worker.startTask();</div><div class="line">    workers.add(worker);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>也就是在创建线程执行任务的时候会创建 <code>Worker</code> 对象，利用它的 <code>startTask()</code> 方法来执行任务。</p>
+<p>所以先来看看 <code>Worker</code> 对象是长啥样的：</p>
+<p><img src="http://ww4.sinaimg.cn/large/006tNc79ly1g35yksnw2aj30sj0d8wge.jpg" alt=""></p>
+<p>其实他本身也是一个线程，将接收到需要执行的任务存放到成员变量 <code>task</code> 处。</p>
+<p>而其中最为关键的则是执行任务 <code>worker.startTask()</code> 这一步骤。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">startTask</span><span class="params">()</span> </span>&#123;</div><div class="line">    thread.start();</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>其实就是运行了 <code>worker</code> 线程自己，下面来看 <code>run</code> 方法。</p>
+<p><img src="http://ww2.sinaimg.cn/large/006tNc79ly1g35zd453d9j30ss0fqten.jpg" alt=""></p>
+<ul>
+<li>第一步是将创建线程时传过来的任务执行（<code>task.run</code>）,接着会一直不停的从队列里获取任务执行，直到获取不到新任务了。</li>
+<li>任务执行完毕后将内置的计数器 -1 ，方便后面任务全部执行完毕进行通知。</li>
+<li>worker 线程获取不到任务后退出，需要将自己从线程池中释放掉（<code>workers.remove(this)</code>）。</li>
+</ul>
+<h2 id="从队列里获取任务"><a href="#从队列里获取任务" class="headerlink" title="从队列里获取任务"></a>从队列里获取任务</h2><p>其实 <code>getTask</code> 也是非常关键的一个方法，它封装了从队列中获取任务，同时对不需要保活的线程进行回收。</p>
+<p><img src="http://ww4.sinaimg.cn/large/006tNc79ly1g35zmf77e7j30sn0g276j.jpg" alt=""></p>
+<p>很明显，核心作用就是从队列里获取任务；但有两个地方需要注意：</p>
+<ul>
+<li>当线程数超过核心线程数时，在获取任务的时候需要通过保活时间从队列里获取任务；一旦获取不到任务则队列肯定是空的，这样返回 <code>null</code> 之后在上文的 <code>run()</code> 中就会退出这个线程；从而达到了回收线程的目的，也就是我们之前演示的效果<br><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g35zpt0t7zj30qo06lwg9.jpg" alt=""></li>
+<li>这里需要加锁，加锁的原因是这里肯定会出现并发情况，不加锁会导致 <code>workers.size() &gt; miniSize</code> 条件多次执行，从而导致线程被全部回收完毕。</li>
+</ul>
+<h1 id="关闭线程池"><a href="#关闭线程池" class="headerlink" title="关闭线程池"></a>关闭线程池</h1><p>最后来谈谈线程关闭的事；</p>
+<p><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g35zubl8s4j30sg09zwgj.jpg" alt=""></p>
+<p>还是以刚才那段测试代码为例,如果提交任务后我们没有关闭线程，会发现即便是任务执行完毕后程序也不会退出。</p>
+<p>从刚才的源码里其实也很容易看出来，不退出的原因是 <code>Worker</code> 线程一定还会一直阻塞在 <code>task = workQueue.take();</code> 处，即便是线程缩容了也不会小于核心线程数。</p>
+<p>通过堆栈也能证明：</p>
+<p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35zx875dzj30pt09tju3.jpg" alt=""></p>
+<p>恰好剩下三个线程阻塞于此处。</p>
+<p>而关闭线程通常又有以下两种：</p>
+<ul>
+<li>立即关闭：执行关闭方法后不管现在线程池的运行状况，直接一刀切全部停掉，这样会导致任务丢失。</li>
+<li>不接受新的任务，同时等待现有任务执行完毕后退出线程池。</li>
+</ul>
+<h2 id="立即关闭"><a href="#立即关闭" class="headerlink" title="立即关闭"></a>立即关闭</h2><p>我们先来看第一种<code>立即关闭</code>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * 立即关闭线程池，会造成任务丢失</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">shutDownNow</span><span class="params">()</span> </span>&#123;</div><div class="line">    isShutDown.set(<span class="keyword">true</span>);</div><div class="line">    tryClose(<span class="keyword">false</span>);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">/**</span></div><div class="line"> * 关闭线程池</div><div class="line"> *</div><div class="line"> * <span class="doctag">@param</span> isTry true 尝试关闭      --&gt; 会等待所有任务执行完毕</div><div class="line"> *              false 立即关闭线程池--&gt; 任务有丢失的可能</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">tryClose</span><span class="params">(<span class="keyword">boolean</span> isTry)</span> </span>&#123;</div><div class="line">    <span class="keyword">if</span> (!isTry) &#123;</div><div class="line">        closeAllTask();</div><div class="line">    &#125; <span class="keyword">else</span> &#123;</div><div class="line">        <span class="keyword">if</span> (isShutDown.get() &amp;&amp; totalTask.get() == <span class="number">0</span>) &#123;</div><div class="line">            closeAllTask();</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">/**</span></div><div class="line"> * 关闭所有任务</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">closeAllTask</span><span class="params">()</span> </span>&#123;</div><div class="line">    <span class="keyword">for</span> (Worker worker : workers) &#123;</div><div class="line">        <span class="comment">//LOGGER.info("开始关闭");</span></div><div class="line">        worker.close();</div><div class="line">    &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">close</span><span class="params">()</span> </span>&#123;</div><div class="line">    thread.interrupt();</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>很容易看出，最终就是遍历线程池里所有的 <code>worker</code> 线程挨个执行他们的中断函数。</p>
+<p>我们来测试一下：</p>
+<p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g3605qghjbj30se0b3mza.jpg" alt=""><br><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g36062214wj30pa06dabo.jpg" alt=""></p>
+<p>可以发现后面丢进去的三个任务其实是没有被执行的。</p>
+<h2 id="完事后关闭"><a href="#完事后关闭" class="headerlink" title="完事后关闭"></a>完事后关闭</h2><p>而<strong>正常关闭</strong>则不一样：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * 任务执行完毕后关闭线程池</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">shutdown</span><span class="params">()</span> </span>&#123;</div><div class="line">    isShutDown.set(<span class="keyword">true</span>);</div><div class="line">    tryClose(<span class="keyword">true</span>);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g3607gvhysj30sr07sgmt.jpg" alt=""></p>
+<p>他会在这里多了一个判断，需要所有任务都执行完毕之后才会去中断线程。</p>
+<p>同时在线程需要回收时都会尝试关闭线程：<br><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g360cnm39rj30t002gwer.jpg" alt=""><br><img src="http://ww4.sinaimg.cn/large/006tNc79ly1g360dbkwy8j30st02pglt.jpg" alt=""></p>
+<hr>
+<p>来看看实际效果：</p>
+<p><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g360ejafsmj30vp0fwjut.jpg" alt=""></p>
+<h1 id="回收线程"><a href="#回收线程" class="headerlink" title="回收线程"></a>回收线程</h1><p>上文或多或少提到了线程回收的事情，其实总结就是以下两点：</p>
+<ul>
+<li>一旦执行了 <code>shutdown/shutdownNow</code> 方法都会将线程池的状态置为关闭状态，这样只要 <code>worker</code> 线程尝试从队列里获取任务时就会直接返回空，导致 <code>worker</code> 线程被回收。<br><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g360cnm39rj30t002gwer.jpg" alt=""></li>
+<li>一旦线程池大小超过了核心线程数就会使用保活时间来从队列里获取任务，所以一旦获取不到返回 <code>null</code> 时就会触发回收。<br><img src="http://ww4.sinaimg.cn/large/006tNc79ly1g360dbkwy8j30st02pglt.jpg" alt=""></li>
+</ul>
+<p>但如果我们的队列足够大，导致线程数都不会超过核心线程数，这样是不会触发回收的。</p>
+<p><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g360jf1rpuj30ss0kn794.jpg" alt=""></p>
+<p>比如这里我将队列大小调为 10 ，这样任务就会累计在队列里，不会创建五个 <code>worker</code> 线程。</p>
+<p>所以一直都是 <code>Thread-1~3</code> 这三个线程在反复调度任务。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本次实现了线程池里大部分核心功能，我相信只要看完并动手敲一遍一定会对线程池有不一样的理解。</p>
+<p>结合目前的内容来总结下：</p>
+<ul>
+<li>线程池、队列大小要设计的合理，尽量的让任务从队列中获取执行。</li>
+<li>慎用 <code>shutdownNow()</code> 方法关闭线程池，会导致任务丢失（除非业务允许）。</li>
+<li>如果任务多，线程执行时间短可以调大 <code>keepalive</code> 值，使得线程尽量不被回收从而可以复用线程。</li>
+</ul>
+<p>同时下次会分享一些线程池的新特性，如：</p>
+<ul>
+<li>执行带有返回值的线程。</li>
+<li>异常处理怎么办？</li>
+<li>所有任务执行完怎么通知我？</li>
+</ul>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+<div id="wechat_subscriber" style="display: block； padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+    <img id="wechat_subscriber_qcode" src="/uploads/weixin.png" alt="crossoverJie wechat" style="width: 200px; max-width: 100%;"/>
+    <div>我很有眼光！</div>
+</div>
+
+      
+    </div>
+
+    <div>
+      
+        
+  <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+    <div>请我吃🍗</div>
+    <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+      <span>赏</span>
+    </button>
+    <div id="QR" style="display: none;">
+      
+        <div id="wechat" style="display: inline-block">
+          <img id="wechat_qr" src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay"/>
+          <p>微信打赏</p>
+        </div>
+      
+      
+        <div id="alipay" style="display: inline-block">
+          <img id="alipay_qr" src="/alipay-reward-image.jpg" alt="crossoverJie Alipay"/>
+          <p>支付宝打赏</p>
+        </div>
+      
+    </div>
+  </div>
+
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/concurrent/" rel="tag">#concurrent</a>
+          
+            <a href="/tags/ThreadPool/" rel="tag">#ThreadPool</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/05/08/tools/blog-toolbox/" rel="next" title="图床失效了？也许你应该试试这个工具">
+                <i class="fa fa-chevron-left"></i> 图床失效了？也许你应该试试这个工具
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+  <p>热评文章</p>
+  <div class="ds-top-threads" data-range="weekly" data-num-items="4"></div>
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/uploads/crossoverjie.jpg"
+               alt="crossoverJie" />
+          <p class="site-author-name" itemprop="name">crossoverJie</p>
+          <p class="site-description motion-element" itemprop="description">You never know what you can do till you try.</p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">104</span>
+              <span class="site-state-item-name">posts</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">40</span>
+                <span class="site-state-item-name">categories</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">96</span>
+                <span class="site-state-item-name">tags</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/crossoverJie" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://www.jianshu.com/users/e2d07947c112/latest_articles" target="_blank" title="简书">
+                  
+                    <i class="fa fa-fw fa-book"></i>
+                  
+                  简书
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" target="_blank" title="掘金">
+                  
+                    <i class="fa fa-fw fa-bookmark"></i>
+                  
+                  掘金
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://twitter.com/crossoverJie" target="_blank" title="Twitter">
+                  
+                    <i class="fa fa-fw fa-twitter"></i>
+                  
+                  Twitter
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://wuchong.me" title="Jark's Blog" target="_blank">Jark's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://tengj.top" title="嘟嘟独立博客" target="_blank">嘟嘟独立博客</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://yemengying.com/" title="Giraffe Home" target="_blank">Giraffe Home</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://blog.jamespan.me/" title="潘小鶸(ruò)" target="_blank">潘小鶸(ruò)</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://fangjian0423.github.io/" title="Format's Notes" target="_blank">Format's Notes</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://yuzhouwan.com/" title="Benedict Jin" target="_blank">Benedict Jin</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.didispace.com/" title="程序猿DD" target="_blank">程序猿DD</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://blog.52itstyle.vip/" title="小柒博客" target="_blank">小柒博客</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://cmsblogs.com/" title="Java技术驿站" target="_blank">Java技术驿站</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://vim.ink/" title="vim 教程网" target="_blank">vim 教程网</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#创建线程池"><span class="nav-number">2.</span> <span class="nav-text">创建线程池</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#构造函数"><span class="nav-number">2.1.</span> <span class="nav-text">构造函数</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#创建核心线程"><span class="nav-number">2.2.</span> <span class="nav-text">创建核心线程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#队列缓冲"><span class="nav-number">2.3.</span> <span class="nav-text">队列缓冲</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#上至封顶"><span class="nav-number">2.4.</span> <span class="nav-text">上至封顶</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#时刻小心"><span class="nav-number">2.5.</span> <span class="nav-text">时刻小心</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#执行任务"><span class="nav-number">3.</span> <span class="nav-text">执行任务</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#从队列里获取任务"><span class="nav-number">3.1.</span> <span class="nav-text">从队列里获取任务</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#关闭线程池"><span class="nav-number">4.</span> <span class="nav-text">关闭线程池</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#立即关闭"><span class="nav-number">4.1.</span> <span class="nav-text">立即关闭</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#完事后关闭"><span class="nav-number">4.2.</span> <span class="nav-text">完事后关闭</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#回收线程"><span class="nav-number">5.</span> <span class="nav-text">回收线程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy;  2016 - 
+  <span itemprop="copyrightYear">2019</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+
+<div class="powered-by">
+  Powered by <a class="theme-link" href="http://hexo.io">Hexo</a>
+</div>
+
+<div class="theme-info">
+  Theme -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+        
+
+<div class="busuanzi-count">
+
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="site-uv"><i class="fa fa-user"></i><span class="busuanzi-value" id="busuanzi_value_site_uv"></span>人数</span>
+  
+
+  
+    <span class="site-pv">您是第<span class="busuanzi-value" id="busuanzi_value_site_pv"></span>位童鞋</span>
+  
+  
+</div>
+
+
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/vendors/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/vendors/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.0.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.1"></script>
+
+
+
+  
+
+
+
+  
+
+    <script type="text/javascript">
+      var disqus_shortname = 'crossoverjie';
+      var disqus_identifier = '2019/05/20/concurrent/threadpool-01/';
+      var disqus_title = "没那么简单的线程池";
+      var disqus_url = 'http://crossoverjie.top/2019/05/20/concurrent/threadpool-01/';
+
+      function run_disqus_script(disqus_script){
+        var dsq = document.createElement('script');
+        dsq.type = 'text/javascript';
+        dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      }
+
+      run_disqus_script('count.js');
+      
+        run_disqus_script('embed.js');
+      
+    </script>
+  
+
+
+
+
+  
+  
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length == 0) {
+       search_path = "search.xml";
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    function proceedsearch() {
+      $("body").append('<div class="popoverlay">').css('overflow', 'hidden');
+      $('.popup').toggle();
+
+    }
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+    'use strict';
+    $.ajax({
+        url: path,
+        dataType: "xml",
+        async: true,
+        success: function( xmlResponse ) {
+            // get the contents from search data
+            isfetched = true;
+            $('.popup').detach().appendTo('.header-inner');
+            var datas = $( "entry", xmlResponse ).map(function() {
+                return {
+                    title: $( "title", this ).text(),
+                    content: $("content",this).text(),
+                    url: $( "url" , this).text()
+                };
+            }).get();
+            var $input = document.getElementById(search_id);
+            var $resultContent = document.getElementById(content_id);
+            $input.addEventListener('input', function(){
+                var matchcounts = 0;
+                var str='<ul class=\"search-result-list\">';                
+                var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                $resultContent.innerHTML = "";
+                if (this.value.trim().length > 1) {
+                // perform local searching
+                datas.forEach(function(data) {
+                    var isMatch = true;
+                    var content_index = [];
+                    var data_title = data.title.trim().toLowerCase();
+                    var data_content = data.content.trim().replace(/<[^>]+>/g,"").toLowerCase();
+                    var data_url = data.url;
+                    var index_title = -1;
+                    var index_content = -1;
+                    var first_occur = -1;
+                    // only match artiles with not empty titles and contents
+                    if(data_title != '' && data_content != '') {
+                        keywords.forEach(function(keyword, i) {
+                            index_title = data_title.indexOf(keyword);
+                            index_content = data_content.indexOf(keyword);
+                            if( index_title < 0 && index_content < 0 ){
+                                isMatch = false;
+                            } else {
+                                if (index_content < 0) {
+                                    index_content = 0;
+                                }
+                                if (i == 0) {
+                                    first_occur = index_content;
+                                }
+                            }
+                        });
+                    }
+                    // show search results
+                    if (isMatch) {
+                        matchcounts += 1;
+                        str += "<li><a href='"+ data_url +"' class='search-result-title'>"+ data_title +"</a>";
+                        var content = data.content.trim().replace(/<[^>]+>/g,"");
+                        if (first_occur >= 0) {
+                            // cut out 100 characters
+                            var start = first_occur - 20;
+                            var end = first_occur + 80;
+                            if(start < 0){
+                                start = 0;
+                            }
+                            if(start == 0){
+                                end = 50;
+                            }
+                            if(end > content.length){
+                                end = content.length;
+                            }
+                            var match_content = content.substring(start, end);
+                            // highlight all keywords
+                            keywords.forEach(function(keyword){
+                                var regS = new RegExp(keyword, "gi");
+                                match_content = match_content.replace(regS, "<b class=\"search-keyword\">"+keyword+"</b>");
+                            });
+                            
+                            str += "<p class=\"search-result\">" + match_content +"...</p>"
+                        }
+                        str += "</li>";
+                    }
+                })};
+                str += "</ul>";
+                if (matchcounts == 0) { str = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>' }
+                if (keywords == "") { str = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>' }
+                $resultContent.innerHTML = str;
+            });
+            proceedsearch();
+        }
+    });}
+
+    // handle and trigger popup window;
+    $('.popup-trigger').mousedown(function(e) {
+      e.stopPropagation();
+      if (isfetched == false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+
+    });
+
+    $('.popup-btn-close').click(function(e){
+      $('.popup').hide();
+      $(".popoverlay").remove();
+      $('body').css('overflow', '');
+    });
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+  </script>
+
+  
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.1.js"></script>
+  <script>AV.initialize("Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz", "NXiHFodQfmI8oxkK6IThhjrF");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script type="text/javascript" src="/js/src/particle.js" count="50" zindex="-2" opacity="1" color="0,104,183"></script>
+</body>
+</html>
