@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-05-19T14:32:25.112Z</updated>
+  <updated>2019-05-20T06:00:57.294Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -20,9 +20,9 @@
     <link href="http://crossoverjie.top/2019/05/20/concurrent/threadpool-01/"/>
     <id>http://crossoverjie.top/2019/05/20/concurrent/threadpool-01/</id>
     <published>2019-05-20T00:20:00.000Z</published>
-    <updated>2019-05-19T14:32:25.112Z</updated>
+    <updated>2019-05-20T06:00:57.294Z</updated>
     
-    <content type="html"><![CDATA[<p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35i5gigsjj31900u0tex.jpg" alt=""></p>
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/05/20/5ce2427967df757341.jpg" alt=""></p>
 <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>原以为线程池还挺简单的（平时常用，也分析过原理），这次是想自己动手写一个线程池来更加深入的了解它；但在动手写的过程中落地到细节时发现并没想的那么容易。结合源码对比后确实不得不佩服 <code>Doug Lea</code> 。</p>
 <p>我觉得大部分人直接去看 <code>java.util.concurrent.ThreadPoolExecutor</code> 的源码时都是看一个大概，因为其中涉及到了许多细节处理，还有部分 <code>AQS</code> 的内容，所以想要理清楚具体细节并不是那么容易。</p>
 <a id="more"></a>
@@ -33,9 +33,9 @@
 </blockquote>
 <p>再开始之前建议对线程池不是很熟悉的朋友看看这几篇：</p>
 <p>这里我截取了部分内容，也许可以埋个伏笔（坑）。</p>
-<p><img src="http://ww2.sinaimg.cn/large/006tNc79ly1g35toh0n5oj30jh09qq4g.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce2427a131d077786.jpg" alt=""></p>
 <hr>
-<p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35trsbnwlj30jd0g40ya.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce2427a82e4195813.jpg" alt=""></p>
 <p>具体请看这两个链接。</p>
 <ul>
 <li><a href="https://crossoverjie.top/2018/07/29/java-senior/ThreadPool/">如何优雅的使用和理解线程池</a></li>
@@ -43,16 +43,16 @@
 </ul>
 <p>由于篇幅限制，本次可能会分为上下两篇。</p>
 <h1 id="创建线程池"><a href="#创建线程池" class="headerlink" title="创建线程池"></a>创建线程池</h1><p>现在进入正题，新建了一个 <code>CustomThreadPool</code> 类,它的工作原理如下：</p>
-<p><img src="http://ww2.sinaimg.cn/large/006tNc79ly1g35l3nq81aj30kr0580t9.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce2427ae4d0d34961.jpg" alt=""></p>
 <p>简单来说就是往线程池里边丢任务，丢的任务会缓冲到队列里；线程池里存储的其实就是一个个的 <code>Thread</code> ，他们会一直不停的从刚才缓冲的队列里获取任务执行。</p>
 <p>流程还是挺简单。</p>
-<p>先来看看我们这个自创的线程池的效果如何吧：<br><img src="http://ww4.sinaimg.cn/large/006tNc79ly1g35utf911jj30r20aijtb.jpg" alt=""><br><img src="http://ww4.sinaimg.cn/large/006tNc79ly1g35uxtjf10g30go07s4hl.gif" alt=""></p>
+<p>先来看看我们这个自创的线程池的效果如何吧：<br><img src="https://i.loli.net/2019/05/20/5ce2427b4b8ac24777.jpg" alt=""><br><img src="https://i.loli.net/2019/05/20/5ce2427dcfd3982345.jpg" alt=""></p>
 <p>初始化了一个核心为3、最大线程数为5、队列大小为 4 的线程池。</p>
 <p>先往其中丢了 10 个任务，由于阻塞队列的大小为 4 ，最大线程数为 5 ，所以由于队列里缓冲不了最终会创建 5 个线程（上限）。</p>
 <p>过段时间没有任务提交后（<code>sleep</code>）则会自动缩容到三个线程（保证不会小于核心线程数）。</p>
 <h2 id="构造函数"><a href="#构造函数" class="headerlink" title="构造函数"></a>构造函数</h2><p>来看看具体是如何实现的。</p>
 <p>下面则是这个线程池的构造函数：</p>
-<p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35kpk2498j30sr09oaby.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce2427e4bd1e73907.jpg" alt=""></p>
 <p>会有以下几个核心参数：</p>
 <ul>
 <li><code>miniSize</code> 最小线程数，等效于 <code>ThreadPool</code> 中的核心线程数。</li>
@@ -66,31 +66,31 @@
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * 存放线程池</div><div class="line"> */</div><div class="line"><span class="keyword">private</span> <span class="keyword">volatile</span> Set&lt;Worker&gt; workers;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="title">CustomThreadPool</span><span class="params">(<span class="keyword">int</span> miniSize, <span class="keyword">int</span> maxSize, <span class="keyword">long</span> keepAliveTime,</span></span></div><div class="line">                        TimeUnit unit, BlockingQueue&lt;Runnable&gt; workQueue, Notify notify) &#123;</div><div class="line">   </div><div class="line">    workers = <span class="keyword">new</span> ConcurrentHashSet&lt;&gt;();</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p><code>workers</code> 是最终存放线程池中运行的线程，在 <code>j.u.c</code> 源码中是一个 <code>HashSet</code> 所以对他所有的操作都是需要加锁。</p>
 <p>我这里为了简便起见就自己定义了一个线程安全的 <code>Set</code> 称为 <code>ConcurrentHashSet</code>。</p>
-<p><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g35u4vb4auj30qp0fwq5i.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce2427ea9db544486.jpg" alt=""></p>
 <p>其实原理也非常简单，和 <code>HashSet</code> 类似也是借助于 <code>HashMap</code> 来存放数据，利用其 <code>key</code> 不可重复的特性来实现 <code>set</code> ，只是这里的 <code>HashMap</code> 是用并发安全的 <code>ConcurrentHashMap</code> 来实现的。</p>
 <p>这样就能保证对它的写入、删除都是线程安全的。</p>
 <p>不过由于 <code>ConcurrentHashMap</code> 的 <code>size()</code> 函数并不准确，所以我这里单独利用了一个 <code>AtomicInteger</code> 来统计容器大小。</p>
 <h2 id="创建核心线程"><a href="#创建核心线程" class="headerlink" title="创建核心线程"></a>创建核心线程</h2><p>往线程池中丢一个任务的时候其实要做的事情还蛮多的，最重要的事情莫过于创建线程存放到线程池中了。</p>
 <p>当然我们不能无限制的创建线程，不然拿线程池来就没任何意义了。于是 <code>miniSize maxSize</code> 这两个参数就有了它的意义。</p>
 <p>但这两个参数再哪一步的时候才起到作用呢？这就是首先需要明确的。</p>
-<p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35vzy0gdrj30jf0abjsd.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce242859d06737555.jpg" alt=""></p>
 <p>从这个流程图可以看出第一步是需要判断是否大于核心线程数，如果没有则创建。</p>
-<p><img src="http://ww2.sinaimg.cn/large/006tNc79ly1g35wsuhafbj30s30a20uc.jpg" alt=""><br><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g35wuif0dkj30st04kt9b.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce2427f709a888882.jpg" alt=""><br><img src="https://i.loli.net/2019/05/20/5ce24284cece370628.jpg" alt=""></p>
 <p>结合代码可以发现在执行任务的时候会判断是否大于核心线程数，从而创建线程。</p>
 <blockquote>
 <p><code>worker.startTask()</code> 执行任务部分放到后面分析。</p>
 </blockquote>
-<p><img src="http://ww2.sinaimg.cn/large/006tNc79ly1g35wvxlh24j30sl022dfv.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce242851866045125.jpg" alt=""></p>
 <p>这里的 <code>miniSize</code> 由于会在多线程场景下使用，所以也用 <code>volatile</code> 关键字来保证可见性。</p>
-<h2 id="队列缓冲"><a href="#队列缓冲" class="headerlink" title="队列缓冲"></a>队列缓冲</h2><p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35vzy0gdrj30jf0abjsd.jpg" alt=""></p>
+<h2 id="队列缓冲"><a href="#队列缓冲" class="headerlink" title="队列缓冲"></a>队列缓冲</h2><p><img src="https://i.loli.net/2019/05/20/5ce242859d06737555.jpg" alt=""></p>
 <p>结合上面的流程图，第二步自然是要判断队列是否可以存放任务（是否已满）。</p>
-<p><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g35x3xh4f5j30sk09fgmt.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce242860ea8762429.jpg" alt=""></p>
 <p>优先会往队列里存放。</p>
-<h2 id="上至封顶"><a href="#上至封顶" class="headerlink" title="上至封顶"></a>上至封顶</h2><p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35x52t159j30ss0a43zr.jpg" alt=""></p>
+<h2 id="上至封顶"><a href="#上至封顶" class="headerlink" title="上至封顶"></a>上至封顶</h2><p><img src="https://i.loli.net/2019/05/20/5ce2428663ce360228.jpg" alt=""></p>
 <p>一旦写入失败则会判断当前线程池的大小是否大于最大线程数，如果没有则继续创建线程执行。</p>
 <p>不然则执行会尝试阻塞写入队列（<code>j.u.c</code> 会在这里执行拒绝策略）</p>
 <p>以上的步骤和刚才那张流程图是一样的，这样大家是否有看出什么坑嘛？</p>
-<h2 id="时刻小心"><a href="#时刻小心" class="headerlink" title="时刻小心"></a>时刻小心</h2><p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35xaweaddj30jd0acwi1.jpg" alt=""></p>
+<h2 id="时刻小心"><a href="#时刻小心" class="headerlink" title="时刻小心"></a>时刻小心</h2><p><img src="https://i.loli.net/2019/05/20/5ce24286ec64d97683.jpg" alt=""></p>
 <p>从上面流程图的这两步可以看出会直接<strong>创建新的线程</strong>。</p>
 <p>这个过程相对于中间<strong>直接写入阻塞队列</strong>的开销是非常大的，主要有以下两个原因：</p>
 <ul>
@@ -105,30 +105,30 @@
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * 添加任务，需要加锁</div><div class="line"> * <span class="doctag">@param</span> runnable 任务</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">addWorker</span><span class="params">(Runnable runnable)</span> </span>&#123;</div><div class="line">    Worker worker = <span class="keyword">new</span> Worker(runnable, <span class="keyword">true</span>);</div><div class="line">    worker.startTask();</div><div class="line">    workers.add(worker);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>也就是在创建线程执行任务的时候会创建 <code>Worker</code> 对象，利用它的 <code>startTask()</code> 方法来执行任务。</p>
 <p>所以先来看看 <code>Worker</code> 对象是长啥样的：</p>
-<p><img src="http://ww4.sinaimg.cn/large/006tNc79ly1g35yksnw2aj30sj0d8wge.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce2428758e9d49713.jpg" alt=""></p>
 <p>其实他本身也是一个线程，将接收到需要执行的任务存放到成员变量 <code>task</code> 处。</p>
 <p>而其中最为关键的则是执行任务 <code>worker.startTask()</code> 这一步骤。</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">startTask</span><span class="params">()</span> </span>&#123;</div><div class="line">    thread.start();</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>其实就是运行了 <code>worker</code> 线程自己，下面来看 <code>run</code> 方法。</p>
-<p><img src="http://ww2.sinaimg.cn/large/006tNc79ly1g35zd453d9j30ss0fqten.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce24287cc0b154186.jpg" alt=""></p>
 <ul>
 <li>第一步是将创建线程时传过来的任务执行（<code>task.run</code>）,接着会一直不停的从队列里获取任务执行，直到获取不到新任务了。</li>
 <li>任务执行完毕后将内置的计数器 -1 ，方便后面任务全部执行完毕进行通知。</li>
 <li>worker 线程获取不到任务后退出，需要将自己从线程池中释放掉（<code>workers.remove(this)</code>）。</li>
 </ul>
 <h2 id="从队列里获取任务"><a href="#从队列里获取任务" class="headerlink" title="从队列里获取任务"></a>从队列里获取任务</h2><p>其实 <code>getTask</code> 也是非常关键的一个方法，它封装了从队列中获取任务，同时对不需要保活的线程进行回收。</p>
-<p><img src="http://ww4.sinaimg.cn/large/006tNc79ly1g35zmf77e7j30sn0g276j.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce242885bebb69642.jpg" alt=""></p>
 <p>很明显，核心作用就是从队列里获取任务；但有两个地方需要注意：</p>
 <ul>
-<li>当线程数超过核心线程数时，在获取任务的时候需要通过保活时间从队列里获取任务；一旦获取不到任务则队列肯定是空的，这样返回 <code>null</code> 之后在上文的 <code>run()</code> 中就会退出这个线程；从而达到了回收线程的目的，也就是我们之前演示的效果<br><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g35zpt0t7zj30qo06lwg9.jpg" alt=""></li>
+<li>当线程数超过核心线程数时，在获取任务的时候需要通过保活时间从队列里获取任务；一旦获取不到任务则队列肯定是空的，这样返回 <code>null</code> 之后在上文的 <code>run()</code> 中就会退出这个线程；从而达到了回收线程的目的，也就是我们之前演示的效果<br><img src="https://i.loli.net/2019/05/20/5ce24288ddeda75126.jpg" alt=""></li>
 <li>这里需要加锁，加锁的原因是这里肯定会出现并发情况，不加锁会导致 <code>workers.size() &gt; miniSize</code> 条件多次执行，从而导致线程被全部回收完毕。</li>
 </ul>
 <h1 id="关闭线程池"><a href="#关闭线程池" class="headerlink" title="关闭线程池"></a>关闭线程池</h1><p>最后来谈谈线程关闭的事；</p>
-<p><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g35zubl8s4j30sg09zwgj.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce2428f46e6577159.jpg" alt=""></p>
 <p>还是以刚才那段测试代码为例,如果提交任务后我们没有关闭线程，会发现即便是任务执行完毕后程序也不会退出。</p>
 <p>从刚才的源码里其实也很容易看出来，不退出的原因是 <code>Worker</code> 线程一定还会一直阻塞在 <code>task = workQueue.take();</code> 处，即便是线程缩容了也不会小于核心线程数。</p>
 <p>通过堆栈也能证明：</p>
-<p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g35zx875dzj30pt09tju3.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce2428fc329642616.jpg" alt=""></p>
 <p>恰好剩下三个线程阻塞于此处。</p>
 <p>而关闭线程通常又有以下两种：</p>
 <ul>
@@ -139,23 +139,23 @@
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * 立即关闭线程池，会造成任务丢失</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">shutDownNow</span><span class="params">()</span> </span>&#123;</div><div class="line">    isShutDown.set(<span class="keyword">true</span>);</div><div class="line">    tryClose(<span class="keyword">false</span>);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">/**</span></div><div class="line"> * 关闭线程池</div><div class="line"> *</div><div class="line"> * <span class="doctag">@param</span> isTry true 尝试关闭      --&gt; 会等待所有任务执行完毕</div><div class="line"> *              false 立即关闭线程池--&gt; 任务有丢失的可能</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">tryClose</span><span class="params">(<span class="keyword">boolean</span> isTry)</span> </span>&#123;</div><div class="line">    <span class="keyword">if</span> (!isTry) &#123;</div><div class="line">        closeAllTask();</div><div class="line">    &#125; <span class="keyword">else</span> &#123;</div><div class="line">        <span class="keyword">if</span> (isShutDown.get() &amp;&amp; totalTask.get() == <span class="number">0</span>) &#123;</div><div class="line">            closeAllTask();</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">/**</span></div><div class="line"> * 关闭所有任务</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">closeAllTask</span><span class="params">()</span> </span>&#123;</div><div class="line">    <span class="keyword">for</span> (Worker worker : workers) &#123;</div><div class="line">        <span class="comment">//LOGGER.info("开始关闭");</span></div><div class="line">        worker.close();</div><div class="line">    &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">close</span><span class="params">()</span> </span>&#123;</div><div class="line">    thread.interrupt();</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>很容易看出，最终就是遍历线程池里所有的 <code>worker</code> 线程挨个执行他们的中断函数。</p>
 <p>我们来测试一下：</p>
-<p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g3605qghjbj30se0b3mza.jpg" alt=""><br><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g36062214wj30pa06dabo.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce242902d08769330.jpg" alt=""><br><img src="https://i.loli.net/2019/05/20/5ce24290912fa21399.jpg" alt=""></p>
 <p>可以发现后面丢进去的三个任务其实是没有被执行的。</p>
 <h2 id="完事后关闭"><a href="#完事后关闭" class="headerlink" title="完事后关闭"></a>完事后关闭</h2><p>而<strong>正常关闭</strong>则不一样：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * 任务执行完毕后关闭线程池</div><div class="line"> */</div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">shutdown</span><span class="params">()</span> </span>&#123;</div><div class="line">    isShutDown.set(<span class="keyword">true</span>);</div><div class="line">    tryClose(<span class="keyword">true</span>);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p><img src="http://ww1.sinaimg.cn/large/006tNc79ly1g3607gvhysj30sr07sgmt.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce2429114e7d55267.jpg" alt=""></p>
 <p>他会在这里多了一个判断，需要所有任务都执行完毕之后才会去中断线程。</p>
-<p>同时在线程需要回收时都会尝试关闭线程：<br><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g360cnm39rj30t002gwer.jpg" alt=""><br><img src="http://ww4.sinaimg.cn/large/006tNc79ly1g360dbkwy8j30st02pglt.jpg" alt=""></p>
+<p>同时在线程需要回收时都会尝试关闭线程：<br><img src="https://i.loli.net/2019/05/20/5ce24292a772464789.jpg" alt=""><br><img src="https://i.loli.net/2019/05/20/5ce24292dc72e29251.jpg" alt=""></p>
 <hr>
 <p>来看看实际效果：</p>
-<p><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g360ejafsmj30vp0fwjut.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce24292466a178764.jpg" alt=""></p>
 <h1 id="回收线程"><a href="#回收线程" class="headerlink" title="回收线程"></a>回收线程</h1><p>上文或多或少提到了线程回收的事情，其实总结就是以下两点：</p>
 <ul>
-<li>一旦执行了 <code>shutdown/shutdownNow</code> 方法都会将线程池的状态置为关闭状态，这样只要 <code>worker</code> 线程尝试从队列里获取任务时就会直接返回空，导致 <code>worker</code> 线程被回收。<br><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g360cnm39rj30t002gwer.jpg" alt=""></li>
-<li>一旦线程池大小超过了核心线程数就会使用保活时间来从队列里获取任务，所以一旦获取不到返回 <code>null</code> 时就会触发回收。<br><img src="http://ww4.sinaimg.cn/large/006tNc79ly1g360dbkwy8j30st02pglt.jpg" alt=""></li>
+<li>一旦执行了 <code>shutdown/shutdownNow</code> 方法都会将线程池的状态置为关闭状态，这样只要 <code>worker</code> 线程尝试从队列里获取任务时就会直接返回空，导致 <code>worker</code> 线程被回收。<br><img src="https://i.loli.net/2019/05/20/5ce24292a772464789.jpg" alt=""></li>
+<li>一旦线程池大小超过了核心线程数就会使用保活时间来从队列里获取任务，所以一旦获取不到返回 <code>null</code> 时就会触发回收。<br><img src="https://i.loli.net/2019/05/20/5ce24292dc72e29251.jpg" alt=""></li>
 </ul>
 <p>但如果我们的队列足够大，导致线程数都不会超过核心线程数，这样是不会触发回收的。</p>
-<p><img src="http://ww3.sinaimg.cn/large/006tNc79ly1g360jf1rpuj30ss0kn794.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/05/20/5ce24298787c153588.jpg" alt=""></p>
 <p>比如这里我将队列大小调为 10 ，这样任务就会累计在队列里，不会创建五个 <code>worker</code> 线程。</p>
 <p>所以一直都是 <code>Thread-1~3</code> 这三个线程在反复调度任务。</p>
 <h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本次实现了线程池里大部分核心功能，我相信只要看完并动手敲一遍一定会对线程池有不一样的理解。</p>
@@ -178,7 +178,7 @@
     
     <summary type="html">
     
-      &lt;p&gt;&lt;img src=&quot;http://ww1.sinaimg.cn/large/006tNc79ly1g35i5gigsjj31900u0tex.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/05/20/5ce2427967df757341.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
 &lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;原以为线程池还挺简单的（平时常用，也分析过原理），这次是想自己动手写一个线程池来更加深入的了解它；但在动手写的过程中落地到细节时发现并没想的那么容易。结合源码对比后确实不得不佩服 &lt;code&gt;Doug Lea&lt;/code&gt; 。&lt;/p&gt;
 &lt;p&gt;我觉得大部分人直接去看 &lt;code&gt;java.util.concurrent.ThreadPoolExecutor&lt;/code&gt; 的源码时都是看一个大概，因为其中涉及到了许多细节处理，还有部分 &lt;code&gt;AQS&lt;/code&gt; 的内容，所以想要理清楚具体细节并不是那么容易。&lt;/p&gt;
     
@@ -1509,9 +1509,9 @@
       <category term="cim" scheme="http://crossoverjie.top/categories/Netty/cim/"/>
     
     
-      <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
-    
       <category term="Heartbeat" scheme="http://crossoverjie.top/tags/Heartbeat/"/>
+    
+      <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
     
   </entry>
   
