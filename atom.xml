@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-05-23T17:09:40.602Z</updated>
+  <updated>2019-06-05T18:02:36.680Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,174 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>线程池没你想的那么简单（续）</title>
+    <link href="http://crossoverjie.top/2019/06/06/concurrent/threadpool-02/"/>
+    <id>http://crossoverjie.top/2019/06/06/concurrent/threadpool-02/</id>
+    <published>2019-06-06T00:10:00.000Z</published>
+    <updated>2019-06-05T18:02:36.680Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/06/06/5cf7fff98dd9f45508.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前段时间写过一篇<a href="https://crossoverjie.top/2019/05/20/concurrent/threadpool-01/">《线程池没你想的那么简单》</a>，和大家一起撸了一个基本的线程池，具备：</p>
+<ul>
+<li>线程池基本调度功能。</li>
+<li>线程池自动扩容缩容。</li>
+<li>队列缓存线程。</li>
+<li>关闭线程池。</li>
+</ul>
+<a id="more"></a>
+<p>这些功能，最后也留下了三个待实现的 <code>features</code> 。</p>
+<ul>
+<li>执行带有返回值的线程。</li>
+<li>异常处理怎么办？</li>
+<li>所有任务执行完怎么通知我？</li>
+</ul>
+<p>这次就实现这三个特性来看看 <code>j.u.c</code> 中的线程池是如何实现这些需求的。</p>
+<blockquote>
+<p>再看本文之前，强烈建议先查看上文<a href="https://crossoverjie.top/2019/05/20/concurrent/threadpool-01/">《线程池没你想的那么简单》</a></p>
+</blockquote>
+<h1 id="任务完成后的通知"><a href="#任务完成后的通知" class="headerlink" title="任务完成后的通知"></a>任务完成后的通知</h1><p>大家在用线程池的时候或多或少都会有这样的需求：</p>
+<p>线程池中的任务执行完毕后再通知主线程做其他事情，比如一批任务都执行完毕后再执行下一波任务等等。</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffa58a8081569.jpg" alt=""></p>
+<p>以我们之前的代码为例：</p>
+<blockquote>
+<p>总共往线程池中提交了 13 个任务，直到他们都执行完毕后再打印 “任务执行完毕” 这个日志。</p>
+</blockquote>
+<p>执行结果如下：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffb21f8d45495.jpg" alt=""></p>
+<p>为了简单的达到这个效果，我们可以在初始化线程池的时候传入一个接口的实现，这个接口就是用于任务完成之后的回调。</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffbe663629607.jpg" alt=""></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Notify</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 回调</div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">void</span> <span class="title">notifyListen</span><span class="params">()</span> </span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>以上就是线程池的构造函数以及接口的定义。</p>
+<p>所以想要实现这个功能的关键是在何时回调这个接口？</p>
+<p>仔细想想其实也简单：只要我们记录提交到线程池中的任务及完成的数量，他们两者的差为 0 时就认为线程池中的任务已执行完毕；这时便可回调这个接口。</p>
+<p>所以在往线程池中写入任务时我们需要记录任务数量：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffc8161b82626.jpg" alt=""></p>
+<p>为了并发安全的考虑，这里的计数器采用了原子的 <code>AtomicInteger</code> 。</p>
+<hr>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffd0634612268.jpg" alt=""></p>
+<p>而在任务执行完毕后就将计数器 -1 ，一旦为 0 时则任务任务全部执行完毕；这时便可回调我们自定义的接口完成通知。</p>
+<hr>
+<h2 id="JDK-的实现"><a href="#JDK-的实现" class="headerlink" title="JDK 的实现"></a>JDK 的实现</h2><p>这样的需求在 jdk 中的 <code>ThreadPoolExecutor</code> 中也有相关的 <code>API</code> ，只是用法不太一样，但本质原理都大同小异。</p>
+<p>我们使用 <code>ThreadPoolExecutor</code> 的常规关闭流程如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">executorService.shutdown();</div><div class="line"><span class="keyword">while</span> (!executorService.awaitTermination(<span class="number">100</span>, TimeUnit.MILLISECONDS)) &#123;</div><div class="line">    logger.info(<span class="string">"thread running"</span>);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>线程提交完毕后执行 <code>shutdown()</code> 关闭线程池，接着循环调用 <code>awaitTermination()</code> 方法，一旦任务全部执行完毕后则会返回 <code>true</code> 从而退出循环。</p>
+<p>这两个方法的目的和原理如下：</p>
+<ul>
+<li>执行 <code>shutdown()</code> 后会将线程池的状态置为关闭状态，这时将会停止接收新的任务同时会等待队列中的任务全部执行完毕后才真正关闭线程池。</li>
+<li><code>awaitTermination</code> 会阻塞直到线程池所有任务执行完毕或者超时时间已到。</li>
+</ul>
+<p>为什么要两个 <code>api</code> 结合一起使用呢？</p>
+<p>主要还在最终的目的是：所有线程执行完毕后再做某件事情，也就是在线程执行完毕之前其实主线程是需要<strong>被阻塞</strong>的。</p>
+<p><code>shutdown()</code> 执行后并不会阻塞，会立即返回，所有才需要后续用循环不停的调用 <code>awaitTermination()</code>，因为这个 api 才会阻塞线程。</p>
+<p>其实我们查看源码会发现，<code>ThreadPoolExecutor</code> 中的阻塞依然也是等待通知机制的运用，只不过用的是 <code>LockSupport</code> 的 <code>API</code> 而已。</p>
+<h1 id="带有返回值的线程"><a href="#带有返回值的线程" class="headerlink" title="带有返回值的线程"></a>带有返回值的线程</h1><p>接下来是带有返回值的线程，这个需求也非常常见；比如需要线程异步计算某些数据然后得到结果最终汇总使用。</p>
+<p>先来看看如何使用（和 jdk 的类似）：</p>
+<p>首先任务是不能实现 <code>Runnable</code> 接口了，毕竟他的 <code>run()</code> 函数是没有返回值的；所以我们改实现一个 <code>Callable</code> 的接口：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffd755d053986.jpg" alt=""></p>
+<p>这个接口有一个返回值。</p>
+<p>同时在提交任务时也稍作改动：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffe1162589733.jpg" alt=""></p>
+<p>首先是执行任务的函数由 <code>execute()</code> 换为了 <code>submit()</code>，同时他会返回一个返回值 <code>Future</code>，通过它便可拿到线程执行的结果。</p>
+<p>最后通过第二步将所有执行结果打印出来：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7ffff5b48143266.jpg" alt=""></p>
+<h2 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h2><p>再看具体实现之前先来思考下这样的功能如何实现？</p>
+<ul>
+<li>首先受限于 <code>jdk</code> 的线程 <code>api</code> 的规范，要执行一个线程不管是实现接口还是继承类，最终都是执行的 <code>run()</code> 函数。</li>
+<li>所以我们想要一个线程有返回值无非只能是在执行 <code>run()</code> 函数时去调用一个有返回值的方法，再将这个返回值存放起来用于后续使用。</li>
+</ul>
+<p>比如我们这里新建了一个 <code>Callable&lt;T&gt;</code> 的接口：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Callable</span>&lt;<span class="title">T</span>&gt; </span>&#123;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 执行任务</div><div class="line">     * <span class="doctag">@return</span> 执行结果</div><div class="line">     */</div><div class="line">    <span class="function">T <span class="title">call</span><span class="params">()</span> </span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>它的 <code>call</code> 函数就是刚才提到的有返回值的方法，所以我们应当在线程的 run() 函数中去调用它。</p>
+<p>接着还会有一个 <code>Future</code> 的接口，他的主要作用是获取线程的返回值，也就是 <code>再将这个返回值存放起来用于后续使用</code> 这里提到的<strong>后续使用</strong>。</p>
+<p>既然有了接口那自然就得有它的实现 <code>FutureTask</code>，它实现了 <code>Future</code> 接口用于后续获取返回值。</p>
+<p>同时实现了 <code>Runnable</code> 接口会把自己变为一个线程。</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7ffffe7dac41090.jpg" alt=""></p>
+<p>所以在它的 <code>run()</code> 函数中会调用刚才提到的具有返回值的 <code>call()</code> 函数。</p>
+<hr>
+<p>再次结合 <code>submit()</code> 提交任务和 <code>get()</code> 获取返回值的源码来看会更加理解这其中的门道。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * 有返回值</div><div class="line"> *</div><div class="line"> * <span class="doctag">@param</span> callable</div><div class="line"> * <span class="doctag">@param</span> &lt;T&gt;</div><div class="line"> * <span class="doctag">@return</span></div><div class="line"> */</div><div class="line"><span class="keyword">public</span> &lt;T&gt; <span class="function">Future&lt;T&gt; <span class="title">submit</span><span class="params">(Callable&lt;T&gt; callable)</span> </span>&#123;</div><div class="line">    FutureTask&lt;T&gt; future = <span class="keyword">new</span> FutureTask(callable);</div><div class="line">    execute(future);</div><div class="line">    <span class="keyword">return</span> future;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p><code>submit()</code> 非常简单，将我们丢进来的 <code>Callable</code> 对象转换为一个 <code>FutureTask</code> 对象，然后再调用之前的 <code>execute()</code> 来丢进线程池（后续的流程就和一个普通的线程进入线程池的流程一样）。</p>
+<blockquote>
+<p>FutureTask 本身也是线程，所以可以直接使用 <code>execute()</code> 函数。</p>
+</blockquote>
+<hr>
+<p>而 <code>future.get()</code> 函数中 <code>future</code> 对象由于在 <code>submit()</code> 中返回的真正对象是 <code>FutureTask</code>，所以我们直接看其中的源码就好。</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf80005766ef25838.jpg" alt=""></p>
+<p>由于 <code>get()</code> 在线程没有返回之前是一个阻塞函数，最终也是通过 <code>notify.wait()</code> 使线程进入阻塞状态来实现的。</p>
+<p>而使其从 <code>wait()</code> 中返回的条件必然是在线程执行完毕拿到返回值的时候才进行唤醒。</p>
+<p>也就是图中的第二部分；一旦线程执行完毕（<code>callable.call()</code>）就会唤醒 <code>notify</code> 对象，这样 <code>get</code> 方法也就能返回了。</p>
+<hr>
+<p>同样的道理，<code>ThreadPoolExecutor</code> 中的原理也是类似，只不过它考虑的细节更多所以看起来很复杂，但精简代码后核心也就是这些。</p>
+<p>甚至最终使用的 api 看起来都是类似的：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf80006c916e52248.jpg" alt=""></p>
+<h1 id="异常处理"><a href="#异常处理" class="headerlink" title="异常处理"></a>异常处理</h1><p>最后一个是一些新手使用线程池很容易踩坑的一个地方：那就是异常处理。</p>
+<p>比如类似于这样的场景：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf8000749e6c64762.jpg" alt=""></p>
+<p>创建了只有<strong>一个线程</strong>的线程池，这个线程只做一件事，就是一直不停的 while 循环。</p>
+<p>但是循环的过程中不小心抛出了一个异常，巧的是这个异常又没有被捕获。你觉得后续会发生什么事情呢？</p>
+<p>是线程继续运行？还是线程池会退出？</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf800079d51a22414.jpg" alt=""></p>
+<p>通过现象来看其实哪种都不是，线程既没有继续运行同时线程池也没有退出，会一直卡在这里。</p>
+<p>当我们 <code>dump</code> 线程快照会发现：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf8000823ad870419.jpg" alt=""></p>
+<p>这时线程池中还有一个线程在运行，通过线程名称会发现这是新创建的一个线程（之前是<code>Thread-0</code>，现在是 <code>Thread-1</code>）。</p>
+<p>它的线程状态为 <code>WAITING</code> ，通过堆栈发现是卡在了 <code>CustomThreadPool.java:272</code> 处。</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf8000872d1f43610.jpg" alt=""></p>
+<p>就是卡在了从队列里获取任务的地方，由于此时的任务队列是空的，所以他会一直阻塞在这里。</p>
+<p><strong>看到这里，之前关注的朋友有没有似曾相识的感觉。</strong></p>
+<p>没错，我之前写过两篇：</p>
+<ul>
+<li><a href="https://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/">一个线程罢工的诡异事件</a></li>
+<li><a href="https://crossoverjie.top/2019/03/26/troubleshoot/thread-gone2/">线程池中你不容错过的一些细节</a></li>
+</ul>
+<p>线程池相关的问题，当时的讨论也非常<code>“激烈”</code>，其实最终的原因和这里是一模一样的。</p>
+<p>所以就这次简版的代码来看看其中的问题：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf80008d46e642627.jpg" alt=""></p>
+<p>现在又简化了一版代码我觉得之前还有疑问的朋友这次应该会更加明白。</p>
+<p>其实在线程池内部会对线程的运行捕获异常，但它并不会处理，只是用于标记是否执行成功；</p>
+<p>一旦执行失败则会回收掉当前异常的线程，然后重新创建一个新的 <code>Worker</code> 线程继续从<strong>队列里取任务然后执行</strong>。</p>
+<p>所以最终才会卡在<code>从队列中取任务</code>处。</p>
+<p>其实 <code>ThreadPoolExecutor</code> 的异常处理也是类似的，具体的源码就不多分析了，在上面两篇文章中已经说过几次。</p>
+<p><strong>所以我们在使用线程池时，其中的任务一定要做好异常处理。</strong></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这一波下来我觉得线程池搞清楚没啥问题了，总的来看它内部运用了非常多的多线程解决方案，比如：</p>
+<ul>
+<li><code>ReentrantLock</code> 重入锁来保证线程写入的并发安全。</li>
+<li>利用等待通知机制来实现线程间通信（线程执行结果、等待线程池执行完毕等）。</li>
+</ul>
+<p>最后也学会了：</p>
+<ul>
+<li>标准的线程池关闭流程。</li>
+<li>如何使用有返回值的线程。</li>
+<li>线程异常捕获的重要性。</li>
+</ul>
+<p>最后本文所有源码（结合其中的测试代码使用）：</p>
+<p><a href="https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/concurrent/CustomThreadPool.java" target="_blank" rel="external">https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/concurrent/CustomThreadPool.java</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/06/06/5cf7fff98dd9f45508.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;前段时间写过一篇&lt;a href=&quot;https://crossoverjie.top/2019/05/20/concurrent/threadpool-01/&quot;&gt;《线程池没你想的那么简单》&lt;/a&gt;，和大家一起撸了一个基本的线程池，具备：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;线程池基本调度功能。&lt;/li&gt;
+&lt;li&gt;线程池自动扩容缩容。&lt;/li&gt;
+&lt;li&gt;队列缓存线程。&lt;/li&gt;
+&lt;li&gt;关闭线程池。&lt;/li&gt;
+&lt;/ul&gt;
+    
+    </summary>
+    
+      <category term="并发" scheme="http://crossoverjie.top/categories/%E5%B9%B6%E5%8F%91/"/>
+    
+    
+      <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
+    
+      <category term="ThreadPool" scheme="http://crossoverjie.top/tags/ThreadPool/"/>
+    
+  </entry>
   
   <entry>
     <title>年轻人的第一篇博客</title>
@@ -2332,119 +2500,6 @@
       <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
     
       <category term="disruptor" scheme="http://crossoverjie.top/tags/disruptor/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>没错，老板让我写个 BUG！</title>
-    <link href="http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/"/>
-    <id>http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/</id>
-    <published>2018-12-12T00:01:36.000Z</published>
-    <updated>2019-05-07T17:44:51.863Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/05/08/5cd1c38cba7ec.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>标题没有看错，真的是让我写个 <code>bug</code>！</p>
-<p>刚接到这个需求时我内心没有丝毫波澜，甚至还有点激动。这可是我特长啊；终于可以光明正大的写 <code>bug</code> 了🙄。</p>
-<p>先来看看具体是要干啥吧，其实主要就是要让一些负载很低的服务器额外消耗一些内存、CPU 等资源（至于背景就不多说了），让它的负载可以提高一些。</p>
-<a id="more"></a>
-<h1 id="JVM-内存分配回顾"><a href="#JVM-内存分配回顾" class="headerlink" title="JVM 内存分配回顾"></a>JVM 内存分配回顾</h1><p>于是我刷刷一把梭的就把代码写好了，大概如下：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3c278c42.jpg" alt=""></p>
-<p>写完之后我就在想一个问题，代码中的 <code>mem</code> 对象在方法执行完之后会不会被立即回收呢？我想肯定会有一部分人认为就是在方法执行完之后回收。</p>
-<p>我也正儿八经的去调研了下，问了一些朋友；果不其然确实有一部分认为是在方法执行完毕之后回收。</p>
-<p>那事实情况如何呢？我做了一个试验。</p>
-<p>我用以下的启动参数将刚才这个应用启动起来。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">java -Djava.rmi.server.hostname=<span class="number">10</span>.xx.xx.xx </div><div class="line">-Djava.security.policy=jstatd.all.policy </div><div class="line">-Dcom.sun.management.jmxremote.authenticate=<span class="keyword">false</span> </div><div class="line">-Dcom.sun.management.jmxremote.ssl=<span class="keyword">false</span> </div><div class="line">-Dcom.sun.management.jmxremote.port=<span class="number">8888</span>  </div><div class="line">-Xms4g -Xmx4g  -jar bug-<span class="number">0.0</span>.1-SNAPSHOT.jar</div></pre></td></tr></table></figure>
-<p>这样我就可以通过 JMX 端口远程连接到这个应用观察内存、GC 情况了。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c39bc036e.jpg" alt=""></p>
-<hr>
-<p>如果是方法执行完毕就回收 <code>mem</code> 对象，当我分配 <code>250M</code> 内存时；内存就会有一个明显的曲线，同时 GC 也会执行。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c39f7851e.jpg" alt=""></p>
-<hr>
-<p>这时观察内存曲线。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3a9d62ef.jpg" alt=""></p>
-<p>会发现确实有明显的涨幅，但是之后并没有立即回收，而是一直保持在这个水位。同时左边的 GC 也没有任何的反应。</p>
-<p>用 <code>jstat</code> 查看内存布局也是同样的情况。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3b066f78.jpg" alt=""></p>
-<p>不管是 <code>YGC,FGC</code> 都没有，只是 Eden 区的使用占比有所增加，毕竟分配了 250M 内存嘛。</p>
-<p>那怎样才会回收呢？</p>
-<p>我再次分配了两个 250M 之后观察内存曲线。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3b2edd01.jpg" alt=""></p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3b7b078d.jpg" alt=""></p>
-<p>发现第三个 250M 的时候 <code>Eden</code> 区达到了 <code>98.83%</code> 于是再次分配时就需要回收 <code>Eden</code> 区产生了 <code>YGC</code>。</p>
-<p>同时内存曲线也得到了下降。</p>
-<p>整个的换算过程如图：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3bad06b4.jpg" alt=""></p>
-<p>由于初始化的堆内存为 <code>4G</code>，所以算出来的 <code>Eden</code> 区大概为 <code>1092M</code> 内存。</p>
-<p>加上应用启动 <code>Spring</code> 之类消耗的大约 <code>20%</code> 内存，所以分配 3 次 250M 内存就会导致 <code>YGC</code>。</p>
-<p>再来回顾下刚才的问题：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3c278c42.jpg" alt=""></p>
-<p><code>mem</code> 对象既然在方法执行完毕后不会回收，那什么时候回收呢。</p>
-<p>其实只要记住一点即可：<strong>对象都需要垃圾回收器发生 <code>GC</code> 时才能回收；不管这个对象是局部变量还是全局变量。</strong></p>
-<p>通过刚才的实验也发现了，当 <code>Eden</code> 区空间不足产生 <code>YGC</code> 时才会回收掉我们创建的 <code>mem</code> 对象。</p>
-<p>但这里其实还有一个隐藏条件：那就是这个对象是<strong>局部变量</strong>。如果该对象是全局变量那依然不能被回收。</p>
-<p>也就是我们常说的<strong>对象不可达</strong>，这样不可达的对象在 <code>GC</code> 发生时就会被认为是需要回收的对象从而进行回收。</p>
-<p>在多考虑下，为什么有些人会认为方法执行完毕后局部变量会被回收呢？</p>
-<p>我想这应当是记混了，其实方法执行完毕后回收的是<code>栈帧</code>。</p>
-<p>它最直接的结果就是导致 <code>mem</code> 这个对象没有被引用了。但没有引用并不代表会被马上回收，也就是上面说到的需要产生 <code>GC</code> 才会回收。</p>
-<p>所以使用的是上面提到的对象不可达所采用的<strong>可达性分析算法</strong>来表明哪些对象需要被回收。</p>
-<p>当对象没有被引用后也就认为不可达了。</p>
-<p>这里有一张动图比较清晰：</p>
-<p><img src="https://camo.githubusercontent.com/dc705fafcecd5df825706c0599a5993a1d8e4351/68747470733a2f2f75706c6f61642e77696b696d656469612e6f72672f77696b6970656469612f636f6d6d6f6e732f342f34612f416e696d6174696f6e5f6f665f7468655f4e616976655f4d61726b5f616e645f53776565705f476172626167655f436f6c6c6563746f725f416c676f726974686d2e676966" alt=""></p>
-<p>当方法执行完之后其中的 <code>mem</code> 对象就相当于图中的 <code>Object 5</code>，所以在 <code>GC</code> 时候就会回收掉。</p>
-<h2 id="优先在-Eden-区分配对象"><a href="#优先在-Eden-区分配对象" class="headerlink" title="优先在 Eden 区分配对象"></a>优先在 Eden 区分配对象</h2><p>其实从上面的例子中可以看出对象是优先分配在新生代中 Eden 区的，但有个前提就是对象不能太大。</p>
-<p>以前也写过相关的内容：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3c5ab0af.jpg" alt=""></p>
-<h2 id="大对象直接进入老年代"><a href="#大对象直接进入老年代" class="headerlink" title="大对象直接进入老年代"></a>大对象直接进入老年代</h2><p>而大对象则是直接分配到老年代中（至于多大算大，可以通过参数配置）。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3c730526.jpg" alt=""></p>
-<hr>
-<p>当我直接分配 1000M 内存时，由于 Eden 区不能直接装下，所以改为分配在老年代中。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3ca2e8ae.jpg" alt=""></p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3cd20694.jpg" alt=""></p>
-<p>可以看到 <code>Eden</code> 区几乎没有变动，但是老年代却涨了 37% ，根据之前计算的老年代内存 <code>2730M</code> 算出来也差不多是 <code>1000M</code> 的内存。</p>
-<h1 id="Linux-内存查看"><a href="#Linux-内存查看" class="headerlink" title="Linux 内存查看"></a>Linux 内存查看</h1><p>回到这次我需要完成的需求：增加服务器内存和 CPU 的消耗。</p>
-<p>CPU 还好，本身就有一定的使用，同时每创建一个对象也会消耗一些 CPU。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3ceaf475.jpg" alt=""></p>
-<p>主要是内存,先来看下没启动这个应用之前的内存情况。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3cfecdb7.jpg" alt=""></p>
-<p>大概只使用了 3G 的内存。</p>
-<p>启动应用之后大概只消耗了 600M 左右的内存。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3d7b8325.jpg" alt=""></p>
-<p>为了满足需求我需要分配一些内存，但这里有点需要讲究。</p>
-<p>不能一直分配内存，这样会导致 CPU 负载太高了，同时内存也会由于 GC 回收导致占用也不是特别多。</p>
-<p>所以我需要少量的分配，让大多数对象在新生代中，为了不被回收需要保持在百分之八九十。</p>
-<p>同时也需要分配一些大对象到老年代中，也要保持老年代的使用在百分之八九十。</p>
-<p>这样才能最大限度的利用这 4G 的堆内存。</p>
-<p>于是我做了以下操作：</p>
-<ul>
-<li>先分配一些小对象在新生代中（800M）保持新生代在90%</li>
-<li>接着又分配了<code>老年代内 *（100%-已使用的28%）；也就是 2730*60%=1638M</code> 让老年代也在 90% 左右。</li>
-</ul>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3d9acf62.jpg" alt=""></p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3e0ac17a.jpg" alt=""></p>
-<p>效果如上。</p>
-<p>最主要的是一次 <code>GC</code> 都没有发生这样也就达到了我的目的。</p>
-<p>最终内存消耗了 3.5G 左右。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3e398b1b.jpg" alt=""></p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>虽说这次的需求是比较奇葩，但想要精确的控制 <code>JVM</code> 的内存分配还是没那么容易。</p>
-<p>需要对它的内存布局，回收都要有一定的了解，写这个 Bug 的过程确实也加深了印象，如果对你有所帮助请不要吝啬你的点赞与分享。</p>
-<p><strong>你的点赞与分享是对我最大的支持</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/05/08/5cd1c38cba7ec.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;标题没有看错，真的是让我写个 &lt;code&gt;bug&lt;/code&gt;！&lt;/p&gt;
-&lt;p&gt;刚接到这个需求时我内心没有丝毫波澜，甚至还有点激动。这可是我特长啊；终于可以光明正大的写 &lt;code&gt;bug&lt;/code&gt; 了🙄。&lt;/p&gt;
-&lt;p&gt;先来看看具体是要干啥吧，其实主要就是要让一些负载很低的服务器额外消耗一些内存、CPU 等资源（至于背景就不多说了），让它的负载可以提高一些。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Java 进阶" scheme="http://crossoverjie.top/categories/Java-%E8%BF%9B%E9%98%B6/"/>
-    
-    
-      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
-    
-      <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
     
   </entry>
   
