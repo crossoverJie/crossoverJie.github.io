@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-06-05T18:02:36.680Z</updated>
+  <updated>2019-06-12T16:34:00.917Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,99 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>分表后需要注意的二三事</title>
+    <link href="http://crossoverjie.top/2019/06/13/framework-design/sharding-db-02/"/>
+    <id>http://crossoverjie.top/2019/06/13/framework-design/sharding-db-02/</id>
+    <published>2019-06-13T00:10:00.000Z</published>
+    <updated>2019-06-12T16:34:00.917Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/06/13/5d0126117f21c68357.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>本篇是上一篇<a href="https://crossoverjie.top/2019/04/16/framework-design/sharding-db/">《一次分表踩坑实践的探讨》</a>，所以还没看过的朋友建议先看上文。</p>
+<p>还是先来简单回顾下上次提到了哪些内容：</p>
+<ul>
+<li>分表策略：哈希、时间归档等。</li>
+<li>分表字段的选择。</li>
+<li>数据迁移方案。</li>
+</ul>
+<a id="more"></a>
+<p>而本篇文章的背景是在我们上线这段时间遇到的一些问题并尝试解决的方案。</p>
+<h1 id="问题产生"><a href="#问题产生" class="headerlink" title="问题产生"></a>问题产生</h1><p>之前提到在分表应用上线前我们需要将原有表的数据迁移到新表中，这样才能保证业务不受影响。</p>
+<p><img src="https://i.loli.net/2019/06/13/5d0126128f1e678414.jpg" alt=""></p>
+<p>所以我们单独写了一个迁移应用，它负责将大表中的数据迁移到 64 张分表，而再迁移过程中产生的数据毕竟是少数，最后在上线当晚再次迁移过去即可。</p>
+<p>一切想的很美好，当这个应用上线后却发现没这么简单。</p>
+<h2 id="数据库负载升高"><a href="#数据库负载升高" class="headerlink" title="数据库负载升高"></a>数据库负载升高</h2><p>首先第一个问题是数据库自己就顶不住了，在我们上这个迁移程序之前数据库的压力本身就比较大，这个应用一上去就成了最后一根稻草。</p>
+<p>最后导致的结果是：所有连接了数据库的程序大部分的操作都出现超时，获取不到数据库连接等一系列的异常。</p>
+<p>最后没办法我们只能把这个应用放到凌晨执行，但其实后面观察发现依然不行。</p>
+<p>虽说凌晨的业务量下降，但依然有少部分的请求过来，也会出现各种数据库异常。</p>
+<p>再一个是迁移程序的效率也非常低下，按照这样是速度，我们预估了一下迁移时间，大约需要 10 几天才能把三张最大的表（3、4亿的数据）迁移到分表中。</p>
+<p>于是我们换了一个方案，将这个迁移程序在从库中运行，最后再用运维的方法将分表直接导入进主库。</p>
+<p>因为从库的压力要比主库小很多，对业务的影响很小，同时迁移的效率也要快很多。</p>
+<p>即便是这样也花了一晚上+一个白天的时间才将一张 1亿的数据迁移完成，但是业务上的压力越来越大，数据量再不断新增，这个效率依然不够。</p>
+<h1 id="兼容方案"><a href="#兼容方案" class="headerlink" title="兼容方案"></a>兼容方案</h1><p>最终没办法只有想一个不迁移数据的方案，但是新产生的数据还是往分表里写，至少保证大表的数据不再新增。</p>
+<p>但这样对于以前的数据咋办呢？总不能不让看了吧。</p>
+<p>其实对于数据的操作无非就分为<code>增删改查</code>，就这四种操作来看看如何兼容。</p>
+<h2 id="新增"><a href="#新增" class="headerlink" title="新增"></a>新增</h2><p><img src="https://i.loli.net/2019/06/13/5d012612de57f13422.jpg" alt=""></p>
+<p>新增最简单，所有的数据根据分表规则直接写入新表，这样可以保证老表的数据不再新增。</p>
+<h2 id="删除"><a href="#删除" class="headerlink" title="删除"></a>删除</h2><p>删除就要比新增稍微复杂一些，比如用户想要删除他个人产生的一条信息（比如说是订单数据），有可能这个数据在新表也可能在老表。</p>
+<p><img src="https://i.loli.net/2019/06/13/5d01261336daf24547.jpg" alt=""></p>
+<p>所以删除时优先删除新表（毕竟新产生的数据访问的频次越高），如果删除失败再从老表删除一次。</p>
+<h2 id="修改"><a href="#修改" class="headerlink" title="修改"></a>修改</h2><p><img src="https://i.loli.net/2019/06/13/5d01261380d6599845.jpg" alt=""></p>
+<p>而修改同理，同样的会不确定数据存在于哪里，所以先要修改新表，失败后再次修改老表。</p>
+<h2 id="查询"><a href="#查询" class="headerlink" title="查询"></a>查询</h2><p>查询相对就要复杂一些了，因为这些大表的数据大部分都是存放一个用户产生的多条记录（比如一个用户的订单信息）。</p>
+<p>这时在页面上通常都会有分页，并且按照时间进行排序。</p>
+<p>麻烦的地方就出在这里：既然是要分页那就有可能出现要查询一部分分表数据和原来的大表数据做组合。</p>
+<p>所以这里的查询其实分为三种情况。</p>
+<p><img src="https://i.loli.net/2019/06/13/5d012613da28015150.jpg" alt=""></p>
+<ul>
+<li>首先查询的时候要计算这个用户所在分表中的数据可以分为几页。</li>
+<li>第一步首先判断当前页是否可以在分表中全部获取，如果可以则直接从分表中取出数据返回（假设分页中总共可以查询 2 页数据，当前为第 1 页，那就全部取分表数据）。</li>
+<li>如果不可以就要判断当前页数在分表中是否取不到任何一条数据，如果是则直接取老表数据（比如现在要取第 5 页的数据，分表中一共才只有 2 页数据，所以第 5 页数据只能全部从老表中获取）。</li>
+<li>但如果分表和老表都存在一部分数据时，则需要同时取两张表然后做一个汇总再返回。</li>
+</ul>
+<p><strong>这种逻辑只适用于根据分表字段进行查询分页的前提下</strong></p>
+<hr>
+<p>我想肯定会有朋友提出这样是否会有性能问题？</p>
+<p>同时如果在计算分表分页数量时出现并发写入的情况，导致分页数量不准从而对后续的查询出现影响该怎么处理？</p>
+<p>首先第一个性能问题：</p>
+<p>其实这个要看怎么取舍，为了这样的兼容目的其实会比常规查询多出几个步骤：</p>
+<ul>
+<li>判断当前页是否可以在分表中查询。</li>
+<li>当新老表中都有数据时候需要额外多查询一张大表。</li>
+</ul>
+<p>第一个判断逻辑其实是在内存中计算，这个损耗我觉得完全可以忽略不计。</p>
+<p>至于第二步确实会有损耗，毕竟多查了一张表。</p>
+<p>但在分表之前所有的数据都是从老表中获取的，当时的业务也没有出现问题；现在多的只是查询分表而已，但分表的数据量肯定要比大表小的多，而且有索引，所以这个效率也不会慢多少。</p>
+<p>而且根据局部性原理及用户的使用习惯来看，老表中的数据很少会去查询，随着时间的推移所有的数据肯定都会从分表中获取，逐渐老表就会成为历史表。</p>
+<p>而第二个并发带来的问题我觉得影响也不大，一定要这个分页准的前提肯定得是加锁了，但为了这样一个不痒的小问题却带来性能的下降，我觉得是不划算的。</p>
+<p>而且后续我们也可以慢慢的将老表的数据迁移到新表，这样就可以完全去掉这个兼容逻辑了，所有的数据都从分表中获取。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>还是之前那句话，这里的各种操作、方法不适合所有人，毕竟脱离场景都是耍牛氓。</p>
+<p>比如分表搞的早，业务上允许一定的时间将数据迁移到分表那就不会有这次的兼容处理。</p>
+<p>甚至一开始业务规划合理、团队架构师看的长远，一来就将关键数据分表存储那根本就不会有数据迁移这个流程（大厂有经验的团队可能，小公司小作坊都得靠自己摸索）。</p>
+<p>这段期间也被数据库折腾惨了，数据库是最后一根稻草果然也不是瞎说的。</p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/06/13/5d0126117f21c68357.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;本篇是上一篇&lt;a href=&quot;https://crossoverjie.top/2019/04/16/framework-design/sharding-db/&quot;&gt;《一次分表踩坑实践的探讨》&lt;/a&gt;，所以还没看过的朋友建议先看上文。&lt;/p&gt;
+&lt;p&gt;还是先来简单回顾下上次提到了哪些内容：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;分表策略：哈希、时间归档等。&lt;/li&gt;
+&lt;li&gt;分表字段的选择。&lt;/li&gt;
+&lt;li&gt;数据迁移方案。&lt;/li&gt;
+&lt;/ul&gt;
+    
+    </summary>
+    
+      <category term="架构" scheme="http://crossoverjie.top/categories/%E6%9E%B6%E6%9E%84/"/>
+    
+    
+      <category term="db" scheme="http://crossoverjie.top/tags/db/"/>
+    
+  </entry>
   
   <entry>
     <title>线程池没你想的那么简单（续）</title>
@@ -741,7 +834,7 @@
     <link href="http://crossoverjie.top/2019/04/16/framework-design/sharding-db/"/>
     <id>http://crossoverjie.top/2019/04/16/framework-design/sharding-db/</id>
     <published>2019-04-16T00:20:00.000Z</published>
-    <updated>2019-04-29T01:28:54.581Z</updated>
+    <updated>2019-06-11T16:54:38.649Z</updated>
     
     <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/04/29/5cc65343e8bc4.jpg" alt=""></p>
 <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>之前不少人问我“能否分享一些分库分表相关的实践”，其实不是我不分享，而是真的经验不多🤣；和大部分人一样都是停留在理论阶段。</p>
@@ -799,7 +892,7 @@
 <li>雪花算法统一生成主键ID。</li>
 </ul>
 <p>大家可以根据自己的实际情况做选择。</p>
-<h1 id="业务调整"><a href="#业务调整" class="headerlink" title="业务调整"></a>业务调整</h1><p>因为我们并没有使用第三方的 sharding-jdbc 组件，所有没有办法做到对代码的低侵入性；每个涉及到分表的业务代码都需要做底层方法的改造（也就是路由到正确的表）。</p>
+<h1 id="业务调整"><a href="#业务调整" class="headerlink" title="业务调整"></a>业务调整</h1><p>因为我们并没有使用第三方的 sharding-jdbc 组件，所以没有办法做到对代码的低侵入性；每个涉及到分表的业务代码都需要做底层方法的改造（也就是路由到正确的表）。</p>
 <p>考虑到后续业务的发展，我们决定将拆分的表分为 64 张；加上后续引入大数据平台足以应对几年的数据增长。</p>
 <blockquote>
 <p>这里还有个小细节需要注意：分表的数量需要为 2∧N 次方，因为在取模的这种分表方式下，即便是今后再需要分表影响的数据也会尽量的小。</p>
@@ -2277,9 +2370,9 @@
     
       <category term="Zookeeper" scheme="http://crossoverjie.top/tags/Zookeeper/"/>
     
-      <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
-    
       <category term="推送" scheme="http://crossoverjie.top/tags/%E6%8E%A8%E9%80%81/"/>
+    
+      <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
     
       <category term="IOT" scheme="http://crossoverjie.top/tags/IOT/"/>
     
@@ -2393,113 +2486,6 @@
     
       <category term="annual-summary" scheme="http://crossoverjie.top/categories/annual-summary/"/>
     
-    
-  </entry>
-  
-  <entry>
-    <title>一次生产 CPU 100% 排查优化实践</title>
-    <link href="http://crossoverjie.top/2018/12/17/troubleshoot/cpu-percent-100/"/>
-    <id>http://crossoverjie.top/2018/12/17/troubleshoot/cpu-percent-100/</id>
-    <published>2018-12-17T00:15:36.000Z</published>
-    <updated>2019-05-07T17:44:51.196Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/05/08/5cd1c380ee196.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>到了年底果然都不太平，最近又收到了运维报警：表示有些服务器负载非常高，让我们定位问题。</p>
-<p>还真是想什么来什么，前些天还故意把某些服务器的负载提高（<a href="https://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/">没错，老板让我写个 BUG！</a>），不过还好是不同的环境互相没有影响。</p>
-<a id="more"></a>
-<h1 id="定位问题"><a href="#定位问题" class="headerlink" title="定位问题"></a>定位问题</h1><p>拿到问题后首先去服务器上看了看，发现运行的只有我们的 Java 应用。于是先用 <code>ps</code> 命令拿到了应用的 <code>PID</code>。</p>
-<p>接着使用 <code>top -Hp pid</code> 将这个进程的线程显示出来。输入大写的 P 可以将线程按照 CPU 使用比例排序，于是得到以下结果。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c38c19186.jpg" alt=""></p>
-<p>果然某些线程的 CPU 使用率非常高。</p>
-<p>为了方便定位问题我立马使用 <code>jstack pid &gt; pid.log</code> 将线程栈 <code>dump</code> 到日志文件中。</p>
-<p>我在上面 100% 的线程中随机选了一个 <code>pid=194283</code> 转换为 16 进制（2f6eb）后在线程快照中查询：</p>
-<blockquote>
-<p>因为线程快照中线程 ID 都是16进制存放。</p>
-</blockquote>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3910d043.jpg" alt=""></p>
-<p>发现这是 <code>Disruptor</code> 的一个堆栈，前段时间正好解决过一个由于 Disruptor 队列引起的一次 <a href="">OOM</a>：<a href="https://crossoverjie.top/2018/08/29/java-senior/OOM-Disruptor/">强如 Disruptor 也发生内存溢出？</a></p>
-<p>没想到又来一出。</p>
-<p>为了更加直观的查看线程的状态信息，我将快照信息上传到专门分析的平台上。</p>
-<p><a href="http://fastthread.io/" target="_blank" rel="external">http://fastthread.io/</a></p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3ab0f5ff.jpg" alt=""></p>
-<p>其中有一项菜单展示了所有消耗 CPU 的线程，我仔细看了下发现几乎都是和上面的堆栈一样。</p>
-<p>也就是说都是 <code>Disruptor</code> 队列的堆栈，同时都在执行 <code>java.lang.Thread.yield</code> 函数。</p>
-<p>众所周知 <code>yield</code> 函数会让当前线程让出 <code>CPU</code> 资源，再让其他线程来竞争。</p>
-<p>根据刚才的线程快照发现处于 <code>RUNNABLE</code> 状态并且都在执行 <code>yield</code> 函数的线程大概有 30几个。</p>
-<p>因此初步判断为大量线程执行 <code>yield</code> 函数之后互相竞争导致 CPU 使用率增高，而通过对堆栈发现是和使用 <code>Disruptor</code> 有关。</p>
-<h1 id="解决问题"><a href="#解决问题" class="headerlink" title="解决问题"></a>解决问题</h1><p>而后我查看了代码，发现是根据每一个业务场景在内部都会使用 2 个 <code>Disruptor</code> 队列来解耦。</p>
-<p>假设现在有 7 个业务类型，那就等于是创建 <code>2*7=14</code> 个 <code>Disruptor</code> 队列，同时每个队列有一个消费者，也就是总共有 14 个消费者（生产环境更多）。</p>
-<p>同时发现配置的消费等待策略为 <code>YieldingWaitStrategy</code> 这种等待策略确实会执行 yield 来让出 CPU。</p>
-<p>代码如下：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3ae66cc2.jpg" alt=""></p>
-<blockquote>
-<p>初步看来和这个等待策略有很大的关系。</p>
-</blockquote>
-<h2 id="本地模拟"><a href="#本地模拟" class="headerlink" title="本地模拟"></a>本地模拟</h2><p>为了验证，我在本地创建了 15 个 <code>Disruptor</code> 队列同时结合监控观察 CPU 的使用情况。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3b0d6d5a.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1c3b3ef165.jpg" alt=""></p>
-<p>创建了 15 个 <code>Disruptor</code> 队列，同时每个队列都用线程池来往 <code>Disruptor队列</code> 里面发送 100W 条数据。</p>
-<p>消费程序仅仅只是打印一下。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3b66fafb.jpg" alt=""></p>
-<p>跑了一段时间发现 CPU 使用率确实很高。</p>
-<hr>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3c197591.jpg" alt=""></p>
-<p>同时 <code>dump</code> 线程发现和生产的现象也是一致的：消费线程都处于 <code>RUNNABLE</code> 状态，同时都在执行 <code>yield</code>。</p>
-<p>通过查询 <code>Disruptor</code> 官方文档发现：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3cc50d2b.jpg" alt=""></p>
-<blockquote>
-<p>YieldingWaitStrategy 是一种充分压榨 CPU 的策略，使用<code>自旋 + yield</code>的方式来提高性能。<br>当消费线程（Event Handler threads）的数量小于 CPU 核心数时推荐使用该策略。</p>
-</blockquote>
-<hr>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3cfde11c.jpg" alt=""></p>
-<p>同时查阅到其他的等待策略 <code>BlockingWaitStrategy</code> （也是默认的策略），它使用的是锁的机制，对 CPU 的使用率不高。</p>
-<p>于是在和之前同样的条件下将等待策略换为 <code>BlockingWaitStrategy</code>。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3d7796af.jpg" alt=""></p>
-<hr>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3d9e7670.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1c3dd370af.jpg" alt=""></p>
-<p>和刚才的 CPU 对比会发现到后面使用率的会有明显的降低；同时 dump 线程后会发现大部分线程都处于 waiting 状态。</p>
-<h2 id="优化解决"><a href="#优化解决" class="headerlink" title="优化解决"></a>优化解决</h2><p>看样子将等待策略换为 <code>BlockingWaitStrategy</code> 可以减缓 CPU 的使用，</p>
-<p>但留意到官方对 <code>YieldingWaitStrategy</code> 的描述里谈道：<br>当消费线程（Event Handler threads）的数量小于 CPU 核心数时推荐使用该策略。</p>
-<p>而现有的使用场景很明显消费线程数已经大大的超过了核心 CPU 数了，因为我的使用方式是一个 <code>Disruptor</code> 队列一个消费者，所以我将队列调整为只有 1 个再试试(策略依然是 <code>YieldingWaitStrategy</code>)。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3e03d6b7.jpg" alt=""></p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3e2eaafb.jpg" alt=""></p>
-<p>跑了一分钟，发现 CPU 的使用率一直都比较平稳而且不高。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>所以排查到此可以有一个结论了，想要根本解决这个问题需要将我们现有的业务拆分；现在是一个应用里同时处理了 N 个业务，每个业务都会使用好几个 <code>Disruptor</code> 队列。</p>
-<p>由于是在一台服务器上运行，所以 CPU 资源都是共享的，这就会导致 CPU 的使用率居高不下。</p>
-<p>所以我们的调整方式如下：</p>
-<ul>
-<li>为了快速缓解这个问题，先将等待策略换为 <code>BlockingWaitStrategy</code>，可以有效降低 CPU 的使用率（业务上也还能接受）。</li>
-<li>第二步就需要将应用拆分（上文模拟的一个 <code>Disruptor</code> 队列），一个应用处理一种业务类型；然后分别单独部署，这样也可以互相隔离互不影响。</li>
-</ul>
-<p>当然还有其他的一些优化，因为这也是一个老系统了，这次 dump 线程居然发现创建了 800+ 的线程。</p>
-<p>创建线程池的方式也是核心线程数、最大线程数是一样的，导致一些空闲的线程也得不到回收；这样会有很多无意义的资源消耗。</p>
-<p>所以也会结合业务将创建线程池的方式调整一下，将线程数降下来，尽量的物尽其用。</p>
-<p>本文的演示代码已上传至 GitHub：</p>
-<p><a href="https://github.com/crossoverJie/JCSprout/tree/master/src/main/java/com/crossoverjie/disruptor" target="_blank" rel="external">https://github.com/crossoverJie/JCSprout</a></p>
-<p><strong>你的点赞与分享是对我最大的支持</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/05/08/5cd1c380ee196.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;到了年底果然都不太平，最近又收到了运维报警：表示有些服务器负载非常高，让我们定位问题。&lt;/p&gt;
-&lt;p&gt;还真是想什么来什么，前些天还故意把某些服务器的负载提高（&lt;a href=&quot;https://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/&quot;&gt;没错，老板让我写个 BUG！&lt;/a&gt;），不过还好是不同的环境互相没有影响。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="问题排查" scheme="http://crossoverjie.top/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/"/>
-    
-      <category term="Java 进阶" scheme="http://crossoverjie.top/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/Java-%E8%BF%9B%E9%98%B6/"/>
-    
-    
-      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
-    
-      <category term="Thread" scheme="http://crossoverjie.top/tags/Thread/"/>
-    
-      <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
-    
-      <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
-    
-      <category term="disruptor" scheme="http://crossoverjie.top/tags/disruptor/"/>
     
   </entry>
   
