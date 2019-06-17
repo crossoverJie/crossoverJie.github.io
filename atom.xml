@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-06-12T16:55:42.813Z</updated>
+  <updated>2019-06-17T16:57:17.351Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,100 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>再一次生产 CPU 高负载排查实践</title>
+    <link href="http://crossoverjie.top/2019/06/18/troubleshoot/cpu-percent-100-02/"/>
+    <id>http://crossoverjie.top/2019/06/18/troubleshoot/cpu-percent-100-02/</id>
+    <published>2019-06-18T00:15:36.000Z</published>
+    <updated>2019-06-17T16:57:17.351Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/06/18/5d07c34d2973a58018.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前几日早上打开邮箱收到一封监控报警邮件：某某 ip 服务器 CPU 负载较高，请研发尽快排查解决，发送时间正好是凌晨。</p>
+<p>其实早在去年我也处理过类似的问题，并记录下来：<a href="https://crossoverjie.top/2018/12/17/troubleshoot/cpu-percent-100/">《一次生产 CPU 100% 排查优化实践》</a></p>
+<p>不过本次问题产生的原因却和上次不太一样，大家可以接着往下看。</p>
+<a id="more"></a>
+<h1 id="问题分析"><a href="#问题分析" class="headerlink" title="问题分析"></a>问题分析</h1><p>收到邮件后我马上登陆那台服务器，看了下案发现场还在（负载依然很高）。</p>
+<p>于是我便利用这类问题的排查套路定位一遍。</p>
+<hr>
+<p>首先利用 <code>top -c</code> 将系统资源使用情况实时显示出来 （<code>-c</code> 参数可以完整显示命令）。</p>
+<p>接着输入<code>大写 P</code> 将应用按照 <code>CPU</code> 使用率排序，第一个就是使用率最高的程序。</p>
+<p>果不其然就是我们的一个 <code>Java</code> 应用。</p>
+<p>这个应用简单来说就是定时跑一些报表使的，每天凌晨会触发任务调度，正常情况下几个小时就会运行完毕。</p>
+<hr>
+<p>常规操作第二步自然是得知道这个应用中最耗 <code>CPU</code> 的线程到底再干嘛。</p>
+<p>利用 <code>top -Hp pid</code> 然后输入 <code>P</code> 依然可以按照 <code>CPU</code> 使用率将线程排序。</p>
+<p>这时我们只需要记住线程的 ID 将其转换为 16 进制存储起来，通过 <code>jstack pid &gt;pid.log</code> 生成日志文件，利用刚才保存的 16 进制进程 <code>ID</code> 去这个线程快照中搜索即可知道消耗 <code>CPU</code> 的线程在干啥了。</p>
+<p>如果你嫌麻烦，我也强烈推荐阿里开源的问题定位神器 <code>arthas</code> 来定位问题。</p>
+<p>比如上述操作便可精简为一个命令 <code>thread -n 3</code> 即可将最忙碌的三个线程快照打印出来，非常高效。</p>
+<blockquote>
+<p>更多关于 arthas 使用教程请参考<a href="https://alibaba.github.io/" target="_blank" rel="external">官方文档</a>。</p>
+</blockquote>
+<p>由于之前忘记截图了，这里我直接得出结论吧：</p>
+<p>最忙绿的线程是一个 <code>GC</code> 线程，也就意味着它在忙着做垃圾回收。</p>
+<h2 id="GC-查看"><a href="#GC-查看" class="headerlink" title="GC 查看"></a>GC 查看</h2><p>排查到这里，有经验的老司机一定会想到：多半是应用内存使用有问题导致的。</p>
+<p>于是我通过 <code>jstat -gcutil pid 200 50</code> 将内存使用、gc 回收状况打印出来（每隔 200ms 打印 50次）。</p>
+<p><img src="https://i.loli.net/2019/06/18/5d07c3505157663161.jpg" alt=""></p>
+<p>从图中可以得到以下几个信息：</p>
+<ul>
+<li><code>Eden</code> 区和 <code>old</code> 区都快占满了，可见内存回收是有问题的。</li>
+<li><code>fgc</code> 回收频次很高，10s 之内发生了 8 次回收（<code>(866493-866485)/ (200 *5)</code>）。</li>
+<li>持续的时间较长，fgc 已经发生了 8W 多次。</li>
+</ul>
+<h2 id="内存分析"><a href="#内存分析" class="headerlink" title="内存分析"></a>内存分析</h2><p>既然是初步定位是内存问题，所以还是得拿一份内存快照分析才能最终定位到问题。</p>
+<p>通过命令 <code>jmap -dump:live,format=b,file=dump.hprof pid</code> 可以导出一份快照文件。</p>
+<p>这时就得借助 <code>MAT</code> 这类的分析工具出马了。</p>
+<h1 id="问题定位"><a href="#问题定位" class="headerlink" title="问题定位"></a>问题定位</h1><p><img src="https://i.loli.net/2019/06/18/5d07c351bb18f94417.jpg" alt=""></p>
+<p>通过这张图其实很明显可以看出，在内存中存在一个非常大的字符串，而这个字符串正好是被这个定时任务的线程引用着。</p>
+<p><img src="https://i.loli.net/2019/06/18/5d07c3533538b39583.jpg" alt=""></p>
+<p>大概算了一下这个字符串所占的内存为 258m 左右，就一个字符串来说已经是非常大的对象了。</p>
+<p>那这个字符串是咋产生的呢？</p>
+<p>其实看上图中的引用关系及字符串的内容不难看出这是一个 <code>insert</code> 的 <code>SQL</code> 语句。</p>
+<p>这时不得不赞叹 <code>MAT</code> 这个工具，他还能帮你预测出这个内存快照可能出现问题地方同时给出线程快照。</p>
+<p><img src="https://i.loli.net/2019/06/18/5d07c353d3d2114320.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/06/18/5d07c3546d13811049.jpg" alt=""></p>
+<p>最终通过这个线程快照找到了具体的业务代码：</p>
+<p>他调用一个写入数据库的方法，而这个方法会拼接一个 <code>insert</code> 语句，其中的 <code>values</code> 是循环拼接生成，大概如下：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="tag">&lt;<span class="name">insert</span> <span class="attr">id</span>=<span class="string">"insert"</span> <span class="attr">parameterType</span>=<span class="string">"java.util.List"</span>&gt;</span></div><div class="line">    insert into xx (files)</div><div class="line">    values</div><div class="line">    <span class="tag">&lt;<span class="name">foreach</span> <span class="attr">collection</span>=<span class="string">"list"</span> <span class="attr">item</span>=<span class="string">"item"</span> <span class="attr">separator</span>=<span class="string">","</span>&gt;</span></div><div class="line">        xxx</div><div class="line">    <span class="tag">&lt;/<span class="name">foreach</span>&gt;</span></div><div class="line"><span class="tag">&lt;/<span class="name">insert</span>&gt;</span></div></pre></td></tr></table></figure>
+<p>所以一旦这个 list 非常大时，这个拼接的 SQL 语句也会很长。</p>
+<p><img src="https://i.loli.net/2019/06/18/5d07c35504bf848706.jpg" alt=""></p>
+<p>通过刚才的内存分析其实可以看出这个 <code>List</code> 也是非常大的，也就导致了最终的这个 <code>insert</code> 语句占用的内存巨大。</p>
+<h1 id="优化策略"><a href="#优化策略" class="headerlink" title="优化策略"></a>优化策略</h1><p>既然找到问题原因那就好解决了，有两个方向：</p>
+<ul>
+<li>控制源头 <code>List</code> 的大小，这个 <code>List</code> 也是从某张表中获取的数据，可以分页获取；这样后续的 <code>insert</code> 语句就会减小。</li>
+<li>控制批量写入数据的大小，其实本质还是要把这个拼接的 <code>SQL</code> 长度降下来。</li>
+<li>整个的写入效率需要重新评估。</li>
+</ul>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本次问题从分析到解决花的时间并不长，也还比较典型，其中的过程再总结一下：</p>
+<ul>
+<li>首先定位消耗 <code>CPU</code> 进程。</li>
+<li>再定位消耗 <code>CPU</code> 的具体线程。</li>
+<li>内存问题 <code>dump</code> 出快照进行分析。</li>
+<li>得出结论，调整代码，测试结果。</li>
+</ul>
+<p>最后愿大家都别接到生产告警。</p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/06/18/5d07c34d2973a58018.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;前几日早上打开邮箱收到一封监控报警邮件：某某 ip 服务器 CPU 负载较高，请研发尽快排查解决，发送时间正好是凌晨。&lt;/p&gt;
+&lt;p&gt;其实早在去年我也处理过类似的问题，并记录下来：&lt;a href=&quot;https://crossoverjie.top/2018/12/17/troubleshoot/cpu-percent-100/&quot;&gt;《一次生产 CPU 100% 排查优化实践》&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;不过本次问题产生的原因却和上次不太一样，大家可以接着往下看。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="问题排查" scheme="http://crossoverjie.top/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/"/>
+    
+      <category term="Java 进阶" scheme="http://crossoverjie.top/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/Java-%E8%BF%9B%E9%98%B6/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="Thread" scheme="http://crossoverjie.top/tags/Thread/"/>
+    
+  </entry>
   
   <entry>
     <title>分表后需要注意的二三事</title>
@@ -1939,9 +2033,9 @@
       <category term="cim" scheme="http://crossoverjie.top/categories/Netty/cim/"/>
     
     
-      <category term="Heartbeat" scheme="http://crossoverjie.top/tags/Heartbeat/"/>
-    
       <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
+    
+      <category term="Heartbeat" scheme="http://crossoverjie.top/tags/Heartbeat/"/>
     
   </entry>
   
@@ -2375,117 +2469,6 @@
       <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
     
       <category term="IOT" scheme="http://crossoverjie.top/tags/IOT/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>2018 年度复盘</title>
-    <link href="http://crossoverjie.top/2018/12/30/annual-summary/2018/"/>
-    <id>http://crossoverjie.top/2018/12/30/annual-summary/2018/</id>
-    <published>2018-12-30T00:35:14.000Z</published>
-    <updated>2019-05-07T17:42:16.337Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/05/08/5cd1c31d7fb1b.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>看着今年的进度表已经所剩无几，是时候来复盘一把了。</p>
-<a id="more"></a>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c323a08b1.jpg" alt=""></p>
-<p>从 16 年初写博客开始到现在我觉得写年终总结的习惯不错，毕竟每次看着去年的 <code>flag</code> 又可以复制粘贴了。</p>
-<p>今年我会从工作、技术、身体等方面回顾，这几块也是今年变化最大的几个点。</p>
-<h1 id="工作"><a href="#工作" class="headerlink" title="工作"></a>工作</h1><p>先说工作吧，这个变化也贯穿了整年。</p>
-<p>从今年年初开始，我从上一个技术团队调到现在的部门；首先是组织结构上的变更，当然更主要的还是角色的变化。</p>
-<p>由一个开发人员转变为团队的技术负责人，说实话刚开始是措手不及的。</p>
-<p>以前我只需要对我写的代码负责，现在不行了。得对整个团队的产出负责；需要为每一个成员的质量、成长负责。</p>
-<p>这对于一个刚入门的菜鸟来说挑战无疑是巨大的。</p>
-<p>而且整个研发团队基本上是重头组建，我这入职一年多的都成了司龄最大的老员工了😢。</p>
-<p>随着人员的增加，对我的要求也越来越高。在请教了老司机后也逐渐的走上正轨了，虽然中间也踩了不少坑。</p>
-<p>总的来说：</p>
-<blockquote>
-<p>以前只关注我代码写的 6 不 6；现在重点是整个团队的<strong>研发进度、质量把控</strong>。这两点是评估我工作好坏的直接因素。</p>
-</blockquote>
-<p>要把这两项搞好我不得不提高一些通用技能：包括沟通协调、需求判断、排期风险、人员流动等。</p>
-<p>明年的人数还会持续增加，要学的东西还有很多。</p>
-<h1 id="技术"><a href="#技术" class="headerlink" title="技术"></a>技术</h1><p>作为一个代码从业者，技术能力才是我的本职工作。</p>
-<p>随着今年业务性质的变化，我所接触的技术也略有不同。</p>
-<p>前几年打交道的主要是 web 相关的技术；大多数技术栈都是围绕着它来展开的。</p>
-<p>而今年不太一样的是在 web 的基础上，还需要涉及到网络。主要是现在业务和物联网相关，看平台的还好最直接的就是能支持了多少连接。</p>
-<p>这个就需要对物联网特有的一些协议有所了解、应用。</p>
-<p>所以今年恶补了 <code>Netty</code> 相关的知识，同时在平时的开发中进行了一些实践发现想要做好网络这种底层开发需要储备的知识太多了。</p>
-<p>什么操作系统、<code>IO</code>、<code>TCP</code> 都得掌握，正好也补习了这些短板。</p>
-<h2 id="开源项目"><a href="#开源项目" class="headerlink" title="开源项目"></a>开源项目</h2><p><img src="https://i.loli.net/2019/05/08/5cd1c32643707.jpg" alt=""></p>
-<p>GitHub 官方的年度报告可以看出今年是开源大年。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c32a8ba7c.jpg" alt=""></p>
-<p>从我今年的贡献图可以看出也花了很多时间在这上面。</p>
-<p>从注册 GitHub 账号算起每年的提交量看起来今年确实是花了不少心思：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3319ccf6.jpg" alt=""></p>
-<p>最显著的体现就是 <a href="https://github.com/crossoverJie/JCSprout" target="_blank" rel="external">JCSprout</a> 一年时间涨了 <code>1W7 star</code>。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c336678b6.jpg" alt=""></p>
-<p>主要开源的有：</p>
-<ul>
-<li><a href="https://github.com/crossoverJie/JCSprout" target="_blank" rel="external">JCSprout</a> <code>Java Core Sprout</code>：处于萌芽阶段的 <code>Java</code> 核心知识库。</li>
-<li><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">cicada</a> 基于 <code>Netty</code> 实现的快速、轻量级 <code>HTTP</code> 框架。</li>
-<li><a href="https://github.com/crossoverJie/distributed-redis-tool" target="_blank" rel="external">distributed-redis-tool</a> 根据日常需求实现的一个分布式工具，包括分布式锁、分布式限流。</li>
-<li><a href="https://github.com/crossoverJie/netty-action" target="_blank" rel="external">netty-action</a> 看名字就知道，一个 <code>netty</code> 实战相关案例，现在也正在修改为可水平扩展的 <code>IM</code> 即使通讯系统；预计元旦后发布。</li>
-</ul>
-<p>要感谢每一位给我提 <code>issue、PR</code> 的朋友，希望来年能把挖的坑填完😭。</p>
-<h2 id="技术博客"><a href="#技术博客" class="headerlink" title="技术博客"></a>技术博客</h2><p><img src="https://i.loli.net/2019/05/08/5cd1c3381157d.jpg" alt=""></p>
-<p>从年初到现在一共撸了 49 篇博客，我还特意按照时间排序、阅读量做了一个柱状图（数据来源为个人博客：<a href="https://crossoverjie.top">https://crossoverjie.top</a> ）：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c33c24697.jpg" alt=""></p>
-<p>统计了一下，全年这个博客的阅读总数为：22W，平均每篇差不多 4500 的阅读；虽说不能和一些大佬相比，但比去年可不知道高哪里去了。</p>
-<p>同时最高的有将近 2W 当然低的也有4 500的阅读数，不过从这个图中还是可以看出一些规律的。</p>
-<blockquote>
-<p>比如阅读量高的也是比较吸引眼球的，这不就是常说的“标题党”嘛。</p>
-</blockquote>
-<h2 id="微信公众号"><a href="#微信公众号" class="headerlink" title="微信公众号"></a>微信公众号</h2><p>再来谈谈公众号，现在做公众号的技术人也越来越多；不过在今年申请的账号已经没有留言功能了，还好我申请的早，至少和读者有一个交流的机会。</p>
-<p>今年也是把公众号从 0 做到了 1 ，也就是有了 1W+ 的关注数；不过说实话我确实没有画什么心思运营，里面的内容也都是同步于我的博客，除了几篇翻译之外可以说是 100% 原创。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c3481859b.jpg" alt=""></p>
-<p>写过技术文的应该都知道产出一篇文章并不轻松，所以为了能正向激励我也会适当的接一些广告；这样不管是对读者还是我都有好处。</p>
-<blockquote>
-<p>中途也有一些朋友找我投稿，由于目前不是定位于做一个自媒体；我个人也不能完全对转载的文章理解透彻，还是希望做一个原创的技术号，所以抱歉都没有转载。</p>
-</blockquote>
-<h1 id="身体"><a href="#身体" class="headerlink" title="身体"></a>身体</h1><p>从前几年的计划表中都提到了身体，但实话说直到现在记性没长只有体重长了。。。</p>
-<p>原本热爱的篮球也从每周一次调整为一个月一次，曾经潇洒的 <code>crossover</code> 也变为键盘里一个个的 <code>Bug</code>。</p>
-<p>从下面的视频中可以看得出来（需要 FQ 观看）：</p>
-<iframe width="560" height="315" src="https://www.youtube.com/embed/fg2jqLtDKac" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-
-<hr>
-<iframe width="560" height="315" src="https://www.youtube.com/embed/qnfZkSDQi8U" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-
-<hr>
-<iframe width="560" height="315" src="https://www.youtube.com/embed/c2GgPDOFv9c" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-
-
-<blockquote>
-<p>第一段是五年前的，后面两段为最近的。</p>
-</blockquote>
-<p>明年真得上心了，借着搬家到新小区内的篮球场看能否拯救我这多年的键盘手。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>回顾一下对于我个人的几个大事件吧：</p>
-<ul>
-<li>工作角色大变化，带来的挑战也很大。</li>
-<li>做了几个还算成功开源项目，并且带来了一些实质性的好处。</li>
-<li>公众号从 0 到 1 ，并且能补贴一些鸡腿钱。</li>
-<li>求婚成功，感谢高中班主任当年的不杀之恩（没有揭发我）。</li>
-<li>等了三年终于接房装修了。</li>
-</ul>
-<p>按照历史传统照例还是写个明年的 <code>TODO-LIST</code> 吧：</p>
-<ul>
-<li>别拖团队后腿，多和老司机学习下软技能。</li>
-<li>开源项目接着更新，这也是可持续发展道路之一。</li>
-<li>博客、公众号持续输出优质内容，只是更新周期可能会提高。</li>
-<li>要逼就往死里逼，看年底能否扣个篮！</li>
-<li>搞个事情，看能否把婚接了。</li>
-</ul>
-<p>对来年写总结的我诚恳的说一句：别在 <code>Ctrl+C,Ctrl+V</code> 了🙏。</p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/05/08/5cd1c31d7fb1b.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;看着今年的进度表已经所剩无几，是时候来复盘一把了。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="annual-summary" scheme="http://crossoverjie.top/categories/annual-summary/"/>
-    
     
   </entry>
   
