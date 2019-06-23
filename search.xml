@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[VLOG-009:五一特辑]]></title>
+    <url>%2F2019%2F06%2F23%2Fvlog%2Fvlog-009%2F</url>
+    <content type="text"><![CDATA[据不完全统计，有大约 1 名朋友催更 Vlog ；我也记在心里，所以这次更新了五一节的特辑视频。 周末我会不定期更新一些与技术不太相关的内容。]]></content>
+      <categories>
+        <category>VLOG</category>
+      </categories>
+  </entry>
+  <entry>
     <title><![CDATA[又一次生产 CPU 高负载排查实践]]></title>
     <url>%2F2019%2F06%2F18%2Ftroubleshoot%2Fcpu-percent-100-02%2F</url>
     <content type="text"><![CDATA[前言前几日早上打开邮箱收到一封监控报警邮件：某某 ip 服务器 CPU 负载较高，请研发尽快排查解决，发送时间正好是凌晨。 其实早在去年我也处理过类似的问题，并记录下来：《一次生产 CPU 100% 排查优化实践》 不过本次问题产生的原因却和上次不太一样，大家可以接着往下看。 问题分析收到邮件后我马上登陆那台服务器，看了下案发现场还在（负载依然很高）。 于是我便利用这类问题的排查套路定位一遍。 首先利用 top -c 将系统资源使用情况实时显示出来 （-c 参数可以完整显示命令）。 接着输入大写 P 将应用按照 CPU 使用率排序，第一个就是使用率最高的程序。 果不其然就是我们的一个 Java 应用。 这个应用简单来说就是定时跑一些报表使的，每天凌晨会触发任务调度，正常情况下几个小时就会运行完毕。 常规操作第二步自然是得知道这个应用中最耗 CPU 的线程到底再干嘛。 利用 top -Hp pid 然后输入 P 依然可以按照 CPU 使用率将线程排序。 这时我们只需要记住线程的 ID 将其转换为 16 进制存储起来，通过 jstack pid &gt;pid.log 生成日志文件，利用刚才保存的 16 进制进程 ID 去这个线程快照中搜索即可知道消耗 CPU 的线程在干啥了。 如果你嫌麻烦，我也强烈推荐阿里开源的问题定位神器 arthas 来定位问题。 比如上述操作便可精简为一个命令 thread -n 3 即可将最忙碌的三个线程快照打印出来，非常高效。 更多关于 arthas 使用教程请参考官方文档。 由于之前忘记截图了，这里我直接得出结论吧： 最忙绿的线程是一个 GC 线程，也就意味着它在忙着做垃圾回收。 GC 查看排查到这里，有经验的老司机一定会想到：多半是应用内存使用有问题导致的。 于是我通过 jstat -gcutil pid 200 50 将内存使用、gc 回收状况打印出来（每隔 200ms 打印 50次）。 从图中可以得到以下几个信息： Eden 区和 old 区都快占满了，可见内存回收是有问题的。 fgc 回收频次很高，10s 之内发生了 8 次回收（(866493-866485)/ (200 *5)）。 持续的时间较长，fgc 已经发生了 8W 多次。 内存分析既然是初步定位是内存问题，所以还是得拿一份内存快照分析才能最终定位到问题。 通过命令 jmap -dump:live,format=b,file=dump.hprof pid 可以导出一份快照文件。 这时就得借助 MAT 这类的分析工具出马了。 问题定位 通过这张图其实很明显可以看出，在内存中存在一个非常大的字符串，而这个字符串正好是被这个定时任务的线程引用着。 大概算了一下这个字符串所占的内存为 258m 左右，就一个字符串来说已经是非常大的对象了。 那这个字符串是咋产生的呢？ 其实看上图中的引用关系及字符串的内容不难看出这是一个 insert 的 SQL 语句。 这时不得不赞叹 MAT 这个工具，他还能帮你预测出这个内存快照可能出现问题地方同时给出线程快照。 最终通过这个线程快照找到了具体的业务代码： 他调用一个写入数据库的方法，而这个方法会拼接一个 insert 语句，其中的 values 是循环拼接生成，大概如下： 1234567&lt;insert id="insert" parameterType="java.util.List"&gt; insert into xx (files) values &lt;foreach collection="list" item="item" separator=","&gt; xxx &lt;/foreach&gt;&lt;/insert&gt; 所以一旦这个 list 非常大时，这个拼接的 SQL 语句也会很长。 通过刚才的内存分析其实可以看出这个 List 也是非常大的，也就导致了最终的这个 insert 语句占用的内存巨大。 优化策略既然找到问题原因那就好解决了，有两个方向： 控制源头 List 的大小，这个 List 也是从某张表中获取的数据，可以分页获取；这样后续的 insert 语句就会减小。 控制批量写入数据的大小，其实本质还是要把这个拼接的 SQL 长度降下来。 整个的写入效率需要重新评估。 总结本次问题从分析到解决花的时间并不长，也还比较典型，其中的过程再总结一下： 首先定位消耗 CPU 进程。 再定位消耗 CPU 的具体线程。 内存问题 dump 出快照进行分析。 得出结论，调整代码，测试结果。 最后愿大家都别接到生产告警。 你的点赞与分享是对我最大的支持]]></content>
@@ -979,18 +987,6 @@
       </tags>
   </entry>
   <entry>
-    <title><![CDATA[科普-为自己的博客免费加上小绿锁]]></title>
-    <url>%2F2017%2F05%2F07%2Fhttps%2F</url>
-    <content type="text"><![CDATA[在如今的HTTPS大当其道的情况下自己的博客要是还没有用上。作为互联网的螺丝钉(码农)岂不是很没面子。 使用CLOUDFLARE这里使用CLOUDFLARE来提供HTTPS服务。 在其官网进行注册，按照提示添加好自己的域名即可。 之后需要在自己域名的提供商处修改DNS服务器，我是在万网购买的修改后如下图：其中的DNS服务器地址由CLOUDFLARE是提供的。修改完成之后通常需要等待一段时间才能生效。 接着在CLOUDFLARE配置DNS解析：点击CLOUDFLARE顶部的DNS进行如我上图中的配置，和之前的配置没有什么区别。 等待一段时间之后发现使用HTTP,HTTPS都能访问，但是最好还是能在访问HTTP的时候能强制跳转到HTTPS. 在CLOUDFLARE菜单栏点击page-rules之后新建一个page rule：这样整个网站的请求都会强制到请求到HTTPS. 主题配置由于我才用的是Hexo中的Next主题，其中配置了CNZZ站长统计。其中配置的CNZZ统计JS是才用的HTTP。导致在首页的时候chrome一直提示感叹号。修改站点themes/next/layout/_scripts/third-party/analytics目录下的cnzz-analytics.swig文件1234567&#123;% if theme.cnzz_siteid %&#125; &lt;div style=&quot;display: none;&quot;&gt; &lt;script src=&quot;https://s6.cnzz.com/stat.php?id=&#123;&#123; theme.cnzz_siteid &#125;&#125;&amp;web_id=&#123;&#123; theme.cnzz_siteid &#125;&#125;&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt; &lt;/div&gt;&#123;% endif %&#125; 之后再进行构建的时候就会使用HTTPS. 值得注意一点的是之后文章中所使用的图片都要用HTTPS的地址了，不然chrome会提示感叹号。 个人博客地址：http://crossoverjie.top。 GitHub地址：https://github.com/crossoverJie。]]></content>
-      <categories>
-        <category>科普</category>
-      </categories>
-      <tags>
-        <tag>HTTP</tag>
-        <tag>HTTPS</tag>
-      </tags>
-  </entry>
-  <entry>
     <title><![CDATA[SSM(十三) 将dubbo暴露出HTTP服务]]></title>
     <url>%2F2017%2F05%2F07%2FSSM13%2F</url>
     <content type="text"><![CDATA[前言通常来说一个dubbo服务都是对内给内部调用的，但也有可能一个服务就是需要提供给外部使用，并且还不能有使用语言的局限性。 比较标准的做法是对外的服务我们统一提供一个openAPI，这样的调用方需要按照标准提供相应的appID以及密钥来进行验签才能使用。这样固然是比较规范和安全，但复杂度也不亚于开发一个单独的系统了。 这里所讲到的没有那么复杂，就只是把一个不需要各种权限检验的dubbo服务对外提供为HTTP服务。 调用示例: 准备工作以下是本文所涉及到的一些知识点： Spring相关知识。 Java反射相关知识。 SpringMVC相关知识。 其实思路很简单，就是利用SpringMVC提供一个HTTP接口。在该接口中通过入参进行反射找到具体的dubbo服务实现进行调用。 HttpProviderConf配置类首先需要定义一个HttpProviderConf类用于保存声明需要对外提供服务的包名，毕竟我们反射时需要用到一个类的全限定名： 12345678public class HttpProviderConf &#123; /** * 提供http访问的包 */ private List&lt;String&gt; usePackage ; //省略getter setter方法&#125; 就只有一个usePackage成员变量，用于存放需要包名。至于用List的原因是允许有多个。 请求响应入参、出参HttpRequest入参123456public class HttpRequest &#123; private String param ;//入参 private String service ;//请求service private String method ;//请求方法 //省略getter setter方法&#125; 其中param是用于存放真正调用dubbo服务时的入参，传入json在调用的时候解析成具体的参数对象。 service存放dubbo服务声明的interface API的包名。 method则是真正调用的方法名称。 HttpResponse 响应1234567891011public class HttpResponse implements Serializable&#123; private static final long serialVersionUID = -552828440320737814L; private boolean success;//成功标志 private String code;//信息码 private String description;//描述 //省略getter setter方法&#125; 这里只是封装了常用的HTTP服务的响应数据。 暴露服务controller最重要的则是controller里的实现代码了。 先贴代码：123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899100101102103104105106107108109110111112113114115116117118119120121122123124125126127128129130131132133134135136137138139140141142143144145146147148149150151152153154155@Controller@RequestMapping("/dubboAPI")public class DubboController implements ApplicationContextAware&#123; private final static Logger logger = LoggerFactory.getLogger(DubboController.class); @Autowired private HttpProviderConf httpProviderConf; //缓存作用的map private final Map&lt;String, Class&lt;?&gt;&gt; cacheMap = new HashMap&lt;String, Class&lt;?&gt;&gt;(); protected ApplicationContext applicationContext; @ResponseBody @RequestMapping(value = "/&#123;service&#125;/&#123;method&#125;",method = RequestMethod.POST) public String api(HttpRequest httpRequest, HttpServletRequest request, @PathVariable String service, @PathVariable String method) &#123; logger.debug("ip:&#123;&#125;-httpRequest:&#123;&#125;",getIP(request), JSON.toJSONString(httpRequest)); String invoke = invoke(httpRequest, service, method); logger.debug("callback :"+invoke) ; return invoke ; &#125; private String invoke(HttpRequest httpRequest,String service,String method)&#123; httpRequest.setService(service); httpRequest.setMethod(method); HttpResponse response = new HttpResponse() ; logger.debug("input param:"+JSON.toJSONString(httpRequest)); if (!CollectionUtils.isEmpty(httpProviderConf.getUsePackage()))&#123; boolean isPac = false ; for (String pac : httpProviderConf.getUsePackage()) &#123; if (service.startsWith(pac))&#123; isPac = true ; break ; &#125; &#125; if (!isPac)&#123; //调用的是未经配置的包 logger.error("service is not correct,service="+service); response.setCode("2"); response.setSuccess(false); response.setDescription("service is not correct,service="+service); &#125; &#125; try &#123; Class&lt;?&gt; serviceCla = cacheMap.get(service); if (serviceCla == null)&#123; serviceCla = Class.forName(service) ; logger.debug("serviceCla:"+JSON.toJSONString(serviceCla)); //设置缓存 cacheMap.put(service,serviceCla) ; &#125; Method[] methods = serviceCla.getMethods(); Method targetMethod = null ; for (Method m : methods) &#123; if (m.getName().equals(method))&#123; targetMethod = m ; break ; &#125; &#125; if (method == null)&#123; logger.error("method is not correct,method="+method); response.setCode("2"); response.setSuccess(false); response.setDescription("method is not correct,method="+method); &#125; Object bean = this.applicationContext.getBean(serviceCla); Object result = null ; Class&lt;?&gt;[] parameterTypes = targetMethod.getParameterTypes(); if (parameterTypes.length == 0)&#123; //没有参数 result = targetMethod.invoke(bean); &#125;else if (parameterTypes.length == 1)&#123; Object json = JSON.parseObject(httpRequest.getParam(), parameterTypes[0]); result = targetMethod.invoke(bean,json) ; &#125;else &#123; logger.error("Can only have one parameter"); response.setSuccess(false); response.setCode("2"); response.setDescription("Can only have one parameter"); &#125; return JSON.toJSONString(result) ; &#125;catch (ClassNotFoundException e)&#123; logger.error("class not found",e); response.setSuccess(false); response.setCode("2"); response.setDescription("class not found"); &#125; catch (InvocationTargetException e) &#123; logger.error("InvocationTargetException",e); response.setSuccess(false); response.setCode("2"); response.setDescription("InvocationTargetException"); &#125; catch (IllegalAccessException e) &#123; logger.error("IllegalAccessException",e); response.setSuccess(false); response.setCode("2"); response.setDescription("IllegalAccessException"); &#125; return JSON.toJSONString(response) ; &#125; /** * 获取IP * @param request * @return */ private String getIP(HttpServletRequest request) &#123; if (request == null) return null; String s = request.getHeader("X-Forwarded-For"); if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getHeader("Proxy-Client-IP"); &#125; if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getHeader("WL-Proxy-Client-IP"); &#125; if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getHeader("HTTP_CLIENT_IP"); &#125; if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getHeader("HTTP_X_FORWARDED_FOR"); &#125; if (s == null || s.length() == 0 || "unknown".equalsIgnoreCase(s)) &#123; s = request.getRemoteAddr(); &#125; if ("127.0.0.1".equals(s) || "0:0:0:0:0:0:0:1".equals(s)) try &#123; s = InetAddress.getLocalHost().getHostAddress(); &#125; catch (UnknownHostException unknownhostexception) &#123; return ""; &#125; return s; &#125; public void setApplicationContext(ApplicationContext applicationContext) throws BeansException &#123; this.applicationContext = applicationContext; &#125; 先一步一步的看： 首先是定义了一个DubboController,并使用了SpringMVC的注解对外暴露HTTP服务。 实现了org.springframework.context.ApplicationContextAware类，实现了setApplicationContext()方法用于初始化Spring上下文对象，在之后可以获取到容器里的相应对象。 核心的invoke()方法。 调用时：http://127.0.0.1:8080/SSM-SERVICE/dubboAPI/com.crossoverJie.api.UserInfoApi/getUserInfo。 具体如上文的调用实例。先将com.crossoverJie.api.UserInfoApi、getUserInfo赋值到httpRequest入参中。 判断传入的包是否是对外提供的。如下配置：1234567891011&lt;!--dubbo服务暴露为http服务--&gt;&lt;bean class="com.crossoverJie.dubbo.http.conf.HttpProviderConf"&gt; &lt;property name="usePackage"&gt; &lt;list&gt; &lt;!--需要暴露服务的接口包名，可多个--&gt; &lt;value&gt;com.crossoverJie.api&lt;/value&gt; &lt;/list&gt; &lt;/property&gt;&lt;/bean&gt;&lt;!--扫描暴露包--&gt;&lt;context:component-scan base-package="com.crossoverJie.dubbo.http"/&gt; 其中的com.crossoverJie.api就是自己需要暴露的包名，可以多个。 接着在缓存map中取出反射获取到的接口类类型，如果获取不到则通过反射获取，并将值设置到缓存map中，这样不用每次都反射获取，可以节省系统开销(反射很耗系统资源)。 接着也是判断该接口中是否有传入的getUserInfo方法。 取出该方法的参数列表，如果没有参数则直接调用。 如果有参数，判断个数。这里最多只运行一个参数。也就是说在真正的dubbo调用的时候只能传递一个BO类型，具体的参数列表可以写到BO中。因为如果有多个在进行json解析的时候是无法赋值到两个参数对象中去的。 之后进行调用，将调用返回的数据进行返回即可。 总结通常来说这样提供的HTTP接口再实际中用的不多，但是很方便调试。 比如写了一个dubbo的查询接口，在测试环境或者是预发布环境中就可以直接通过HTTP请求的方式进行简单的测试，或者就是查询数据。比在Java中写单测来测试或查询快的很多。 安装1git clone https://github.com/crossoverJie/SSM-DUBBO-HTTP.git 1cd SSM-DUBBO-HTTP 1mvn clean 1mvn install 使用12345&lt;dependency&gt; &lt;groupId&gt;com.crossoverJie&lt;/groupId&gt; &lt;artifactId&gt;SSM-HTTP-PROVIDER&lt;/artifactId&gt; &lt;version&gt;1.0.0&lt;/version&gt;&lt;/dependency&gt; spring配置1234567891011&lt;!--dubbo服务暴露为http服务--&gt;&lt;bean class="com.crossoverJie.dubbo.http.conf.HttpProviderConf"&gt; &lt;property name="usePackage"&gt; &lt;list&gt; &lt;!--需要暴露服务的接口包名，可多个--&gt; &lt;value&gt;com.crossoverJie.api&lt;/value&gt; &lt;/list&gt; &lt;/property&gt;&lt;/bean&gt;&lt;!--扫描暴露包--&gt;&lt;context:component-scan base-package="com.crossoverJie.dubbo.http"/&gt; 插件地址：https://github.com/crossoverJie/SSM-DUBBO-HTTP 项目地址：https://github.com/crossoverJie/SSM.git 个人博客地址：http://crossoverjie.top。 GitHub地址：https://github.com/crossoverJie。]]></content>
@@ -1001,6 +997,18 @@
         <tag>Java</tag>
         <tag>dubbo</tag>
         <tag>HTTP</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[科普-为自己的博客免费加上小绿锁]]></title>
+    <url>%2F2017%2F05%2F07%2Fhttps%2F</url>
+    <content type="text"><![CDATA[在如今的HTTPS大当其道的情况下自己的博客要是还没有用上。作为互联网的螺丝钉(码农)岂不是很没面子。 使用CLOUDFLARE这里使用CLOUDFLARE来提供HTTPS服务。 在其官网进行注册，按照提示添加好自己的域名即可。 之后需要在自己域名的提供商处修改DNS服务器，我是在万网购买的修改后如下图：其中的DNS服务器地址由CLOUDFLARE是提供的。修改完成之后通常需要等待一段时间才能生效。 接着在CLOUDFLARE配置DNS解析：点击CLOUDFLARE顶部的DNS进行如我上图中的配置，和之前的配置没有什么区别。 等待一段时间之后发现使用HTTP,HTTPS都能访问，但是最好还是能在访问HTTP的时候能强制跳转到HTTPS. 在CLOUDFLARE菜单栏点击page-rules之后新建一个page rule：这样整个网站的请求都会强制到请求到HTTPS. 主题配置由于我才用的是Hexo中的Next主题，其中配置了CNZZ站长统计。其中配置的CNZZ统计JS是才用的HTTP。导致在首页的时候chrome一直提示感叹号。修改站点themes/next/layout/_scripts/third-party/analytics目录下的cnzz-analytics.swig文件1234567&#123;% if theme.cnzz_siteid %&#125; &lt;div style=&quot;display: none;&quot;&gt; &lt;script src=&quot;https://s6.cnzz.com/stat.php?id=&#123;&#123; theme.cnzz_siteid &#125;&#125;&amp;web_id=&#123;&#123; theme.cnzz_siteid &#125;&#125;&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt; &lt;/div&gt;&#123;% endif %&#125; 之后再进行构建的时候就会使用HTTPS. 值得注意一点的是之后文章中所使用的图片都要用HTTPS的地址了，不然chrome会提示感叹号。 个人博客地址：http://crossoverjie.top。 GitHub地址：https://github.com/crossoverJie。]]></content>
+      <categories>
+        <category>科普</category>
+      </categories>
+      <tags>
+        <tag>HTTP</tag>
+        <tag>HTTPS</tag>
       </tags>
   </entry>
   <entry>
@@ -1158,8 +1166,8 @@
       </categories>
       <tags>
         <tag>Java</tag>
-        <tag>Lucene</tag>
         <tag>IDEA</tag>
+        <tag>Lucene</tag>
       </tags>
   </entry>
   <entry>
@@ -1171,10 +1179,10 @@
       </categories>
       <tags>
         <tag>Java</tag>
-        <tag>IDEA</tag>
         <tag>Spring</tag>
         <tag>SpringMVC</tag>
         <tag>Mybatis</tag>
+        <tag>IDEA</tag>
       </tags>
   </entry>
   <entry>
