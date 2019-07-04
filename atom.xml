@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-07-03T17:04:28.029Z</updated>
+  <updated>2019-07-04T15:15:57.359Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,97 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>What？一个 Dubbo 服务启动要两个小时！</title>
+    <link href="http://crossoverjie.top/2019/07/05/troubleshoot/dubbo-start-slow/"/>
+    <id>http://crossoverjie.top/2019/07/05/troubleshoot/dubbo-start-slow/</id>
+    <published>2019-07-05T00:10:36.000Z</published>
+    <updated>2019-07-04T15:15:57.359Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/07/04/5d1e14ea0052047268.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前几天在测试环境碰到一个非常奇怪的与 <code>dubbo</code> 相关的问题，事后我在网上搜索了一圈并没有发现类似的帖子或文字，于是便有了这篇。</p>
+<p>希望对还未碰到或正在碰到的朋友有所帮助。</p>
+<a id="more"></a>
+<h1 id="现象"><a href="#现象" class="headerlink" title="现象"></a>现象</h1><p>现象是这样的，有一天测试在测试环境重新部署一个 <code>dubbo</code> 应用的时候发现应用<code>“启动不起来”</code>。</p>
+<p>但过几个小时候之后又能自己慢慢恢复，并能够对外提供 <code>dubbo</code> 服务。</p>
+<blockquote>
+<p>但其实经过我后续排查发现刚开始其实并不是启动不起来，而是启动速度非常缓慢，所以当应用长时间启动后才会对外提供服务。</p>
+</blockquote>
+<p><img src="https://i.loli.net/2019/07/04/5d1e14eb2d3b613329.jpg" alt=""></p>
+<p>而这个速度慢到居然要花费 <code>2 个小时</code>。</p>
+<p>导致的一个结果是测试完全不敢在测试环境发版验证了，每验证一个功能修复一个 <code>bug</code> 就得等上两个小时，这谁受得了😂。</p>
+<blockquote>
+<p>而且经过多次观察，确实每次都是花费两小时左右应用才能启动起来。</p>
+</blockquote>
+<h1 id="尝试解决"><a href="#尝试解决" class="headerlink" title="尝试解决"></a>尝试解决</h1><p>最后测试顶不住了，只能让我这个<code>“事故报告撰写专家”</code>来看看。</p>
+<p>当我得知这个问题的现象时其实完全没当一回事：</p>
+<blockquote>
+<p>都不用想，这不就是主线程阻塞了嘛，先看看是否在初始化的时候数据库、Zookeeper 之类的连不上导致阻塞了——-来之多次事故处理的经验告诉我。</p>
+</blockquote>
+<p>于是我把这事打回给测试让他先找运维排查下，不到万不得已不要影响我 <code>Touch fish</code>🐳。</p>
+<p>第二天一早看到测试同学的微信头像跳动时我都已经准备接受又一句 <code>“膜拜大佬👍”</code> 的回复时，却收到 “网络一切正常，没人动过，再不解决就要罢工了🤬”。</p>
+<p>好吧，忽悠不过去了。</p>
+<p>首先这类问题的排查方向应该不会错，就是主线程阻塞了，至于是啥导致的阻塞就不能像之前那样瞎猜了。</p>
+<p>我将应用重启后用 <code>jstack pid</code> 将线程快照打印到终端，直接拉到最后看看 <code>main</code> 线程到底在干啥。</p>
+<p>前几次的快照都是很正常：</p>
+<p>加载 <code>Spring</code> —-&gt;连接 <code>Zookeeper</code> —&gt; 连接 <code>Redis</code>，都是依次执行下来没有阻塞。</p>
+<p>隔了一段后应用确实还没起来，我再次 <code>jstack</code> 后得到如下信息：</p>
+<p><img src="https://i.loli.net/2019/07/04/5d1e14ec2185426171.jpg" alt=""></p>
+<h2 id="翻源码"><a href="#翻源码" class="headerlink" title="翻源码"></a>翻源码</h2><p>我一直等了十几分钟再多次 <code>jstack</code> 得到的快照得到的信息都是一样的。</p>
+<p><img src="https://i.loli.net/2019/07/04/5d1e14ec2185426171.jpg" alt=""></p>
+<p>如图所示可见主线程是卡在了 dubbo 的某个方法 <code>ServiceConfig.java</code> 的 303 行中。</p>
+<p>于是我找到此处的源码：</p>
+<p><img src="https://i.loli.net/2019/07/04/5d1e14ec68e8259933.jpg" alt=""></p>
+<p>简单来说这里的逻辑就是要获取本机的 <code>IP</code> 将其注册到 <code>Zookeeper</code> 中用于其他服务调用。</p>
+<p><img src="https://i.loli.net/2019/07/04/5d1e14eca624d69950.jpg" alt=""></p>
+<p>再往下跟就如堆栈中一样是卡在了 <code>Inet4AddressImpl.getLocalHostName</code> 处。</p>
+<p>但这是一个 <code>native</code> 方法，我们应用也根本干涉不了，最终的现象就是调用这个本地方法非常耗时。</p>
+<p>于是这问题貌似也阻塞在这儿了，没有太多办法。</p>
+<h1 id="最终解决"><a href="#最终解决" class="headerlink" title="最终解决"></a>最终解决</h1><p>既然这是一个 native 方法，那说明和应用本身没有啥关系（确实也是这样，这个问题是突然间出现的。）</p>
+<p>那是否是服务器本身的问题呢，想到在 <code>native</code> 方法里是获取本机的 <code>hostname</code>，那是否和这个 <code>hostname</code> 有关系呢。</p>
+<p><img src="https://i.loli.net/2019/07/04/5d1e14ecd59a795394.jpg" alt=""></p>
+<blockquote>
+<p>这是在我自己的阿里云服务器上测试，真正的测试环境不是这个名字。</p>
+</blockquote>
+<p>拿到服务器 <code>hostname</code> 后再尝试 <code>ping</code> 这个 <code>hostname</code>，奇怪的现象发生了：</p>
+<p>命令刚开始会卡住一段时间（大概几十秒），然后才会输出 <code>hostname</code> 对应的 <code>ip</code> 以及对应的延迟。</p>
+<p>而当我直接 <code>ping</code> 这个 <code>ip</code> 时却能快速响应后面的输出。</p>
+<p>最后我尝试在 /etc/hosts 配置文件中加入了对应的 host 配置：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">xx.xx.xx.xx(ip) hostname</div></pre></td></tr></table></figure>
+<p>再次 <code>ping hostname</code> 的效果就和直接 <code>ping ip</code> 一样了。</p>
+<p><strong>于是我再次重启应用，一切都正常了。</strong></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>最后根据我调整的内容尝试分析下本次问题的原因：</p>
+<ul>
+<li>当 <code>Dubbo</code> 在启动获取本地 ip 时，是通过服务器 <code>hostname</code> 从 <code>dns</code> 服务器返回当前的 ip 地址。</li>
+<li>由于 <code>dns</code> 服务器或者是本地服务器与 dns 服务器之间存在网络问题，导致这个过程的时间被拉长（猜测）。</li>
+<li>我在本地的 <code>host</code> 文件中配置后，就相当于本地有一个缓存，优先取本地配置的 ip ，避免了和 dns 服务器交互的过程，所以速度提升了。</li>
+</ul>
+<p>虽然问题得到解决了，但还是有几个疑问：</p>
+<p>第一个是为什么和 <code>DNS</code> 服务器的交互会这么慢，即便是慢也没有像应用那样需要 2 个小时才能返回，这里我也没搞得太清楚，有相关经验的朋友可以留言讨论。</p>
+<p>第二就是 Dubbo 在这个依赖外部获取资源时健壮性是否可以做的更好，虽说我这问题估计也几人碰到。</p>
+<p>对于这种长时间没有启动成功的问题是否可以加上提示，比如直接抛出异常退出程序，将问题可能的原因告诉开发者，方便排查问题。</p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/07/04/5d1e14ea0052047268.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;前几天在测试环境碰到一个非常奇怪的与 &lt;code&gt;dubbo&lt;/code&gt; 相关的问题，事后我在网上搜索了一圈并没有发现类似的帖子或文字，于是便有了这篇。&lt;/p&gt;
+&lt;p&gt;希望对还未碰到或正在碰到的朋友有所帮助。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="问题排查" scheme="http://crossoverjie.top/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="Thread" scheme="http://crossoverjie.top/tags/Thread/"/>
+    
+      <category term="Dubbo" scheme="http://crossoverjie.top/tags/Dubbo/"/>
+    
+  </entry>
   
   <entry>
     <title>常见的集合容器应当避免的坑</title>
@@ -110,97 +201,6 @@
       <category term="ArrayList" scheme="http://crossoverjie.top/tags/ArrayList/"/>
     
       <category term="LinkedList" scheme="http://crossoverjie.top/tags/LinkedList/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>What？一个 Dubbo 服务启动要两个小时！</title>
-    <link href="http://crossoverjie.top/2019/06/18/troubleshoot/dubbo-start-slow/"/>
-    <id>http://crossoverjie.top/2019/06/18/troubleshoot/dubbo-start-slow/</id>
-    <published>2019-06-18T00:15:36.000Z</published>
-    <updated>2019-07-04T15:13:20.881Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/07/04/5d1e14ea0052047268.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前几天在测试环境碰到一个非常奇怪的与 <code>dubbo</code> 相关的问题，事后我在网上搜索了一圈并没有发现类似的帖子或文字，于是便有了这篇。</p>
-<p>希望对还未碰到或正在碰到的朋友有所帮助。</p>
-<a id="more"></a>
-<h1 id="现象"><a href="#现象" class="headerlink" title="现象"></a>现象</h1><p>现象是这样的，有一天测试在测试环境重新部署一个 <code>dubbo</code> 应用的时候发现应用<code>“启动不起来”</code>。</p>
-<p>但过几个小时候之后又能自己慢慢恢复，并能够对外提供 <code>dubbo</code> 服务。</p>
-<blockquote>
-<p>但其实经过我后续排查发现刚开始其实并不是启动不起来，而是启动速度非常缓慢，所以当应用长时间启动后才会对外提供服务。</p>
-</blockquote>
-<p><img src="https://i.loli.net/2019/07/04/5d1e14eb2d3b613329.jpg" alt=""></p>
-<p>而这个速度慢到居然要花费 <code>2 个小时</code>。</p>
-<p>导致的一个结果是测试完全不敢在测试环境发版验证了，每验证一个功能修复一个 <code>bug</code> 就得等上两个小时，这谁受得了😂。</p>
-<blockquote>
-<p>而且经过多次观察，确实每次都是花费两小时左右应用才能启动起来。</p>
-</blockquote>
-<h1 id="尝试解决"><a href="#尝试解决" class="headerlink" title="尝试解决"></a>尝试解决</h1><p>最后测试顶不住了，只能让我这个<code>“事故报告撰写专家”</code>来看看。</p>
-<p>当我得知这个问题的现象时其实完全没当一回事：</p>
-<blockquote>
-<p>都不用想，这不就是主线程阻塞了嘛，先看看是否在初始化的时候数据库、Zookeeper 之类的连不上导致阻塞了——-来之多次事故处理的经验告诉我。</p>
-</blockquote>
-<p>于是我把这事打回给测试让他先找运维排查下，不到万不得已不要影响我 <code>Touch fish</code>🐳。</p>
-<p>第二天一早看到测试同学的微信头像跳动时我都已经准备接受又一句 <code>“膜拜大佬👍”</code> 的回复时，却收到 “网络一切正常，没人动过，再不解决就要罢工了🤬”。</p>
-<p>好吧，忽悠不过去了。</p>
-<p>首先这类问题的排查方向应该不会错，就是主线程阻塞了，至于是啥导致的阻塞就不能像之前那样瞎猜了。</p>
-<p>我将应用重启后用 <code>jstack pid</code> 将线程快照打印到终端，直接拉到最后看看 <code>main</code> 线程到底在干啥。</p>
-<p>前几次的快照都是很正常：</p>
-<p>加载 <code>Spring</code> —-&gt;连接 <code>Zookeeper</code> —&gt; 连接 <code>Redis</code>，都是依次执行下来没有阻塞。</p>
-<p>隔了一段后应用确实还没起来，我再次 <code>jstack</code> 后得到如下信息：</p>
-<p><img src="https://i.loli.net/2019/07/04/5d1e14ec2185426171.jpg" alt=""></p>
-<h2 id="翻源码"><a href="#翻源码" class="headerlink" title="翻源码"></a>翻源码</h2><p>我一直等了十几分钟再多次 <code>jstack</code> 得到的快照得到的信息都是一样的。</p>
-<p><img src="https://i.loli.net/2019/07/04/5d1e14ec2185426171.jpg" alt=""></p>
-<p>如图所示可见主线程是卡在了 dubbo 的某个方法 <code>ServiceConfig.java</code> 的 303 行中。</p>
-<p>于是我找到此处的源码：</p>
-<p><img src="https://i.loli.net/2019/07/04/5d1e14ec68e8259933.jpg" alt=""></p>
-<p>简单来说这里的逻辑就是要获取本机的 <code>IP</code> 将其注册到 <code>Zookeeper</code> 中用于其他服务调用。</p>
-<p><img src="https://i.loli.net/2019/07/04/5d1e14eca624d69950.jpg" alt=""></p>
-<p>再往下跟就如堆栈中一样是卡在了 <code>Inet4AddressImpl.getLocalHostName</code> 处。</p>
-<p>但这是一个 <code>native</code> 方法，我们应用也根本干涉不了，最终的现象就是调用这个本地方法非常耗时。</p>
-<p>于是这问题貌似也阻塞在这儿了，没有太多办法。</p>
-<h1 id="最终解决"><a href="#最终解决" class="headerlink" title="最终解决"></a>最终解决</h1><p>既然这是一个 native 方法，那说明和应用本身没有啥关系（确实也是这样，这个问题是突然间出现的。）</p>
-<p>那是否是服务器本身的问题呢，想到在 <code>native</code> 方法里是获取本机的 <code>hostname</code>，那是否和这个 <code>hostname</code> 有关系呢。</p>
-<p><img src="https://i.loli.net/2019/07/04/5d1e14ecd59a795394.jpg" alt=""></p>
-<blockquote>
-<p>这是在我自己的阿里云服务器上测试，真正的测试环境不是这个名字。</p>
-</blockquote>
-<p>拿到服务器 <code>hostname</code> 后再尝试 <code>ping</code> 这个 <code>hostname</code>，奇怪的现象发生了：</p>
-<p>命令刚开始会卡住一段时间（大概几十秒），然后才会输出 <code>hostname</code> 对应的 <code>ip</code> 以及对应的延迟。</p>
-<p>而当我直接 <code>ping</code> 这个 <code>ip</code> 时却能快速响应后面的输出。</p>
-<p>最后我尝试在 /etc/hosts 配置文件中加入了对应的 host 配置：</p>
-<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">xx.xx.xx.xx(ip) hostname</div></pre></td></tr></table></figure>
-<p>再次 <code>ping hostname</code> 的效果就和直接 <code>ping ip</code> 一样了。</p>
-<p><strong>于是我再次重启应用，一切都正常了。</strong></p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>最后根据我调整的内容尝试分析下本次问题的原因：</p>
-<ul>
-<li>当 <code>Dubbo</code> 在启动获取本地 ip 时，是通过服务器 <code>hostname</code> 从 <code>dns</code> 服务器返回当前的 ip 地址。</li>
-<li>由于 <code>dns</code> 服务器或者是本地服务器与 dns 服务器之间存在网络问题，导致这个过程的时间被拉长（猜测）。</li>
-<li>我在本地的 <code>host</code> 文件中配置后，就相当于本地有一个缓存，优先取本地配置的 ip ，避免了和 dns 服务器交互的过程，所以速度提升了。</li>
-</ul>
-<p>虽然问题得到解决了，但还是有几个疑问：</p>
-<p>第一个是为什么和 <code>DNS</code> 服务器的交互会这么慢，即便是慢也没有像应用那样需要 2 个小时才能返回，这里我也没搞得太清楚，有相关经验的朋友可以留言讨论。</p>
-<p>第二就是 Dubbo 在这个依赖外部获取资源时健壮性是否可以做的更好，虽说我这问题估计也几人碰到。</p>
-<p>对于这种长时间没有启动成功的问题是否可以加上提示，比如直接抛出异常退出程序，将问题可能的原因告诉开发者，方便排查问题。</p>
-<p><strong>你的点赞与分享是对我最大的支持</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/07/04/5d1e14ea0052047268.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;前几天在测试环境碰到一个非常奇怪的与 &lt;code&gt;dubbo&lt;/code&gt; 相关的问题，事后我在网上搜索了一圈并没有发现类似的帖子或文字，于是便有了这篇。&lt;/p&gt;
-&lt;p&gt;希望对还未碰到或正在碰到的朋友有所帮助。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="问题排查" scheme="http://crossoverjie.top/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/"/>
-    
-    
-      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
-    
-      <category term="Thread" scheme="http://crossoverjie.top/tags/Thread/"/>
-    
-      <category term="Dubbo" scheme="http://crossoverjie.top/tags/Dubbo/"/>
     
   </entry>
   
@@ -2222,9 +2222,9 @@
       <category term="cim" scheme="http://crossoverjie.top/categories/Netty/cim/"/>
     
     
-      <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
-    
       <category term="Heartbeat" scheme="http://crossoverjie.top/tags/Heartbeat/"/>
+    
+      <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
     
   </entry>
   

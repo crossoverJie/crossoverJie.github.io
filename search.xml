@@ -1,6 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[What？一个 Dubbo 服务启动要两个小时！]]></title>
+    <url>%2F2019%2F07%2F05%2Ftroubleshoot%2Fdubbo-start-slow%2F</url>
+    <content type="text"><![CDATA[前言前几天在测试环境碰到一个非常奇怪的与 dubbo 相关的问题，事后我在网上搜索了一圈并没有发现类似的帖子或文字，于是便有了这篇。 希望对还未碰到或正在碰到的朋友有所帮助。 现象现象是这样的，有一天测试在测试环境重新部署一个 dubbo 应用的时候发现应用“启动不起来”。 但过几个小时候之后又能自己慢慢恢复，并能够对外提供 dubbo 服务。 但其实经过我后续排查发现刚开始其实并不是启动不起来，而是启动速度非常缓慢，所以当应用长时间启动后才会对外提供服务。 而这个速度慢到居然要花费 2 个小时。 导致的一个结果是测试完全不敢在测试环境发版验证了，每验证一个功能修复一个 bug 就得等上两个小时，这谁受得了😂。 而且经过多次观察，确实每次都是花费两小时左右应用才能启动起来。 尝试解决最后测试顶不住了，只能让我这个“事故报告撰写专家”来看看。 当我得知这个问题的现象时其实完全没当一回事： 都不用想，这不就是主线程阻塞了嘛，先看看是否在初始化的时候数据库、Zookeeper 之类的连不上导致阻塞了——-来之多次事故处理的经验告诉我。 于是我把这事打回给测试让他先找运维排查下，不到万不得已不要影响我 Touch fish🐳。 第二天一早看到测试同学的微信头像跳动时我都已经准备接受又一句 “膜拜大佬👍” 的回复时，却收到 “网络一切正常，没人动过，再不解决就要罢工了🤬”。 好吧，忽悠不过去了。 首先这类问题的排查方向应该不会错，就是主线程阻塞了，至于是啥导致的阻塞就不能像之前那样瞎猜了。 我将应用重启后用 jstack pid 将线程快照打印到终端，直接拉到最后看看 main 线程到底在干啥。 前几次的快照都是很正常： 加载 Spring —-&gt;连接 Zookeeper —&gt; 连接 Redis，都是依次执行下来没有阻塞。 隔了一段后应用确实还没起来，我再次 jstack 后得到如下信息： 翻源码我一直等了十几分钟再多次 jstack 得到的快照得到的信息都是一样的。 如图所示可见主线程是卡在了 dubbo 的某个方法 ServiceConfig.java 的 303 行中。 于是我找到此处的源码： 简单来说这里的逻辑就是要获取本机的 IP 将其注册到 Zookeeper 中用于其他服务调用。 再往下跟就如堆栈中一样是卡在了 Inet4AddressImpl.getLocalHostName 处。 但这是一个 native 方法，我们应用也根本干涉不了，最终的现象就是调用这个本地方法非常耗时。 于是这问题貌似也阻塞在这儿了，没有太多办法。 最终解决既然这是一个 native 方法，那说明和应用本身没有啥关系（确实也是这样，这个问题是突然间出现的。） 那是否是服务器本身的问题呢，想到在 native 方法里是获取本机的 hostname，那是否和这个 hostname 有关系呢。 这是在我自己的阿里云服务器上测试，真正的测试环境不是这个名字。 拿到服务器 hostname 后再尝试 ping 这个 hostname，奇怪的现象发生了： 命令刚开始会卡住一段时间（大概几十秒），然后才会输出 hostname 对应的 ip 以及对应的延迟。 而当我直接 ping 这个 ip 时却能快速响应后面的输出。 最后我尝试在 /etc/hosts 配置文件中加入了对应的 host 配置： 1xx.xx.xx.xx(ip) hostname 再次 ping hostname 的效果就和直接 ping ip 一样了。 于是我再次重启应用，一切都正常了。 总结最后根据我调整的内容尝试分析下本次问题的原因： 当 Dubbo 在启动获取本地 ip 时，是通过服务器 hostname 从 dns 服务器返回当前的 ip 地址。 由于 dns 服务器或者是本地服务器与 dns 服务器之间存在网络问题，导致这个过程的时间被拉长（猜测）。 我在本地的 host 文件中配置后，就相当于本地有一个缓存，优先取本地配置的 ip ，避免了和 dns 服务器交互的过程，所以速度提升了。 虽然问题得到解决了，但还是有几个疑问： 第一个是为什么和 DNS 服务器的交互会这么慢，即便是慢也没有像应用那样需要 2 个小时才能返回，这里我也没搞得太清楚，有相关经验的朋友可以留言讨论。 第二就是 Dubbo 在这个依赖外部获取资源时健壮性是否可以做的更好，虽说我这问题估计也几人碰到。 对于这种长时间没有启动成功的问题是否可以加上提示，比如直接抛出异常退出程序，将问题可能的原因告诉开发者，方便排查问题。 你的点赞与分享是对我最大的支持]]></content>
+      <categories>
+        <category>问题排查</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>Thread</tag>
+        <tag>Dubbo</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[常见的集合容器应当避免的坑]]></title>
     <url>%2F2019%2F07%2F04%2Fjava-senior%2FArrayList%20VS%20LinkedList%2F</url>
     <content type="text"><![CDATA[前言前不久帮同事一起 review 一个 job 执行缓慢的问题时发现不少朋友在撸码实现功能时还是有需要细节不够注意，于是便有了这篇文章。 ArrayList 踩坑1234567List&lt;String&gt; temp = new ArrayList() ;//获取一批数据List&lt;String&gt; all = getData();for(String str : all) &#123; temp.add(str);&#125; 首先大家看看这段代码有什么问题嘛？ 其实在大部分情况下这都是没啥问题，无非就是循环的往 ArrayList 中写入数据而已。 但在特殊情况下，比如这里的 getData() 返回数据非常巨大时后续 temp.add(str) 就会有问题了。 比如我们在 review 代码时发现这里返回的数据有时会高达 2000W，这时 ArrayList 写入的问题就凸显出来了。 填坑指南大家都知道 ArrayList 是由数组实现，而数据的长度有限；需要在合适的时机对数组扩容。 这里以插入到尾部为例 add(E e)。 1234ArrayList&lt;String&gt; temp = new ArrayList&lt;&gt;(2) ;temp.add("1");temp.add("2");temp.add("3"); 当我们初始化一个长度为 2 的 ArrayList ，并往里边写入三条数据时 ArrayList 就得扩容了，也就是将之前的数据复制一份到新的数组长度为 3 的数组中。 之所以是 3 ，是因为新的长度=原有长度 * 1.5 通过源码我们可以得知 ArrayList 的默认长度为 10. 但其实并不是在初始化的时候就创建了 DEFAULT_CAPACITY = 10 的数组。 而是在往里边 add 第一个数据的时候会扩容到 10. 既然知道了默认的长度为 10 ，那说明后续一旦写入到第九个元素的时候就会扩容为 10*1.5 =15。这一步为数组复制，也就是要重新开辟一块新的内存空间存放这 15 个数组。 一旦我们频繁且数量巨大的进行写入时就会导致许多的数组复制，这个效率是极低的。 但如果我们提前预知了可能会写入多少条数据时就可以提前避免这个问题。 比如我们往里边写入 1000W 条数据，在初始化的时候就给定数组长度与用默认 10 的长度之间性能是差距巨大的。 我用 JMH 基准测试验证如下： 123456789101112131415161718192021222324252627282930313233343536373839404142@Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)@Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)public class CollectionsTest &#123; private static final int TEN_MILLION = 10000000; @Benchmark @BenchmarkMode(Mode.AverageTime) @OutputTimeUnit(TimeUnit.MICROSECONDS) public void arrayList() &#123; List&lt;String&gt; array = new ArrayList&lt;&gt;(); for (int i = 0; i &lt; TEN_MILLION; i++) &#123; array.add("123"); &#125; &#125; @Benchmark @BenchmarkMode(Mode.AverageTime) @OutputTimeUnit(TimeUnit.MICROSECONDS) public void arrayListSize() &#123; List&lt;String&gt; array = new ArrayList&lt;&gt;(TEN_MILLION); for (int i = 0; i &lt; TEN_MILLION; i++) &#123; array.add("123"); &#125; &#125; public static void main(String[] args) throws RunnerException &#123; Options opt = new OptionsBuilder() .include(CollectionsTest.class.getSimpleName()) .forks(1) .build(); new Runner(opt).run(); &#125;&#125; 根据结果可以看出预设长度的效率会比用默认的效率高上很多（这里的 Score 指执行完函数所消耗的时间）。 所以这里强烈建议大家：在有大量数据写入 ArrayList 时，一定要初始化指定长度。 再一个是一定要慎用 add(int index, E element) 向指定位置写入数据。 通过源码我们可以看出，每一次写入都会将 index 后的数据往后移动一遍，其实本质也是要复制数组； 但区别于往常规的往数组尾部写入数据，它每次都会进行数组复制，效率极低。 LinkedList提到 ArrayList 就不得不聊下 LinkedList 这个孪生兄弟；虽说都是 List 的容器，但本质实现却完全不同。 LinkedList 是由链表组成，每个节点又有头尾两个节点分别引用了前后两个节点；因此它也是一个双向链表。 所以理论上来说它的写入非常高效，将不会有 ArrayList 中效率极低的数组复制，每次只需要移动指针即可。 这里偷懒就不画图了，大家自行脑补下。 对比测试坊间一直流传： LinkedList 的写入效率高于 ArrayList，所以在写大于读的时候非常适用于 LinkedList 。 1234567891011@Benchmark@BenchmarkMode(Mode.AverageTime)@OutputTimeUnit(TimeUnit.MICROSECONDS)public void linkedList() &#123; List&lt;String&gt; array = new LinkedList&lt;&gt;(); for (int i = 0; i &lt; TEN_MILLION; i++) &#123; array.add("123"); &#125;&#125; 这里测试看下结论是否符合；同样的也是对 LinkedList 写入 1000W 次数据，通过结果来看初始化数组长度的 ArrayList 效率明显是要高于 LinkedList 。 但这里的前提是要提前预设 ArrayList 的数组长度，避免数组扩容，这样 ArrayList 的写入效率是非常高的，而 LinkedList 的虽然不需要复制内存，但却需要创建对象，变换指针等操作。 而查询就不用多说了，ArrayList 可以支持下标随机访问，效率非常高。 LinkedList 由于底层不是数组，不支持通过下标访问，而是需要根据查询 index 所在的位置来判断是从头还是从尾进行遍历。 但不管是哪种都得需要移动指针来一个个遍历，特别是 index 靠近中间位置时将会非常慢。 总结高性能应用都是从小细节一点点堆砌起来的，就如这里提到的 ArrayList 的坑一样，日常使用没啥大问题，一旦数据量起来所有的小问题都会成为大问题。 所以再总结下： 再使用 ArrayList 时如果能提前预测到数据量大小，比较大时一定要指定其长度。 尽可能避免使用 add(index,e) api，会导致复制数组，降低效率。 再额外提一点，我们常用的另一个 Map 容器 HashMap 也是推荐要初始化长度从而避免扩容。 本文所有测试代码： https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/basic/CollectionsTest.java 你的点赞与分享是对我最大的支持]]></content>
@@ -11,19 +24,6 @@
         <tag>Java</tag>
         <tag>ArrayList</tag>
         <tag>LinkedList</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title><![CDATA[What？一个 Dubbo 服务启动要两个小时！]]></title>
-    <url>%2F2019%2F06%2F18%2Ftroubleshoot%2Fdubbo-start-slow%2F</url>
-    <content type="text"><![CDATA[前言前几天在测试环境碰到一个非常奇怪的与 dubbo 相关的问题，事后我在网上搜索了一圈并没有发现类似的帖子或文字，于是便有了这篇。 希望对还未碰到或正在碰到的朋友有所帮助。 现象现象是这样的，有一天测试在测试环境重新部署一个 dubbo 应用的时候发现应用“启动不起来”。 但过几个小时候之后又能自己慢慢恢复，并能够对外提供 dubbo 服务。 但其实经过我后续排查发现刚开始其实并不是启动不起来，而是启动速度非常缓慢，所以当应用长时间启动后才会对外提供服务。 而这个速度慢到居然要花费 2 个小时。 导致的一个结果是测试完全不敢在测试环境发版验证了，每验证一个功能修复一个 bug 就得等上两个小时，这谁受得了😂。 而且经过多次观察，确实每次都是花费两小时左右应用才能启动起来。 尝试解决最后测试顶不住了，只能让我这个“事故报告撰写专家”来看看。 当我得知这个问题的现象时其实完全没当一回事： 都不用想，这不就是主线程阻塞了嘛，先看看是否在初始化的时候数据库、Zookeeper 之类的连不上导致阻塞了——-来之多次事故处理的经验告诉我。 于是我把这事打回给测试让他先找运维排查下，不到万不得已不要影响我 Touch fish🐳。 第二天一早看到测试同学的微信头像跳动时我都已经准备接受又一句 “膜拜大佬👍” 的回复时，却收到 “网络一切正常，没人动过，再不解决就要罢工了🤬”。 好吧，忽悠不过去了。 首先这类问题的排查方向应该不会错，就是主线程阻塞了，至于是啥导致的阻塞就不能像之前那样瞎猜了。 我将应用重启后用 jstack pid 将线程快照打印到终端，直接拉到最后看看 main 线程到底在干啥。 前几次的快照都是很正常： 加载 Spring —-&gt;连接 Zookeeper —&gt; 连接 Redis，都是依次执行下来没有阻塞。 隔了一段后应用确实还没起来，我再次 jstack 后得到如下信息： 翻源码我一直等了十几分钟再多次 jstack 得到的快照得到的信息都是一样的。 如图所示可见主线程是卡在了 dubbo 的某个方法 ServiceConfig.java 的 303 行中。 于是我找到此处的源码： 简单来说这里的逻辑就是要获取本机的 IP 将其注册到 Zookeeper 中用于其他服务调用。 再往下跟就如堆栈中一样是卡在了 Inet4AddressImpl.getLocalHostName 处。 但这是一个 native 方法，我们应用也根本干涉不了，最终的现象就是调用这个本地方法非常耗时。 于是这问题貌似也阻塞在这儿了，没有太多办法。 最终解决既然这是一个 native 方法，那说明和应用本身没有啥关系（确实也是这样，这个问题是突然间出现的。） 那是否是服务器本身的问题呢，想到在 native 方法里是获取本机的 hostname，那是否和这个 hostname 有关系呢。 这是在我自己的阿里云服务器上测试，真正的测试环境不是这个名字。 拿到服务器 hostname 后再尝试 ping 这个 hostname，奇怪的现象发生了： 命令刚开始会卡住一段时间（大概几十秒），然后才会输出 hostname 对应的 ip 以及对应的延迟。 而当我直接 ping 这个 ip 时却能快速响应后面的输出。 最后我尝试在 /etc/hosts 配置文件中加入了对应的 host 配置： 1xx.xx.xx.xx(ip) hostname 再次 ping hostname 的效果就和直接 ping ip 一样了。 于是我再次重启应用，一切都正常了。 总结最后根据我调整的内容尝试分析下本次问题的原因： 当 Dubbo 在启动获取本地 ip 时，是通过服务器 hostname 从 dns 服务器返回当前的 ip 地址。 由于 dns 服务器或者是本地服务器与 dns 服务器之间存在网络问题，导致这个过程的时间被拉长（猜测）。 我在本地的 host 文件中配置后，就相当于本地有一个缓存，优先取本地配置的 ip ，避免了和 dns 服务器交互的过程，所以速度提升了。 虽然问题得到解决了，但还是有几个疑问： 第一个是为什么和 DNS 服务器的交互会这么慢，即便是慢也没有像应用那样需要 2 个小时才能返回，这里我也没搞得太清楚，有相关经验的朋友可以留言讨论。 第二就是 Dubbo 在这个依赖外部获取资源时健壮性是否可以做的更好，虽说我这问题估计也几人碰到。 对于这种长时间没有启动成功的问题是否可以加上提示，比如直接抛出异常退出程序，将问题可能的原因告诉开发者，方便排查问题。 你的点赞与分享是对我最大的支持]]></content>
-      <categories>
-        <category>问题排查</category>
-      </categories>
-      <tags>
-        <tag>Java</tag>
-        <tag>Thread</tag>
-        <tag>Dubbo</tag>
       </tags>
   </entry>
   <entry>
@@ -223,8 +223,8 @@
         <category>cim</category>
       </categories>
       <tags>
-        <tag>IM</tag>
         <tag>Heartbeat</tag>
+        <tag>IM</tag>
       </tags>
   </entry>
   <entry>
@@ -355,8 +355,8 @@
         <tag>Java</tag>
         <tag>Thread</tag>
         <tag>concurrent</tag>
-        <tag>JVM</tag>
         <tag>HashMap</tag>
+        <tag>JVM</tag>
         <tag>HashSet</tag>
       </tags>
   </entry>
