@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-07-04T15:37:36.240Z</updated>
+  <updated>2019-07-14T15:39:13.413Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -16,11 +16,108 @@
   <generator uri="http://hexo.io/">Hexo</generator>
   
   <entry>
+    <title>设计一个全局异常处理器</title>
+    <link href="http://crossoverjie.top/2019/07/15/wheel/cicada7-exception-handle/"/>
+    <id>http://crossoverjie.top/2019/07/15/wheel/cicada7-exception-handle/</id>
+    <published>2019-07-15T00:29:36.000Z</published>
+    <updated>2019-07-14T15:39:13.413Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/07/14/5d2b4a7010e6815837.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近稍微闲了一点于是把这个半年都没更新的开源项目 <a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">cicada</a> 重新捡了起来。</p>
+<p>一些新关注的朋友应该还不知道这项目是干啥的？先来看看官方介绍吧（其实就我自己写的😀）</p>
+<blockquote>
+<p>cicada: 基于 Netty4 实现的快速、轻量级 WEB 框架；没有过多的依赖，核心 jar 包仅 <code>30KB</code>。</p>
+</blockquote>
+<p><img src="https://i.loli.net/2019/07/14/5d2b4a70635d532624.jpg" alt=""></p>
+<a id="more"></a>
+<p>针对这个轮子以前也写过相关的介绍，感兴趣的可以再翻回去看看：</p>
+<ul>
+<li><a href="https://crossoverjie.top/2018/09/03/wheel/cicada1/">「造个轮子」——cicada(轻量级 WEB 框架)</a></li>
+<li><a href="https://crossoverjie.top/2018/09/05/wheel/cicada2/">「造个轮子」——cicada 源码分析</a></li>
+<li><a href="https://crossoverjie.top/2018/09/14/wheel/cicada3/">「造个轮子」——cicada 设计一个配置模块</a></li>
+<li><a href="https://crossoverjie.top/2018/10/09/wheel/cicada4/">「造个轮子」——cicada 设计全局上下文</a></li>
+<li><a href="https://crossoverjie.top/2018/10/22/wheel/cicada5/">利用责任链模式设计一个拦截器</a></li>
+<li><a href="https://crossoverjie.top/2018/11/15/wheel/cicada6/">设计一个可拔插的 IOC 容器</a></li>
+</ul>
+<p>这些都看完了相信对这个小玩意应该会有更多的想法。</p>
+<h1 id="效果"><a href="#效果" class="headerlink" title="效果"></a>效果</h1><p>广告打完了，回到正题；大家平时最常用的 <code>MVC</code> 框架当属 <code>SpringMVC</code> 了，而在搭建脚手架的时候相信全局异常处理是必不可少的。</p>
+<h2 id="Spring-用法"><a href="#Spring-用法" class="headerlink" title="Spring 用法"></a>Spring 用法</h2><p>通常我们的做法如下：</p>
+<p>传统 <code>Spring</code> 版本：</p>
+<ul>
+<li>实现一个 <code>Spring</code> 自带的接口，重写其中的方法，最后的异常处理便在此处。</li>
+<li>将这个类配置在 <code>Spring</code> 的 <code>xml</code> ，当做一个 bean 注册到 <code>Spring</code> 容器中。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CustomExceptionResolver</span> <span class="keyword">implements</span> <span class="title">HandlerExceptionResolver</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> ModelAndView <span class="title">resolveException</span><span class="params">(HttpServletRequest request,</span></span></div><div class="line">            HttpServletResponse response, Object handler, Exception ex) &#123;</div><div class="line">	<span class="comment">//自定义处理</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">class</span>=<span class="string">"ssm.exception.CustomExceptionResolver"</span>&gt;</span><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></div></pre></td></tr></table></figure>
+<hr>
+<p>当然现在流行的 <code>SpringBoot</code> 也有对应的简化版本：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@ControllerAdvice</span></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">GlobalExceptionHandler</span> </span>&#123;</div><div class="line">    <span class="meta">@ExceptionHandler</span>(value = Exception.class)</div><div class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">defaultErrorHandler</span><span class="params">(HttpServletRequest req, Exception e)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line">        <span class="comment">//自定义处理</span></div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>全部都换为注解形式，但本质上还是一样的。</p>
+<blockquote>
+<p>都是要在容器中创建一个特殊的 bean，这个 bean 专门用于处理异常，当系统运行时出现异常，就从容器中找到该 bean，并执行其中的方法即可。</p>
+</blockquote>
+<p>至于这个特殊的 <code>bean</code> 如何标识出来，无非就是实现某个特定接口或者用注解声明，也就对应了传统 <code>Spring</code> 和 <code>SpringBoot</code> 的用法。</p>
+<h2 id="cicada-用法"><a href="#cicada-用法" class="headerlink" title="cicada 用法"></a>cicada 用法</h2><p><code>cicada</code> 在设计自己的全局异常处理器时也参考了 Spring 的相关设计，所以最终用法如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@CicadaBean</span></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ExceptionHandle</span> <span class="keyword">implements</span> <span class="title">GlobalHandelException</span> </span>&#123;</div><div class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> Logger LOGGER = LoggerBuilder.getLogger(ExceptionHandle.class);</div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">resolveException</span><span class="params">(CicadaContext context, Exception e)</span> </span>&#123;</div><div class="line">        LOGGER.error(<span class="string">"Exception"</span>, e);</div><div class="line">        WorkRes workRes = <span class="keyword">new</span> WorkRes();</div><div class="line">        workRes.setCode(<span class="string">"500"</span>);</div><div class="line">        workRes.setMessage(e.getClass().getName() + <span class="string">"系统运行出现异常"</span>);</div><div class="line">        context.json(workRes);</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>自定义一个实现了 <code>GlobalHandelException</code> 接口的类，当请求出现异常时，页面和后台将会如下输出：</p>
+<p><img src="https://i.loli.net/2019/07/14/5d2b4a708987b32808.jpg" alt=""><br><img src="https://i.loli.net/2019/07/14/5d2b4a70e668052739.jpg" alt=""></p>
+<h1 id="设计"><a href="#设计" class="headerlink" title="设计"></a>设计</h1><p>看得出用法和 <code>Spring</code> 非常类似，也是需要实现一个接口 <code>GlobalHandelException</code>，同时使用 <code>@CicadaBean</code> 注解该类将他加载到 <code>cicada</code> 内置的 <code>IOC</code> 容器内。</p>
+<p>当出现异常时则在这个 <code>IOC</code> 容器中找到该对象调用它的 <code>resolveException</code> 即可。</p>
+<p>其中还可以通过 <code>CicadaContext</code> 全局上下文响应不同的输出（<code>json/text/html</code>）。</p>
+<h2 id="核心原理"><a href="#核心原理" class="headerlink" title="核心原理"></a>核心原理</h2><p><img src="https://i.loli.net/2019/07/14/5d2b4a712df5717670.jpg" alt=""></p>
+<p>简单画了下流程图，步骤如下：</p>
+<ul>
+<li>初始化时会找到实现了 <code>GlobalHandelException</code> 接口的类，将它实例化并注册到 <code>IOC</code> 容器中。</li>
+<li>当发生异常时从容器中获取到异常处理器的对象，执行其中的处理函数即可。</li>
+</ul>
+<p>说了半天原理来看看源码是如何实现的。</p>
+<p><img src="https://i.loli.net/2019/07/14/5d2b4a716caeb94532.jpg" alt=""></p>
+<p>在初始化 <code>bean</code> 时，如果是一个异常处理器则会将他单独存放（也就相当于前文说的打标识）。</p>
+<p>其中的 <code>GlobalHandelException</code> 本身的定义也非常简单：</p>
+<p><img src="https://i.loli.net/2019/07/14/5d2b4a7198bb390309.jpg" alt=""></p>
+<hr>
+<p>接下来是运行时：</p>
+<p><img src="https://i.loli.net/2019/07/14/5d2b4a71bc98986729.jpg" alt=""><br><img src="https://i.loli.net/2019/07/14/5d2b4a71f27d495514.jpg" alt=""><br><img src="https://i.loli.net/2019/07/14/5d2b4a7221b4f38396.jpg" alt=""></p>
+<p>而当出现异常时则会通过之前的保存的异常处理 <code>bean</code> 进行异常处理，在调用的同时将全局上下文及异常信息传递过去就齐活了。</p>
+<p>这样就可以在这个实现类中实现我们自己的异常处理逻辑了。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>万一今后面试官问你们 <code>SpringMVC</code> 的异常处理是如何实现的？你该知道怎么回答了吧😏。</p>
+<p>同时也可以发散一下，是否可以配置一个针对于某一个 <code>controller</code> 的异常处理，这样每个 <code>controller</code> 产生的异常可以单独处理，如果没有配置则进入全局异常；原理也差不多，感兴趣的朋友可以提个 <code>PR</code> 完成该 <code>feature</code>。</p>
+<p>项目源码：</p>
+<p><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">https://github.com/TogetherOS/cicada</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/07/14/5d2b4a7010e6815837.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;最近稍微闲了一点于是把这个半年都没更新的开源项目 &lt;a href=&quot;https://github.com/TogetherOS/cicada&quot;&gt;cicada&lt;/a&gt; 重新捡了起来。&lt;/p&gt;
+&lt;p&gt;一些新关注的朋友应该还不知道这项目是干啥的？先来看看官方介绍吧（其实就我自己写的😀）&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;cicada: 基于 Netty4 实现的快速、轻量级 WEB 框架；没有过多的依赖，核心 jar 包仅 &lt;code&gt;30KB&lt;/code&gt;。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/07/14/5d2b4a70635d532624.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="cicada" scheme="http://crossoverjie.top/categories/cicada/"/>
+    
+      <category term="轮子" scheme="http://crossoverjie.top/categories/cicada/%E8%BD%AE%E5%AD%90/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="HTTP" scheme="http://crossoverjie.top/tags/HTTP/"/>
+    
+      <category term="Netty" scheme="http://crossoverjie.top/tags/Netty/"/>
+    
+  </entry>
+  
+  <entry>
     <title>What？一个 Dubbo 服务启动要两个小时！</title>
     <link href="http://crossoverjie.top/2019/07/05/troubleshoot/dubbo-start-slow/"/>
     <id>http://crossoverjie.top/2019/07/05/troubleshoot/dubbo-start-slow/</id>
     <published>2019-07-05T00:10:36.000Z</published>
-    <updated>2019-07-04T15:37:36.240Z</updated>
+    <updated>2019-07-05T06:15:05.306Z</updated>
     
     <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/07/04/5d1e14ea0052047268.jpg" alt=""></p>
 <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前几天在测试环境碰到一个非常奇怪的与 <code>dubbo</code> 相关的问题，事后我在网上搜索了一圈并没有发现类似的帖子或文章，于是便有了这篇。</p>
@@ -2078,153 +2175,6 @@
       <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
     
       <category term="策略模式" scheme="http://crossoverjie.top/tags/%E7%AD%96%E7%95%A5%E6%A8%A1%E5%BC%8F/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>长连接的心跳及重连设计</title>
-    <link href="http://crossoverjie.top/2019/01/23/netty/cim03-heartbeat/"/>
-    <id>http://crossoverjie.top/2019/01/23/netty/cim03-heartbeat/</id>
-    <published>2019-01-23T00:08:14.000Z</published>
-    <updated>2019-05-07T17:41:11.289Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/05/08/5cd1bed3512ca.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>说道“心跳”这个词大家都不陌生，当然不是指男女之间的心跳，而是和长连接相关的。</p>
-<p>顾名思义就是证明是否还活着的依据。</p>
-<p>什么场景下需要心跳呢？</p>
-<p>目前我们接触到的大多是一些基于长连接的应用需要心跳来“保活”。</p>
-<p>由于在长连接的场景下，客户端和服务端并不是一直处于通信状态，如果双方长期没有沟通则双方都不清楚对方目前的状态；所以需要发送一段很小的报文告诉对方<code>“我还活着”</code>。</p>
-<a id="more"></a>
-<p>同时还有另外几个目的：</p>
-<ul>
-<li>服务端检测到某个客户端迟迟没有心跳过来可以主动关闭通道，让它下线。</li>
-<li>客户端检测到某个服务端迟迟没有响应心跳也能重连获取一个新的连接。</li>
-</ul>
-<p>正好借着在 <a href="https://github.com/crossoverJie/cim" target="_blank" rel="external">cim</a>有这样两个需求来聊一聊。</p>
-<h1 id="心跳实现方式"><a href="#心跳实现方式" class="headerlink" title="心跳实现方式"></a>心跳实现方式</h1><p>心跳其实有两种实现方式：</p>
-<ul>
-<li><code>TCP</code> 协议实现（<code>keepalive</code> 机制）。</li>
-<li>应用层自己实现。</li>
-</ul>
-<p>由于 <code>TCP</code> 协议过于底层，对于开发者来说维护性、灵活度都比较差同时还依赖于操作系统。</p>
-<p>所以我们这里所讨论的都是应用层的实现。</p>
-<hr>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beda71e1a.jpg" alt=""></p>
-<p>如上图所示，在应用层通常是由客户端发送一个心跳包 <code>ping</code> 到服务端，服务端收到后响应一个 <code>pong</code> 表明双方都活得好好的。</p>
-<p>一旦其中一端延迟 N 个时间窗口没有收到消息则进行不同的处理。</p>
-<h1 id="客户端自动重连"><a href="#客户端自动重连" class="headerlink" title="客户端自动重连"></a>客户端自动重连</h1><p>先拿客户端来说吧，每隔一段时间客户端向服务端发送一个心跳包，同时收到服务端的响应。</p>
-<p>常规的实现应当是：</p>
-<ul>
-<li>开启一个定时任务，定期发送心跳包。</li>
-<li>收到服务端响应后更新本地时间。</li>
-<li>再有一个定时任务定期检测这个<code>“本地时间”</code>是否超过阈值。</li>
-<li>超过后则认为服务端出现故障，需要重连。</li>
-</ul>
-<p>这样确实也能实现心跳，但并不友好。</p>
-<p>在正常的客户端和服务端通信的情况下，定时任务依然会发送心跳包；这样就显得没有意义，有些多余。</p>
-<p>所以理想的情况应当是客户端收到的写消息空闲时才发送这个心跳包去确认服务端是否健在。</p>
-<p>好消息是 <code>Netty</code> 已经为我们考虑到了这点，自带了一个开箱即用的 <code>IdleStateHandler</code> 专门用于心跳处理。</p>
-<p>来看看 <code>cim</code> 中的实现：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bedb0c84f.jpg" alt=""></p>
-<p>在 <code>pipeline</code> 中加入了一个 10秒没有收到写消息的 <code>IdleStateHandler</code>，到时他会回调 <code>ChannelInboundHandler</code> 中的 <code>userEventTriggered</code> 方法。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bedba4a5f.jpg" alt=""></p>
-<p>所以一旦写超时就立马向服务端发送一个心跳（做的更完善应当在心跳发送失败后有一定的重试次数）；</p>
-<p>这样也就只有在空闲时候才会发送心跳包。</p>
-<p>但一旦间隔许久没有收到服务端响应进行重连的逻辑应当写在哪里呢？</p>
-<p>先来看这个示例：</p>
-<p>当收到服务端响应的 pong 消息时，就在当前 Channel 上记录一个时间，也就是说后续可以在定时任务中取出这个时间和当前时间的差额来判断是否超过阈值。</p>
-<p>超过则重连。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bedc32bf5.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1bedcce886.jpg" alt=""></p>
-<p>同时在每次心跳时候都用当前时间和之前服务端响应绑定到 <code>Channel</code> 上的时间相减判断是否需要重连即可。</p>
-<p>也就是  <code>heartBeatHandler.process(ctx);</code> 的执行逻辑。</p>
-<p>伪代码如下：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Override</span></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">process</span><span class="params">(ChannelHandlerContext ctx)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line"></div><div class="line">    <span class="keyword">long</span> heartBeatTime = appConfiguration.getHeartBeatTime() * <span class="number">1000</span>;</div><div class="line">    </div><div class="line">    Long lastReadTime = NettyAttrUtil.getReaderTime(ctx.channel());</div><div class="line">    <span class="keyword">long</span> now = System.currentTimeMillis();</div><div class="line">    <span class="keyword">if</span> (lastReadTime != <span class="keyword">null</span> &amp;&amp; now - lastReadTime &gt; heartBeatTime)&#123;</div><div class="line">        reconnect();</div><div class="line">    &#125;</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<h2 id="IdleStateHandler-误区"><a href="#IdleStateHandler-误区" class="headerlink" title="IdleStateHandler 误区"></a>IdleStateHandler 误区</h2><p>一切看起来也没毛病，但实际上却没有这样实现重连逻辑。</p>
-<p>最主要的问题还是对 <code>IdleStateHandler</code> 理解有误。</p>
-<p>我们假设下面的场景：</p>
-<ol>
-<li>客户端通过登录连上了服务端并保持长连接，一切正常的情况下双方各发心跳包保持连接。</li>
-<li>这时服务端突入出现 down 机，那么理想情况下应当是客户端迟迟没有收到服务端的响应从而 <code>userEventTriggered</code> 执行定时任务。</li>
-<li>判断<code>当前时间 - UpdateWriteTime &gt; 阈值</code> 时进行重连。</li>
-</ol>
-<p>但却事与愿违，并不会执行 2、3两步。</p>
-<p>因为一旦服务端 <code>down</code> 机、或者是与客户端的网络断开则会回调客户端的 <code>channelInactive</code> 事件。</p>
-<p><code>IdleStateHandler</code> 作为一个 <code>ChannelInbound</code> 也重写了 <code>channelInactive()</code> 方法。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bedd54026.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1bee341616.jpg" alt=""></p>
-<p>这里的 <code>destroy()</code> 方法会把之前开启的定时任务都给取消掉。</p>
-<p><strong>所以就不会再有任何的定时任务执行了，也就不会有机会执行这个重连业务</strong>。</p>
-<h2 id="靠谱实现"><a href="#靠谱实现" class="headerlink" title="靠谱实现"></a>靠谱实现</h2><p>因此我们得有一个单独的线程来判断是否需要重连，不依赖于 <code>IdleStateHandler</code>。</p>
-<p>于是 <code>cim</code> 在客户端感知到网络断开时就会开启一个定时任务：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bee3cc343.jpg" alt=""></p>
-<blockquote>
-<p>之所以不在客户端启动就开启，是为了节省一点线程消耗。网络问题虽然不可避免，但在需要的时候开启更能节省资源。</p>
-</blockquote>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bee453e8c.jpg" alt=""></p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bee4d34ba.jpg" alt=""></p>
-<p>在这个任务重其实就是执行了重连，限于篇幅具体代码就不贴了，感兴趣的可以自行查阅。</p>
-<p>同时来验证一下效果。</p>
-<blockquote>
-<p>启动两个服务端，再启动客户端连接上一台并保持长连接。这时突然手动关闭一台服务，客户端可以自动重连到可用的那台服务节点。</p>
-</blockquote>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bee585fbb.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1beeac9619.jpg" alt=""></p>
-<p>启动客户端后服务端也能收到正常的 <code>ping</code> 消息。</p>
-<p>利用 <code>:info</code> 命令查看当前客户端的链接状态发现连的是 <code>9000</code>端口。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beeb441d9.jpg" alt=""></p>
-<blockquote>
-<p>:info 是一个新增命令，可以查看一些客户端信息。</p>
-</blockquote>
-<p>这时我关掉连接上的这台节点。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">kill -9 2142</div></pre></td></tr></table></figure>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beec116ff.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1beecdc01a.jpg" alt=""></p>
-<p>这时客户端会自动重连到可用的那台节点。<br>这个节点也收到了上线日志以及心跳包。</p>
-<h1 id="服务端自动剔除离线客户端"><a href="#服务端自动剔除离线客户端" class="headerlink" title="服务端自动剔除离线客户端"></a>服务端自动剔除离线客户端</h1><p>现在来看看服务端，它要实现的效果就是延迟 N 秒没有收到客户端的 <code>ping</code> 包则认为客户端下线了，在 <code>cim</code> 的场景下就需要把他踢掉置于离线状态。</p>
-<h2 id="消息发送误区"><a href="#消息发送误区" class="headerlink" title="消息发送误区"></a>消息发送误区</h2><p>这里依然有一个误区，在调用 <code>ctx.writeAndFlush()</code> 发送消息获取回调时。</p>
-<p>其中是 <code>isSuccess</code> 并不能作为消息发送成功与否的标准。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beed63443.jpg" alt=""></p>
-<p>也就是说即便是客户端直接断网，服务端这里发送消息后拿到的 <code>success</code> 依旧是 <code>true</code>。</p>
-<p><strong>这是因为这里的 <code>success</code> 只是告知我们消息写入了 <code>TCP</code> 缓冲区成功了而已。</strong></p>
-<p>和我之前有着一样错误理解的不在少数，这是 <code>Netty</code> 官方给的回复。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beedd6b0d.jpg" alt=""></p>
-<p>相关 <code>issue</code>：</p>
-<p><a href="https://github.com/netty/netty/issues/4915" target="_blank" rel="external">https://github.com/netty/netty/issues/4915</a></p>
-<blockquote>
-<p>同时感谢 95老徐以及闪电侠的一起排查。</p>
-</blockquote>
-<p>所以我们不能依据此来关闭客户端的连接，而是要像上文一样判断 <code>Channel</code> 上绑定的时间与当前时间只差是否超过了阈值。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beee61f44.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1c2fec4fde.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1c301a72b1.jpg" alt=""></p>
-<p>以上则是 <code>cim</code> 服务端的实现，逻辑和开头说的一致，也和 <code>Dubbo</code> 的心跳机制有些类似。</p>
-<p>于是来做个试验：正常通信的客户端和服务端，当我把客户端直接断网时，服务端会自动剔除客户端。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c304b7104.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1c3070e236.jpg" alt=""></p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这样就实现了文初的两个要求。</p>
-<ul>
-<li>服务端检测到某个客户端迟迟没有心跳过来可以主动关闭通道，让它下线。</li>
-<li>客户端检测到某个服务端迟迟没有响应心跳也能重连获取一个新的连接。</li>
-</ul>
-<p>同时也踩了两个误区，坑一个人踩就可以了，希望看过本文的都有所收获避免踩坑。</p>
-<p>本文所有相关代码都在此处，感兴趣的可以自行查看：</p>
-<p><a href="https://github.com/crossoverJie/cim" target="_blank" rel="external">https://github.com/crossoverJie/cim</a></p>
-<p>如果本文对你有所帮助还请不吝转发。</p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/05/08/5cd1bed3512ca.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;说道“心跳”这个词大家都不陌生，当然不是指男女之间的心跳，而是和长连接相关的。&lt;/p&gt;
-&lt;p&gt;顾名思义就是证明是否还活着的依据。&lt;/p&gt;
-&lt;p&gt;什么场景下需要心跳呢？&lt;/p&gt;
-&lt;p&gt;目前我们接触到的大多是一些基于长连接的应用需要心跳来“保活”。&lt;/p&gt;
-&lt;p&gt;由于在长连接的场景下，客户端和服务端并不是一直处于通信状态，如果双方长期没有沟通则双方都不清楚对方目前的状态；所以需要发送一段很小的报文告诉对方&lt;code&gt;“我还活着”&lt;/code&gt;。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Netty" scheme="http://crossoverjie.top/categories/Netty/"/>
-    
-      <category term="cim" scheme="http://crossoverjie.top/categories/Netty/cim/"/>
-    
-    
-      <category term="Heartbeat" scheme="http://crossoverjie.top/tags/Heartbeat/"/>
-    
-      <category term="IM" scheme="http://crossoverjie.top/tags/IM/"/>
     
   </entry>
   
