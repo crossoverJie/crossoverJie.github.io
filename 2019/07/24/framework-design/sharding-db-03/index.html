@@ -1,0 +1,1236 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/vendors/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/vendors/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="db," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml" />
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.1" />
+
+
+
+
+
+
+<meta name="description" content="背景前不久发过两篇关于分表的文章：
+
+一次分表踩坑实践的探讨
+分表后需要注意的二三事
+
+从标题可以看得出来，当时我们只做了分表；还是由于业务发展，截止到现在也做了分库，目前看来都还比较顺利，所以借着脑子还记得清楚来一次复盘。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一次难得的分库分表实践">
+<meta property="og:url" content="http://crossoverjie.top/2019/07/24/framework-design/sharding-db-03/index.html">
+<meta property="og:site_name" content="crossoverJie's Blog">
+<meta property="og:description" content="背景前不久发过两篇关于分表的文章：
+
+一次分表踩坑实践的探讨
+分表后需要注意的二三事
+
+从标题可以看得出来，当时我们只做了分表；还是由于业务发展，截止到现在也做了分库，目前看来都还比较顺利，所以借着脑子还记得清楚来一次复盘。">
+<meta property="og:image" content="https://i.loli.net/2019/07/25/5d39840d169ae80383.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/25/5d39840dd28fd13220.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/13/5d0126128f1e678414.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/25/5d39840e3a15251220.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/25/5d39840e7691e58337.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/25/5d39840eedaf273526.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/25/5d39840f3b3d054411.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/25/5d39840f6b9fd31724.jpg">
+<meta property="og:updated_time" content="2019-07-25T10:42:02.364Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="一次难得的分库分表实践">
+<meta name="twitter:description" content="背景前不久发过两篇关于分表的文章：
+
+一次分表踩坑实践的探讨
+分表后需要注意的二三事
+
+从标题可以看得出来，当时我们只做了分表；还是由于业务发展，截止到现在也做了分库，目前看来都还比较顺利，所以借着脑子还记得清楚来一次复盘。">
+<meta name="twitter:image" content="https://i.loli.net/2019/07/25/5d39840d169ae80383.jpg">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: 555390,
+      author: 'crossoverJie'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="http://crossoverjie.top/2019/07/24/framework-design/sharding-db-03/"/>
+
+  <title> 一次难得的分库分表实践 | crossoverJie's Blog </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+
+
+
+
+
+
+
+
+  <div style="display: none;">
+    <script src="https://s6.cnzz.com/stat.php?id=1259025147&web_id=1259025147" type="text/javascript"></script>
+  </div>
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">crossoverJie's Blog</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle">baller</p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            Home
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            Categories
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            About
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            Archives
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            Tags
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-photo">
+          <a href="/favourite" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-photo"></i> <br />
+            
+            photo
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-jcsprout">
+          <a href="https://crossoverjie.top/JCSprout/#/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-leaf"></i> <br />
+            
+            JCSprout
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-cicada">
+          <a href="https://github.com/TogetherOS/cicada" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-github"></i> <br />
+            
+            cicada
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-cim">
+          <a href="https://github.com/crossoverjie/cim" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-far fa-comment"></i> <br />
+            
+            CIM
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-vlog">
+          <a href="https://space.bilibili.com/42339430" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-youtube"></i> <br />
+            
+            Vlog
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="#" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br />
+            
+            Search
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup">
+ <span class="search-icon fa fa-search"></span>
+ <input type="text" id="local-search-input">
+ <div id="local-search-result"></div>
+ <span class="popup-btn-close">close</span>
+</div>
+
+
+    </div>
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                一次难得的分库分表实践
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">Posted on</span>
+            <time itemprop="dateCreated" datetime="2019-07-24T08:12:00+08:00" content="2019-07-24">
+              2019-07-24
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/架构/" itemprop="url" rel="index">
+                    <span itemprop="name">架构</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/2019/07/24/framework-design/sharding-db-03/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2019/07/24/framework-design/sharding-db-03/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+             <span id="/2019/07/24/framework-design/sharding-db-03/" class="leancloud_visitors" data-flag-title="一次难得的分库分表实践">
+               &nbsp; | &nbsp;
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               <span class="post-meta-item-text">visitors </span>
+               <span class="leancloud-visitors-count"></span>
+              </span>
+          
+
+          
+              &nbsp; | &nbsp;
+              <span class="page-pv">本文总阅读量
+              <span class="busuanzi-value" id="busuanzi_value_page_pv" ></span>次
+              </span>
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p><img src="https://i.loli.net/2019/07/25/5d39840d169ae80383.jpg" alt=""></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前不久发过两篇关于分表的文章：</p>
+<ul>
+<li><a href="https://crossoverjie.top/2019/04/16/framework-design/sharding-db/">一次分表踩坑实践的探讨</a></li>
+<li><a href="https://crossoverjie.top/2019/06/13/framework-design/sharding-db-02/">分表后需要注意的二三事</a></li>
+</ul>
+<p>从标题可以看得出来，当时我们只做了分表；还是由于业务发展，截止到现在也做了分库，目前看来都还比较顺利，所以借着脑子还记得清楚来一次复盘。</p>
+<a id="more"></a>
+<p>先来回顾下整个分库分表的流程如下：</p>
+<p><img src="https://i.loli.net/2019/07/25/5d39840dd28fd13220.jpg" alt=""></p>
+<p>整个过程也很好理解，基本符合大部分公司的一个发展方向。</p>
+<p>很少会有业务一开始就会设计为分库分表，虽说这样会减少后续的坑，但部分公司刚开始都是以业务为主。</p>
+<p>直到业务发展到单表无法支撑时，自然而然会考虑分表甚至分库的事情。</p>
+<p>于是本篇会作一次总结，之前提过的内容可能会再重复一次。</p>
+<h1 id="分表"><a href="#分表" class="headerlink" title="分表"></a>分表</h1><p>首先讨论下什么样的情况下适合分表？</p>
+<p>根据我的经验来看，当某张表的数据量已经达到千万甚至上亿，同时日增数据量在 2% 以上。</p>
+<p>当然这些数字并不是绝对的，最重要的还是对这张表的写入和查询都已经影响到正常业务执行，比如查询速度明显下降，数据库整体 IO 居高不下等。</p>
+<p>而谈到分表时我们着重讨论的还是水平分表；</p>
+<p><img src="https://i.loli.net/2019/06/13/5d0126128f1e678414.jpg" alt=""></p>
+<p>也就是将一张大表数据通过某种路由算法将数据尽可能的均匀分配到 N 张小表中。</p>
+<h2 id="Range"><a href="#Range" class="headerlink" title="Range"></a>Range</h2><p>而分表策略也有好几种，分别适用不同的场景。</p>
+<p>首先第一种是按照范围划分，比如我们可以将某张表的创建时间按照日期划分存为月表；也可以将某张表的主键按照范围划分，比如 【1~10000】在一张表，【10001~20000】在一张表，以此类推。</p>
+<p><img src="https://i.loli.net/2019/07/25/5d39840e3a15251220.jpg" alt=""></p>
+<p>这样的分表适合需要对数据做归档处理，比如系统默认只提供近三个月历史数据的查询功能，这样也方便操作；只需要把三月之前的数据单独移走备份保存即可）。</p>
+<p>这个方案有好处也有弊端：</p>
+<ul>
+<li>好处是自带水平扩展，不需要过多干预。</li>
+<li>缺点是可能会出现数据不均匀的情况（比如某个月请求暴增）。</li>
+</ul>
+<h2 id="Hash"><a href="#Hash" class="headerlink" title="Hash"></a>Hash</h2><p>按照日期这样的范围分表固然简单，但适用范围还是比较窄；毕竟我们大部分的数据查询都不想带上时间。</p>
+<p>比如某个用户想查询他产生的所有订单信息，这是很常见的需求。</p>
+<p>于是我们分表的维度就得改改，分表算法可以采用主流的 <code>hash+mod</code> 的组合。</p>
+<p>这是一个经典的算法，大名鼎鼎的 <code>HashMap</code> 也是这样来存储数据。</p>
+<p>假设我们这里将原有的一张大表订单信息分为 64 张分表：</p>
+<p><img src="https://i.loli.net/2019/07/25/5d39840e7691e58337.jpg" alt=""></p>
+<p>这里的 <code>hash</code> 便是将我们需要分表的字段进行一次散列运算，使得经过散列的数据尽可能的均匀并且不重复。</p>
+<p>当然如果本身这个字段就是一个整形并且不重复也可以省略这个步骤，直接进行 <code>Mod</code> 得到分表下标即可。</p>
+<h3 id="分表数量选择"><a href="#分表数量选择" class="headerlink" title="分表数量选择"></a>分表数量选择</h3><p>至于这里的分表数量（64）也是有讲究的，具体设为多少这个没有标准值，需要根据自身业务发展，数据增量进行预估。</p>
+<p>根据我个人的经验来看，至少需要保证分好之后的小表在业务发展的几年之内都不会出现单表数据量过大（比如达到千万级）。</p>
+<p>我更倾向于在数据库可接受的范围内尽可能的增大这个分表数，毕竟如果后续小表也达到瓶颈需要再进行一次分表扩容，那是非常痛苦的。</p>
+<blockquote>
+<p>目前笔者还没经历这一步，所以本文没有相关介绍。</p>
+</blockquote>
+<p>但是这个数量又不是瞎选的，和 <code>HashMap</code> 一样，也建议得是 <code>2^n</code>，这样可以方便在扩容的时尽可能的少迁移数据。</p>
+<h2 id="Range-Hash"><a href="#Range-Hash" class="headerlink" title="Range + Hash"></a>Range + Hash</h2><p>当然还有一种思路，<code>Range</code> 和 <code>Hash</code> 是否可以混用。</p>
+<p>比如我们一开始采用的是 Hash 分表，但是数据增长巨大，导致每张分表数据很快达到瓶颈，这样就不得不再做扩容，比如由 64 张表扩容到 256 张。</p>
+<p>但扩容时想要做到不停机迁移数据非常困难，即便是停机，那停多久呢？也不好说。</p>
+<p>所以我们是否可以在 <code>Mod</code> 分表的基础上再分为月表，借助于 <code>Range</code> 自身的扩展性就不用考虑后续数据迁移的事情了。</p>
+<p><img src="https://i.loli.net/2019/07/25/5d39840eedaf273526.jpg" alt=""></p>
+<p>这种方式理论可行，但我没有实际用过，给大家的思路做个参考吧。</p>
+<h2 id="烦人的数据迁移"><a href="#烦人的数据迁移" class="headerlink" title="烦人的数据迁移"></a>烦人的数据迁移</h2><p>分表规则弄好后其实只是完成了分表的第一步，真正麻烦的是数据迁移，或者说是如何做到对业务影响最小的数据迁移。</p>
+<p>除非是一开始就做了分表，所以数据迁移这一步骤肯定是跑不掉的。</p>
+<p>下面整理下目前我们的做法供大家参考：</p>
+<ol>
+<li>一旦分表上线后所有的数据写入、查询都是针对于分表的，所以原有大表内的数据必须得迁移到分表里，不然对业务的影响极大。</li>
+<li>我们估算了对一张 2 亿左右的表进行迁移，自己写的迁移程序，大概需要花 4~5 天的时间才能完成迁移。</li>
+<li>意味着这段时间内，以前的数据对用户是不可见的，显然这样业务不能接受。</li>
+<li>于是我们做了一个兼容处理：分表改造上线后，所有新产生的数据写入分表，但对历史数据的操作还走老表，这样就少了数据迁移这一步骤。</li>
+<li>只是需要在操作数据之前做一次路由判断，当新数据产生的足够多时（我们是两个月时间），几乎所有的操作都是针对于分表，再从库启动数据迁移，数据迁移完毕后将原有的路由判断去掉。</li>
+<li>最后所有的数据都从分表产生和写入。</li>
+</ol>
+<p>至此整个分表操作完成。</p>
+<p><img src="https://i.loli.net/2019/07/25/5d39840f3b3d054411.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/07/25/5d39840f6b9fd31724.jpg" alt=""></p>
+<h2 id="业务兼容"><a href="#业务兼容" class="headerlink" title="业务兼容"></a>业务兼容</h2><p>同时分表之后还需要兼容其他业务；比如原有的报表业务、分页查询等，现在来看看我们是如何处理的。</p>
+<h3 id="报表"><a href="#报表" class="headerlink" title="报表"></a>报表</h3><p>首先是报表，没分表之前之间查询一张表就搞定了，现在不同，由一张表变为 N 张表。</p>
+<p>所以原有的查询要改为遍历所有的分表，考虑到性能可以利用多线程并发查询分表数据然后汇总。</p>
+<p>不过只依靠 <code>Java</code> 来对这么大量的数据做统计分析还是不现实，刚开始可以应付过去，后续还得用上大数据平台来处理。</p>
+<h3 id="查询"><a href="#查询" class="headerlink" title="查询"></a>查询</h3><p>再一个是查询，原有的分页查询肯定是不能用了，毕竟对上亿的数据分页其实没什么意义。</p>
+<p>只能提供通过分表字段的查询，比如是按照订单 ID 分表，那查询条件就得带上这个字段，不然就会涉及到遍历所有表。</p>
+<p>这也是所有分表之后都会遇到的一个问题，除非不用 <code>MySQL</code> 这类关系型数据库。</p>
+<h1 id="分库"><a href="#分库" class="headerlink" title="分库"></a>分库</h1><p>分表完成后可以解决单表的压力，但数据库本身的压力却没有下降。</p>
+<p>我们在完成分表之后的一个月内又由于数据库里“其他表”的写入导致整个数据库 IO 增加，而且这些“其他表”还和业务关系不大。</p>
+<p>也就是说一些可有可无的数据导致了整体业务受影响，这是非常不划算的事情。</p>
+<p>于是我们便把这几张表单独移到一个新的数据库中，完全和现有的业务隔离开来。</p>
+<p>这样就会涉及到几个改造：</p>
+<ol>
+<li>应用自身对这些数据的查询、写入都要改为调用一个独立的 <code>Dubbo</code> 服务，由这个服务对迁移的表进行操作。</li>
+<li>暂时不做数据迁移，所以查询时也得按照分表那样做一个兼容，如果查询老数据就要在当前库查询，新数据就要调用 <code>Dubbo</code> 接口进行查询。</li>
+<li>对这些表的一些关联查询也得改造为查询 <code>Dubbo</code> 接口，在内存中进行拼接即可。</li>
+<li>如果数据量确实很大，也可将同步的 <code>Dubbo</code> 接口换为写入消息队列来提高吞吐量。</li>
+</ol>
+<p>目前我们将这类数据量巨大但对业务不太影响的表单独迁到一个库后，数据库的整体 <code>IO</code> 下降明显，业务也恢复正常。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>最后我们还需要做一步历史数据归档的操作，将 N 个月之前的数据要定期迁移到 <code>HBASE</code> 之类存储，保证 <code>MySQL</code> 中的数据一直保持在一个可接受的范围。</p>
+<p>而归档数据的查询便依赖于大数据提供服务。</p>
+<p>本次分库分表是一次非常难得的实践操作，网上大部分的资料都是在汽车出厂前就换好了轮胎。</p>
+<p>而我们大部分碰到的场景都是要对高速路上跑着的车子换胎，一不小心就“车毁人亡”。</p>
+<p>有更好的方式方法欢迎大家评论区留言讨论。</p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+<div id="wechat_subscriber" style="display: block； padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+    <img id="wechat_subscriber_qcode" src="/uploads/weixinfooter1.jpg" alt="crossoverJie wechat" style="width: 200px; max-width: 100%;"/>
+    <div>我很有眼光！</div>
+</div>
+
+      
+    </div>
+
+    <div>
+      
+        
+  <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+    <div>请我吃🍗</div>
+    <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+      <span>赏</span>
+    </button>
+    <div id="QR" style="display: none;">
+      
+        <div id="wechat" style="display: inline-block">
+          <img id="wechat_qr" src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay"/>
+          <p>微信打赏</p>
+        </div>
+      
+      
+        <div id="alipay" style="display: inline-block">
+          <img id="alipay_qr" src="/alipay-reward-image.jpg" alt="crossoverJie Alipay"/>
+          <p>支付宝打赏</p>
+        </div>
+      
+    </div>
+  </div>
+
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/db/" rel="tag">#db</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/07/15/wheel/cicada7-exception-handle/" rel="next" title="设计一个全局异常处理器">
+                <i class="fa fa-chevron-left"></i> 设计一个全局异常处理器
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+  <p>热评文章</p>
+  <div class="ds-top-threads" data-range="weekly" data-num-items="4"></div>
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/uploads/crossoverjie.jpg"
+               alt="crossoverJie" />
+          <p class="site-author-name" itemprop="name">crossoverJie</p>
+          <p class="site-description motion-element" itemprop="description">You never know what you can do till you try.</p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">112</span>
+              <span class="site-state-item-name">posts</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">40</span>
+                <span class="site-state-item-name">categories</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">100</span>
+                <span class="site-state-item-name">tags</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/crossoverJie" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://www.jianshu.com/users/e2d07947c112/latest_articles" target="_blank" title="简书">
+                  
+                    <i class="fa fa-fw fa-book"></i>
+                  
+                  简书
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" target="_blank" title="掘金">
+                  
+                    <i class="fa fa-fw fa-bookmark"></i>
+                  
+                  掘金
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://twitter.com/crossoverJie" target="_blank" title="Twitter">
+                  
+                    <i class="fa fa-fw fa-twitter"></i>
+                  
+                  Twitter
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://wuchong.me" title="Jark's Blog" target="_blank">Jark's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://tengj.top" title="嘟嘟独立博客" target="_blank">嘟嘟独立博客</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://yemengying.com/" title="Giraffe Home" target="_blank">Giraffe Home</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://blog.jamespan.me/" title="潘小鶸(ruò)" target="_blank">潘小鶸(ruò)</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://fangjian0423.github.io/" title="Format's Notes" target="_blank">Format's Notes</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://yuzhouwan.com/" title="Benedict Jin" target="_blank">Benedict Jin</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.didispace.com/" title="程序猿DD" target="_blank">程序猿DD</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://blog.52itstyle.vip/" title="小柒博客" target="_blank">小柒博客</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://cmsblogs.com/" title="Java技术驿站" target="_blank">Java技术驿站</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://vim.ink/" title="vim 教程网" target="_blank">vim 教程网</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.jitwxs.cn" title="jitwxs" target="_blank">jitwxs</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.javaboy.org" title="江南一点雨" target="_blank">江南一点雨</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.liangsonghua.me" title="松花皮蛋的黑板报" target="_blank">松花皮蛋的黑板报</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#背景"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#分表"><span class="nav-number">2.</span> <span class="nav-text">分表</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Range"><span class="nav-number">2.1.</span> <span class="nav-text">Range</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Hash"><span class="nav-number">2.2.</span> <span class="nav-text">Hash</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#分表数量选择"><span class="nav-number">2.2.1.</span> <span class="nav-text">分表数量选择</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Range-Hash"><span class="nav-number">2.3.</span> <span class="nav-text">Range + Hash</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#烦人的数据迁移"><span class="nav-number">2.4.</span> <span class="nav-text">烦人的数据迁移</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#业务兼容"><span class="nav-number">2.5.</span> <span class="nav-text">业务兼容</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#报表"><span class="nav-number">2.5.1.</span> <span class="nav-text">报表</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#查询"><span class="nav-number">2.5.2.</span> <span class="nav-text">查询</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#分库"><span class="nav-number">3.</span> <span class="nav-text">分库</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy;  2016 - 
+  <span itemprop="copyrightYear">2019</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+
+<div class="powered-by">
+  Powered by <a class="theme-link" href="http://hexo.io">Hexo</a>
+</div>
+
+<div class="theme-info">
+  Theme -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+        
+
+<div class="busuanzi-count">
+
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="site-uv"><i class="fa fa-user"></i><span class="busuanzi-value" id="busuanzi_value_site_uv"></span>人数</span>
+  
+
+  
+    <span class="site-pv">您是第<span class="busuanzi-value" id="busuanzi_value_site_pv"></span>位童鞋</span>
+  
+  
+</div>
+
+
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/vendors/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/vendors/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.0.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.1"></script>
+
+
+
+  
+
+
+
+  
+
+    <script type="text/javascript">
+      var disqus_shortname = 'crossoverjie';
+      var disqus_identifier = '2019/07/24/framework-design/sharding-db-03/';
+      var disqus_title = "一次难得的分库分表实践";
+      var disqus_url = 'http://crossoverjie.top/2019/07/24/framework-design/sharding-db-03/';
+
+      function run_disqus_script(disqus_script){
+        var dsq = document.createElement('script');
+        dsq.type = 'text/javascript';
+        dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      }
+
+      run_disqus_script('count.js');
+      
+        run_disqus_script('embed.js');
+      
+    </script>
+  
+
+
+
+
+  
+  
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length == 0) {
+       search_path = "search.xml";
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    function proceedsearch() {
+      $("body").append('<div class="popoverlay">').css('overflow', 'hidden');
+      $('.popup').toggle();
+
+    }
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+    'use strict';
+    $.ajax({
+        url: path,
+        dataType: "xml",
+        async: true,
+        success: function( xmlResponse ) {
+            // get the contents from search data
+            isfetched = true;
+            $('.popup').detach().appendTo('.header-inner');
+            var datas = $( "entry", xmlResponse ).map(function() {
+                return {
+                    title: $( "title", this ).text(),
+                    content: $("content",this).text(),
+                    url: $( "url" , this).text()
+                };
+            }).get();
+            var $input = document.getElementById(search_id);
+            var $resultContent = document.getElementById(content_id);
+            $input.addEventListener('input', function(){
+                var matchcounts = 0;
+                var str='<ul class=\"search-result-list\">';                
+                var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                $resultContent.innerHTML = "";
+                if (this.value.trim().length > 1) {
+                // perform local searching
+                datas.forEach(function(data) {
+                    var isMatch = true;
+                    var content_index = [];
+                    var data_title = data.title.trim().toLowerCase();
+                    var data_content = data.content.trim().replace(/<[^>]+>/g,"").toLowerCase();
+                    var data_url = data.url;
+                    var index_title = -1;
+                    var index_content = -1;
+                    var first_occur = -1;
+                    // only match artiles with not empty titles and contents
+                    if(data_title != '' && data_content != '') {
+                        keywords.forEach(function(keyword, i) {
+                            index_title = data_title.indexOf(keyword);
+                            index_content = data_content.indexOf(keyword);
+                            if( index_title < 0 && index_content < 0 ){
+                                isMatch = false;
+                            } else {
+                                if (index_content < 0) {
+                                    index_content = 0;
+                                }
+                                if (i == 0) {
+                                    first_occur = index_content;
+                                }
+                            }
+                        });
+                    }
+                    // show search results
+                    if (isMatch) {
+                        matchcounts += 1;
+                        str += "<li><a href='"+ data_url +"' class='search-result-title'>"+ data_title +"</a>";
+                        var content = data.content.trim().replace(/<[^>]+>/g,"");
+                        if (first_occur >= 0) {
+                            // cut out 100 characters
+                            var start = first_occur - 20;
+                            var end = first_occur + 80;
+                            if(start < 0){
+                                start = 0;
+                            }
+                            if(start == 0){
+                                end = 50;
+                            }
+                            if(end > content.length){
+                                end = content.length;
+                            }
+                            var match_content = content.substring(start, end);
+                            // highlight all keywords
+                            keywords.forEach(function(keyword){
+                                var regS = new RegExp(keyword, "gi");
+                                match_content = match_content.replace(regS, "<b class=\"search-keyword\">"+keyword+"</b>");
+                            });
+                            
+                            str += "<p class=\"search-result\">" + match_content +"...</p>"
+                        }
+                        str += "</li>";
+                    }
+                })};
+                str += "</ul>";
+                if (matchcounts == 0) { str = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>' }
+                if (keywords == "") { str = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>' }
+                $resultContent.innerHTML = str;
+            });
+            proceedsearch();
+        }
+    });}
+
+    // handle and trigger popup window;
+    $('.popup-trigger').mousedown(function(e) {
+      e.stopPropagation();
+      if (isfetched == false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+
+    });
+
+    $('.popup-btn-close').click(function(e){
+      $('.popup').hide();
+      $(".popoverlay").remove();
+      $('body').css('overflow', '');
+    });
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+  </script>
+
+  
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.1.js"></script>
+  <script>AV.initialize("Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz", "NXiHFodQfmI8oxkK6IThhjrF");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script type="text/javascript" src="/js/src/particle.js" count="50" zindex="-2" opacity="1" color="0,104,183"></script>
+</body>
+</html>
