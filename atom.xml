@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-08-18T17:33:03.643Z</updated>
+  <updated>2019-09-09T18:29:44.905Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,113 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>不要小看小小的 emoji 表情😂</title>
+    <link href="http://crossoverjie.top/2019/09/04/cs/not%20easy%20emoji/"/>
+    <id>http://crossoverjie.top/2019/09/04/cs/not easy emoji/</id>
+    <published>2019-09-04T00:13:00.000Z</published>
+    <updated>2019-09-09T18:29:44.905Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g6mfpmkjdlj30xu0gywhn.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>好久没更新了，最近事比较多，或许下个月就会恢复到正常的发文频次。</p>
+<p>这篇文章得从一个 <code>emoji</code> 表情开始，我之前开源的一个 <code>IM</code> 项目中有朋友提到希望可以支持 <code>emoji</code> 表情传输。</p>
+<p><a href="https://github.com/crossoverJie/cim/issues/12" target="_blank" rel="external">https://github.com/crossoverJie/cim/issues/12</a></p>
+<p><img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g6s5y17zuvj30u00vvx0c.jpg" alt=""></p>
+<p>正好那段时间有空，加上这功能看着也比较简单准备把它实现了。</p>
+<a id="more"></a>
+<p>但在真正实现时却发现没那么简单。</p>
+<p><img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g6s626dac1j30b40b3mxz.jpg" alt=""></p>
+<hr>
+<p>我首先尝试将一个 <code>emoji</code> 表情存入数据库看看：</p>
+<p><img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g6s4ngco0lj30nc076wkm.jpg" alt=""></p>
+<p>果不其然的出错了，导致这个异常的原因是目前数据库所支持的编码中并不能存放 <code>emoji</code>，那 <code>emoji</code> 表情到底是个什么东西呢。</p>
+<p>本质上来说计算机所存储的信息都是二进制 <code>01</code>，emoji 也不例外，只要存储和读取（编解码）的方式一致那就可以准确的展示这个信息。</p>
+<blockquote>
+<p>更多编解码的内容后文再介绍，这里先想想如何快速解决问题。</p>
+</blockquote>
+<h1 id="存储-emoji"><a href="#存储-emoji" class="headerlink" title="存储 emoji"></a>存储 emoji</h1><p>虽说想要在 <code>MySQL</code> 中存储 <code>emoji</code> 的方式也有好几种，比如可以升级存储字符集到可以存放 <code>emoji</code> ，但这种需要 MySQL 的版本支持。</p>
+<p>所以更保险的方式还是在应用层解决，比如我们是否可以将 emoji 当做字符串存储，只是显示的时候要格式化为一个 emoji 表情，这样对于所有的数据库版本都可兼容。</p>
+<p>于是我们这里的需求是一个 <code>emoji</code> 表情转换为字符串，同时还得将这个字符串转换为 emoji。</p>
+<p>为此我在 <code>GitHub</code> 上找到了一个库，它可以方便的将一个 <code>emoji</code> 转换为字符串的别名，同时也支持将这个别名转换为 <code>emoji</code>。</p>
+<p><a href="https://github.com/vdurmont/emoji-java" target="_blank" rel="external">https://github.com/vdurmont/emoji-java</a></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Test</span></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">emoji</span><span class="params">()</span> <span class="keyword">throws</span> Exception</span>&#123;</div><div class="line">    String str = <span class="string">"An :grinning:awesome :smiley:string &amp;#128516;with a few :wink:emojis!"</span>;</div><div class="line">    String result = EmojiParser.parseToUnicode(str);</div><div class="line">    System.out.println(result);</div><div class="line"></div><div class="line">    result = EmojiParser.parseToAliases(str);</div><div class="line">    System.out.println(result);</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p><img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g6sihcrgqoj30tk08qwfs.jpg" alt=""></p>
+<p>所以基于这个基础库最终实现了表情功能。</p>
+<p><img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g6sj5lr7uwj31ia0noe1t.jpg" alt=""></p>
+<p>其实它本质上是自己维护了一个 emoji 的别名及它的 Unicode 编码(本质上是 <code>UTF-16</code>)的映射关系，再每次格式化数据的时候都会从这个表中进行翻译。</p>
+<p><img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g6sj9fww27j31m20qqtd7.jpg" alt=""></p>
+<h1 id="编码知识回顾"><a href="#编码知识回顾" class="headerlink" title="编码知识回顾"></a>编码知识回顾</h1><p>自此需求是完成了，但还有几个问题待解决。</p>
+<ul>
+<li><code>Java</code> 中是如何存储 <code>emoji</code> 的？</li>
+<li><code>emoji</code> 是如何进行编码的？</li>
+</ul>
+<h2 id="ASCII"><a href="#ASCII" class="headerlink" title="ASCII"></a>ASCII</h2><p>在谈 emoji 之前非常有必要了解下计算机编码鼻祖的 ASCII 码。</p>
+<p>大家现在都知道在计算机内部存储数据本质上都是二进制的 0/1，对于一个字节来说有 8 位；每一位可以表示两种状态，也就是 0 或 1，这样排列组合下来，一个字节就可以表示 256(2∧8) 种不同的状态。</p>
+<p><img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g6tojdfdznj30g704s3zk.jpg" alt=""></p>
+<hr>
+<p>对于美国来说他们日常使用的英语只需要 26 个英文字母，再加上一些标点符号就足够用计算机来进行信息交流了。</p>
+<p>于是上个世纪 60年代定义了一套二进制与英文字符的映射关系，可以表明 128 个不同的英文字符，也就是现在的 ASCII 码。</p>
+<p>这样我们就可以使用一个字节来表示现代英文，看起来非常不错。</p>
+<h2 id="Unicode"><a href="#Unicode" class="headerlink" title="Unicode"></a>Unicode</h2><p>随着计算机的发展，逐渐在欧洲、亚洲地区流行；再利用这套 ASCII 码进行信息交流显然是不行的，很多地区压根就不使用英文，而且也远超了 128 位字符（中文就更不用说了）。</p>
+<p>虽说一个字节在 ASCII 码中只用了 128 位，但剩下的依然不足用用于描述其他语言。</p>
+<p>这时如果能有一种包含了世界上所有的文字的字符集，每一个地区和国家的文字都在这个字符集中有唯一的二进制表示，这样便不会出现乱码问题了。</p>
+<p>Unicode 就是来做这个的，截止目前 Unicode 已经收录了 10W+ 的字符，你所能使用的字符都包含进去了。</p>
+<h2 id="UTF-8"><a href="#UTF-8" class="headerlink" title="UTF-8"></a>UTF-8</h2><p><code>Unicode</code> 虽说包含了几乎所有的文字，但在我们日常使用好像很少看到他的身影，我们用的更多的还是 <code>UTF-8</code> 这样的编码规则。</p>
+<p>这也有几方面的原因，比如说除开英文，其他大部分的文字都需要用 2 个甚至更多的字节来表示；如果统一都用 Unicode 来表示，那必然需要以占用字节最多的字符长度为标准。</p>
+<p>比如汉字需要 2 个字节来表示，而英文只需要一个字节；这时就得规定 2 个字节表示一个字符，不然汉字就没法表示了。</p>
+<p>但这样也会带来一个问题：用两个字节表示英文会使得第一个字节完全是浪费的，如果一段信息全是英文那对内存的浪费是巨大的。</p>
+<hr>
+<p>这时大家应该都能想到，我们需要一个可变的长度的字符编码规则，当是英文时我们就用一个字节表示，甚至可以完全兼容 ASCII 码。</p>
+<p>UTF-8 便是实现这个需求的，它利用两种规则可以表示一个字节以及多字节的字符。</p>
+<p><img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g6tr6ngxddj30il04qwfg.jpg" alt=""></p>
+<p>大致规则如下：</p>
+<ul>
+<li>当第一个字节的第一位为 0 时便表示为单字节字符，此时和 ASCII 码一致，完全兼容。</li>
+<li>当第一个字节为 1 时，有几个 1 便代表是几个字节 Unicode 字符。</li>
+</ul>
+<p>这样便可根据字符的长度最大程度的节省存储空间。</p>
+<p>当然还有其他的编码规则，比如 UTF-16、UTF-32，平时用的不多，但本质上都和 UTF-8 一样，都是 Unicode 的不同实现，都是用于表示世界上大部分文字的字符集。</p>
+<h1 id="Java-中的-emoji"><a href="#Java-中的-emoji" class="headerlink" title="Java 中的 emoji"></a>Java 中的 emoji</h1><p>现在来回到本次的主题，emoji。</p>
+<p>刚才说到 Unicode 包含了世界上大部分的字符，emoji 自然也不例外。</p>
+<p><img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g6trcjekndj31ef0u0k8u.jpg" alt=""></p>
+<p><a href="https://apps.timwhitlock.info/emoji/tables/unicode" target="_blank" rel="external">https://apps.timwhitlock.info/emoji/tables/unicode</a></p>
+<p>这个表格中包含了所有的 <code>emoji</code> 以及它所对应的 <code>Unicode</code> 编码，同时也有对应的 UTF-8 编码的实现。</p>
+<p>从图中也可以看出 <code>emoji</code> 表情用 UTF-8 表示时会占用 4 个字节，那在 Java 中它会是怎么存储的呢？</p>
+<p>很简单，debug 一下就知道了。</p>
+<p><img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g6ts2j36xsj31f20pyjus.jpg" alt=""></p>
+<p>在 Java 中也是通过 char 来存储 emoji 的，char 作为基本数据类型会占用 2 个字节；从刚才的图中可以看出，emoji 使用 UTF-8 会占用四个字节，这样很明显 char 是没法存储的，所以在这里其实是使用 UTF-16 编码进行存储。</p>
+<p>基于这个原理，我们也可以自己实现将一个 emoji 表情转换为字符串，同时也可通过字符串转换为 emoji。</p>
+<p><img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g6ttr5pon4j31tu0p0tdk.jpg" alt=""></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>从这次研究 emoji 这事可以看出，任何一门基础知识都是应用的基础，在计算机行业尤为突出，希望大家看完这篇能回忆起大学课堂被老师支配的恐惧😂。</p>
+<p>随便提一下，相关源码可在这里查看：</p>
+<p><a href="https://github.com/crossoverJie/cim" target="_blank" rel="external">https://github.com/crossoverJie/cim</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://tva1.sinaimg.cn/large/006y8mN6ly1g6mfpmkjdlj30xu0gywhn.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;好久没更新了，最近事比较多，或许下个月就会恢复到正常的发文频次。&lt;/p&gt;
+&lt;p&gt;这篇文章得从一个 &lt;code&gt;emoji&lt;/code&gt; 表情开始，我之前开源的一个 &lt;code&gt;IM&lt;/code&gt; 项目中有朋友提到希望可以支持 &lt;code&gt;emoji&lt;/code&gt; 表情传输。&lt;/p&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/crossoverJie/cim/issues/12&quot;&gt;https://github.com/crossoverJie/cim/issues/12&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;https://tva1.sinaimg.cn/large/006y8mN6ly1g6s5y17zuvj30u00vvx0c.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;p&gt;正好那段时间有空，加上这功能看着也比较简单准备把它实现了。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="cs" scheme="http://crossoverjie.top/categories/cs/"/>
+    
+    
+      <category term="emoji" scheme="http://crossoverjie.top/tags/emoji/"/>
+    
+      <category term="unicode" scheme="http://crossoverjie.top/tags/unicode/"/>
+    
+      <category term="utf-8" scheme="http://crossoverjie.top/tags/utf-8/"/>
+    
+      <category term="ascii" scheme="http://crossoverjie.top/tags/ascii/"/>
+    
+  </entry>
   
   <entry>
     <title>如何参与一个顶级开源项目</title>
@@ -2061,200 +2168,6 @@
       <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
     
       <category term="disruptor" scheme="http://crossoverjie.top/tags/disruptor/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>一致性 Hash 算法的实际应用</title>
-    <link href="http://crossoverjie.top/2019/03/01/algorithm/consistent-hash/"/>
-    <id>http://crossoverjie.top/2019/03/01/algorithm/consistent-hash/</id>
-    <published>2019-03-01T00:20:00.000Z</published>
-    <updated>2019-05-07T17:22:45.020Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/05/08/5cd1be999402c.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>记得一年前分享过一篇<a href="https://crossoverjie.top/2018/01/08/Consistent-Hash/">《一致性 Hash 算法分析》</a>，当时只是分析了这个算法的实现原理、解决了什么问题等。</p>
-<p>但没有实际实现一个这样的算法，毕竟要加深印象还得自己撸一遍，于是本次就当前的一个路由需求来着手实现一次。</p>
-<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>看过<a href="https://crossoverjie.top/2019/01/02/netty/cim01-started/">《为自己搭建一个分布式 IM(即时通讯) 系统》</a>的朋友应该对其中的登录逻辑有所印象。</p>
-<a id="more"></a>
-<blockquote>
-<p>先给新来的朋友简单介绍下 <a href="https://github.com/crossoverJie/cim" target="_blank" rel="external">cim</a> 是干啥的：</p>
-</blockquote>
-<p><img src="https://i.loli.net/2019/05/08/5cd1be99f3bb2.jpg" alt=""></p>
-<p>其中有一个场景是在客户端登录成功后需要从可用的服务端列表中选择一台服务节点返回给客户端使用。</p>
-<p>而这个选择的过程就是一个负载策略的过程；第一版本做的比较简单，默认只支持轮询的方式。</p>
-<p>虽然够用，但不够优雅😏。</p>
-<p><strong>因此我的规划是内置多种路由策略供使用者根据自己的场景选择，同时提供简单的 API 供用户自定义自己的路由策略。</strong></p>
-<p>先来看看一致性 Hash 算法的一些特点：</p>
-<ul>
-<li>构造一个 <code>0 ~ 2^32-1</code> 大小的环。</li>
-<li>服务节点经过 hash 之后将自身存放到环中的下标中。</li>
-<li>客户端根据自身的某些数据 hash 之后也定位到这个环中。</li>
-<li>通过顺时针找到离他最近的一个节点，也就是这次路由的服务节点。</li>
-<li>考虑到服务节点的个数以及 hash 算法的问题导致环中的数据分布不均匀时引入了虚拟节点。</li>
-</ul>
-<p><img src="https://i.loli.net/2019/05/08/5cd1be9b0e4e3.jpg" alt=""></p>
-<h1 id="自定义有序-Map"><a href="#自定义有序-Map" class="headerlink" title="自定义有序 Map"></a>自定义有序 Map</h1><p>根据这些客观条件我们很容易想到通过自定义一个<strong>有序</strong>数组来模拟这个环。</p>
-<p>这样我们的流程如下：</p>
-<ol>
-<li>初始化一个长度为 N 的数组。</li>
-<li>将服务节点通过 hash 算法得到的正整数，同时将节点自身的数据（hashcode、ip、端口等）存放在这里。</li>
-<li>完成节点存放后将整个数组进行排序（排序算法有多种）。</li>
-<li>客户端获取路由节点时，将自身进行 hash 也得到一个正整数；</li>
-<li>遍历这个数组直到找到一个数据大于等于当前客户端的 hash 值，就将当前节点作为该客户端所路由的节点。</li>
-<li>如果没有发现比客户端大的数据就返回第一个节点（满足环的特性）。</li>
-</ol>
-<p>先不考虑排序所消耗的时间，单看这个路由的时间复杂度：</p>
-<ul>
-<li>最好是第一次就找到，时间复杂度为<code>O(1)</code>。</li>
-<li>最差为遍历完数组后才找到，时间复杂度为<code>O(N)</code>。</li>
-</ul>
-<p>理论讲完了来看看具体实践。</p>
-<p>我自定义了一个类：<code>SortArrayMap</code></p>
-<p>他的使用方法及结果如下：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1be9b8278e.jpg" alt=""></p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1be9bb786e.jpg" alt=""></p>
-<p>可见最终会按照 <code>key</code> 的大小进行排序，同时传入 <code>hashcode = 101</code> 时会按照顺时针找到 <code>hashcode = 1000</code> 这个节点进行返回。</p>
-<hr>
-<p>下面来看看具体的实现。</p>
-<p>成员变量和构造函数如下：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1be9c182fe.jpg" alt=""></p>
-<p>其中最核心的就是一个 <code>Node</code> 数组，用它来存放服务节点的 <code>hashcode</code> 以及 <code>value</code> 值。</p>
-<p>其中的内部类 <code>Node</code> 结构如下：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1be9c6be0b.jpg" alt=""></p>
-<hr>
-<p>写入数据的方法如下：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bea38b4ab.jpg" alt=""></p>
-<p>相信看过 <code>ArrayList</code> 的源码应该有印象，这里的写入逻辑和它很像。</p>
-<ul>
-<li>写入之前判断是否需要扩容，如果需要则复制原来大小的 1.5 倍数组来存放数据。</li>
-<li>之后就写入数组，同时数组大小 +1。</li>
-</ul>
-<p>但是存放时是按照写入顺序存放的，遍历时自然不会有序；因此提供了一个 <code>Sort</code> 方法，可以把其中的数据按照 <code>key</code> 其实也就是 <code>hashcode</code> 进行排序。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bea416c01.jpg" alt=""></p>
-<p>排序也比较简单，使用了 <code>Arrays</code> 这个数组工具进行排序，它其实是使用了一个 <code>TimSort</code> 的排序算法，效率还是比较高的。</p>
-<p>最后则需要按照一致性 Hash 的标准顺时针查找对应的节点：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bea459788.jpg" alt=""></p>
-<p>代码还是比较简单清晰的；遍历数组如果找到比当前 key 大的就返回，没有查到就取第一个。</p>
-<p>这样就基本实现了一致性 Hash 的要求。</p>
-<blockquote>
-<p>ps:这里并不包含具体的 hash 方法以及虚拟节点等功能（具体实现请看下文），这个可以由使用者来定，SortArrayMap 可作为一个底层的数据结构，提供有序 Map 的能力，使用场景也不局限于一致性 Hash 算法中。</p>
-</blockquote>
-<h1 id="TreeMap-实现"><a href="#TreeMap-实现" class="headerlink" title="TreeMap 实现"></a>TreeMap 实现</h1><p><code>SortArrayMap</code> 虽说是实现了一致性 hash 的功能，但效率还不够高，主要体现在 <code>sort</code> 排序处。</p>
-<p>下图是目前主流排序算法的时间复杂度：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bea49b947.jpg" alt=""></p>
-<p>最好的也就是 <code>O(N)</code> 了。</p>
-<p>这里完全可以换一个思路，不用对数据进行排序；而是在写入的时候就排好顺序，只是这样会降低写入的效率。</p>
-<p>比如二叉查找树，这样的数据结构 <code>jdk</code> 里有现成的实现；比如 <code>TreeMap</code> 就是使用红黑树来实现的，默认情况下它会对 key 进行自然排序。</p>
-<hr>
-<p>来看看使用 <code>TreeMap</code> 如何来达到同样的效果。<br><img src="https://i.loli.net/2019/05/08/5cd1bea4e6550.jpg" alt=""><br>运行结果：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">127.0.0.1000</div></pre></td></tr></table></figure>
-<p>效果和上文使用 <code>SortArrayMap</code> 是一致的。</p>
-<p>只使用了 TreeMap 的一些 API：</p>
-<ul>
-<li>写入数据候，<code>TreeMap</code> 可以保证 key 的自然排序。</li>
-<li><code>tailMap</code> 可以获取比当前 key 大的部分数据。</li>
-<li>当这个方法有数据返回时取第一个就是顺时针中的第一个节点了。</li>
-<li>如果没有返回那就直接取整个 <code>Map</code> 的第一个节点，同样也实现了环形结构。</li>
-</ul>
-<blockquote>
-<p>ps:这里同样也没有 hash 方法以及虚拟节点（具体实现请看下文），因为 TreeMap 和 SortArrayMap 一样都是作为基础数据结构来使用的。</p>
-</blockquote>
-<h2 id="性能对比"><a href="#性能对比" class="headerlink" title="性能对比"></a>性能对比</h2><p>为了方便大家选择哪一个数据结构，我用 <code>TreeMap</code> 和 <code>SortArrayMap</code> 分别写入了一百万条数据来对比。</p>
-<p>先是 <code>SortArrayMap</code>：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bea9f1177.jpg" alt=""></p>
-<p><strong>耗时 2237 毫秒。</strong></p>
-<p>TreeMap：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beaa90503.jpg" alt=""></p>
-<p><strong>耗时 1316毫秒。</strong></p>
-<p>结果是快了将近一倍，所以还是推荐使用 <code>TreeMap</code> 来进行实现，毕竟它不需要额外的排序损耗。</p>
-<h1 id="cim-中的实际应用"><a href="#cim-中的实际应用" class="headerlink" title="cim 中的实际应用"></a>cim 中的实际应用</h1><p>下面来看看在 <code>cim</code> 这个应用中是如何具体使用的，其中也包括上文提到的虚拟节点以及 hash 算法。</p>
-<h2 id="模板方法"><a href="#模板方法" class="headerlink" title="模板方法"></a>模板方法</h2><p>在应用的时候考虑到就算是一致性 hash 算法都有多种实现，为了方便其使用者扩展自己的一致性 hash 算法因此我定义了一个抽象类；其中定义了一些模板方法，这样大家只需要在子类中进行不同的实现即可完成自己的算法。</p>
-<p>AbstractConsistentHash，这个抽象类的主要方法如下：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beab41c7a.jpg" alt=""></p>
-<ul>
-<li><code>add</code> 方法自然是写入数据的。</li>
-<li><code>sort</code> 方法用于排序，但子类也不一定需要重写，比如 <code>TreeMap</code> 这样自带排序的容器就不用。</li>
-<li><code>getFirstNodeValue</code> 获取节点。</li>
-<li><code>process</code> 则是面向客户端的，最终只需要调用这个方法即可返回一个节点。</li>
-</ul>
-<p>下面我们来看看利用 <code>SortArrayMap</code> 以及 <code>AbstractConsistentHash</code> 是如何实现的。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beab9a84f.jpg" alt=""></p>
-<p>就是实现了几个抽象方法，逻辑和上文是一样的，只是抽取到了不同的方法中。</p>
-<p>只是在 add 方法中新增了几个虚拟节点，相信大家也看得明白。</p>
-<blockquote>
-<p>把虚拟节点的控制放到子类而没有放到抽象类中也是为了灵活性考虑，可能不同的实现对虚拟节点的数量要求也不一样，所以不如自定义的好。</p>
-</blockquote>
-<p>但是 <code>hash</code> 方法确是放到了抽象类中，子类不用重写；因为这是一个基本功能，只需要有一个公共算法可以保证他散列地足够均匀即可。</p>
-<p>因此在 <code>AbstractConsistentHash</code> 中定义了 hash 方法。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beac476c2.jpg" alt=""></p>
-<blockquote>
-<p>这里的算法摘抄自 xxl_job，网上也有其他不同的实现，比如 <code>FNV1_32_HASH</code> 等；实现不同但是目的都一样。</p>
-</blockquote>
-<hr>
-<p>这样对于使用者来说就非常简单了：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beacc8e2c.jpg" alt=""></p>
-<p>他只需要构建一个服务列表，然后把当前的客户端信息传入 <code>process</code> 方法中即可获得一个一致性 hash 算法的返回。</p>
-<hr>
-<p>同样的对于想通过 <code>TreeMap</code> 来实现也是一样的套路：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bead5feca.jpg" alt=""></p>
-<p>他这里不需要重写 sort 方法，因为自身写入时已经排好序了。</p>
-<p>而在使用时对于客户端来说只需求修改一个实现类，其他的啥都不用改就可以了。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beb27d748.jpg" alt=""></p>
-<p>运行的效果也是一样的。</p>
-<p>这样大家想自定义自己的算法时只需要继承 <code>AbstractConsistentHash</code> 重写相关方法即可，<strong>客户端代码无须改动。</strong></p>
-<h2 id="路由算法扩展性"><a href="#路由算法扩展性" class="headerlink" title="路由算法扩展性"></a>路由算法扩展性</h2><p>但其实对于 <code>cim</code> 来说真正的扩展性是对路由算法来说的，比如它需要支持轮询、hash、一致性hash、随机、LRU等。</p>
-<p>只是一致性 hash 也有多种实现，他们的关系就如下图：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beb2d6428.jpg" alt=""></p>
-<p>应用还需要满足对这一类路由策略的灵活支持，比如我也想自定义一个随机的策略。</p>
-<p>因此定义了一个接口：<code>RouteHandle</code></p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">RouteHandle</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 再一批服务器里进行路由</div><div class="line">     * <span class="doctag">@param</span> values</div><div class="line">     * <span class="doctag">@param</span> key</div><div class="line">     * <span class="doctag">@return</span></div><div class="line">     */</div><div class="line">    <span class="function">String <span class="title">routeServer</span><span class="params">(List&lt;String&gt; values,String key)</span> </span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>其中只有一个方法，也就是路由方法；入参分别是服务列表以及客户端信息即可。</p>
-<p>而对于一致性 hash 算法来说也是只需要实现这个接口，同时在这个接口中选择使用 <code>SortArrayMapConsistentHash</code> 还是 <code>TreeMapConsistentHash</code> 即可。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beb35b595.jpg" alt=""></p>
-<p>这里还有一个 <code>setHash</code> 的方法，入参是 AbstractConsistentHash；这就是用于客户端指定需要使用具体的那种数据结构。</p>
-<hr>
-<p>而对于之前就存在的轮询策略来说也是同样的实现 <code>RouteHandle</code> 接口。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beb3dbd86.jpg" alt=""></p>
-<p>这里我只是把之前的代码搬过来了而已。</p>
-<p>接下来看看客户端到底是如何使用以及如何选择使用哪种算法。</p>
-<blockquote>
-<p>为了使客户端代码几乎不动，我将这个选择的过程放入了配置文件。</p>
-</blockquote>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beb476ca8.jpg" alt=""></p>
-<ol>
-<li>如果想使用原有的轮询策略，就配置实现了 <code>RouteHandle</code> 接口的轮询策略的全限定名。</li>
-<li>如果想使用一致性 hash 的策略，也只需要配置实现了 <code>RouteHandle</code> 接口的一致性 hash 算法的全限定名。</li>
-<li>当然目前的一致性 hash 也有多种实现，所以一旦配置为一致性 hash 后就需要再加一个配置用于决定使用 <code>SortArrayMapConsistentHash</code> 还是 <code>TreeMapConsistentHash</code> 或是自定义的其他方案。</li>
-<li>同样的也是需要配置继承了 <code>AbstractConsistentHash</code> 的全限定名。</li>
-</ol>
-<p>不管这里的策略如何改变，在使用处依然保持不变。</p>
-<p>只需要注入 <code>RouteHandle</code>，调用它的 <code>routeServer</code> 方法。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Autowired</span></div><div class="line"><span class="keyword">private</span> RouteHandle routeHandle ;</div><div class="line">String server = routeHandle.routeServer(serverCache.getAll(),String.valueOf(loginReqVO.getUserId()));</div></pre></td></tr></table></figure>
-<p>既然使用了注入，那其实这个策略切换的过程就在创建 <code>RouteHandle bean</code> 的时候完成的。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beb4d7cd2.jpg" alt=""></p>
-<p>也比较简单，需要读取之前的配置文件来动态生成具体的实现类，主要是利用反射完成的。</p>
-<p>这样处理之后就比较灵活了，比如想新建一个随机的路由策略也是同样的套路；到时候只需要修改配置即可。</p>
-<blockquote>
-<p>感兴趣的朋友也可提交 PR 来新增更多的路由策略。</p>
-</blockquote>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>希望看到这里的朋友能对这个算法有所理解，同时对一些设计模式在实际的使用也能有所帮助。</p>
-<p>相信在金三银四的面试过程中还是能让面试官眼前一亮的，毕竟根据我这段时间的面试过程来看听过这个名词的都在少数😂（可能也是和候选人都在 1~3 年这个层级有关）。</p>
-<p>以上所有源码：</p>
-<p><a href="https://github.com/crossoverJie/cim" target="_blank" rel="external">https://github.com/crossoverJie/cim</a></p>
-<p>如果本文对你有所帮助还请不吝转发。</p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/05/08/5cd1be999402c.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;记得一年前分享过一篇&lt;a href=&quot;https://crossoverjie.top/2018/01/08/Consistent-Hash/&quot;&gt;《一致性 Hash 算法分析》&lt;/a&gt;，当时只是分析了这个算法的实现原理、解决了什么问题等。&lt;/p&gt;
-&lt;p&gt;但没有实际实现一个这样的算法，毕竟要加深印象还得自己撸一遍，于是本次就当前的一个路由需求来着手实现一次。&lt;/p&gt;
-&lt;h1 id=&quot;背景&quot;&gt;&lt;a href=&quot;#背景&quot; class=&quot;headerlink&quot; title=&quot;背景&quot;&gt;&lt;/a&gt;背景&lt;/h1&gt;&lt;p&gt;看过&lt;a href=&quot;https://crossoverjie.top/2019/01/02/netty/cim01-started/&quot;&gt;《为自己搭建一个分布式 IM(即时通讯) 系统》&lt;/a&gt;的朋友应该对其中的登录逻辑有所印象。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="算法" scheme="http://crossoverjie.top/categories/%E7%AE%97%E6%B3%95/"/>
-    
     
   </entry>
   
