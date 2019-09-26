@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-09-09T18:54:57.076Z</updated>
+  <updated>2019-09-26T18:00:10.408Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,141 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>延时消息之时间轮</title>
+    <link href="http://crossoverjie.top/2019/09/27/algorithm/time%20wheel/"/>
+    <id>http://crossoverjie.top/2019/09/27/algorithm/time wheel/</id>
+    <published>2019-09-27T00:13:00.000Z</published>
+    <updated>2019-09-26T18:00:10.408Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/09/27/kCPLBb1Rzn3uUtX.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>近期在维护公司的调度平台，其中有个关键功能那就是定时任务；定时任务大家平时肯定接触的不少，比如 <code>JDK</code> 中的 <code>Timer</code>、<code>ScheduledExecutorService</code>、调度框架 <code>Quartz</code> 等。</p>
+<p>通常用于实现 XX 时间后的延时任务，或周期性任务；</p>
+<p>比如一个常见的业务场景：用户下单 N 分钟未能支付便自动取消订单。</p>
+<p>实现这类需求通常有两种方式：</p>
+<ul>
+<li>轮询定时任务：给定周期内扫描所有未支付的订单，查看时间是否到期。</li>
+<li>延时消息：订单创建的时候发送一条 N 分钟到期的信息，一旦消息消费后便可判断订单是否可以取消。</li>
+</ul>
+<a id="more"></a>
+<p>先看第一种，这类方式实现较为简单，只需要启动一个定时任务即可；但缺点同样也很明显，这个间隔扫描的时间不好控制。</p>
+<p>给短了会造成很多无意义的扫描，增大数据库压力，给长了又会使得误差较大。</p>
+<p>当然最大的问题还是效率较低，随着订单增多耗时会呈线性增长，最差的情况甚至会出现上一波轮询还没有扫描完，下一波调度又来了。</p>
+<hr>
+<p>这时第二种方案就要显得靠谱多了，通过延时消息可以去掉不必要的订单扫描，实时性也比较高。</p>
+<h1 id="延时消息"><a href="#延时消息" class="headerlink" title="延时消息"></a>延时消息</h1><p>这里我们不过多讨论这类需求如何实现；重点聊聊这个延时消息，看它是如何实现的，基于实现延时消息的数据结构还能实现定时任务。</p>
+<p>我在之前的开源 <a href="https://github.com/crossoverJie/cim" target="_blank" rel="external">IM</a> 项目中也加入了此类功能，可以很直观的发送一条延时消息，效果如下：</p>
+<p><img src="https://i.loli.net/2019/09/27/qDoORJP4bunY5Na.gif" alt=""></p>
+<p>使用 <code>:delay hahah 2</code> 发送了一条两秒钟的延时消息，另外一个客户端将会在两秒钟之后收到该消息。</p>
+<p>具体的实现步骤会在后文继续分析。</p>
+<h1 id="时间轮"><a href="#时间轮" class="headerlink" title="时间轮"></a>时间轮</h1><p>要实现延时消息就不得不提到一种数据结构【<code>时间轮</code>】，时间轮听这名字可以很直观的抽象出它的数据结构。</p>
+<p><img src="https://i.loli.net/2019/09/27/F2KAoSpidyL5IJD.jpg" alt=""></p>
+<p>其实本质上它就是一个环形的数组，如图所示，假设我们创建了一个长度为 8 的时间轮。</p>
+<hr>
+<p><code>task0</code> = 当我们需要新建一个 5s 延时消息，则只需要将它放到下标为 5 的那个槽中。</p>
+<p><code>task1</code> = 而如果是一个 10s 的延时消息，则需要将它放到下标为 2 的槽中，<strong>但同时需要记录它所对应的圈数</strong>，不然就和 2 秒的延时消息重复了。</p>
+<p><code>task2</code>= 当创建一个 21s 的延时消息时，它所在的位置就和 <code>task0</code> 相同了，都在下标为 5 的槽中，所以为了区别需要为他加上圈数为 2。</p>
+<p><img src="https://i.loli.net/2019/09/27/kauCzgjDJ93q4Ao.jpg" alt=""></p>
+<p>通过这张图可以更直观的理解。</p>
+<p>当我们需要取出延时消息时，只需要每秒往下移动这个指针，然后取出该位置的所有任务即可。</p>
+<p>当然取出任务之前还得判断圈数是否为 0 ，不为 0 时说明该任务还得再轮几圈，同时需要将圈数 -1 。</p>
+<p>这样就可避免轮询所有的任务，不过如果时间轮的槽比较少，导致某一个槽上的任务非常多那效率也比较低，这就和 <code>HashMap</code> 的 <code>hash</code> 冲突是一样的。</p>
+<h1 id="编码实现"><a href="#编码实现" class="headerlink" title="编码实现"></a>编码实现</h1><p>理论讲完后我们来看看实际的编码实现，为此我创建了一个 <code>RingBufferWheel</code> 类。</p>
+<p>它的主要功能如下：</p>
+<ul>
+<li>可以添加指定时间的延时任务，在这个任务中可以实现自己的业务逻辑。</li>
+<li>停止运行（包含强制停止和所有任务完成后停止）。</li>
+<li>查看待执行任务数量。</li>
+</ul>
+<p>首先直接看看这个类是如何使用的。</p>
+<p><img src="https://i.loli.net/2019/09/27/wQHFflauOZkoeiP.jpg" alt=""></p>
+<p>我在这里创建了 65 个延时任务，每个任务都比前一个延后 1s 执行；同时自定义了一个 <code>Job</code> 类来实现自己的业务逻辑，最后调用 <code>stop(false)</code> 会在所有任务执行完毕后退出。</p>
+<p><img src="https://i.loli.net/2019/09/27/iAZTBKW8kjwDRcg.jpg" alt=""></p>
+<h2 id="构造函数"><a href="#构造函数" class="headerlink" title="构造函数"></a>构造函数</h2><p><img src="https://i.loli.net/2019/09/27/GFCNYSoiDlfeR6L.jpg" alt=""></p>
+<p>先来看看其中的构造函数，这里一共有两个构造函数，用于接收一个线程池及时间轮的大小。</p>
+<p>线程池的作用会在后面讲到。</p>
+<p>这里的时间轮大小也是有讲究的，它的长度必须得是 <code>2∧n</code>，至于为什么有这个要求后面也会讲到。</p>
+<p>默认情况下会初始化一个长度为 64 的数组。</p>
+<h2 id="添加任务"><a href="#添加任务" class="headerlink" title="添加任务"></a>添加任务</h2><p><img src="https://i.loli.net/2019/09/27/kauCzgjDJ93q4Ao.jpg" alt=""></p>
+<p>下面来看看添加任务的逻辑，根据我们之前的那张抽象图其实很容易实现。</p>
+<hr>
+<p><img src="https://i.loli.net/2019/09/27/6Wgm85sO3JCVIrz.jpg" alt=""></p>
+<p>首先我们要定义一个 <code>Task</code> 类，用于抽象任务；它本身也是一个线程，一旦延时到期便会执行其中的 run 函数，所以使用时便可继承该类，将业务逻辑写在 <code>run()</code> 中即可。</p>
+<p>它其中还有两个成员变量，也很好理解。</p>
+<ul>
+<li><code>cycleNum</code> 用于记录该任务所在时间轮的圈数。</li>
+<li><code>key</code> 在这里其实就是延时时间。</li>
+</ul>
+<hr>
+<p><img src="https://i.loli.net/2019/09/27/ZAyc6MLFPIaEmxX.jpg" alt=""></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line"><span class="comment">//通过 key 计算应该存放的位置</span></div><div class="line"><span class="function"><span class="keyword">private</span> Set&lt;Task&gt; <span class="title">get</span><span class="params">(<span class="keyword">int</span> key)</span> </span>&#123;</div><div class="line">    <span class="keyword">int</span> index = mod(key, bufferSize);</div><div class="line">    <span class="keyword">return</span> (Set&lt;Task&gt;) ringBuffer[index];</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">int</span> <span class="title">mod</span><span class="params">(<span class="keyword">int</span> target, <span class="keyword">int</span> mod)</span> </span>&#123;</div><div class="line">    <span class="comment">// equals target % mod</span></div><div class="line">    target = target + tick.get() ;</div><div class="line">    <span class="keyword">return</span> target &amp; (mod - <span class="number">1</span>);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>首先是根据延时时间 (<code>key</code>) 计算出所在的位置，其实就和 <code>HashMap</code> 一样的取模运算，只不过这里使用了位运算替代了取模，同时效率会高上不少。</p>
+<blockquote>
+<p>这样也解释了为什么数组长度一定得是 <code>2∧n</code>。</p>
+</blockquote>
+<p>然后查看该位置上是否存在任务，不存在就新建一个；存在自然就是将任务写入这个集合并更新回去。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">int</span> <span class="title">cycleNum</span><span class="params">(<span class="keyword">int</span> target, <span class="keyword">int</span> mod)</span> </span>&#123;</div><div class="line">    <span class="comment">//equals target/mod</span></div><div class="line">    <span class="keyword">return</span> target &gt;&gt; Integer.bitCount(mod - <span class="number">1</span>);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<blockquote>
+<p>其中的 <code>cycleNum()</code> 自然是用于计算该任务所处的圈数，也是考虑到效率问题，使用位运算替代了除法。</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">put</span><span class="params">(<span class="keyword">int</span> key, Set&lt;Task&gt; tasks)</span> </span>&#123;</div><div class="line">    <span class="keyword">int</span> index = mod(key, bufferSize);</div><div class="line">    ringBuffer[index] = tasks;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>而 <code>put()</code> 函数就非常简单了，就是将任务写入指定数组下标即可。</p>
+<h2 id="启动时间轮"><a href="#启动时间轮" class="headerlink" title="启动时间轮"></a>启动时间轮</h2><p>任务写进去后下一步便是启动这个时间轮了，我这里定义了一个 <code>start()</code> 函数。</p>
+<p><img src="https://i.loli.net/2019/09/27/h4xAKnRosTpirEW.jpg" alt=""></p>
+<p>其实本质上就是开启了一个后台线程来做这个事情：</p>
+<p><img src="https://i.loli.net/2019/09/27/fyvUKj3hrwbWRt9.jpg" alt=""></p>
+<p>它会一直从时间轮中取出任务来运行，而运行这些任务的线程便是我们在初始化时传入的线程池；所以所有的延时任务都是由自定义的线程池调度完成的，这样可以避免时间轮的阻塞。</p>
+<p>这里调用的 <code>remove(index)</code> 很容易猜到是用于获取当前数组中的所有任务。</p>
+<p><img src="https://i.loli.net/2019/09/27/9Gt4Mh8uHckmenw.jpg" alt=""></p>
+<p>逻辑很简单就不再赘述，不过其中的 <code>size2Notify()</code> 倒是值得说一下。</p>
+<p><img src="https://i.loli.net/2019/09/27/1bJaHKFlpeEyYqI.jpg" alt=""></p>
+<p>他是用于在停止任务时，主线程等待所有延时任务执行完毕的唤醒条件。这类用法几乎是所有线程间通信的常规套路，值得收入技能包。</p>
+<h2 id="停止时间轮"><a href="#停止时间轮" class="headerlink" title="停止时间轮"></a>停止时间轮</h2><p>刚才提到的唤醒主线程得配合这里的停止方法使用：</p>
+<p><img src="https://i.loli.net/2019/09/27/kg9taKAOS5bnfHe.jpg" alt=""></p>
+<p>如果是强制停止那便什么也不管，直接更新停止标志，同时关闭线程池即可。</p>
+<p>但如果是软停止（等待所有任务执行完毕）时，那就得通过上文提到的方式阻塞主线程，直到任务执行完毕后被唤醒。</p>
+<h1 id="CIM-中的应用"><a href="#CIM-中的应用" class="headerlink" title="CIM 中的应用"></a>CIM 中的应用</h1><p>介绍了核心原理和基本 <code>API</code> 后，我们来看看实际业务场景如何结合使用（背景是一个即时通讯项目）。</p>
+<p>我这里所使用的场景在文初也提到了，就是真的发送一条延时消息；</p>
+<p><img src="https://i.loli.net/2019/09/27/qDoORJP4bunY5Na.gif" alt=""></p>
+<p>现有的消息都是实时消息，所以要实现一个延时消息便是在现有的发送客户端处将延时消息放入到这个时间轮中，在任务到期时再执行真正的消息发送逻辑。</p>
+<p>由于项目本身结合了 <code>Spring</code>，所以第一步自然是配置 <code>bean</code>。</p>
+<p><img src="https://i.loli.net/2019/09/27/XLtUdOwpbghy4J8.jpg" alt=""></p>
+<p><code>bean</code> 配置好后其实就可以使用了。</p>
+<p><img src="https://i.loli.net/2019/09/27/ERIkrX6HLx1ZhAq.jpg" alt=""></p>
+<p>每当发送的是延时消息时，只需要将这个消息封装为一个 <code>Job</code> 放到时间轮中，然后在自己的业务类中完成业务即可。</p>
+<blockquote>
+<p>后续可以优化下 <code>api</code>，不用每次新增任务都要调用 <code>start()</code> 方法。</p>
+</blockquote>
+<p>这样一个延时消息的应用便完成了。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>时间轮这样的应用还非常多，比如 <code>Netty</code> 中的 <code>HashedWheelTimer</code> 工具原理也差不多，可以用于维护长连接心跳信息。</p>
+<p>甚至 <code>Kafka</code> 在这基础上还优化出了层级时间轮，这些都是后话了，大家感兴趣的话可以自行搜索资料或者抽时间我再完善一次。</p>
+<p>这篇文章从前期准备到撸码实现还是花了不少时间，如果对你有帮助的话还请点赞转发。</p>
+<p>本文的所有源码都可在此处查阅：</p>
+<p><a href="https://github.com/crossoverJie/cim/blob/master/cim-common/src/main/java/com/crossoverjie/cim/common/data/construct/RingBufferWheel.java" target="_blank" rel="external">https://github.com/crossoverJie/cim</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/09/27/kCPLBb1Rzn3uUtX.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;近期在维护公司的调度平台，其中有个关键功能那就是定时任务；定时任务大家平时肯定接触的不少，比如 &lt;code&gt;JDK&lt;/code&gt; 中的 &lt;code&gt;Timer&lt;/code&gt;、&lt;code&gt;ScheduledExecutorService&lt;/code&gt;、调度框架 &lt;code&gt;Quartz&lt;/code&gt; 等。&lt;/p&gt;
+&lt;p&gt;通常用于实现 XX 时间后的延时任务，或周期性任务；&lt;/p&gt;
+&lt;p&gt;比如一个常见的业务场景：用户下单 N 分钟未能支付便自动取消订单。&lt;/p&gt;
+&lt;p&gt;实现这类需求通常有两种方式：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;轮询定时任务：给定周期内扫描所有未支付的订单，查看时间是否到期。&lt;/li&gt;
+&lt;li&gt;延时消息：订单创建的时候发送一条 N 分钟到期的信息，一旦消息消费后便可判断订单是否可以取消。&lt;/li&gt;
+&lt;/ul&gt;
+    
+    </summary>
+    
+      <category term="算法" scheme="http://crossoverjie.top/categories/%E7%AE%97%E6%B3%95/"/>
+    
+    
+      <category term="时间轮" scheme="http://crossoverjie.top/tags/%E6%97%B6%E9%97%B4%E8%BD%AE/"/>
+    
+  </entry>
   
   <entry>
     <title>不要小看小小的 emoji 表情😂</title>
@@ -2034,140 +2169,6 @@
     
       <category term="VLOG" scheme="http://crossoverjie.top/categories/VLOG/"/>
     
-    
-  </entry>
-  
-  <entry>
-    <title>一个线程罢工的诡异事件</title>
-    <link href="http://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/"/>
-    <id>http://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/</id>
-    <published>2019-03-12T00:15:36.000Z</published>
-    <updated>2019-05-07T17:22:56.908Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/04/29/5cc656743cc4f.jpg" alt=""></p>
-<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>事情（事故）是这样的，突然收到报警，线上某个应用里业务逻辑没有执行，导致的结果是数据库里的某些数据没有更新。</p>
-<p>虽然是前人写的代码，但作为 <code>Bug maker&amp;killer</code> 只能咬着牙上了。</p>
-<a id="more"></a>
-<p>因为之前没有接触过出问题这块的逻辑，所以简单理了下如图：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1be99551d0.jpg" alt=""></p>
-<ol>
-<li>有一个生产线程一直源源不断的往队列写数据。</li>
-<li>消费线程也一直不停的取出数据后写入后续的业务线程池。</li>
-<li>业务线程池里的线程会对每个任务进行入库操作。</li>
-</ol>
-<p>整个过程还是比较清晰的，就是一个典型的生产者消费者模型。</p>
-<h1 id="尝试定位"><a href="#尝试定位" class="headerlink" title="尝试定位"></a>尝试定位</h1><p>接下来便是尝试定位这个问题，首先例行检查了以下几项：</p>
-<ul>
-<li>是否内存有内存溢出？</li>
-<li>应用 GC 是否有异常？</li>
-</ul>
-<p>通过日志以及监控发现以上两项都是正常的。</p>
-<p>紧接着便 dump 了线程快照查看业务线程池中的线程都在干啥。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1be9a3cd7f.jpg" alt=""></p>
-<p>结果发现所有业务线程池都处于 <code>waiting</code> 状态，队列也是空的。</p>
-<p>同时生产者使用的队列却已经满了，没有任何消费迹象。</p>
-<p>结合上面的流程图不难发现应该是消费队列的 <code>Consumer</code> 出问题了，导致上游的队列不能消费，下有的业务线程池没事可做。</p>
-<h2 id="review-代码"><a href="#review-代码" class="headerlink" title="review 代码"></a>review 代码</h2><p>于是查看了消费代码的业务逻辑，同时也发现消费线程是一个<strong>单线程</strong>。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1be9c9d525.jpg" alt=""></p>
-<p>结合之前的线程快照，我发现这个消费线程也是处于 waiting 状态，和后面的业务线程池一模一样。</p>
-<p>他做的事情基本上就是对消息解析，之后丢到后面的业务线程池中，没有发现什么特别的地方。</p>
-<blockquote>
-<p>但是由于里面的分支特别多（switch case），看着有点头疼；所以我与写这个业务代码的同学沟通后他告诉我确实也只是入口处解析了一下数据，后续所有的业务逻辑都是丢到线程池中处理的，于是我便带着这个前提去排查了（埋下了伏笔）。</p>
-</blockquote>
-<p>因为这里消费的队列其实是一个 <code>disruptor</code> 队列；它和我们常用的 <code>BlockQueue</code> 不太一样，不是由开发者自定义一个消费逻辑进行处理的；而是在初始化队列时直接丢一个线程池进去，它会在内部使用这个线程池进行消费，同时回调一个方法，在这个方法里我们写自己的消费逻辑。</p>
-<p>所以对于开发者而言，这个消费逻辑其实是一个黑盒。</p>
-<p>于是在我反复 <code>review</code> 了消费代码中的数据解析逻辑发现不太可能出现问题后，便开始疯狂怀疑是不是 <code>disruptor</code> 自身的问题导致这个消费线程罢工了。</p>
-<p>再翻了一阵 <code>disruptor</code> 的源码后依旧没发现什么问题后我咨询对 <code>disruptor</code> 较熟的@咖啡拿铁，在他的帮助下在本地模拟出来和生产一样的情况。</p>
-<h1 id="本地模拟"><a href="#本地模拟" class="headerlink" title="本地模拟"></a>本地模拟</h1><p><img src="https://i.loli.net/2019/05/08/5cd1bea23336f.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1bea2971ea.jpg" alt=""></p>
-<p>本地也是创建了一个单线程的线程池，分别执行了两个任务。</p>
-<ul>
-<li>第一个任务没啥好说的，就是简单的打印。</li>
-<li>第二个任务会对一个数进行累加，加到 10 之后就抛出一个未捕获的异常。</li>
-</ul>
-<p>接着我们来运行一下。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bea331666.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1bea3dd8de.jpg" alt=""></p>
-<p>发现当任务中抛出一个没有捕获的异常时，线程池中的线程就会处于 <code>waiting</code> 状态，同时所有的堆栈都和生产相符。</p>
-<blockquote>
-<p>细心的朋友会发现正常运行的线程名称和异常后处于 waiting 状态的线程名称是不一样的，这个后续分析。</p>
-</blockquote>
-<h2 id="解决问题"><a href="#解决问题" class="headerlink" title="解决问题"></a>解决问题</h2><p><img src="https://i.loli.net/2019/05/08/5cd1bea429f43.jpg" alt=""></p>
-<p>当加入异常捕获后又如何呢？</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beaa83375.jpg" alt=""></p>
-<p>程序肯定会正常运行。</p>
-<blockquote>
-<p>同时会发现所有的任务都是由一个线程完成的。</p>
-</blockquote>
-<p>虽说就是加了一行代码，但我们还是要搞清楚这里面的门门道道。</p>
-<h1 id="源码分析"><a href="#源码分析" class="headerlink" title="源码分析"></a>源码分析</h1><p>于是只有直接 <code>debug</code> 线程池的源码最快了；</p>
-<hr>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beab1d59c.jpg" alt=""></p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beac3a696.jpg" alt=""></p>
-<p>通过刚才的异常堆栈我们进入到 <code>ThreadPoolExecutor.java:1142</code> 处。</p>
-<ul>
-<li>发现线程池已经帮我们做了异常捕获，但依然会往上抛。</li>
-<li>在 <code>finally</code> 块中会执行 <code>processWorkerExit(w, completedAbruptly)</code> 方法。</li>
-</ul>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beb4cde74.jpg" alt=""></p>
-<p>看过之前<a href="https://crossoverjie.top/2018/07/29/java-senior/ThreadPool/">《如何优雅的使用和理解线程池》</a>的朋友应该还会有印象。</p>
-<p>线程池中的任务都会被包装为一个内部 <code>Worker</code> 对象执行。</p>
-<p><code>processWorkerExit</code> 可以简单的理解为是把当前运行的线程销毁（<code>workers.remove(w)</code>）、同时新增（<code>addWorker()</code>）一个 <code>Worker</code> 对象接着处理；</p>
-<blockquote>
-<p>就像是哪个零件坏掉后重新换了一个新的接着工作，但是旧零件负责的任务就没有了。</p>
-</blockquote>
-<p>接下来看看 <code>addWorker()</code> 做了什么事情：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beb58e9f7.jpg" alt=""></p>
-<p>只看这次比较关心的部分；添加成功后会直接执行他的 <code>start()</code> 的方法。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beb65d907.jpg" alt=""></p>
-<p>由于 <code>Worker</code> 实现了 <code>Runnable</code> 接口，所以本质上就是调用了 <code>runWorker()</code> 方法。</p>
-<hr>
-<p>在 <code>runWorker()</code> 其实就是上文 <code>ThreadPoolExecutor</code> 抛出异常时的那个方法。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1bebd51313.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1bebe2496b.jpg" alt=""></p>
-<p>它会从队列里一直不停的获取待执行的任务，也就是 <code>getTask()</code>；在 <code>getTask</code> 也能看出它会一直从内置的队列取出任务。</p>
-<p>而一旦队列是空的，它就会 <code>waiting</code> 在 <code>workQueue.take()</code>，也就是我们从堆栈中发现的 1067 行代码。</p>
-<h2 id="线程名字的变化"><a href="#线程名字的变化" class="headerlink" title="线程名字的变化"></a>线程名字的变化</h2><p><img src="https://i.loli.net/2019/05/08/5cd1bebf2cded.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1bec02c9a8.jpg" alt=""><br><img src="https://i.loli.net/2019/05/08/5cd1bec0c4ffe.jpg" alt=""></p>
-<p>上文还提到了异常后的线程名称发生了改变，其实在 <code>addWorker()</code> 方法中可以看到 <code>new Worker()</code>时就会重新命名线程的名称，默认就是把后缀的计数+1。</p>
-<p>这样一切都能解释得通了，真相只有一个：</p>
-<blockquote>
-<p>在单个线程的线程池中一但抛出了未被捕获的异常时，线程池会回收当前的线程并创建一个新的 <code>Worker</code>；<br>它也会一直不断的从队列里获取任务来执行，但由于这是一个消费线程，根本没有生产者往里边丢任务，所以它会一直 waiting 在从队列里获取任务处，所以也就造成了线上的队列没有消费，业务线程池没有执行的问题。</p>
-</blockquote>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>所以之后线上的那个问题加上异常捕获之后也变得正常了，但我还是有点纳闷的是：</p>
-<blockquote>
-<p>既然后续所有的任务都是在线程池中执行的，也就是纯异步了，那即便是出现异常也不会抛到消费线程中啊。</p>
-</blockquote>
-<p>这不是把我之前储备的知识点推翻了嘛？不信邪！之后我让运维给了加上异常捕获后的线上错误日志。</p>
-<p>结果发现在上文提到的众多 <code>switch case</code> 中，最后一个竟然是直接操作的数据库，导致一个非空字段报错了🤬！！</p>
-<p>这事也给我个教训，还是得眼见为实啊。</p>
-<p>虽然这个问题改动很小解决了，但复盘整个过程还是有许多需要改进的：</p>
-<ol>
-<li>消费队列的线程名称竟然和业务线程的前缀一样，导致我光找它就花了许多时间，命名必须得调整。</li>
-<li>开发规范，防御式编程大家需要养成习惯。</li>
-<li>未知的技术栈需要谨慎，比如 <code>disruptor</code>，之前的团队应该只是看了个高性能的介绍就直接使用，并没有深究其原理；导致出现问题后对它拿不准。</li>
-</ol>
-<p>实例代码：</p>
-<p><a href="https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/thread/ThreadExceptionTest.java" target="_blank" rel="external">https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/thread/ThreadExceptionTest.java</a></p>
-<p><strong>你的点赞与分享是对我最大的支持</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/04/29/5cc656743cc4f.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;背景&quot;&gt;&lt;a href=&quot;#背景&quot; class=&quot;headerlink&quot; title=&quot;背景&quot;&gt;&lt;/a&gt;背景&lt;/h1&gt;&lt;p&gt;事情（事故）是这样的，突然收到报警，线上某个应用里业务逻辑没有执行，导致的结果是数据库里的某些数据没有更新。&lt;/p&gt;
-&lt;p&gt;虽然是前人写的代码，但作为 &lt;code&gt;Bug maker&amp;amp;killer&lt;/code&gt; 只能咬着牙上了。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="问题排查" scheme="http://crossoverjie.top/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/"/>
-    
-      <category term="Java 进阶" scheme="http://crossoverjie.top/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/Java-%E8%BF%9B%E9%98%B6/"/>
-    
-    
-      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
-    
-      <category term="Thread" scheme="http://crossoverjie.top/tags/Thread/"/>
-    
-      <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
-    
-      <category term="disruptor" scheme="http://crossoverjie.top/tags/disruptor/"/>
     
   </entry>
   

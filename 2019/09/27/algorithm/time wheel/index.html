@@ -1,0 +1,1262 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/vendors/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/vendors/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="时间轮," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml" />
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.1" />
+
+
+
+
+
+
+<meta name="description" content="前言近期在维护公司的调度平台，其中有个关键功能那就是定时任务；定时任务大家平时肯定接触的不少，比如 JDK 中的 Timer、ScheduledExecutorService、调度框架 Quartz 等。
+通常用于实现 XX 时间后的延时任务，或周期性任务；
+比如一个常见的业务场景：用户下单 N 分钟未能支付便自动取消订单。
+实现这类需求通常有两种方式：
+
+轮询定时任务：给定周期内扫描所有未支付">
+<meta property="og:type" content="article">
+<meta property="og:title" content="延时消息之时间轮">
+<meta property="og:url" content="http://crossoverjie.top/2019/09/27/algorithm/time wheel/index.html">
+<meta property="og:site_name" content="crossoverJie's Blog">
+<meta property="og:description" content="前言近期在维护公司的调度平台，其中有个关键功能那就是定时任务；定时任务大家平时肯定接触的不少，比如 JDK 中的 Timer、ScheduledExecutorService、调度框架 Quartz 等。
+通常用于实现 XX 时间后的延时任务，或周期性任务；
+比如一个常见的业务场景：用户下单 N 分钟未能支付便自动取消订单。
+实现这类需求通常有两种方式：
+
+轮询定时任务：给定周期内扫描所有未支付">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/kCPLBb1Rzn3uUtX.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/qDoORJP4bunY5Na.gif">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/F2KAoSpidyL5IJD.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/kauCzgjDJ93q4Ao.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/wQHFflauOZkoeiP.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/iAZTBKW8kjwDRcg.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/GFCNYSoiDlfeR6L.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/kauCzgjDJ93q4Ao.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/6Wgm85sO3JCVIrz.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/ZAyc6MLFPIaEmxX.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/h4xAKnRosTpirEW.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/fyvUKj3hrwbWRt9.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/9Gt4Mh8uHckmenw.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/1bJaHKFlpeEyYqI.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/kg9taKAOS5bnfHe.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/qDoORJP4bunY5Na.gif">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/XLtUdOwpbghy4J8.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/09/27/ERIkrX6HLx1ZhAq.jpg">
+<meta property="og:updated_time" content="2019-09-26T18:00:10.408Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="延时消息之时间轮">
+<meta name="twitter:description" content="前言近期在维护公司的调度平台，其中有个关键功能那就是定时任务；定时任务大家平时肯定接触的不少，比如 JDK 中的 Timer、ScheduledExecutorService、调度框架 Quartz 等。
+通常用于实现 XX 时间后的延时任务，或周期性任务；
+比如一个常见的业务场景：用户下单 N 分钟未能支付便自动取消订单。
+实现这类需求通常有两种方式：
+
+轮询定时任务：给定周期内扫描所有未支付">
+<meta name="twitter:image" content="https://i.loli.net/2019/09/27/kCPLBb1Rzn3uUtX.jpg">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: 555390,
+      author: 'crossoverJie'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="http://crossoverjie.top/2019/09/27/algorithm/time wheel/"/>
+
+  <title> 延时消息之时间轮 | crossoverJie's Blog </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+
+
+
+
+
+
+
+
+  <div style="display: none;">
+    <script src="https://s6.cnzz.com/stat.php?id=1259025147&web_id=1259025147" type="text/javascript"></script>
+  </div>
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">crossoverJie's Blog</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle">baller</p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            Home
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            Categories
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            About
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            Archives
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            Tags
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-photo">
+          <a href="/favourite" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-photo"></i> <br />
+            
+            photo
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-jcsprout">
+          <a href="https://crossoverjie.top/JCSprout/#/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-leaf"></i> <br />
+            
+            JCSprout
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-cicada">
+          <a href="https://github.com/TogetherOS/cicada" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-github"></i> <br />
+            
+            cicada
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-cim">
+          <a href="https://github.com/crossoverjie/cim" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-far fa-comment"></i> <br />
+            
+            CIM
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-vlog">
+          <a href="https://space.bilibili.com/42339430" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-youtube"></i> <br />
+            
+            Vlog
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="#" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br />
+            
+            Search
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup">
+ <span class="search-icon fa fa-search"></span>
+ <input type="text" id="local-search-input">
+ <div id="local-search-result"></div>
+ <span class="popup-btn-close">close</span>
+</div>
+
+
+    </div>
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                延时消息之时间轮
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">Posted on</span>
+            <time itemprop="dateCreated" datetime="2019-09-27T08:13:00+08:00" content="2019-09-27">
+              2019-09-27
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/算法/" itemprop="url" rel="index">
+                    <span itemprop="name">算法</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/2019/09/27/algorithm/time wheel/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2019/09/27/algorithm/time wheel/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+             <span id="/2019/09/27/algorithm/time wheel/" class="leancloud_visitors" data-flag-title="延时消息之时间轮">
+               &nbsp; | &nbsp;
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               <span class="post-meta-item-text">visitors </span>
+               <span class="leancloud-visitors-count"></span>
+              </span>
+          
+
+          
+              &nbsp; | &nbsp;
+              <span class="page-pv">本文总阅读量
+              <span class="busuanzi-value" id="busuanzi_value_page_pv" ></span>次
+              </span>
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p><img src="https://i.loli.net/2019/09/27/kCPLBb1Rzn3uUtX.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>近期在维护公司的调度平台，其中有个关键功能那就是定时任务；定时任务大家平时肯定接触的不少，比如 <code>JDK</code> 中的 <code>Timer</code>、<code>ScheduledExecutorService</code>、调度框架 <code>Quartz</code> 等。</p>
+<p>通常用于实现 XX 时间后的延时任务，或周期性任务；</p>
+<p>比如一个常见的业务场景：用户下单 N 分钟未能支付便自动取消订单。</p>
+<p>实现这类需求通常有两种方式：</p>
+<ul>
+<li>轮询定时任务：给定周期内扫描所有未支付的订单，查看时间是否到期。</li>
+<li>延时消息：订单创建的时候发送一条 N 分钟到期的信息，一旦消息消费后便可判断订单是否可以取消。</li>
+</ul>
+<a id="more"></a>
+<p>先看第一种，这类方式实现较为简单，只需要启动一个定时任务即可；但缺点同样也很明显，这个间隔扫描的时间不好控制。</p>
+<p>给短了会造成很多无意义的扫描，增大数据库压力，给长了又会使得误差较大。</p>
+<p>当然最大的问题还是效率较低，随着订单增多耗时会呈线性增长，最差的情况甚至会出现上一波轮询还没有扫描完，下一波调度又来了。</p>
+<hr>
+<p>这时第二种方案就要显得靠谱多了，通过延时消息可以去掉不必要的订单扫描，实时性也比较高。</p>
+<h1 id="延时消息"><a href="#延时消息" class="headerlink" title="延时消息"></a>延时消息</h1><p>这里我们不过多讨论这类需求如何实现；重点聊聊这个延时消息，看它是如何实现的，基于实现延时消息的数据结构还能实现定时任务。</p>
+<p>我在之前的开源 <a href="https://github.com/crossoverJie/cim" target="_blank" rel="external">IM</a> 项目中也加入了此类功能，可以很直观的发送一条延时消息，效果如下：</p>
+<p><img src="https://i.loli.net/2019/09/27/qDoORJP4bunY5Na.gif" alt=""></p>
+<p>使用 <code>:delay hahah 2</code> 发送了一条两秒钟的延时消息，另外一个客户端将会在两秒钟之后收到该消息。</p>
+<p>具体的实现步骤会在后文继续分析。</p>
+<h1 id="时间轮"><a href="#时间轮" class="headerlink" title="时间轮"></a>时间轮</h1><p>要实现延时消息就不得不提到一种数据结构【<code>时间轮</code>】，时间轮听这名字可以很直观的抽象出它的数据结构。</p>
+<p><img src="https://i.loli.net/2019/09/27/F2KAoSpidyL5IJD.jpg" alt=""></p>
+<p>其实本质上它就是一个环形的数组，如图所示，假设我们创建了一个长度为 8 的时间轮。</p>
+<hr>
+<p><code>task0</code> = 当我们需要新建一个 5s 延时消息，则只需要将它放到下标为 5 的那个槽中。</p>
+<p><code>task1</code> = 而如果是一个 10s 的延时消息，则需要将它放到下标为 2 的槽中，<strong>但同时需要记录它所对应的圈数</strong>，不然就和 2 秒的延时消息重复了。</p>
+<p><code>task2</code>= 当创建一个 21s 的延时消息时，它所在的位置就和 <code>task0</code> 相同了，都在下标为 5 的槽中，所以为了区别需要为他加上圈数为 2。</p>
+<p><img src="https://i.loli.net/2019/09/27/kauCzgjDJ93q4Ao.jpg" alt=""></p>
+<p>通过这张图可以更直观的理解。</p>
+<p>当我们需要取出延时消息时，只需要每秒往下移动这个指针，然后取出该位置的所有任务即可。</p>
+<p>当然取出任务之前还得判断圈数是否为 0 ，不为 0 时说明该任务还得再轮几圈，同时需要将圈数 -1 。</p>
+<p>这样就可避免轮询所有的任务，不过如果时间轮的槽比较少，导致某一个槽上的任务非常多那效率也比较低，这就和 <code>HashMap</code> 的 <code>hash</code> 冲突是一样的。</p>
+<h1 id="编码实现"><a href="#编码实现" class="headerlink" title="编码实现"></a>编码实现</h1><p>理论讲完后我们来看看实际的编码实现，为此我创建了一个 <code>RingBufferWheel</code> 类。</p>
+<p>它的主要功能如下：</p>
+<ul>
+<li>可以添加指定时间的延时任务，在这个任务中可以实现自己的业务逻辑。</li>
+<li>停止运行（包含强制停止和所有任务完成后停止）。</li>
+<li>查看待执行任务数量。</li>
+</ul>
+<p>首先直接看看这个类是如何使用的。</p>
+<p><img src="https://i.loli.net/2019/09/27/wQHFflauOZkoeiP.jpg" alt=""></p>
+<p>我在这里创建了 65 个延时任务，每个任务都比前一个延后 1s 执行；同时自定义了一个 <code>Job</code> 类来实现自己的业务逻辑，最后调用 <code>stop(false)</code> 会在所有任务执行完毕后退出。</p>
+<p><img src="https://i.loli.net/2019/09/27/iAZTBKW8kjwDRcg.jpg" alt=""></p>
+<h2 id="构造函数"><a href="#构造函数" class="headerlink" title="构造函数"></a>构造函数</h2><p><img src="https://i.loli.net/2019/09/27/GFCNYSoiDlfeR6L.jpg" alt=""></p>
+<p>先来看看其中的构造函数，这里一共有两个构造函数，用于接收一个线程池及时间轮的大小。</p>
+<p>线程池的作用会在后面讲到。</p>
+<p>这里的时间轮大小也是有讲究的，它的长度必须得是 <code>2∧n</code>，至于为什么有这个要求后面也会讲到。</p>
+<p>默认情况下会初始化一个长度为 64 的数组。</p>
+<h2 id="添加任务"><a href="#添加任务" class="headerlink" title="添加任务"></a>添加任务</h2><p><img src="https://i.loli.net/2019/09/27/kauCzgjDJ93q4Ao.jpg" alt=""></p>
+<p>下面来看看添加任务的逻辑，根据我们之前的那张抽象图其实很容易实现。</p>
+<hr>
+<p><img src="https://i.loli.net/2019/09/27/6Wgm85sO3JCVIrz.jpg" alt=""></p>
+<p>首先我们要定义一个 <code>Task</code> 类，用于抽象任务；它本身也是一个线程，一旦延时到期便会执行其中的 run 函数，所以使用时便可继承该类，将业务逻辑写在 <code>run()</code> 中即可。</p>
+<p>它其中还有两个成员变量，也很好理解。</p>
+<ul>
+<li><code>cycleNum</code> 用于记录该任务所在时间轮的圈数。</li>
+<li><code>key</code> 在这里其实就是延时时间。</li>
+</ul>
+<hr>
+<p><img src="https://i.loli.net/2019/09/27/ZAyc6MLFPIaEmxX.jpg" alt=""></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line"><span class="comment">//通过 key 计算应该存放的位置</span></div><div class="line"><span class="function"><span class="keyword">private</span> Set&lt;Task&gt; <span class="title">get</span><span class="params">(<span class="keyword">int</span> key)</span> </span>&#123;</div><div class="line">    <span class="keyword">int</span> index = mod(key, bufferSize);</div><div class="line">    <span class="keyword">return</span> (Set&lt;Task&gt;) ringBuffer[index];</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">int</span> <span class="title">mod</span><span class="params">(<span class="keyword">int</span> target, <span class="keyword">int</span> mod)</span> </span>&#123;</div><div class="line">    <span class="comment">// equals target % mod</span></div><div class="line">    target = target + tick.get() ;</div><div class="line">    <span class="keyword">return</span> target &amp; (mod - <span class="number">1</span>);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>首先是根据延时时间 (<code>key</code>) 计算出所在的位置，其实就和 <code>HashMap</code> 一样的取模运算，只不过这里使用了位运算替代了取模，同时效率会高上不少。</p>
+<blockquote>
+<p>这样也解释了为什么数组长度一定得是 <code>2∧n</code>。</p>
+</blockquote>
+<p>然后查看该位置上是否存在任务，不存在就新建一个；存在自然就是将任务写入这个集合并更新回去。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">int</span> <span class="title">cycleNum</span><span class="params">(<span class="keyword">int</span> target, <span class="keyword">int</span> mod)</span> </span>&#123;</div><div class="line">    <span class="comment">//equals target/mod</span></div><div class="line">    <span class="keyword">return</span> target &gt;&gt; Integer.bitCount(mod - <span class="number">1</span>);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<blockquote>
+<p>其中的 <code>cycleNum()</code> 自然是用于计算该任务所处的圈数，也是考虑到效率问题，使用位运算替代了除法。</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">put</span><span class="params">(<span class="keyword">int</span> key, Set&lt;Task&gt; tasks)</span> </span>&#123;</div><div class="line">    <span class="keyword">int</span> index = mod(key, bufferSize);</div><div class="line">    ringBuffer[index] = tasks;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>而 <code>put()</code> 函数就非常简单了，就是将任务写入指定数组下标即可。</p>
+<h2 id="启动时间轮"><a href="#启动时间轮" class="headerlink" title="启动时间轮"></a>启动时间轮</h2><p>任务写进去后下一步便是启动这个时间轮了，我这里定义了一个 <code>start()</code> 函数。</p>
+<p><img src="https://i.loli.net/2019/09/27/h4xAKnRosTpirEW.jpg" alt=""></p>
+<p>其实本质上就是开启了一个后台线程来做这个事情：</p>
+<p><img src="https://i.loli.net/2019/09/27/fyvUKj3hrwbWRt9.jpg" alt=""></p>
+<p>它会一直从时间轮中取出任务来运行，而运行这些任务的线程便是我们在初始化时传入的线程池；所以所有的延时任务都是由自定义的线程池调度完成的，这样可以避免时间轮的阻塞。</p>
+<p>这里调用的 <code>remove(index)</code> 很容易猜到是用于获取当前数组中的所有任务。</p>
+<p><img src="https://i.loli.net/2019/09/27/9Gt4Mh8uHckmenw.jpg" alt=""></p>
+<p>逻辑很简单就不再赘述，不过其中的 <code>size2Notify()</code> 倒是值得说一下。</p>
+<p><img src="https://i.loli.net/2019/09/27/1bJaHKFlpeEyYqI.jpg" alt=""></p>
+<p>他是用于在停止任务时，主线程等待所有延时任务执行完毕的唤醒条件。这类用法几乎是所有线程间通信的常规套路，值得收入技能包。</p>
+<h2 id="停止时间轮"><a href="#停止时间轮" class="headerlink" title="停止时间轮"></a>停止时间轮</h2><p>刚才提到的唤醒主线程得配合这里的停止方法使用：</p>
+<p><img src="https://i.loli.net/2019/09/27/kg9taKAOS5bnfHe.jpg" alt=""></p>
+<p>如果是强制停止那便什么也不管，直接更新停止标志，同时关闭线程池即可。</p>
+<p>但如果是软停止（等待所有任务执行完毕）时，那就得通过上文提到的方式阻塞主线程，直到任务执行完毕后被唤醒。</p>
+<h1 id="CIM-中的应用"><a href="#CIM-中的应用" class="headerlink" title="CIM 中的应用"></a>CIM 中的应用</h1><p>介绍了核心原理和基本 <code>API</code> 后，我们来看看实际业务场景如何结合使用（背景是一个即时通讯项目）。</p>
+<p>我这里所使用的场景在文初也提到了，就是真的发送一条延时消息；</p>
+<p><img src="https://i.loli.net/2019/09/27/qDoORJP4bunY5Na.gif" alt=""></p>
+<p>现有的消息都是实时消息，所以要实现一个延时消息便是在现有的发送客户端处将延时消息放入到这个时间轮中，在任务到期时再执行真正的消息发送逻辑。</p>
+<p>由于项目本身结合了 <code>Spring</code>，所以第一步自然是配置 <code>bean</code>。</p>
+<p><img src="https://i.loli.net/2019/09/27/XLtUdOwpbghy4J8.jpg" alt=""></p>
+<p><code>bean</code> 配置好后其实就可以使用了。</p>
+<p><img src="https://i.loli.net/2019/09/27/ERIkrX6HLx1ZhAq.jpg" alt=""></p>
+<p>每当发送的是延时消息时，只需要将这个消息封装为一个 <code>Job</code> 放到时间轮中，然后在自己的业务类中完成业务即可。</p>
+<blockquote>
+<p>后续可以优化下 <code>api</code>，不用每次新增任务都要调用 <code>start()</code> 方法。</p>
+</blockquote>
+<p>这样一个延时消息的应用便完成了。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>时间轮这样的应用还非常多，比如 <code>Netty</code> 中的 <code>HashedWheelTimer</code> 工具原理也差不多，可以用于维护长连接心跳信息。</p>
+<p>甚至 <code>Kafka</code> 在这基础上还优化出了层级时间轮，这些都是后话了，大家感兴趣的话可以自行搜索资料或者抽时间我再完善一次。</p>
+<p>这篇文章从前期准备到撸码实现还是花了不少时间，如果对你有帮助的话还请点赞转发。</p>
+<p>本文的所有源码都可在此处查阅：</p>
+<p><a href="https://github.com/crossoverJie/cim/blob/master/cim-common/src/main/java/com/crossoverjie/cim/common/data/construct/RingBufferWheel.java" target="_blank" rel="external">https://github.com/crossoverJie/cim</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+<div id="wechat_subscriber" style="display: block； padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+    <img id="wechat_subscriber_qcode" src="/uploads/weixinfooter1.jpg" alt="crossoverJie wechat" style="width: 200px; max-width: 100%;"/>
+    <div>我很有眼光！</div>
+</div>
+
+      
+    </div>
+
+    <div>
+      
+        
+  <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+    <div>请我吃🍗</div>
+    <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+      <span>赏</span>
+    </button>
+    <div id="QR" style="display: none;">
+      
+        <div id="wechat" style="display: inline-block">
+          <img id="wechat_qr" src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay"/>
+          <p>微信打赏</p>
+        </div>
+      
+      
+        <div id="alipay" style="display: inline-block">
+          <img id="alipay_qr" src="/alipay-reward-image.jpg" alt="crossoverJie Alipay"/>
+          <p>支付宝打赏</p>
+        </div>
+      
+    </div>
+  </div>
+
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/时间轮/" rel="tag">#时间轮</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/09/10/cs/not easy emoji/" rel="next" title="不要小看小小的 emoji 表情😂">
+                <i class="fa fa-chevron-left"></i> 不要小看小小的 emoji 表情😂
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+  <p>热评文章</p>
+  <div class="ds-top-threads" data-range="weekly" data-num-items="4"></div>
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/uploads/crossoverjie.jpg"
+               alt="crossoverJie" />
+          <p class="site-author-name" itemprop="name">crossoverJie</p>
+          <p class="site-description motion-element" itemprop="description">You never know what you can do till you try.</p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">115</span>
+              <span class="site-state-item-name">posts</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">42</span>
+                <span class="site-state-item-name">categories</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">107</span>
+                <span class="site-state-item-name">tags</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/crossoverJie" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://www.jianshu.com/users/e2d07947c112/latest_articles" target="_blank" title="简书">
+                  
+                    <i class="fa fa-fw fa-book"></i>
+                  
+                  简书
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" target="_blank" title="掘金">
+                  
+                    <i class="fa fa-fw fa-bookmark"></i>
+                  
+                  掘金
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://twitter.com/crossoverJie" target="_blank" title="Twitter">
+                  
+                    <i class="fa fa-fw fa-twitter"></i>
+                  
+                  Twitter
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://wuchong.me" title="Jark's Blog" target="_blank">Jark's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://tengj.top" title="嘟嘟独立博客" target="_blank">嘟嘟独立博客</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://yemengying.com/" title="Giraffe Home" target="_blank">Giraffe Home</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://blog.jamespan.me/" title="潘小鶸(ruò)" target="_blank">潘小鶸(ruò)</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://fangjian0423.github.io/" title="Format's Notes" target="_blank">Format's Notes</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://yuzhouwan.com/" title="Benedict Jin" target="_blank">Benedict Jin</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.didispace.com/" title="程序猿DD" target="_blank">程序猿DD</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://blog.52itstyle.vip/" title="小柒博客" target="_blank">小柒博客</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://cmsblogs.com/" title="Java技术驿站" target="_blank">Java技术驿站</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://vim.ink/" title="vim 教程网" target="_blank">vim 教程网</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.jitwxs.cn" title="jitwxs" target="_blank">jitwxs</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.javaboy.org" title="江南一点雨" target="_blank">江南一点雨</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.liangsonghua.me" title="松花皮蛋的黑板报" target="_blank">松花皮蛋的黑板报</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#延时消息"><span class="nav-number">2.</span> <span class="nav-text">延时消息</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#时间轮"><span class="nav-number">3.</span> <span class="nav-text">时间轮</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#编码实现"><span class="nav-number">4.</span> <span class="nav-text">编码实现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#构造函数"><span class="nav-number">4.1.</span> <span class="nav-text">构造函数</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#添加任务"><span class="nav-number">4.2.</span> <span class="nav-text">添加任务</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#启动时间轮"><span class="nav-number">4.3.</span> <span class="nav-text">启动时间轮</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#停止时间轮"><span class="nav-number">4.4.</span> <span class="nav-text">停止时间轮</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#CIM-中的应用"><span class="nav-number">5.</span> <span class="nav-text">CIM 中的应用</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy;  2016 - 
+  <span itemprop="copyrightYear">2019</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+
+<div class="powered-by">
+  Powered by <a class="theme-link" href="http://hexo.io">Hexo</a>
+</div>
+
+<div class="theme-info">
+  Theme -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+        
+
+<div class="busuanzi-count">
+
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="site-uv"><i class="fa fa-user"></i><span class="busuanzi-value" id="busuanzi_value_site_uv"></span>人数</span>
+  
+
+  
+    <span class="site-pv">您是第<span class="busuanzi-value" id="busuanzi_value_site_pv"></span>位童鞋</span>
+  
+  
+</div>
+
+
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/vendors/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/vendors/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.0.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.1"></script>
+
+
+
+  
+
+
+
+  
+
+    <script type="text/javascript">
+      var disqus_shortname = 'crossoverjie';
+      var disqus_identifier = '2019/09/27/algorithm/time wheel/';
+      var disqus_title = "延时消息之时间轮";
+      var disqus_url = 'http://crossoverjie.top/2019/09/27/algorithm/time wheel/';
+
+      function run_disqus_script(disqus_script){
+        var dsq = document.createElement('script');
+        dsq.type = 'text/javascript';
+        dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      }
+
+      run_disqus_script('count.js');
+      
+        run_disqus_script('embed.js');
+      
+    </script>
+  
+
+
+
+
+  
+  
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length == 0) {
+       search_path = "search.xml";
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    function proceedsearch() {
+      $("body").append('<div class="popoverlay">').css('overflow', 'hidden');
+      $('.popup').toggle();
+
+    }
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+    'use strict';
+    $.ajax({
+        url: path,
+        dataType: "xml",
+        async: true,
+        success: function( xmlResponse ) {
+            // get the contents from search data
+            isfetched = true;
+            $('.popup').detach().appendTo('.header-inner');
+            var datas = $( "entry", xmlResponse ).map(function() {
+                return {
+                    title: $( "title", this ).text(),
+                    content: $("content",this).text(),
+                    url: $( "url" , this).text()
+                };
+            }).get();
+            var $input = document.getElementById(search_id);
+            var $resultContent = document.getElementById(content_id);
+            $input.addEventListener('input', function(){
+                var matchcounts = 0;
+                var str='<ul class=\"search-result-list\">';                
+                var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                $resultContent.innerHTML = "";
+                if (this.value.trim().length > 1) {
+                // perform local searching
+                datas.forEach(function(data) {
+                    var isMatch = true;
+                    var content_index = [];
+                    var data_title = data.title.trim().toLowerCase();
+                    var data_content = data.content.trim().replace(/<[^>]+>/g,"").toLowerCase();
+                    var data_url = data.url;
+                    var index_title = -1;
+                    var index_content = -1;
+                    var first_occur = -1;
+                    // only match artiles with not empty titles and contents
+                    if(data_title != '' && data_content != '') {
+                        keywords.forEach(function(keyword, i) {
+                            index_title = data_title.indexOf(keyword);
+                            index_content = data_content.indexOf(keyword);
+                            if( index_title < 0 && index_content < 0 ){
+                                isMatch = false;
+                            } else {
+                                if (index_content < 0) {
+                                    index_content = 0;
+                                }
+                                if (i == 0) {
+                                    first_occur = index_content;
+                                }
+                            }
+                        });
+                    }
+                    // show search results
+                    if (isMatch) {
+                        matchcounts += 1;
+                        str += "<li><a href='"+ data_url +"' class='search-result-title'>"+ data_title +"</a>";
+                        var content = data.content.trim().replace(/<[^>]+>/g,"");
+                        if (first_occur >= 0) {
+                            // cut out 100 characters
+                            var start = first_occur - 20;
+                            var end = first_occur + 80;
+                            if(start < 0){
+                                start = 0;
+                            }
+                            if(start == 0){
+                                end = 50;
+                            }
+                            if(end > content.length){
+                                end = content.length;
+                            }
+                            var match_content = content.substring(start, end);
+                            // highlight all keywords
+                            keywords.forEach(function(keyword){
+                                var regS = new RegExp(keyword, "gi");
+                                match_content = match_content.replace(regS, "<b class=\"search-keyword\">"+keyword+"</b>");
+                            });
+                            
+                            str += "<p class=\"search-result\">" + match_content +"...</p>"
+                        }
+                        str += "</li>";
+                    }
+                })};
+                str += "</ul>";
+                if (matchcounts == 0) { str = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>' }
+                if (keywords == "") { str = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>' }
+                $resultContent.innerHTML = str;
+            });
+            proceedsearch();
+        }
+    });}
+
+    // handle and trigger popup window;
+    $('.popup-trigger').mousedown(function(e) {
+      e.stopPropagation();
+      if (isfetched == false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+
+    });
+
+    $('.popup-btn-close').click(function(e){
+      $('.popup').hide();
+      $(".popoverlay").remove();
+      $('body').css('overflow', '');
+    });
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+  </script>
+
+  
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.1.js"></script>
+  <script>AV.initialize("Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz", "NXiHFodQfmI8oxkK6IThhjrF");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script type="text/javascript" src="/js/src/particle.js" count="50" zindex="-2" opacity="1" color="0,104,183"></script>
+</body>
+</html>
