@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2019-09-29T11:43:34.661Z</updated>
+  <updated>2019-10-13T14:54:26.013Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,183 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>定时任务方案大百科</title>
+    <link href="http://crossoverjie.top/2019/10/14/algorithm/timer-detail/"/>
+    <id>http://crossoverjie.top/2019/10/14/algorithm/timer-detail/</id>
+    <published>2019-10-14T00:13:00.000Z</published>
+    <updated>2019-10-13T14:54:26.013Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/10/13/6CGWqQp43avTsLx.jpg" alt=""></p>
+<blockquote>
+<p>原文地址：<a href="https://crossoverjie.top/">https://crossoverjie.top</a></p>
+</blockquote>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>节前有更新一篇定时任务的相关文章<a href="https://crossoverjie.top/2019/09/27/algorithm/time%20wheel/">《延时消息之时间轮》</a>，有朋友提出希望可以完整的介绍下常见的定时任务方案，于是便有了这篇文章。</p>
+<a id="more"></a>
+<h1 id="Timer"><a href="#Timer" class="headerlink" title="Timer"></a>Timer</h1><p>本次会主要讨论大家使用较多的方案，首先第一个就是 <code>Timer</code> 定时器，它可以在指定时间后运行或周期性运行任务；使用方法也非常简单：</p>
+<p><img src="https://i.loli.net/2019/10/13/dWENybZVTeaukiI.jpg" alt=""></p>
+<p>这样便可创建两个简单的定时任务，分别在 <code>3s/5s</code> 之后运行。</p>
+<p>使用起来确实很简单，但也有不少毛病，想要搞清楚它所存在的问题首先就要理解其实现原理。</p>
+<h2 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h2><p>定时任务要想做到按照我们给定的时间进行调度，那就得需要一个可以排序的容器来存放这些任务。</p>
+<p>在 <code>Timer</code> 中内置了一个 <code>TaskQueue</code> 队列，用于存放所有的定时任务。</p>
+<p><img src="https://i.loli.net/2019/10/13/Lzb1HNYPRlGuDtV.jpg" alt=""></p>
+<p>其实本质上是用数组来实现的一个<code>最小堆</code>，它可以让每次写入的定时任务都按照执行时间进行排序，保证在堆顶的任务执行时间是最小的。</p>
+<p>这样在需要执行任务时，每次只需要取出堆顶的任务运行即可，所以它取出任务的效率很高为<img src="https://i.loli.net/2019/10/13/SQiJdxYb6LrIDtN.jpg" alt="">。</p>
+<p>结合代码会比较容易理解：</p>
+<p><img src="https://i.loli.net/2019/10/13/nW7rRdGmUhZJ9B4.jpg" alt=""></p>
+<p>在写入任务的时候会将一些基本属性存放起来（任务的调度时间、周期、初始化任务状态等），最后就是要将任务写入这个内置队列中。</p>
+<p><img src="https://i.loli.net/2019/10/13/pdAFsRBaiLvUXnx.jpg" alt=""><br><img src="https://i.loli.net/2019/10/13/dnM9G8tqAo5Iigp.jpg" alt=""></p>
+<p>在任务写入过程中最核心的方法便是这个 <code>fixUp()</code> ,它会将写入的任务从队列的中部通过执行时间与前一个任务做比对，一直不断的向前比较。</p>
+<p>如果这个时间是最早执行的，那最后将会被移动到堆顶。</p>
+<p><img src="https://i.loli.net/2019/10/13/MCaxQLnEOdWhkP6.jpg" alt=""></p>
+<p>通过这个过程可以看出 <code>Timer</code> 新增一个任务的时间复杂度为<img src="https://i.loli.net/2019/10/13/yq8um7egtYMUR4P.jpg" alt="">。</p>
+<hr>
+<p>再来看看它执行任务的过程，其实在初始化 <code>Timer</code> 的时候它就会在后台启动一个线程用于从 <code>TaskQueue</code> 队列中获取任务进行调度。</p>
+<p><img src="https://i.loli.net/2019/10/13/obDHQ84ZitJ5nsv.jpg" alt=""><br><img src="https://i.loli.net/2019/10/13/1gq4aX6wJzCKYRy.jpg" alt=""></p>
+<p>所以我们只需要看他的 <code>run()</code> 即可。</p>
+<p><img src="https://i.loli.net/2019/10/13/tRFa8uQWrCwdTAs.jpg" alt=""></p>
+<p>从这段代码中很明显可以看出这个线程是一直不断的在调用</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">task = queue.getMin();</div></pre></td></tr></table></figure>
+<p>来获取任务，最后使用 <code>task.run()</code> 来执行任务。</p>
+<p><img src="https://i.loli.net/2019/10/13/LEAtVPxJalzkY72.jpg" alt=""></p>
+<p>从 <code>getMin()</code> 方法中可以看出和我们之前说的一致，每次都是取出堆顶的任务执行。</p>
+<p>一旦取出来的任务执行时间满足要求便可运行，同时需要将它从这个最小堆实现的队列中删除；也就是调用的 <code>queue.removeMin()</code> 方法。</p>
+<p><img src="https://i.loli.net/2019/10/13/dgMlfCHoLbrS81R.jpg" alt=""><br><img src="https://i.loli.net/2019/10/13/X146xsFrZefuWdP.jpg" alt=""></p>
+<p>其实它的核心原理和写入任务类似，只不过是把堆尾的任务提到堆顶，然后再依次比较将任务往后移，直到到达合适的位置。</p>
+<blockquote>
+<p>从刚才的写入和删除任务的过程中其实也能看出，这个最小堆只是相对有序并不是绝对的有序。</p>
+</blockquote>
+<p>源码看完了，自然也能得出它所存在的问题了。</p>
+<ul>
+<li>后台调度任务的线程只有一个，所以导致任务是阻塞运行的，一旦其中一个任务执行周期过长将会影响到其他任务。</li>
+<li><code>Timer</code> 本身没有捕获其他异常（只捕获了 <code>InterruptedException</code>），一旦任务出现异常（比如空指针）将导致后续任务不会被执行。</li>
+</ul>
+<h1 id="ScheduledExecutor"><a href="#ScheduledExecutor" class="headerlink" title="ScheduledExecutor"></a>ScheduledExecutor</h1><p>既然 <code>Timer</code> 存在一些问题，于是在 <code>JDK1.5</code> 中的并发包中推出了 <code>ScheduledThreadPoolExecutor</code> 来替代 <code>Timer</code>，从它所在包路径也能看出它本身是支持任务并发执行的。</p>
+<p>先来看看它的类继承图：</p>
+<p><img src="https://i.loli.net/2019/10/13/vYkj8HGn9hFsRIK.jpg" alt=""></p>
+<p>可以看到他本身也是一个线程池，继承了 <code>ThreadPoolExecutor</code>。</p>
+<p><img src="https://i.loli.net/2019/10/13/S5giR8ukcfJAhzB.jpg" alt=""></p>
+<p>从他的构造函数中也能看出，本质上也是创建了一个线程池，只是这个线程池中的阻塞队列是一个自定义的延迟队列 <code>DelayedWorkQueue</code>（与 <code>Timer</code> 中的 <code>TaskQueue</code> 作用一致）</p>
+<hr>
+<h2 id="新建任务"><a href="#新建任务" class="headerlink" title="新建任务"></a>新建任务</h2><p><img src="https://i.loli.net/2019/10/13/5ulvg6csiprkGYy.jpg" alt=""></p>
+<p>当我们写入一个定时任务时，首先会将任务写入到 <code>DelayedWorkQueue</code> 中，其实这个队列本质上也是使用数组实现的最小堆。</p>
+<p><img src="https://i.loli.net/2019/10/13/gyJEMni9WjQ528h.jpg" alt=""></p>
+<p>新建任务时最终会调用到 <code>offer()</code> 方法，在这里也会使用 <code>siftUp()</code> 将写入的任务移动到堆顶。</p>
+<p><img src="https://i.loli.net/2019/10/13/gWu6BFw9KLrnYDO.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/10/13/YyRvDxC4r16zKfH.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2019/10/13/RlwgZ6SybYf7h9C.jpg" alt=""></p>
+<p>原理就和之前的 <code>Timer</code> 类似，只不过这里是通过自定义比较器来排序的，很明显它是通过任务的执行时间进行比较的。</p>
+<h2 id="运行任务"><a href="#运行任务" class="headerlink" title="运行任务"></a>运行任务</h2><p>所以这样就能将任务按照执行时间的顺序排好放入到线程池中的阻塞队列中。</p>
+<p>这时就得需要回顾一下之前线程池的知识点了：</p>
+<blockquote>
+<p>在线程池中会利用初始化时候的后台线程从阻塞队列中获取任务，只不过在这里这个阻塞队列变为了 <code>DelayedWorkQueue</code>，所以每次取出来的一定是按照执行时间排序在前的任务。</p>
+</blockquote>
+<p><img src="https://i.loli.net/2019/10/13/rRUDnSjGloHfyZP.jpg" alt=""><br><img src="https://i.loli.net/2019/10/13/h7ZszAwluP6GIpy.jpg" alt=""></p>
+<p>和 <code>Timer</code> 类似，要在任务取出后调用 <code>finishPoll()</code> 进行删除，也是将最后一个任务提到堆顶，然后挨个对比移动到合适的位置。</p>
+<p>而触发消费这个 <code>DelayedWorkQueue</code> 队列的地方则是在写入任务的时候。</p>
+<p><img src="https://i.loli.net/2019/10/13/kPewBVyFgsXzpuR.jpg" alt=""><br><img src="https://i.loli.net/2019/10/13/KmYwjU7345VbZvo.jpg" alt=""></p>
+<p>本质上是调用 <code>ThreadPoolExecutor</code> 的 <code>addWorker()</code> 来写入任务的，所以消费 <code>DelayedWorkQueue</code> 也是在其中触发的。</p>
+<p>这里更多的是关于线程池的知识点，不太清楚的可以先看看之前总结的线程池篇，这里就不再赘述。</p>
+<ul>
+<li><a href="https://crossoverjie.top/2019/05/20/concurrent/threadpool-01/">线程池没你想的那么简单</a></li>
+<li><a href="https://crossoverjie.top/2019/06/06/concurrent/threadpool-02/">线程池没你想的那么简单（续）</a></li>
+</ul>
+<p>原理看完了想必也知道和 <code>Timer</code> 的优势在哪儿了。</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center">Timer</th>
+<th style="text-align:center">ScheduledThreadPoolExecutor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">单线程阻塞</td>
+<td style="text-align:center">多线程任务互不影响</td>
+</tr>
+<tr>
+<td style="text-align:center">异常时任务停止</td>
+<td style="text-align:center">依赖于线程池，单个任务出现异常不影响其他任务</td>
+</tr>
+</tbody>
+</table>
+<p>所以有定时任务的需求时很明显应当淘汰 <code>Timer</code> 了。</p>
+<h1 id="时间轮"><a href="#时间轮" class="headerlink" title="时间轮"></a>时间轮</h1><p>最后一个是基于时间轮的定时任务，这个我在上一篇<a href="https://crossoverjie.top/2019/09/27/algorithm/time%20wheel/">《延时消息之时间轮》</a>有过详细介绍。</p>
+<p>通过源码分析我们也可以来做一个对比：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center"></th>
+<th style="text-align:center">ScheduledThreadPoolExecutor</th>
+<th style="text-align:center">基于时间轮 </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">写入效率</td>
+<td style="text-align:center"><img src="https://i.loli.net/2019/10/13/yq8um7egtYMUR4P.jpg" alt="">基于最小堆，任务越多效率越低</td>
+<td style="text-align:center"><img src="https://i.loli.net/2019/10/13/SQiJdxYb6LrIDtN.jpg" alt=""> 与 <code>HashMap</code> 的写入类似，效率很高。</td>
+</tr>
+<tr>
+<td style="text-align:center">执行效率</td>
+<td style="text-align:center"><img src="https://i.loli.net/2019/10/13/SQiJdxYb6LrIDtN.jpg" alt=""> 每次取出第一个，效率很高</td>
+<td style="text-align:center"><img src="https://i.loli.net/2019/10/13/SQiJdxYb6LrIDtN.jpg" alt=""> 每秒拨动一个指针取出任务</td>
+</tr>
+</tbody>
+</table>
+<p>所以当写入的任务较多时，推荐使用时间轮，它的写入效率更高。</p>
+<p>但任务很少时其实 <code>ScheduledThreadPoolExecutor</code> 也不错，毕竟它不会每秒都去拨动指针消耗 <code>CPU</code> ，而是一旦没有任务线程会阻塞直到有新的任务写入进来。</p>
+<h2 id="RingBufferWheel-更新"><a href="#RingBufferWheel-更新" class="headerlink" title="RingBufferWheel 更新"></a>RingBufferWheel 更新</h2><p>在之前的<a href="https://crossoverjie.top/2019/09/27/algorithm/time%20wheel/">《延时消息之时间轮》</a>中自定义了一个基于时间轮的定时任务工具 <code>RingBufferWheel</code> ，在网友的建议下这次顺便也做了一些调整，优化了 API 也新增了取消任务的 API。</p>
+<p><img src="https://i.loli.net/2019/10/13/WDseB5zkGUHIjSy.jpg" alt=""></p>
+<p>在之前的 API 中，每当新增一个任务都要调用一下 <code>start()</code>，感觉很怪异；这次直接将启动函数合并到 <code>addTask</code> 中，使用起来更加合理。</p>
+<p>同时任务的写入也支持并发了。</p>
+<p><img src="https://i.loli.net/2019/10/13/dcDfJExQposvGFU.jpg" alt=""><br><img src="https://i.loli.net/2019/10/13/UjRbE4wa7c2og1N.jpg" alt=""></p>
+<p>不过这里需要注意的是 <code>start()</code> 在并发执行的时候只能执行一次，于是就利用了 <code>CAS</code> 来保证同时只有一个线程可以执行成功。</p>
+<p>同时在新增任务的时候会返回一个 <code>taskId</code> ，利用此 ID 便可实现取消任务的需求（虽然是比较少见），使用方法如下：</p>
+<p><img src="https://i.loli.net/2019/10/13/t9B5JWNwgxOpTQy.jpg" alt=""></p>
+<p>感兴趣的朋友可以看下源码也很容易理解。</p>
+<h1 id="分布式定时任务"><a href="#分布式定时任务" class="headerlink" title="分布式定时任务"></a>分布式定时任务</h1><p>最后再扩展一下，上文我们所提到的所有方案都是单机版的，只能在单个进程中使用。</p>
+<p>一旦我们需要在分布式场景下实现定时任务的高可用、可维护之类的需求就得需要一个完善的分布式调度平台的支持。</p>
+<p>目前市面上流行的开源解决方案也不少：</p>
+<ul>
+<li><a href="https://github.com/xuxueli/xxl-job/" target="_blank" rel="external">xxl_job</a></li>
+<li><a href="https://github.com/elasticjob/elastic-job-lite" target="_blank" rel="external">elastic_job</a></li>
+<li><a href="https://github.com/ltsopensource/light-task-scheduler" target="_blank" rel="external">light-task-scheduler</a></li>
+</ul>
+<p>我个人在工作中只使用过前面两者，都能很好的解决分布式调度的需求；比如高可用、统一管理、日志报警等。</p>
+<p>当然这些开源工具其实在定时调度这个功能上和上文中所提到的一些方案是分不开的，只是需要结合一些分布式相关的知识；比远程调用、统一协调、分布式锁、负载均衡之类的。</p>
+<p>感兴趣的朋友可以自行查看下他们的源码或官方文档。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>一个小小的定时器其实涉及到的知识点还不少，包括数据结构、多线程等，希望大家看完多少有些帮助，顺便帮忙点赞转发搞起🥳。</p>
+<p>本文所涉及到的所有源码：</p>
+<p><a href="https://github.com/crossoverJie/cim" target="_blank" rel="external">https://github.com/crossoverJie/cim</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/10/13/6CGWqQp43avTsLx.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;原文地址：&lt;a href=&quot;https://crossoverjie.top/&quot;&gt;https://crossoverjie.top&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;节前有更新一篇定时任务的相关文章&lt;a href=&quot;https://crossoverjie.top/2019/09/27/algorithm/time%20wheel/&quot;&gt;《延时消息之时间轮》&lt;/a&gt;，有朋友提出希望可以完整的介绍下常见的定时任务方案，于是便有了这篇文章。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="算法" scheme="http://crossoverjie.top/categories/%E7%AE%97%E6%B3%95/"/>
+    
+      <category term="Java" scheme="http://crossoverjie.top/categories/%E7%AE%97%E6%B3%95/Java/"/>
+    
+      <category term="Netty" scheme="http://crossoverjie.top/categories/%E7%AE%97%E6%B3%95/Java/Netty/"/>
+    
+    
+      <category term="时间轮" scheme="http://crossoverjie.top/tags/%E6%97%B6%E9%97%B4%E8%BD%AE/"/>
+    
+      <category term="Timer" scheme="http://crossoverjie.top/tags/Timer/"/>
+    
+      <category term="Schedule" scheme="http://crossoverjie.top/tags/Schedule/"/>
+    
+  </entry>
   
   <entry>
     <title>延时消息之时间轮</title>
@@ -2094,83 +2271,6 @@
       <category term="Thread" scheme="http://crossoverjie.top/tags/Thread/"/>
     
       <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>VLOG-006:一个程序员的周末（上）</title>
-    <link href="http://crossoverjie.top/2019/03/21/vlog/Chinese-coder-weekends-01/"/>
-    <id>http://crossoverjie.top/2019/03/21/vlog/Chinese-coder-weekends-01/</id>
-    <published>2019-03-21T00:00:00.000Z</published>
-    <updated>2019-05-07T17:22:56.795Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/04/29/5cc6563f56b0c.jpg" alt=""></p>
-<p>上次发了一个<a href="https://crossoverjie.top/2019/02/20/vlog/Chinese-coder-daily">《VLOG-004：国产程序员的一天》</a>评论和播放量都还不错，这次趁热打铁更新了周末业余生活是怎么样的。</p>
-<p>在这个视频中你将看到：</p>
-<ul>
-<li>作为一个居家好男人是如何体现自我价值的？</li>
-<li>我是如何产出一份技术博客？</li>
-<li>女朋友不在家如何正规消遣时间？</li>
-<li>如何撸得代码、下得厨房讨女朋友开心？</li>
-</ul>
-<h1 id="正片开始"><a href="#正片开始" class="headerlink" title="正片开始"></a>正片开始</h1><iframe src="//player.bilibili.com/player.html?aid=46786725&cid=81949011&page=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true" width="560" height="315"> </iframe>
-
-<a id="more"></a>
-<p>这个视频是上部分，主要记录的是在家里的生活。</p>
-<h1 id="起床"><a href="#起床" class="headerlink" title="起床"></a>起床</h1><p>可能是由于平时早起习惯了，我居然快改掉了多年懒床的毛病，近期周末都是8、9点的样子就会起床。</p>
-<p>起床后磨蹭半天一不小心就到了饭点，由于女朋友上早班一个人的话就点了外卖。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1beb5b9f63.jpg" alt=""><br>吃饭的同时会看看一部下饭神剧《武林外传》。</p>
-<h1 id="家务"><a href="#家务" class="headerlink" title="家务"></a>家务</h1><p>开始洗衣服，洗衣服的同时需要收衣服、叠衣服从而实现个人价值。</p>
-<h1 id="周报"><a href="#周报" class="headerlink" title="周报"></a>周报</h1><p><img src="https://i.loli.net/2019/05/08/5cd1bebc05aa7.jpg" alt=""></p>
-<p>准备开始写周报，结果一不小心沉浸于电视。。。</p>
-<p>2个小时后周报完成。</p>
-<h1 id="PPT"><a href="#PPT" class="headerlink" title="PPT"></a>PPT</h1><p><img src="https://i.loli.net/2019/05/08/5cd1bebcb7a89.jpg" alt=""></p>
-<p>完成下周技术分享的 PPT，但受限于设计细胞整个 PPT 将比较难看。</p>
-<h1 id="技术博客"><a href="#技术博客" class="headerlink" title="技术博客"></a>技术博客</h1><p><img src="https://i.loli.net/2019/05/08/5cd1bebe980fd.jpg" alt=""></p>
-<p>开始写一篇技术博客，分享了我个人的一些习惯：</p>
-<ul>
-<li>先在本子上打好提纲。</li>
-<li>加上一个二次元配图。</li>
-<li>写博客时需要注意的点。</li>
-</ul>
-<h1 id="消遣"><a href="#消遣" class="headerlink" title="消遣"></a>消遣</h1><p><img src="https://i.loli.net/2019/05/08/5cd1bec0065b2.jpg" alt=""></p>
-<p>玩 <code>switch</code> ，买游戏花的钱已经都可以再买一个 <code>switch</code> 了，果真是买游戏送主机；主要玩：</p>
-<ul>
-<li>马里奥赛车8</li>
-<li>喷射乌贼娘</li>
-<li>塞尔达传说</li>
-<li>任天堂明星大乱斗</li>
-</ul>
-<h1 id="晚饭"><a href="#晚饭" class="headerlink" title="晚饭"></a>晚饭</h1><p><img src="https://i.loli.net/2019/05/08/5cd1bec0ae362.jpg" alt=""></p>
-<p>作为王刚师傅的在线弟子，深的宽油真传，必将料理出感动人心的美味；本次为大家带来的是<code>口味猪肝</code>。</p>
-<p>全程高能，请大家饭前观看（吃完饭后会忍不住想吃）。</p>
-<h1 id="END"><a href="#END" class="headerlink" title="END"></a>END</h1><p>看到这里想必你已经对开始的几个问题有了答案了吧，来核对下我的标准答案吧。</p>
-<ul>
-<li>作为一个居家好男人是如何体现自我价值的？—-&gt;你的价值就是洗碗、洗衣服收拾家务。</li>
-<li>我是如何产出一份技术博客？—-&gt;提前构思目录、文章配图。</li>
-<li>女朋友不在家如何正规消遣时间？—-&gt;必须是 <code>switch</code> 啊，不然你以为是啥。。</li>
-<li>如何撸得代码、下得厨房讨女朋友开心？—-&gt;看 20 遍王刚师傅的视频自学成才。</li>
-</ul>
-<p>下一期将会为大家带来室外篇，作为一个大学毕业到现在成功长膘 20 斤的篮球爱好者，如何科学运动长肉，你值得期待🤫。</p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/04/29/5cc6563f56b0c.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;p&gt;上次发了一个&lt;a href=&quot;https://crossoverjie.top/2019/02/20/vlog/Chinese-coder-daily&quot;&gt;《VLOG-004：国产程序员的一天》&lt;/a&gt;评论和播放量都还不错，这次趁热打铁更新了周末业余生活是怎么样的。&lt;/p&gt;
-&lt;p&gt;在这个视频中你将看到：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;作为一个居家好男人是如何体现自我价值的？&lt;/li&gt;
-&lt;li&gt;我是如何产出一份技术博客？&lt;/li&gt;
-&lt;li&gt;女朋友不在家如何正规消遣时间？&lt;/li&gt;
-&lt;li&gt;如何撸得代码、下得厨房讨女朋友开心？&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h1 id=&quot;正片开始&quot;&gt;&lt;a href=&quot;#正片开始&quot; class=&quot;headerlink&quot; title=&quot;正片开始&quot;&gt;&lt;/a&gt;正片开始&lt;/h1&gt;&lt;iframe src=&quot;//player.bilibili.com/player.html?aid=46786725&amp;cid=81949011&amp;page=1&quot; scrolling=&quot;no&quot; border=&quot;0&quot; frameborder=&quot;no&quot; framespacing=&quot;0&quot; allowfullscreen=&quot;true&quot; width=&quot;560&quot; height=&quot;315&quot; &gt; &lt;/iframe&gt;
-    
-    </summary>
-    
-      <category term="VLOG" scheme="http://crossoverjie.top/categories/VLOG/"/>
-    
     
   </entry>
   
