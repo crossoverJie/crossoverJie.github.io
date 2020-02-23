@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2020-01-01T17:27:02.196Z</updated>
+  <updated>2020-02-23T18:47:34.333Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,95 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>你应该了解的 Java SPI 机制</title>
+    <link href="http://crossoverjie.top/2020/02/24/wheel/cicada8-spi/"/>
+    <id>http://crossoverjie.top/2020/02/24/wheel/cicada8-spi/</id>
+    <published>2020-02-24T00:29:36.000Z</published>
+    <updated>2020-02-23T18:47:34.333Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2020/02/24/JxoDiHGdOK5q7Nj.jpg" alt="cicada8-spi.md---0082zybply1gc6rp5ur8fj30u00u0tf7.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>不知大家现在有没有去公司复工，我已经在家办公将近 3 周了，同时也在家呆了一个多月；还好工作并没有受到任何影响，我个人一直觉得远程工作和 IT 行业是非常契合的，这段时间的工作效率甚至比在办公室还高，同时由于我们公司的业务在海外，所以疫情几乎没有造成太多影响。</p>
+<p>扯远了，这次主要是想和大家分享一下 <code>Java</code> 的 <code>SPI</code> 机制。周末没啥事，我翻了翻我之前的写的博客 <a href="https://crossoverjie.top/2018/11/15/wheel/cicada6/">《设计一个可拔插的 IOC 容器》</a>，发现当时的实现并不那么优雅。</p>
+<p>还没看过的朋友的我先做个前景提要，当时的需求：</p>
+<blockquote>
+<p>我实现了一个类似于的 SpringMVC 但却很轻量的 http 框架 <a href="https://github.com/TogetherOS/cicada/" target="_blank" rel="external">cicada</a>，其中当然也需要一个 IOC 容器，可以存放所有的单例 bean。</p>
+<p>这个 IOC 容器的实现我希望可以有多种方式，甚至可以提供一个接口供其他人实现；当然切换这个 IOC 容器的过程肯定是不能存在硬编码的，也就是这里所提到的<strong>可拔插</strong>。<br>当我想使用 A 的实现方式时，我就引入 A 的 jar 包，使用 B 时就引入 B 的包。</p>
+</blockquote>
+<a id="more"></a>
+<p><img src="https://i.loli.net/2020/02/24/n7QkNmv5t2r4HOy.jpg" alt="cicada8-spi.md---0082zybply1gc6sqv3gp4j30zm0u0n8c.jpg"></p>
+<p>先给大家看看两次实现的区别，先从代码简洁程度来说就是 <code>SPI</code> 更胜一筹。</p>
+<h1 id="什么是-SPI"><a href="#什么是-SPI" class="headerlink" title="什么是 SPI"></a>什么是 SPI</h1><p>在具体分析之前还是先了解下 <code>SPI</code> 是什么？</p>
+<p>首先它其实是 <code>Service provider interface</code> 的简写，翻译成中文就是服务提供发现接口。</p>
+<p>不过这里不要被这个名词搞混了，这里的<code>服务发现</code>和我们常听到的微服务中的服务发现并不能划等号。</p>
+<p>就如同上文提到的对 <code>IOC</code> 容器的多种实现方式 A、B、C（可以把它们理解为服务），我需要在运行时知道应该使用哪一种具体的实现。</p>
+<p>其实本质上来说这就是一种典型的面向接口编程，这一点在我们刚开始学习编程的时候就被反复强调了。</p>
+<h1 id="SPI-实践"><a href="#SPI-实践" class="headerlink" title="SPI 实践"></a>SPI 实践</h1><p>接下来我们来如何来利用 SPI 实现刚才提到的可拔插 IOC 容器。</p>
+<p>既然刚才都提到了 SPI 的本质就是面向接口编程，所以自然我们首先需要定义一个接口：</p>
+<p><img src="https://i.loli.net/2020/02/24/DVBJez2YtwiKs9S.jpg" alt="cicada8-spi.md---0082zybply1gc6tlhql39j31490u0wjj.jpg"></p>
+<p>其中包含了一些 <code>Bean</code> 容器所必须的操作：注册、获取、释放 bean。</p>
+<p>为了让其他人也能实现自己的 <code>IOC</code> 容器，所以我们将这个接口单独放到一个 <code>Module</code> 中，可供他人引入实现。</p>
+<p><img src="https://i.loli.net/2020/02/24/CASm2MdYGj7IZRl.jpg" alt="cicada8-spi.md---0082zybply1gc6tobsdgwj30u40ewdh1.jpg"></p>
+<p>所以当我要实现一个单例的 <code>IOC</code> 容器时，我只需要新建一个 <code>Module</code> 然后引入刚才的模块并实现 <code>CicadaBeanFactory</code> 接口即可。</p>
+<p>当然其中最重要的则是需要在 <code>resources</code> 目录下新建一个 <code>META-INF/services/top.crossoverjie.cicada.base.bean.CicadaBeanFactory</code> 文件，文件名必须得是我们之前定义接口的全限定名（SPI 规范）。</p>
+<p><img src="https://i.loli.net/2020/02/24/AR8zJs5QrV1W2yE.jpg" alt="cicada8-spi.md---0082zybply1gc6ts164zlj30uk0amq3x.jpg"></p>
+<p>其中的内容便是我们自己实现类的全限定名：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">top.crossoverjie.cicada.bean.ioc.CicadaIoc</div></pre></td></tr></table></figure>
+<p>可以想象最终会通过这里的全限定名来反射创建对象。</p>
+<p>只不过这个过程 Java 已经提供 API 屏蔽掉了：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> CicadaBeanFactory <span class="title">getCicadaBeanFactory</span><span class="params">()</span> </span>&#123;</div><div class="line">    ServiceLoader&lt;CicadaBeanFactory&gt; cicadaBeanFactories = ServiceLoader.load(CicadaBeanFactory.class);</div><div class="line">    <span class="keyword">if</span> (cicadaBeanFactories.iterator().hasNext())&#123;</div><div class="line">        <span class="keyword">return</span> cicadaBeanFactories.iterator().next() ;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="keyword">return</span> <span class="keyword">new</span> CicadaDefaultBean();</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>当 <code>classpath</code> 中存在我们刚才的实现类（引入实现类的 jar 包），便可以通过 <code>java.util.ServiceLoader</code> 工具类来找到所有的实现类（可以有多个实现类同时存在，只不过通常我们只需要一个）。</p>
+<hr>
+<p>一些都准备好之后，使用自然就非常简单了。</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>top.crossoverjie.opensource<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>cicada-ioc<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>2.0.4<span class="tag">&lt;/<span class="name">version</span>&gt;</span></div><div class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></div></pre></td></tr></table></figure>
+<p>我们只需要引入这个依赖便能使用它的实现，当我们想换一种实现方式时只需要更换一个依赖即可。</p>
+<p>这样就做到了不修改一行代码灵活的<code>可拔插</code>选择 <code>IOC</code> 容器了。</p>
+<h1 id="SPI-的一些其他应用"><a href="#SPI-的一些其他应用" class="headerlink" title="SPI 的一些其他应用"></a>SPI 的一些其他应用</h1><p>虽然平时并不会直接使用到 SPI 来实现业务，但其实我们使用过的绝大多数框架都会提供 SPI 接口方便使用者扩展自己的功能。</p>
+<p>比如 <code>Dubbo</code> 中提供一系列的扩展：<br><img src="https://i.loli.net/2020/02/24/L3hFlJO9bX7IAd1.jpg" alt="cicada8-spi.md---0082zybply1gc6ue6zubvj30gq0pymyq.jpg"></p>
+<p>同类型的 <code>RPC</code> 框架 <code>motan</code> 中也提供了响应的扩展：<br><img src="https://i.loli.net/2020/02/24/5WxzwG8Q9ZeIY3r.jpg" alt="cicada8-spi.md---0082zybply1gc6ufacqt5j30lm0j8q5j.jpg"></p>
+<p>他们的使用方式都和 Java SPI 非常类似，只不过原理略有不同，同时也新增了一些功能。</p>
+<p>比如 <code>motan</code> 的 <code>spi</code> 允许是否为单例等等。</p>
+<p>再比如 MySQL 的驱动包也是利用 SPI 来实现自己的连接逻辑。</p>
+<p><img src="https://i.loli.net/2020/02/24/TJLCI2yEn8WV9MX.jpg" alt="cicada8-spi.md---0082zybply1gc6uqg2ga2j30ii0bmdgz.jpg"></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p> <code>Java</code> 自身的 <code>SPI</code> 其实也有点小毛病，比如：</p>
+<ul>
+<li>遍历加载所有实现类效率较低。</li>
+<li>当多个 <code>ServiceLoader</code> 同时 <code>load</code> 时会有并发问题（虽然没人这么干）。</li>
+</ul>
+<p>最后总结一下，<code>SPI</code> 并不是某项高深的技术，本质就是面向接口编程，而面向接口本身在我们日常开发中也是必备技能，所以了解使用 <code>SPI</code> 也是很用处的。</p>
+<p>本文所有源码：</p>
+<p><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">https://github.com/TogetherOS/cicada</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2020/02/24/JxoDiHGdOK5q7Nj.jpg&quot; alt=&quot;cicada8-spi.md---0082zybply1gc6rp5ur8fj30u00u0tf7.jpg&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;不知大家现在有没有去公司复工，我已经在家办公将近 3 周了，同时也在家呆了一个多月；还好工作并没有受到任何影响，我个人一直觉得远程工作和 IT 行业是非常契合的，这段时间的工作效率甚至比在办公室还高，同时由于我们公司的业务在海外，所以疫情几乎没有造成太多影响。&lt;/p&gt;
+&lt;p&gt;扯远了，这次主要是想和大家分享一下 &lt;code&gt;Java&lt;/code&gt; 的 &lt;code&gt;SPI&lt;/code&gt; 机制。周末没啥事，我翻了翻我之前的写的博客 &lt;a href=&quot;https://crossoverjie.top/2018/11/15/wheel/cicada6/&quot;&gt;《设计一个可拔插的 IOC 容器》&lt;/a&gt;，发现当时的实现并不那么优雅。&lt;/p&gt;
+&lt;p&gt;还没看过的朋友的我先做个前景提要，当时的需求：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;我实现了一个类似于的 SpringMVC 但却很轻量的 http 框架 &lt;a href=&quot;https://github.com/TogetherOS/cicada/&quot;&gt;cicada&lt;/a&gt;，其中当然也需要一个 IOC 容器，可以存放所有的单例 bean。&lt;/p&gt;
+&lt;p&gt;这个 IOC 容器的实现我希望可以有多种方式，甚至可以提供一个接口供其他人实现；当然切换这个 IOC 容器的过程肯定是不能存在硬编码的，也就是这里所提到的&lt;strong&gt;可拔插&lt;/strong&gt;。&lt;br&gt;当我想使用 A 的实现方式时，我就引入 A 的 jar 包，使用 B 时就引入 B 的包。&lt;/p&gt;
+&lt;/blockquote&gt;
+    
+    </summary>
+    
+      <category term="cicada" scheme="http://crossoverjie.top/categories/cicada/"/>
+    
+      <category term="spi" scheme="http://crossoverjie.top/categories/cicada/spi/"/>
+    
+      <category term="轮子" scheme="http://crossoverjie.top/categories/cicada/spi/%E8%BD%AE%E5%AD%90/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="HTTP" scheme="http://crossoverjie.top/tags/HTTP/"/>
+    
+      <category term="Netty" scheme="http://crossoverjie.top/tags/Netty/"/>
+    
+  </entry>
   
   <entry>
     <title>2019年度总结</title>
@@ -2223,39 +2312,6 @@
       <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
     
       <category term="ArrayBlockingQueue" scheme="http://crossoverjie.top/tags/ArrayBlockingQueue/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>VLOG-007:一个程序员的周末（中）</title>
-    <link href="http://crossoverjie.top/2019/03/30/vlog/Chinese-coder-weekends-02/"/>
-    <id>http://crossoverjie.top/2019/03/30/vlog/Chinese-coder-weekends-02/</id>
-    <published>2019-03-30T00:00:00.000Z</published>
-    <updated>2019-04-29T01:39:26.525Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/04/29/5cc655bdd866b.jpg" alt=""></p>
-<p>承接上期<a href="https://crossoverjie.top/2019/03/21/vlog/Chinese-coder-weekends-01/">《VLOG-006:一个程序员的周末（上）》</a></p>
-<p>本次是周末日常的中篇，也是我每周做的最频繁的一件事情【陪女朋友逛街】。</p>
-<a id="more"></a>
-<p>导致的结果是我已经清楚的知道所在商圈里大部分门店里的休息位置。</p>
-<p>哪里坐着舒服、哪里的信号比较好、哪家店逛不久会马上走，所以最好是不要坐下。</p>
-<p>可谓是“旱的旱死，涝的涝死”</p>
-<h1 id="正片开始"><a href="#正片开始" class="headerlink" title="正片开始"></a>正片开始</h1><iframe src="//player.bilibili.com/player.html?aid=47715858&cid=83580442&page=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true" width="560" height="315"> </iframe>
-
-
-
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/04/29/5cc655bdd866b.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;p&gt;承接上期&lt;a href=&quot;https://crossoverjie.top/2019/03/21/vlog/Chinese-coder-weekends-01/&quot;&gt;《VLOG-006:一个程序员的周末（上）》&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;本次是周末日常的中篇，也是我每周做的最频繁的一件事情【陪女朋友逛街】。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="VLOG" scheme="http://crossoverjie.top/categories/VLOG/"/>
-    
     
   </entry>
   
