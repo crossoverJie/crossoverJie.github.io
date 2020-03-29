@@ -339,6 +339,167 @@
             
               
                 
+                <a class="post-title-link" href="/2018/04/28/sbc/sbc7-Distributed-Limit/" itemprop="url">
+                  sbc(七)分布式限流
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">Posted on</span>
+            <time itemprop="dateCreated" datetime="2018-04-28T01:03:12+08:00" content="2018-04-28">
+              2018-04-28
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/sbc/" itemprop="url" rel="index">
+                    <span itemprop="name">sbc</span>
+                  </a>
+                </span>
+
+                
+                
+                  , 
+                
+
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/sbc/Distributed-Tools/" itemprop="url" rel="index">
+                    <span itemprop="name">Distributed Tools</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/2018/04/28/sbc/sbc7-Distributed-Limit/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/04/28/sbc/sbc7-Distributed-Limit/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+             <span id="/2018/04/28/sbc/sbc7-Distributed-Limit/" class="leancloud_visitors" data-flag-title="sbc(七)分布式限流">
+               &nbsp; | &nbsp;
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               <span class="post-meta-item-text">visitors </span>
+               <span class="leancloud-visitors-count"></span>
+              </span>
+          
+
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          <p><img src="https://i.loli.net/2019/05/08/5cd1d53453d1c.jpg" alt=""></p>
+<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>本文接着上文<a href="http://crossoverjie.top/2017/08/11/sbc4/">应用限流</a>进行讨论。</p>
+<p>之前谈到的限流方案只能针对于单个 JVM 有效，也就是单机应用。而对于现在普遍的分布式应用也得有一个分布式限流的方案。</p>
+<p>基于此尝试写了这个组件：</p>
+<p><a href="https://github.com/crossoverJie/distributed-redis-tool">https://github.com/crossoverJie/distributed-redis-tool</a></p>
+<h2 id="DEMO"><a href="#DEMO" class="headerlink" title="DEMO"></a>DEMO</h2><p>以下采用的是</p>
+<p><a href="https://github.com/crossoverJie/springboot-cloud">https://github.com/crossoverJie/springboot-cloud</a></p>
+<p>来做演示。</p>
+<p>在 Order 应用提供的接口中采取了限流。首先是配置了限流工具的 Bean:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Configuration</span></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">RedisLimitConfig</span> </span>&#123;</div><div class="line"></div><div class="line"></div><div class="line">    <span class="meta">@Value</span>(<span class="string">"$&#123;redis.limit&#125;"</span>)</div><div class="line">    <span class="keyword">private</span> <span class="keyword">int</span> limit;</div><div class="line"></div><div class="line"></div><div class="line">    <span class="meta">@Autowired</span></div><div class="line">    <span class="keyword">private</span> JedisConnectionFactory jedisConnectionFactory;</div><div class="line"></div><div class="line">    <span class="meta">@Bean</span></div><div class="line">    <span class="function"><span class="keyword">public</span> RedisLimit <span class="title">build</span><span class="params">()</span> </span>&#123;</div><div class="line">        RedisClusterConnection clusterConnection = jedisConnectionFactory.getClusterConnection();</div><div class="line">        JedisCluster jedisCluster = (JedisCluster) clusterConnection.getNativeConnection();</div><div class="line">        RedisLimit redisLimit = <span class="keyword">new</span> RedisLimit.Builder&lt;&gt;(jedisCluster)</div><div class="line">                .limit(limit)</div><div class="line">                .build();</div><div class="line"></div><div class="line">        <span class="keyword">return</span> redisLimit;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>接着在 Controller 使用组件：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Autowired</span></div><div class="line"><span class="keyword">private</span> RedisLimit redisLimit ;</div><div class="line"></div><div class="line"><span class="meta">@Override</span></div><div class="line"><span class="meta">@CheckReqNo</span></div><div class="line"><span class="function"><span class="keyword">public</span> BaseResponse&lt;OrderNoResVO&gt; <span class="title">getOrderNo</span><span class="params">(@RequestBody OrderNoReqVO orderNoReq)</span> </span>&#123;</div><div class="line">    BaseResponse&lt;OrderNoResVO&gt; res = <span class="keyword">new</span> BaseResponse();</div><div class="line"></div><div class="line">    <span class="comment">//限流</span></div><div class="line">    <span class="keyword">boolean</span> limit = redisLimit.limit();</div><div class="line">    <span class="keyword">if</span> (!limit)&#123;</div><div class="line">        res.setCode(StatusEnum.REQUEST_LIMIT.getCode());</div><div class="line">        res.setMessage(StatusEnum.REQUEST_LIMIT.getMessage());</div><div class="line">        <span class="keyword">return</span> res ;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    res.setReqNo(orderNoReq.getReqNo());</div><div class="line">    <span class="keyword">if</span> (<span class="keyword">null</span> == orderNoReq.getAppId())&#123;</div><div class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> SBCException(StatusEnum.FAIL);</div><div class="line">    &#125;</div><div class="line">    OrderNoResVO orderNoRes = <span class="keyword">new</span> OrderNoResVO() ;</div><div class="line">    orderNoRes.setOrderId(DateUtil.getLongTime());</div><div class="line">    res.setCode(StatusEnum.SUCCESS.getCode());</div><div class="line">    res.setMessage(StatusEnum.SUCCESS.getMessage());</div><div class="line">    res.setDataBody(orderNoRes);</div><div class="line">    <span class="keyword">return</span> res ;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>为了方便使用，也提供了注解:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Override</span></div><div class="line"><span class="meta">@ControllerLimit</span></div><div class="line"><span class="function"><span class="keyword">public</span> BaseResponse&lt;OrderNoResVO&gt; <span class="title">getOrderNoLimit</span><span class="params">(@RequestBody OrderNoReqVO orderNoReq)</span> </span>&#123;</div><div class="line">    BaseResponse&lt;OrderNoResVO&gt; res = <span class="keyword">new</span> BaseResponse();</div><div class="line">    <span class="comment">// 业务逻辑</span></div><div class="line">    <span class="keyword">return</span> res ;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>该注解拦截了 http 请求，会再请求达到阈值时直接返回。</p>
+<p>普通方法也可使用:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@CommonLimit</span></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">doSomething</span><span class="params">()</span></span>&#123;&#125;</div></pre></td></tr></table></figure>
+<p>会在调用达到阈值时抛出异常。</p>
+<p>为了模拟并发，在 <a href="https://github.com/crossoverJie/springboot-cloud/blob/master/sbc-user/user/src/main/java/com/crossoverJie/sbcuser/controller/UserController.java#L72-L91">User</a> 应用中开启了 10 个线程调用 Order(<strong>限流次数为5</strong>) 接口(也可使用专业的并发测试工具 JMeter 等)。</p>
+          <div class="post-more-link text-center">
+            <a class="btn" href="/2018/04/28/sbc/sbc7-Distributed-Limit/#more" rel="contents">
+              Read more &raquo;
+            </a>
+          </div>
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
                 <a class="post-title-link" href="/2018/04/12/translation/translation-What Is The Best Programming Language to Start/" itemprop="url">
                   【译】对于初学者什么是最好的编程语言？
                 </a>
@@ -1620,149 +1781,6 @@
 
 
     
-      
-
-  
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-            
-            
-              
-                
-                <a class="post-title-link" href="/2018/01/14/Synchronize/" itemprop="url">
-                  synchronized 关键字原理
-                </a>
-              
-            
-          </h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            <span class="post-meta-item-icon">
-              <i class="fa fa-calendar-o"></i>
-            </span>
-            <span class="post-meta-item-text">Posted on</span>
-            <time itemprop="dateCreated" datetime="2018-01-14T22:13:22+08:00" content="2018-01-14">
-              2018-01-14
-            </time>
-          </span>
-
-          
-            <span class="post-category" >
-              &nbsp; | &nbsp;
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              <span class="post-meta-item-text">In</span>
-              
-                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
-                  <a href="/categories/Java-进阶/" itemprop="url" rel="index">
-                    <span itemprop="name">Java 进阶</span>
-                  </a>
-                </span>
-
-                
-                
-
-              
-            </span>
-          
-
-          
-            
-              <span class="post-comments-count">
-                &nbsp; | &nbsp;
-                <a href="/2018/01/14/Synchronize/#comments" itemprop="discussionUrl">
-                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/01/14/Synchronize/" itemprop="commentsCount"></span>
-                </a>
-              </span>
-            
-          
-
-          
-
-          
-          
-             <span id="/2018/01/14/Synchronize/" class="leancloud_visitors" data-flag-title="synchronized 关键字原理">
-               &nbsp; | &nbsp;
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               <span class="post-meta-item-text">visitors </span>
-               <span class="leancloud-visitors-count"></span>
-              </span>
-          
-
-          
-        </div>
-      </header>
-    
-
-
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          <p><img src="https://i.loli.net/2019/05/08/5cd1ba276f063.jpg" alt=""></p>
-<p>众所周知 <code>synchronized</code> 关键字是解决并发问题常用解决方案，有以下三种使用方式:</p>
-<ul>
-<li>同步普通方法，锁的是当前对象。</li>
-<li>同步静态方法，锁的是当前 <code>Class</code> 对象。</li>
-<li>同步块，锁的是 <code>()</code> 中的对象。</li>
-</ul>
-<p>实现原理：<br><code>JVM</code> 是通过进入、退出对象监视器( <code>Monitor</code> )来实现对方法、同步块的同步的。</p>
-<p>具体实现是在编译之后在同步方法调用前加入一个 <code>monitor.enter</code> 指令，在退出方法和异常处插入 <code>monitor.exit</code> 的指令。</p>
-<p>其本质就是对一个对象监视器( <code>Monitor</code> )进行获取，而这个获取过程具有排他性从而达到了同一时刻只能一个线程访问的目的。</p>
-<p>而对于没有获取到锁的线程将会阻塞到方法入口处，直到获取锁的线程 <code>monitor.exit</code> 之后才能尝试继续获取锁。</p>
-<p>流程图如下:</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1ba2bbda92.jpg" alt=""></p>
-          <div class="post-more-link text-center">
-            <a class="btn" href="/2018/01/14/Synchronize/#more" rel="contents">
-              Read more &raquo;
-            </a>
-          </div>
-        
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-
-
-    
   </section>
 
   
@@ -1808,7 +1826,7 @@
         <nav class="site-state motion-element">
           <div class="site-state-item site-state-posts">
             <a href="/archives">
-              <span class="site-state-item-count">119</span>
+              <span class="site-state-item-count">120</span>
               <span class="site-state-item-name">posts</span>
             </a>
           </div>
@@ -1816,7 +1834,7 @@
           
             <div class="site-state-item site-state-categories">
               <a href="/categories">
-                <span class="site-state-item-count">48</span>
+                <span class="site-state-item-count">50</span>
                 <span class="site-state-item-name">categories</span>
               </a>
             </div>

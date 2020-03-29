@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2020-03-26T17:22:07.193Z</updated>
+  <updated>2020-03-29T16:58:52.358Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,107 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>动态代理的实际应用</title>
+    <link href="http://crossoverjie.top/2020/03/30/wheel/cicada9-proxy/"/>
+    <id>http://crossoverjie.top/2020/03/30/wheel/cicada9-proxy/</id>
+    <published>2020-03-30T00:10:36.000Z</published>
+    <updated>2020-03-29T16:58:52.358Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2020/03/30/ZfgzOY2WinSGRjc.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近在用 <code>Python</code> 的 <code>SQLAlchemy</code> 库时（一个类似于 <code>Hibernate</code> 的 <code>ORM</code> 框架），发现它的 <code>Events</code> 事件还挺好用。</p>
+<p>简单说就是当某张表的数据发生变化（曾、删、改）时会有一个事件回调，这样一些埋点之类的需求都可以实现在这里，同时和业务代码完全解耦，维护起来也很方便。</p>
+<p>例如当订单状态发生变化需要发异步通知这样的需求也可以利用这个实现。</p>
+<p>根据我之前使用 <code>Mybatis</code> 的经验，好像没怎么注意有这个功能，查阅了下发现 <code>Hibernate</code> 是支持的，只是我用得也少，所以也没怎么在意。</p>
+<a id="more"></a>
+<blockquote>
+<p> 逐渐偏离主题。。。</p>
+</blockquote>
+<p>说这些的主要原因是我打算为之前写的 <a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">cicada</a> (轻量的 http 框架)加一个数据库操作包，也实现类似的功能。</p>
+<h1 id="示例"><a href="#示例" class="headerlink" title="示例"></a>示例</h1><p>最终的使用效果如下：</p>
+<blockquote>
+<p>第一版本还比较粗糙，但功能都具备。</p>
+</blockquote>
+<p><img src="https://i.loli.net/2020/03/30/6pZshMtufPGWECK.jpg" alt=""></p>
+<p>第一步：需要实现一个初始化接口，该接口会在应用初始化的时候执行。</p>
+<hr>
+<p>紧接着我们需要定义一个 <code>Model</code>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Data</span></div><div class="line"><span class="meta">@OriginName</span>(<span class="string">"user"</span>)</div><div class="line"><span class="meta">@ToString</span></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">User</span> <span class="keyword">extends</span> <span class="title">Model</span> </span>&#123;</div><div class="line">    <span class="meta">@PrimaryId</span></div><div class="line">    <span class="keyword">private</span> Integer id ;</div><div class="line">    <span class="keyword">private</span> String name ;</div><div class="line">    <span class="keyword">private</span> String password ;</div><div class="line"></div><div class="line">    <span class="meta">@FieldName</span>(value = <span class="string">"city_id"</span>)</div><div class="line">    <span class="keyword">private</span> Integer cityId ;</div><div class="line"></div><div class="line">    <span class="keyword">private</span> String description ;</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>它所对应的表结构如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> <span class="string">`user`</span> (</div><div class="line">  <span class="string">`id`</span> <span class="built_in">int</span>(<span class="number">11</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span> AUTO_INCREMENT,</div><div class="line">  <span class="string">`name`</span> <span class="built_in">varchar</span>(<span class="number">50</span>) <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>,</div><div class="line">  <span class="string">`password`</span> <span class="built_in">varchar</span>(<span class="number">100</span>) <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>,</div><div class="line">  <span class="string">`description`</span> <span class="built_in">varchar</span>(<span class="number">100</span>) <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>,</div><div class="line">  <span class="string">`roleId`</span> <span class="built_in">int</span>(<span class="number">11</span>) <span class="keyword">DEFAULT</span> <span class="literal">NULL</span> <span class="keyword">COMMENT</span> <span class="string">'角色ID'</span>,</div><div class="line">  <span class="string">`city_id`</span> <span class="built_in">int</span>(<span class="number">11</span>) <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>,</div><div class="line">  PRIMARY <span class="keyword">KEY</span> (<span class="string">`id`</span>)</div><div class="line">)</div></pre></td></tr></table></figure>
+<hr>
+<p>当需要查询数据时：<br><img src="https://i.loli.net/2020/03/30/gIyDvedEM5oPGXV.jpg" alt=""><br><img src="https://i.loli.net/2020/03/30/PeTi685t7HQpDE3.jpg" alt=""></p>
+<p>便可以这样访问数据库。</p>
+<hr>
+<p>当需要更新数据时：<br><img src="https://i.loli.net/2020/03/30/Z8G5w6O3ML7EmNJ.jpg" alt=""><br><img src="https://i.loli.net/2020/03/30/uJxo1vNPUcLIiZn.jpg" alt=""></p>
+<p>在初始化 <code>DBHandle</code> 时指定一个回调接口(也就是这里的 <code>UserUpdateListener</code>)，便可以在修改数据的时候拿到本次修改的数据实体。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Slf</span>4j</div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">UserUpdateListener</span> <span class="keyword">implements</span> <span class="title">DataChangeListener</span> </span>&#123;</div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">listener</span><span class="params">(Object obj)</span> </span>&#123;</div><div class="line">        log.info(<span class="string">"user update data=&#123;&#125;"</span>, obj.toString());</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>同时我们可以在控制台看到数据修改时的回调结果：</p>
+<p><img src="https://i.loli.net/2020/03/30/mpoH9shziTjkfW5.jpg" alt=""></p>
+<p>这样就实现了文初所提到的功能，便可以实现一些数据变化后需要执行的业务逻辑。</p>
+<h1 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h1><p>下面重点来看看这个功能的实现过程；其实通过生成 <code>DBHandle</code>（数据库增删改的接口）实例的 <code>API</code> 便可以看出些端倪。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">DBHandle handle = (DBHandle) <span class="keyword">new</span> HandleProxy(DBHandle.class).getInstance(<span class="keyword">new</span> UserSaveListener());</div></pre></td></tr></table></figure>
+<p><code>DBHandel</code> 虽然是个接口，但是它并不是使用一个实现类来实现的，而是通过代理生成。</p>
+<p>那通过代理生成比直接实例化实现类有啥好处呢？</p>
+<p>举个例子，比如现在你想买一个新手机。</p>
+<p><img src="https://i.loli.net/2020/03/30/S34Zyn8WtpbgoiX.jpg" alt=""></p>
+<p>第一种方式可以直接在官方旗舰店买一个标配的手机，没有额外的东西只有一个手机。</p>
+<p>当然你也可以在某些第三方经销商那里购买带套餐的，比如<code>套餐一</code>在标配的基础上多了<code>保护壳、贴膜</code>之类的附加属性。</p>
+<p>这个经销商就类似于我们这里的代理类，他可以在原有实现的基础上新增一些东西，至于新增什么全看你自己的需要了。</p>
+<p>而之所以叫<strong>动态</strong>代理，也是因为这个代理类是在程序运行过程中动态创建的，在编译过程中并不能确定这个类的全限定名。</p>
+<hr>
+<p>下面来看看这个代理类是如何生成的：</p>
+<p><img src="https://i.loli.net/2020/03/30/4zhFiUrMO8Iu7cl.jpg" alt=""><br>主要利用 <code>JDK</code> 自带的 <code>API</code> 实现的，具体参数可以直接参考官方文档：<br><a href="https://docs.oracle.com/javase/8/docs/technotes/guides/reflection/proxy.html" target="_blank" rel="external">https://docs.oracle.com/javase/8/docs/technotes/guides/reflection/proxy.html</a></p>
+<p>总之这样便可以创建一个 <code>DBHandler</code> 接口的代理对象，而真正的代理过程是在 <code>InvocationHandler#invoke()</code> 函数中实现的：</p>
+<p><img src="https://i.loli.net/2020/03/30/finMduc76swtCN5.jpg" alt=""></p>
+<p>这里的实现也是非常简单，在实现完代理对象的业务逻辑后便回调我们传入的事件接口，其中的参数便是当前的数据库 <code>Model</code> 实体对象。</p>
+<blockquote>
+<p> 不过需要注意的是，这个事件回调和业务线程是同一个，所以写在这里的逻辑建议都为异步(Hibernate 和 SQLAlchemy 都存在这个情况)。</p>
+</blockquote>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>以上便是整个动态代理实现 <code>ORM</code> 监听机制的全过程，其实可以看出并没有它名称那样看起来高大上，当然本身实现也比较简单。</p>
+<p>同时也不止这一种实现方式，例如:</p>
+<ul>
+<li>cglib</li>
+<li>javassist</li>
+<li>ASM </li>
+</ul>
+<p>etc..</p>
+<p>他们的具体实现及优劣就不在本文探讨了，感兴趣的后续我会将这个功能用这几种方式实现一遍。</p>
+<p>同时动态代理的应用也不止于此，比如：</p>
+<ul>
+<li><code>RPC</code> 中无感知的远程调用。</li>
+<li><code>Spring</code> 中的 <code>AOP</code>、拦截器等。</li>
+</ul>
+<p>后续会继续完善这个 <code>ORM</code> 库，甚至可以独立出来作为一个小巧的数据库工具也未尝不可。</p>
+<p>相关源码见此处：<br><a href="https://github.com/TogetherOS/cicada/blob/17dc61e419dd7fb9690cfe29859c792893598c5f/cicada-example/src/main/java/top/crossoverjie/cicada/example/action/RouteAction.java#L62" target="_blank" rel="external">https://github.com/TogetherOS/cicada</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2020/03/30/ZfgzOY2WinSGRjc.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;最近在用 &lt;code&gt;Python&lt;/code&gt; 的 &lt;code&gt;SQLAlchemy&lt;/code&gt; 库时（一个类似于 &lt;code&gt;Hibernate&lt;/code&gt; 的 &lt;code&gt;ORM&lt;/code&gt; 框架），发现它的 &lt;code&gt;Events&lt;/code&gt; 事件还挺好用。&lt;/p&gt;
+&lt;p&gt;简单说就是当某张表的数据发生变化（曾、删、改）时会有一个事件回调，这样一些埋点之类的需求都可以实现在这里，同时和业务代码完全解耦，维护起来也很方便。&lt;/p&gt;
+&lt;p&gt;例如当订单状态发生变化需要发异步通知这样的需求也可以利用这个实现。&lt;/p&gt;
+&lt;p&gt;根据我之前使用 &lt;code&gt;Mybatis&lt;/code&gt; 的经验，好像没怎么注意有这个功能，查阅了下发现 &lt;code&gt;Hibernate&lt;/code&gt; 是支持的，只是我用得也少，所以也没怎么在意。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="cicada" scheme="http://crossoverjie.top/categories/cicada/"/>
+    
+      <category term="动态代理" scheme="http://crossoverjie.top/categories/cicada/%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86/"/>
+    
+      <category term="轮子" scheme="http://crossoverjie.top/categories/cicada/%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86/%E8%BD%AE%E5%AD%90/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="HTTP" scheme="http://crossoverjie.top/tags/HTTP/"/>
+    
+      <category term="Netty" scheme="http://crossoverjie.top/tags/Netty/"/>
+    
+  </entry>
   
   <entry>
     <title>词法分析器的应用</title>
@@ -2160,125 +2261,6 @@
     
       <category term="VLOG" scheme="http://crossoverjie.top/categories/VLOG/"/>
     
-    
-  </entry>
-  
-  <entry>
-    <title>一次分表踩坑实践的探讨</title>
-    <link href="http://crossoverjie.top/2019/04/16/framework-design/sharding-db/"/>
-    <id>http://crossoverjie.top/2019/04/16/framework-design/sharding-db/</id>
-    <published>2019-04-16T00:20:00.000Z</published>
-    <updated>2019-06-11T16:54:38.649Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/04/29/5cc65343e8bc4.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>之前不少人问我“能否分享一些分库分表相关的实践”，其实不是我不分享，而是真的经验不多🤣；和大部分人一样都是停留在理论阶段。</p>
-<p>不过这次多少有些可以说道了。</p>
-<p>先谈谈背景，我们生产数据库随着业务发展量也逐渐起来；好几张单表已经突破<strong>亿级</strong>数据，并且保持每天 200+W 的数据量增加。</p>
-<p>而我们有些业务需要进行关联查询、或者是报表统计；在这样的背景下大表的问题更加突出（比如一个查询功能需要跑好几分钟）。</p>
-<a id="more"></a>
-<blockquote>
-<p>可能很多人会说：为啥单表都过亿了才想方案解决？其实不是不想，而是由于历史原因加上错误预估了数据增长才导致这个局面。总之原因比较复杂，也不是本次讨论的重点。</p>
-</blockquote>
-<h1 id="临时方案"><a href="#临时方案" class="headerlink" title="临时方案"></a>临时方案</h1><p>由于需求紧、人手缺的情况下，整个处理的过程分为几个阶段。</p>
-<p>第一阶段应该是去年底，当时运维反应 <code>MySQL</code> 所在的主机内存占用很高，整体负载也居高不下，导致整个 MySQL 的吞吐量明显降低（写入、查询数据都明显减慢）。</p>
-<p>为此我们找出了数据量最大的几张表，发现大部分数据量在7/8000W 左右，少数的已经突破一亿。</p>
-<p>通过业务层面进行分析发现，这些数据多数都是用户产生的一些<strong>日志型数据</strong>，而且这些数据在业务上并不是强相关的，甚至两三个月前的数据其实已经不需要实时查询了。</p>
-<p>因为接近年底，尽可能的不想去动应用，考虑是否可以在运维层面缓解压力；主要的目的就是把单表的数据量降低。</p>
-<p>原本是想把两个月之前的数据直接迁移出来放到备份表中，但在准备实施的过程中发现一个大坑。</p>
-<blockquote>
-<p>表中没有一个可以排序的索引，导致我们无法快速的筛选出一部分数据！这真是一个深坑，为后面的一些优化埋了个地雷；即便是加索引也需要花几个小时（具体多久没敢在生产测试）。</p>
-</blockquote>
-<p>如果我们强行按照时间进行筛选，可能查询出 4000W 的数据就得花上好几个小时；这显然是行不通的。</p>
-<p>于是我们便想到了一个大胆的想法：这部分数据是否可以直接不要了？</p>
-<p>这可能是最有效及最快的方式了，和产品沟通后得知这部分数据真的只是日志型的数据，即便是报表出不来今后补上也是可以的。</p>
-<p>于是我们就简单粗暴的做了以下事情：</p>
-<ul>
-<li>修改原有表的表名，比如加上(<code>_190416bak</code>)。</li>
-<li>再新建一张和原有表名称相同的表。</li>
-</ul>
-<p>这样新的数据就写到了新表，同时业务上也是使用的这个数据量较小的新表。</p>
-<p>虽说过程不太优雅，但至少是解决了问题同时也给我们做技术改造预留了时间。</p>
-<h1 id="分表方案"><a href="#分表方案" class="headerlink" title="分表方案"></a>分表方案</h1><p>之前的方案虽说可以缓解压力，但不能根本解决问题。</p>
-<p>有些业务必须得查询之前的数据，导致之前那招行不通了，所以正好我们就借助这个机会把表分了。</p>
-<p>我相信大部分人虽说没有做过实际做过分表，但也见过猪跑；网上一搜各种方案层出不穷。</p>
-<p>我认为最重要的一点是要结合实际业务找出需要 sharding 的字段，同时还有上线阶段的数据迁移也非常重要。</p>
-<h2 id="时间"><a href="#时间" class="headerlink" title="时间"></a>时间</h2><p>可能大家都会说用 hash 的方式分配得最均匀，但我认为这还是需要使用历史数据的场景才用哈希分表。</p>
-<p>而对于不需要历史数据的场景，比如业务上只查询近三个月的数据。</p>
-<p>这类需求完成可以采取时间分表，按照月份进行划分，这样改动简单，同时对历史数据也比较好迁移。</p>
-<p>于是我们首先将这类需求的表筛选出来，按照月份进行拆分，只是在查询的时候拼接好表名即可；也比较好理解。</p>
-<h2 id="哈希"><a href="#哈希" class="headerlink" title="哈希"></a>哈希</h2><p>刚才也提到了：需要根据业务需求进行分表策略。</p>
-<p>而一旦所有的数据都有可能查询时，按照时间分表也就行不通了。（也能做，只是如果不是按照时间进行查询时需要遍历所有的表）</p>
-<p>因此我们计划采用 <code>hash</code> 的方式分表，这算是业界比较主流的方式就不再赘述。</p>
-<p>采用哈希时需要将 <code>sharding</code> 字段选好，由于我们的业务比较单纯；是一个物联网应用，所有的数据都包含有物联网设备的唯一标识（IMEI），并且这个字段天然的就保持了唯一性；大多数的业务也都是根据这个字段来的，所以它非常适合来做这个 <code>sharding</code> 字段。</p>
-<p>在做分表之前也调研过 <code>MyCAT</code> 及 <code>sharding-jdbc</code>(现已升级为 <code>shardingsphere</code>)，最终考虑到对开发的友好性及不增加运维复杂度还是决定在 jdbc 层 sharding 的方式。</p>
-<p>但由于历史原因我们并不太好集成 <code>sharding-jdbc</code>，但基于 <code>sharding</code> 的特点自己实现了一个分表策略。</p>
-<p>这个简单也好理解：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">int</span> index = hash(sharding字段) % 分表数量 ;</div><div class="line"></div><div class="line">select xx from <span class="string">'busy_'</span>+index where sharding字段 = xxx;</div></pre></td></tr></table></figure>
-<p>其实就是算出了表名，然后路由过去查询即可。</p>
-<p>只是我们实现的非常简单：修改了所有的底层查询方法，每个方法都里都做了这样的一个判断。</p>
-<p>并没有像 <code>sharding-jdbc</code> 一样，代理了数据库的查询方法；其中还要做 <code>SQL解析--&gt;SQL路由--&gt;执行SQL--&gt;合并结果</code> 这一系列的流程。</p>
-<p>如果自己再做一遍无异于重新造了一个轮子，并且并不专业，只是在现有的技术条件下选择了一个快速实现达成效果的方法。</p>
-<p>不过这个过程中我们节省了将 sharding 字段哈希的过程，因为每一个 IMEI 号其实都是一个唯一的整型，直接用它做 mod 运算即可。</p>
-<p>还有一个是需要一个统一的组件生成规则，分表后不能再依赖于单表的字段自增了；方法还是挺多的：</p>
-<ul>
-<li>比如时间戳+随机数可满足大部分业务。</li>
-<li>UUID，生成简单，但没法做排序。</li>
-<li>雪花算法统一生成主键ID。</li>
-</ul>
-<p>大家可以根据自己的实际情况做选择。</p>
-<h1 id="业务调整"><a href="#业务调整" class="headerlink" title="业务调整"></a>业务调整</h1><p>因为我们并没有使用第三方的 sharding-jdbc 组件，所以没有办法做到对代码的低侵入性；每个涉及到分表的业务代码都需要做底层方法的改造（也就是路由到正确的表）。</p>
-<p>考虑到后续业务的发展，我们决定将拆分的表分为 64 张；加上后续引入大数据平台足以应对几年的数据增长。</p>
-<blockquote>
-<p>这里还有个小细节需要注意：分表的数量需要为 2∧N 次方，因为在取模的这种分表方式下，即便是今后再需要分表影响的数据也会尽量的小。</p>
-</blockquote>
-<p>再修改时只能将表名称进行全局搜索，然后加以修改，同时根据修改的方法倒推到表现的业务并记录下来，方便后续回归测试。</p>
-<hr>
-<p>当然无法避免查询时利用非 sharding 字段导致的全表扫描，这是所有分片后都会遇到的问题。</p>
-<p>因此我们在修改分表方法的底层查询时同时也会查看是否有走分片字段，如果不是，那是否可以调整业务。</p>
-<p>比如对于一个上亿的数据是否还有必要存在按照分页查询、日期查询？这样的业务是否真的具有意义？</p>
-<p>我们尽可能的引导产品按照这样的方式来设计产品或者做出调整。</p>
-<p>但对于报表这类的需求确实也没办法，比如统计表中某种类型的数据；这种我们也可以利用多线程的方式去并行查询然后汇总统计来提高查询效率。</p>
-<p>有时也有一些另类场景：</p>
-<blockquote>
-<p>比如一个千万表中有某一特殊类型的数据只占了很小一部分，比如说几千上万条。</p>
-</blockquote>
-<p>这时页面上需要对它进行分页查询是比较正常的（比如某种投诉消息，客户需要一条一条的单独处理），但如果我们按照 IMEI 号或者是主键进行分片后再分页查询那就比较蛋疼了。</p>
-<p>所以这类型的数据建议单独新建一张表来维护，不要和其他数据混合在一起，这样不管是做分页还是 like 都比较简单和独立。</p>
-<h2 id="验证"><a href="#验证" class="headerlink" title="验证"></a>验证</h2><p>代码改完，开发也单测完成后怎么来验证分表的业务是否正常也比较麻烦。</p>
-<p>一个是测试麻烦，再一个是万一哪里改漏了还是查询的原表，但这样在测试环境并不会有异常，一旦上线产生了生产数据到新的 64 张表后想要再修复就比较麻烦了。</p>
-<p>所以我们取了个巧，直接将原表的表名修改，比如加一个后缀；这样在测试过程中观察前后台有无报错就比较容易提前发现这个问题。</p>
-<h1 id="上线流程"><a href="#上线流程" class="headerlink" title="上线流程"></a>上线流程</h1><p>测试验收通过后只是分表这个需求的80%，剩下如何上线也是比较头疼。</p>
-<p>一旦应用上线后所有的查询、写入、删除都会先走路由然后到达新表；而老数据在原表里是不会发生改变的。</p>
-<h2 id="数据迁移"><a href="#数据迁移" class="headerlink" title="数据迁移"></a>数据迁移</h2><p>所以我们上线前的第一步自然是需要将原有的数据进行迁移，迁移的目的是要分片到新的 64 张表中，这样才会对原有的业务无影响。</p>
-<p>因此我们需要额外准备一个程序，它需要将老表里的数据按照分片规则复制到新表中；</p>
-<p>在我们这个场景下，生产数据有些已经上亿了，这个迁移过程我们在测试环境模拟发现耗时是非常久的。而且我们老表中对于 <code>create_time</code> 这样用于筛选数据的字段没有索引（以前的技术债），所以查询起来就更加慢了。</p>
-<p>最后没办法，我们只能和产品协商告知用户对于之前产生的数据短期可能会查询不到，这个时间最坏可能会持续几天（我们只能在凌晨迁移，白天会影响到数据库负载）。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这便是我们这次的分表实践，虽说不少过程都不优雅，但受限于条件也只能折中处理。</p>
-<p>但我们后续的计划是，修改我们底层的数据连接（目前是自己封装的一个 jar 包，导致集成 sharding-jdbc 比较麻烦）最终逐渐迁移到 <code>sharding-jdbc</code> .</p>
-<p>最后得出了几个结论：</p>
-<ul>
-<li>一个好的产品规划非常有必要，可以在合理的时间对数据处理（不管是分表还是切入归档）。</li>
-<li>每张表都需要一个可以用于排序查询的字段（自增ID、创建时间），整个过程由于没有这个字段导致耽搁了很长时间。</li>
-<li>分表字段需要谨慎，要全盘的考虑业务情况，尽量避免出现查询扫表的情况。</li>
-</ul>
-<p>最后欢迎留言讨论。</p>
-<p><strong>你的点赞与分享是对我最大的支持</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/04/29/5cc65343e8bc4.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;之前不少人问我“能否分享一些分库分表相关的实践”，其实不是我不分享，而是真的经验不多🤣；和大部分人一样都是停留在理论阶段。&lt;/p&gt;
-&lt;p&gt;不过这次多少有些可以说道了。&lt;/p&gt;
-&lt;p&gt;先谈谈背景，我们生产数据库随着业务发展量也逐渐起来；好几张单表已经突破&lt;strong&gt;亿级&lt;/strong&gt;数据，并且保持每天 200+W 的数据量增加。&lt;/p&gt;
-&lt;p&gt;而我们有些业务需要进行关联查询、或者是报表统计；在这样的背景下大表的问题更加突出（比如一个查询功能需要跑好几分钟）。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="架构" scheme="http://crossoverjie.top/categories/%E6%9E%B6%E6%9E%84/"/>
-    
-    
-      <category term="db" scheme="http://crossoverjie.top/tags/db/"/>
     
   </entry>
   
