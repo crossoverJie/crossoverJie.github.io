@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[动态代理与RPC]]></title>
+    <url>%2F2020%2F04%2F28%2Fframework-design%2Fdynamic-rpc%2F</url>
+    <content type="text"><![CDATA[前言随着最近关注 cim 项目的人越发增多，导致提的问题以及 Bug 也在增加，在修复问题的过程中难免代码洁癖又上来了。 看着一两年前写的东西总是怀疑这真的是出自自己手里嘛？有些地方实在忍不住了便开始了漫漫重构之路。 前后对比在开始之前先简单介绍一下 cim 这个项目，下面是它的架构图： 简单来说就是一个 IM 即时通讯系统，主要有以下部分组成： IM-server 自然就是服务端了，用于和客户端保持长连接。 IM-client 客户端，可以简单认为是类似于的 QQ 这样的客户端工具；当然功能肯定没那么丰富，只提供了一些简单消息发送、接收的功能。 Route 路由服务，主要用于客户端鉴权、消息的转发等；提供一些 http 接口，可以用于查看系统状态、在线人数等功能。 当然服务端、路由都可以水平扩展。 这是一个消息发送的流程图，假设现在部署了两个服务端 A、B 和一个路由服务；其中 ClientA 和 ClientB 分别和服务端 A、B 保持了长连接。 当 ClientA 向 ClientB 发送一个 hello world 时，整个的消息流转如图所示： 先通过 http 将消息发送到 Route 服务。 路由服务得知 ClientB 是连接在 ServerB 上；于是再通过 http 将消息发送给 ServerB。 最终 ServerB 将消息通过与 ClientB 的长连接通道 push 下去，至此消息发送成功。 这里我截取了 ClientA 向 Route 发起请求的代码：可以看到这就是利用 okhttp 发起了一个 http 请求，这样虽然能实现功能，但其实并不优雅。 举个例子：假设我们需要对接支付宝的接口，这里发送一个 http 请求自然是没问题；但对于支付宝内部各部门直接互相调用接口时那就不应该再使用原始的 http 请求了。 应该是由服务提供方提供一个 api 包，服务消费者只需要依赖这个包就可以实现接口调用。 当然最终使用的是 http、还是自定义私有协议都可以。 也类似于我们在使用 Dubbo 或者是 SpringCloud 时，通常是直接依赖一个 api 包，便可以像调用一个本地方法一样调用远程服务了，并且完全屏蔽了底层细节，不管是使用的 http 还是 其他私有协议都没关系，对于调用者来说完全不关心。 这么一说是不是有内味了，这不就是 RPC 的官方解释嘛。 对应到这里也是同样的道理，Client 、Route、Server 本质上都是一个系统，他们互相的接口调用也应当是走 RPC 才合理。 所以我重构之后的变成这样了： 是不是代码也简洁了许多，就和调用本地方法一样了，而且这样也有几个好处： 完全屏蔽了底层细节，可以更好的实现业务及维护代码。 即便是服务提供方修改了参数，在编译期间就能很快发现，而像之前那样调用是完全不知情的，所以也增加了风险。 绕不开的动态代理下面来聊聊具体是如何实现的。 其实在上文《动态代理的实际应用》 中也有讲到，原理是类似的。 要想做到对调用者无感知，就得创建一个接口的代理对象；在这个代理对象中实现编码、调用、解码的过程。 对应到此处其实就是创建一个 routeApi 的代理对象，关键就是这段代码： 1RouteApi routeApi = new ProxyManager&lt;&gt;(RouteApi.class, routeUrl, okHttpClient).getInstance(); 完整源码如下： 其中的 getInstance() 函数就是返回了需要被代理的接口对象；而其中的 ProxyInvocation 则是一个实现了 InvocationHandler 接口的类，这套代码就是利用 JDK 实现动态代理的三板斧。 查看 ProxyInvocation 的源码会发现当我们调用被代理接口的任意一个方法时，都会执行这里的 invoke() 方法。 而 invoke() 方法自然就实现了上图中提到的：编码、远程调用、解码的过程；相信大家很容易看明白，由于不是本次探讨的重点就不过多介绍了。 总结其实理解这些就也就很容易看懂 Dubbo 这类 RPC 框架的核心源码了，总体的思路也是类似的，只不过使用的私有协议，所以在编解码时会有所不同。 所以大家要是想自己动手实现一个 RPC 框架，不妨参考这个思路试试，当用自己写的代码跑通一个 RPC 的 helloworld 时的感觉是和自己整合了一个 Dubbo、SpringCloud 这样的第三方框架的感觉是完全不同的。 本文的所有源码： https://github.com/crossoverJie/cim 你的点赞与分享是对我最大的支持]]></content>
+      <categories>
+        <category>cim</category>
+        <category>rpc</category>
+        <category>动态代理</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>Netty</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[动态代理的实际应用]]></title>
     <url>%2F2020%2F03%2F30%2Fwheel%2Fcicada9-proxy%2F</url>
     <content type="text"><![CDATA[前言最近在用 Python 的 SQLAlchemy 库时（一个类似于 Hibernate 的 ORM 框架），发现它的 Events 事件还挺好用。 简单说就是当某张表的数据发生变化（曾、删、改）时会有一个事件回调，这样一些埋点之类的需求都可以实现在这里，同时和业务代码完全解耦，维护起来也很方便。 例如当订单状态发生变化需要发异步通知这样的需求也可以利用这个实现。 根据我之前使用 Mybatis 的经验，好像没怎么注意有这个功能，查阅了下发现 Hibernate 是支持的，只是我用得也少，所以也没怎么在意。 逐渐偏离主题。。。 说这些的主要原因是我打算为之前写的 cicada (轻量的 http 框架)加一个数据库操作包，也实现类似的功能。 示例最终的使用效果如下： 第一版本还比较粗糙，但功能都具备。 第一步：需要实现一个初始化接口，该接口会在应用初始化的时候执行。 紧接着我们需要定义一个 Model： 123456789101112131415@Data@OriginName("user")@ToStringpublic class User extends Model &#123; @PrimaryId private Integer id ; private String name ; private String password ; @FieldName(value = "city_id") private Integer cityId ; private String description ;&#125; 它所对应的表结构如下： 123456789CREATE TABLE `user` ( `id` int(11) NOT NULL AUTO_INCREMENT, `name` varchar(50) DEFAULT NULL, `password` varchar(100) DEFAULT NULL, `description` varchar(100) DEFAULT NULL, `roleId` int(11) DEFAULT NULL COMMENT '角色ID', `city_id` int(11) DEFAULT NULL, PRIMARY KEY (`id`)) 当需要查询数据时： 便可以这样访问数据库。 当需要更新数据时： 在初始化 DBHandle 时指定一个回调接口(也就是这里的 UserUpdateListener)，便可以在修改数据的时候拿到本次修改的数据实体。 1234567@Slf4jpublic class UserUpdateListener implements DataChangeListener &#123; @Override public void listener(Object obj) &#123; log.info("user update data=&#123;&#125;", obj.toString()); &#125;&#125; 同时我们可以在控制台看到数据修改时的回调结果： 这样就实现了文初所提到的功能，便可以实现一些数据变化后需要执行的业务逻辑。 实现下面重点来看看这个功能的实现过程；其实通过生成 DBHandle（数据库增删改的接口）实例的 API 便可以看出些端倪。 1DBHandle handle = (DBHandle) new HandleProxy(DBHandle.class).getInstance(new UserSaveListener()); DBHandel 虽然是个接口，但是它并不是使用一个实现类来实现的，而是通过代理生成。 那通过代理生成比直接实例化实现类有啥好处呢？ 举个例子，比如现在你想买一个新手机。 第一种方式可以直接在官方旗舰店买一个标配的手机，没有额外的东西只有一个手机。 当然你也可以在某些第三方经销商那里购买带套餐的，比如套餐一在标配的基础上多了保护壳、贴膜之类的附加属性。 这个经销商就类似于我们这里的代理类，他可以在原有实现的基础上新增一些东西，至于新增什么全看你自己的需要了。 而之所以叫动态代理，也是因为这个代理类是在程序运行过程中动态创建的，在编译过程中并不能确定这个类的全限定名。 下面来看看这个代理类是如何生成的： 主要利用 JDK 自带的 API 实现的，具体参数可以直接参考官方文档：https://docs.oracle.com/javase/8/docs/technotes/guides/reflection/proxy.html 总之这样便可以创建一个 DBHandler 接口的代理对象，而真正的代理过程是在 InvocationHandler#invoke() 函数中实现的： 这里的实现也是非常简单，在实现完代理对象的业务逻辑后便回调我们传入的事件接口，其中的参数便是当前的数据库 Model 实体对象。 不过需要注意的是，这个事件回调和业务线程是同一个，所以写在这里的逻辑建议都为异步(Hibernate 和 SQLAlchemy 都存在这个情况)。 总结以上便是整个动态代理实现 ORM 监听机制的全过程，其实可以看出并没有它名称那样看起来高大上，当然本身实现也比较简单。 同时也不止这一种实现方式，例如: cglib javassist ASM etc.. 他们的具体实现及优劣就不在本文探讨了，感兴趣的后续我会将这个功能用这几种方式实现一遍。 同时动态代理的应用也不止于此，比如： RPC 中无感知的远程调用。 Spring 中的 AOP、拦截器等。 后续会继续完善这个 ORM 库，甚至可以独立出来作为一个小巧的数据库工具也未尝不可。 相关源码见此处：https://github.com/TogetherOS/cicada 你的点赞与分享是对我最大的支持]]></content>
@@ -485,8 +499,8 @@
         <tag>Java</tag>
         <tag>Thread</tag>
         <tag>concurrent</tag>
-        <tag>JVM</tag>
         <tag>HashMap</tag>
+        <tag>JVM</tag>
         <tag>HashSet</tag>
       </tags>
   </entry>
@@ -1075,8 +1089,8 @@
       </categories>
       <tags>
         <tag>Java</tag>
-        <tag>AOP</tag>
         <tag>重构</tag>
+        <tag>AOP</tag>
         <tag>SpringBoot</tag>
         <tag>SpringCloud</tag>
       </tags>
@@ -1143,8 +1157,8 @@
       </categories>
       <tags>
         <tag>Java</tag>
-        <tag>HTTP</tag>
         <tag>dubbo</tag>
+        <tag>HTTP</tag>
       </tags>
   </entry>
   <entry>

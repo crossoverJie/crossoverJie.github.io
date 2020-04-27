@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2020-03-29T17:04:53.799Z</updated>
+  <updated>2020-04-27T16:43:45.005Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,87 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>动态代理与RPC</title>
+    <link href="http://crossoverjie.top/2020/04/28/framework-design/dynamic-rpc/"/>
+    <id>http://crossoverjie.top/2020/04/28/framework-design/dynamic-rpc/</id>
+    <published>2020-04-28T01:10:36.000Z</published>
+    <updated>2020-04-27T16:43:45.005Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2020/04/28/mDN2XjShVI4TBLx.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p><img src="https://i.loli.net/2020/04/28/dMDreQw6JAk87Gs.jpg" alt=""><br>随着最近关注 <a href="https://github.com/crossoverJie/cim" target="_blank" rel="external">cim</a> 项目的人越发增多，导致提的问题以及 Bug 也在增加，在修复问题的过程中难免代码洁癖又上来了。</p>
+<p>看着一两年前写的东西总是怀疑这真的是出自自己手里嘛？有些地方实在忍不住了便开始了漫漫重构之路。</p>
+<h1 id="前后对比"><a href="#前后对比" class="headerlink" title="前后对比"></a>前后对比</h1><p>在开始之前先简单介绍一下 <code>cim</code> 这个项目，下面是它的架构图：<br><img src="https://i.loli.net/2020/04/28/LfaP3sFtclEoVX5.jpg" alt=""></p>
+<p>简单来说就是一个 IM 即时通讯系统，主要有以下部分组成：</p>
+<ul>
+<li><code>IM-server</code> 自然就是服务端了，用于和客户端保持长连接。</li>
+<li><code>IM-client</code> 客户端，可以简单认为是类似于的 QQ 这样的客户端工具；当然功能肯定没那么丰富，只提供了一些简单消息发送、接收的功能。</li>
+<li><code>Route</code> 路由服务，主要用于客户端鉴权、消息的转发等；提供一些 http 接口，可以用于查看系统状态、在线人数等功能。</li>
+</ul>
+<p>当然服务端、路由都可以水平扩展。</p>
+<hr>
+<p><img src="https://i.loli.net/2020/04/28/eBumPJbrvyQsHTF.jpg" alt=""></p>
+<p>这是一个消息发送的流程图，假设现在部署了两个服务端 A、B 和一个路由服务；其中 <code>ClientA</code> 和 <code>ClientB</code> 分别和服务端 A、B 保持了长连接。</p>
+<p>当 <code>ClientA</code> 向 <code>ClientB</code> 发送一个 <code>hello world</code> 时，整个的消息流转如图所示：</p>
+<ol>
+<li>先通过 <code>http</code> 将消息发送到 <code>Route</code> 服务。</li>
+<li>路由服务得知 <code>ClientB</code> 是连接在 <code>ServerB</code> 上；于是再通过 <code>http</code> 将消息发送给 <code>ServerB</code>。</li>
+<li>最终 <code>ServerB</code> 将消息通过与 <code>ClientB</code> 的长连接通道 <code>push</code> 下去，至此消息发送成功。</li>
+</ol>
+<p>这里我截取了 <code>ClientA</code> 向 <code>Route</code> 发起请求的代码：<br><img src="https://i.loli.net/2020/04/28/7FRrUh1o4GPJCuI.jpg" alt=""><br>可以看到这就是利用 <code>okhttp</code> 发起了一个 <code>http</code> 请求，这样虽然能实现功能，但其实并不优雅。</p>
+<p>举个例子：假设我们需要对接支付宝的接口，这里发送一个 http 请求自然是没问题；但对于支付宝内部各部门直接互相调用接口时那就不应该再使用原始的 http 请求了。</p>
+<p>应该是由服务提供方提供一个 <code>api</code> 包，服务消费者只需要依赖这个包就可以实现接口调用。</p>
+<blockquote>
+<p>当然最终使用的是 http、还是自定义私有协议都可以。</p>
+</blockquote>
+<p>也类似于我们在使用 <code>Dubbo</code> 或者是 <code>SpringCloud</code> 时，通常是直接依赖一个 <code>api</code> 包，便可以像调用一个本地方法一样调用远程服务了，并且完全屏蔽了底层细节，不管是使用的 http 还是 其他私有协议都没关系，对于调用者来说完全不关心。</p>
+<p>这么一说是不是有内味了，这不就是 RPC 的官方解释嘛。</p>
+<p>对应到这里也是同样的道理，<code>Client</code> 、<code>Route</code>、<code>Server</code> 本质上都是一个系统，他们互相的接口调用也应当是走 <code>RPC</code> 才合理。</p>
+<p>所以我重构之后的变成这样了：</p>
+<p><img src="https://i.loli.net/2020/04/28/R4sqwHxAMYmz7f9.jpg" alt=""></p>
+<p>是不是代码也简洁了许多，就和调用本地方法一样了，而且这样也有几个好处：</p>
+<ul>
+<li>完全屏蔽了底层细节，可以更好的实现业务及维护代码。</li>
+<li>即便是服务提供方修改了参数，在编译期间就能很快发现，而像之前那样调用是完全不知情的，所以也增加了风险。</li>
+</ul>
+<h1 id="绕不开的动态代理"><a href="#绕不开的动态代理" class="headerlink" title="绕不开的动态代理"></a>绕不开的动态代理</h1><p>下面来聊聊具体是如何实现的。</p>
+<p>其实在上文<a href="https://crossoverjie.top/2020/03/30/wheel/cicada9-proxy/">《动态代理的实际应用》</a> 中也有讲到，原理是类似的。</p>
+<p>要想做到对调用者无感知，就得创建一个接口的代理对象；在这个代理对象中实现编码、调用、解码的过程。</p>
+<p><img src="https://i.loli.net/2020/04/28/REoaJPXzOlmBjnK.jpg" alt=""></p>
+<p>对应到此处其实就是创建一个 <code>routeApi</code> 的代理对象，关键就是这段代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">RouteApi routeApi = <span class="keyword">new</span> ProxyManager&lt;&gt;(RouteApi.class, routeUrl, okHttpClient).getInstance();</div></pre></td></tr></table></figure>
+<p>完整源码如下：<br><img src="https://i.loli.net/2020/04/28/Z3aJOxrDyeNqzo2.jpg" alt=""></p>
+<p>其中的 <code>getInstance()</code> 函数就是返回了需要被代理的接口对象；而其中的 <code>ProxyInvocation</code> 则是一个实现了 <code>InvocationHandler</code> 接口的类，这套代码就是利用 <code>JDK</code> 实现动态代理的三板斧。</p>
+<p><img src="https://i.loli.net/2020/04/28/N6CoDig2SHjb7lI.jpg" alt=""></p>
+<p>查看 <code>ProxyInvocation</code> 的源码会发现当我们调用被代理接口的任意一个方法时，都会执行这里的 <code>invoke()</code> 方法。</p>
+<p>而 <code>invoke()</code> 方法自然就实现了上图中提到的：编码、远程调用、解码的过程；相信大家很容易看明白，由于不是本次探讨的重点就不过多介绍了。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>其实理解这些就也就很容易看懂 <code>Dubbo</code> 这类 <code>RPC</code> 框架的核心源码了，总体的思路也是类似的，只不过使用的私有协议，所以在编解码时会有所不同。</p>
+<p>所以大家要是想自己动手实现一个 <code>RPC</code> 框架，不妨参考这个思路试试，当用自己写的代码跑通一个 <code>RPC</code> 的 <code>helloworld</code> 时的感觉是和自己整合了一个 <code>Dubbo</code>、<code>SpringCloud</code> 这样的第三方框架的感觉是完全不同的。</p>
+<p>本文的所有源码：</p>
+<p><a href="https://github.com/crossoverJie/cim" target="_blank" rel="external">https://github.com/crossoverJie/cim</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2020/04/28/mDN2XjShVI4TBLx.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/
+    
+    </summary>
+    
+      <category term="cim" scheme="http://crossoverjie.top/categories/cim/"/>
+    
+      <category term="rpc" scheme="http://crossoverjie.top/categories/cim/rpc/"/>
+    
+      <category term="动态代理" scheme="http://crossoverjie.top/categories/cim/rpc/%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="Netty" scheme="http://crossoverjie.top/tags/Netty/"/>
+    
+  </entry>
   
   <entry>
     <title>动态代理的实际应用</title>
@@ -2235,32 +2316,6 @@
       <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
     
       <category term="CountDownLatch" scheme="http://crossoverjie.top/tags/CountDownLatch/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>VLOG-008:Basketball Day One</title>
-    <link href="http://crossoverjie.top/2019/04/21/vlog/Basketball%20Day%20one/"/>
-    <id>http://crossoverjie.top/2019/04/21/vlog/Basketball Day one/</id>
-    <published>2019-04-21T07:00:00.000Z</published>
-    <updated>2019-04-29T01:27:38.080Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/04/29/5cc652f48e019.jpg" alt=""></p>
-<p>周末轻松一下。</p>
-<iframe src="//player.bilibili.com/player.html?aid=49988049&cid=87514626&page=1" scrolling="no" border="0" frameborder="no" framespacing="0" width="560" height="315" allowfullscreen="true"> </iframe>
-
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/04/29/5cc652f48e019.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;p&gt;周末轻松一下。&lt;/p&gt;
-&lt;iframe src=&quot;//player.bilibili.com/player.html?aid=
-    
-    </summary>
-    
-      <category term="VLOG" scheme="http://crossoverjie.top/categories/VLOG/"/>
-    
     
   </entry>
   
