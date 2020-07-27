@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2020-07-27T17:39:45.624Z</updated>
+  <updated>2020-07-27T17:59:41.889Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -20,9 +20,9 @@
     <link href="http://crossoverjie.top/2020/07/28/wheel/feign-plus/"/>
     <id>http://crossoverjie.top/2020/07/28/wheel/feign-plus/</id>
     <published>2020-07-28T00:10:36.000Z</published>
-    <updated>2020-07-27T17:39:45.624Z</updated>
+    <updated>2020-07-27T17:59:41.889Z</updated>
     
-    <content type="html"><![CDATA[<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gh5qdegc84j30jg0jg3zd.jpg" alt=""></p>
+    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2020/07/28/uA1BmwnQNs3GXHS.jpg" alt=""></p>
 <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近准备将公司的一个核心业务系统用 <code>Java</code> 进行重构，大半年没写 <code>Java</code> ，<code>JDK</code> 都更新到 14 了，考虑到稳定性等问题最终还是选择的 <code>JDK11</code>。</p>
 <p>在整体架构选型时，由于是一个全新的系统，所以没有历史包袱，同时团队中也有多位大牛坐镇，因此我们的选项便大胆起来。</p>
 <p>最终结果就是直接一把梭，直接上未来的大趋势：<code>Service Mesh</code>，直接把什么 <code>SpringCloud</code>、<code>Dubbo</code> 这类分布式框架全部干掉。</p>
@@ -32,12 +32,12 @@
 <p>由于我们去掉了 <code>SpringCloud</code> 和 <code>Dubbo</code> 这类框架，服务的注册、发现、负载均衡等需求全部都下沉到 <code>Service Mesh</code> 中提供了。</p>
 <p>但对于开发来说依然希望可以调用本地方法的方式来调用远程服务，这在 <code>SpringCloud</code> 这类框架中是很容易实现的，框架本身就有很好的支持。</p>
 <p>回到我们这个场景，需求其实很简单，就是想达到 <code>SpringCloud</code> 中的 <code>Feign</code> 这样的声明式+注解的方式调用。</p>
-<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gh5xsltgbkj31vg0cydib.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2020/07/28/xnIo8mQbjHfURZg.jpg" alt=""></p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Autowired</span></div><div class="line"><span class="keyword">private</span> StoreClient client ;</div><div class="line"></div><div class="line">Store store = client.update(<span class="number">1</span>, store)</div></pre></td></tr></table></figure>
 <p>使用 <code>spring-cloud-openfeign</code> 这个包其实就能实现上述的需求了，但这样会引入一些我们根本不会使用的 <code>SpringCloud</code> 的相关依赖，让人感觉”不干净了“；同时也和 <code>Service Mesh</code> 的理念相反，其中的一大目的就是要降低这类框架的侵入性。</p>
 <hr>
 <p>其实 <code>spring-cloud-openfeign</code> 的核心就是 <a href="https://github.com/OpenFeign/feign" target="_blank" rel="external">Feign</a>，本身它也是可以开箱即用的，所以便尝试看 <code>Feign</code> 自己是否支持这样的用法。</p>
-<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gh5y488nj8j31070u07bw.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2020/07/28/TXLH9rFSNyp1x4I.jpg" alt=""></p>
 <p>通过官方文档可以得知：是可以定义接口的形式来调用远程接口的，但它本质上是不依赖其他库便可以使用，所以它本身是没有和 <code>Spring</code> 整合也是合情合理，但也就造成了没有现成库可供我们使用。</p>
 <blockquote>
 <p>我们自然是不想写上图红框处的代码的，希望所有接口直接注入就可以使用。</p>
@@ -52,7 +52,7 @@
 <p>所以当我们需要调用一些外部第三方接口时（比如支付宝、外部 OpenAPI）便可类似于这样定义一个接口，把所有 HTTP 请求的细节屏蔽掉。</p>
 <p>当然也适合公司内部之间的服务调用，和咱们以前写 <code>SpringCloud</code> 或 <code>Dubbo</code> 时类似；服务提供方提供一个 <code>Client</code> 包，消费方直接依赖便可以调用。其他的负载均衡、容错之类的由 <code>Service Mesh</code> 替我们完成。</p>
 <p>对于内部接口，也可以加上 <code>@RequestMapping(&quot;/path&quot;)</code> 注解：</p>
-<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gh60yvpb3xj31do0iutcf.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2020/07/28/XetQ4EgyqiRhJdB.jpg" alt=""></p>
 <p>在请求时便会在 url 后拼接上 <code>/order</code>，这样在配置 <code>feign.order.service.url</code> 时只需要填入服务提供方的域名或 IP 即可。</p>
 <hr>
 <p><code>feign-plus</code> 也支持切换具体的 httpclient，默认是 <code>okhttp3</code>，通过以下配置便可更改。</p>
@@ -61,20 +61,20 @@
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">feign.plus.max-idle-connections = 520</div><div class="line">feign.plus.connect-timeout = 11000</div><div class="line">feign.plus.read-timeout = 12000</div></pre></td></tr></table></figure>
 <h1 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h1><p>最后简单聊聊是如何完成的吧，其实本质上就是 <code>spring-cloud-openfeign</code> 的浓缩版。</p>
 <p>其中最为核心的便是 <code>top.crossoverjie.feign.plus.factory.FeignPlusBeanFactory</code> 类。</p>
-<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gh5zft5momj31rw0pegrj.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2020/07/28/N3yep2SP1zniu6T.jpg" alt=""></p>
 <p>该类实现了 <code>org.springframework.beans.factory.FactoryBean</code>接口，并重写了 <code>getObject()</code> 方法返回一个对象。</p>
 <blockquote>
 <p>这段代码是不是似曾相识，其实就是 <code>Feign</code> 的官方 <code>demo</code>。</p>
 </blockquote>
 <p>这里所返回的对象其实就是我们定义的接口的代理对象，而这个对象本身则是 <code>Feign</code> ，所以再往里说：我们的 <code>http</code> 请求编解码、发起请求等逻辑又被这个 <code>feign</code> 对象所代理了。</p>
-<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gh61ysektrj31t40c0tbt.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2020/07/28/joLesbxGQrEkK37.jpg" alt=""></p>
 <p>这个 <code>HardCodedTarget</code> 则是 <code>Feign</code> 内部用于代理最终请求的对象。</p>
 <blockquote>
 <p>有一个小难受的地方：这样的自己定义 Bean 然后注入对象 Idea 是识别不了的，认为当前上下文没有该 Bean，但是 spring-cloud-openfeign 却可以识别。</p>
 </blockquote>
 <hr>
 <p>由于 <code>Feign</code> 支持多个客户端，所以这里的客户端可以通过配置文件动态指定。</p>
-<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gh5zjvqtyij31re0u0jz8.jpg" alt=""></p>
+<p><img src="https://i.loli.net/2020/07/28/q74soVAQbl5NyK6.jpg" alt=""></p>
 <p>利用 <code>SpringBoot</code> 提供的 <code>@ConditionalOnExpression</code> 注解可以根据配置动态的选择使用哪个 <code>httpclient</code>,也就是动态选择生成哪个 <code>Bean</code>。</p>
 <h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这个库的逻辑非常简单，本质上就是封装了 <code>Feign</code> 并提供了 <code>SpringBoot</code> 的支持，欢迎有类似需求的朋友下载使用。</p>
 <p><code>feign-plus</code>源码：<a href="feign-plus">https://github.com/crossoverJie/feign-plus</a></p>
@@ -83,7 +83,7 @@
     
     <summary type="html">
     
-      &lt;p&gt;&lt;img src=&quot;https://tva1.sinaimg.cn/large/007S8ZIlly1gh5qdegc84j30jg0jg3zd.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2020/07/28/uA1BmwnQNs3GXHS.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
 &lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;最近准备将公司的一个核心业务系统用 &lt;code&gt;Java&lt;/code&gt; 进行重构，大半年没写 &lt;code&gt;Java&lt;/code&gt; ，&lt;code&gt;JDK&lt;/code&gt; 都更新到 14 了，考虑到稳定性等问题最终还是选择的 &lt;code&gt;JDK11&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;在整体架构选型时，由于是一个全新的系统，所以没有历史包袱，同时团队中也有多位大牛坐镇，因此我们的选项便大胆起来。&lt;/p&gt;
 &lt;p&gt;最终结果就是直接一把梭，直接上未来的大趋势：&lt;code&gt;Service Mesh&lt;/code&gt;，直接把什么 &lt;code&gt;SpringCloud&lt;/code&gt;、&lt;code&gt;Dubbo&lt;/code&gt; 这类分布式框架全部干掉。&lt;/p&gt;
