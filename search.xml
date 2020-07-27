@@ -1,6 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[撸了一个 Feign 增强包]]></title>
+    <url>%2F2020%2F07%2F28%2Fwheel%2Ffeign-plus%2F</url>
+    <content type="text"><![CDATA[前言最近准备将公司的一个核心业务系统用 Java 进行重构，大半年没写 Java ，JDK 都更新到 14 了，考虑到稳定性等问题最终还是选择的 JDK11。 在整体架构选型时，由于是一个全新的系统，所以没有历史包袱，同时团队中也有多位大牛坐镇，因此我们的选项便大胆起来。 最终结果就是直接一把梭，直接上未来的大趋势：Service Mesh，直接把什么 SpringCloud、Dubbo 这类分布式框架全部干掉。 本次的重点不是讨论 Service Mesh 是什么、能解决什么问题、为什么选择它，毕竟我也在学习阶段，啥时候整明白线上也稳定了再和大家来交流。 问题既然方向定了就开始实际撸码了，不过刚一开始就验证了”理想很丰满、现实很骨感“； 由于我们去掉了 SpringCloud 和 Dubbo 这类框架，服务的注册、发现、负载均衡等需求全部都下沉到 Service Mesh 中提供了。 但对于开发来说依然希望可以调用本地方法的方式来调用远程服务，这在 SpringCloud 这类框架中是很容易实现的，框架本身就有很好的支持。 回到我们这个场景，需求其实很简单，就是想达到 SpringCloud 中的 Feign 这样的声明式+注解的方式调用。 1234@Autowiredprivate StoreClient client ;Store store = client.update(1, store) 使用 spring-cloud-openfeign 这个包其实就能实现上述的需求了，但这样会引入一些我们根本不会使用的 SpringCloud 的相关依赖，让人感觉”不干净了“；同时也和 Service Mesh 的理念相反，其中的一大目的就是要降低这类框架的侵入性。 其实 spring-cloud-openfeign 的核心就是 Feign，本身它也是可以开箱即用的，所以便尝试看 Feign 自己是否支持这样的用法。 通过官方文档可以得知：是可以定义接口的形式来调用远程接口的，但它本质上是不依赖其他库便可以使用，所以它本身是没有和 Spring 整合也是合情合理，但也就造成了没有现成库可供我们使用。 我们自然是不想写上图红框处的代码的，希望所有接口直接注入就可以使用。 使用因此结合以上的需求便有了这个库 feign-plus 它的使用流程其实就是翻版的 spring-cloud-openfeign： 123456@FeignPlusClient(name = "github", url = "$&#123;github.url&#125;")public interface Github &#123; @RequestLine("GET /repos/&#123;owner&#125;/&#123;repo&#125;/contributors") List&lt;GitHubRes&gt; contributors(@Param("owner") String owner, @Param("repo") String repo);&#125; 在 SpringBoot 入口进行扫描： 123456789@SpringBootApplication@EnableFeignPlusClients(basePackages = "top.crossoverjie.feign.test")public class DemoApplication &#123; public static void main(String[] args) &#123; SpringApplication.run(DemoApplication.class, args); &#125;&#125; 在 Spring 上下文中直接注入使用： 12345@Autowiredprivate Github github ;List&lt;GitHubRes&gt; contributors = github.contributors("crossoverJie", "feign-plus");logger.info("contributors=&#123;&#125;", new Gson().toJson(contributors)); 所以当我们需要调用一些外部第三方接口时（比如支付宝、外部 OpenAPI）便可类似于这样定义一个接口，把所有 HTTP 请求的细节屏蔽掉。 当然也适合公司内部之间的服务调用，和咱们以前写 SpringCloud 或 Dubbo 时类似；服务提供方提供一个 Client 包，消费方直接依赖便可以调用。其他的负载均衡、容错之类的由 Service Mesh 替我们完成。 对于内部接口，也可以加上 @RequestMapping(&quot;/path&quot;) 注解： 在请求时便会在 url 后拼接上 /order，这样在配置 feign.order.service.url 时只需要填入服务提供方的域名或 IP 即可。 feign-plus 也支持切换具体的 httpclient，默认是 okhttp3，通过以下配置便可更改。 12# default(okhttp3)feign.httpclient=http2Client 当然也有其他相关配置： 123feign.plus.max-idle-connections = 520feign.plus.connect-timeout = 11000feign.plus.read-timeout = 12000 实现最后简单聊聊是如何完成的吧，其实本质上就是 spring-cloud-openfeign 的浓缩版。 其中最为核心的便是 top.crossoverjie.feign.plus.factory.FeignPlusBeanFactory 类。 该类实现了 org.springframework.beans.factory.FactoryBean接口，并重写了 getObject() 方法返回一个对象。 这段代码是不是似曾相识，其实就是 Feign 的官方 demo。 这里所返回的对象其实就是我们定义的接口的代理对象，而这个对象本身则是 Feign ，所以再往里说：我们的 http 请求编解码、发起请求等逻辑又被这个 feign 对象所代理了。 这个 HardCodedTarget 则是 Feign 内部用于代理最终请求的对象。 有一个小难受的地方：这样的自己定义 Bean 然后注入对象 Idea 是识别不了的，认为当前上下文没有该 Bean，但是 spring-cloud-openfeign 却可以识别。 由于 Feign 支持多个客户端，所以这里的客户端可以通过配置文件动态指定。 利用 SpringBoot 提供的 @ConditionalOnExpression 注解可以根据配置动态的选择使用哪个 httpclient,也就是动态选择生成哪个 Bean。 总结这个库的逻辑非常简单，本质上就是封装了 Feign 并提供了 SpringBoot 的支持，欢迎有类似需求的朋友下载使用。 feign-plus源码：https://github.com/crossoverJie/feign-plus 你的点赞与分享是对我最大的支持]]></content>
+      <categories>
+        <category>轮子</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>SpringBoot</tag>
+        <tag>Feign</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[动态代理与RPC]]></title>
     <url>%2F2020%2F04%2F28%2Fframework-design%2Fdynamic-rpc%2F</url>
     <content type="text"><![CDATA[前言随着最近关注 cim 项目的人越发增多，导致提的问题以及 Bug 也在增加，在修复问题的过程中难免代码洁癖又上来了。 看着一两年前写的东西总是怀疑这真的是出自自己手里嘛？有些地方实在忍不住了便开始了漫漫重构之路。 前后对比在开始之前先简单介绍一下 cim 这个项目，下面是它的架构图： 简单来说就是一个 IM 即时通讯系统，主要有以下部分组成： IM-server 自然就是服务端了，用于和客户端保持长连接。 IM-client 客户端，可以简单认为是类似于的 QQ 这样的客户端工具；当然功能肯定没那么丰富，只提供了一些简单消息发送、接收的功能。 Route 路由服务，主要用于客户端鉴权、消息的转发等；提供一些 http 接口，可以用于查看系统状态、在线人数等功能。 当然服务端、路由都可以水平扩展。 这是一个消息发送的流程图，假设现在部署了两个服务端 A、B 和一个路由服务；其中 ClientA 和 ClientB 分别和服务端 A、B 保持了长连接。 当 ClientA 向 ClientB 发送一个 hello world 时，整个的消息流转如图所示： 先通过 http 将消息发送到 Route 服务。 路由服务得知 ClientB 是连接在 ServerB 上；于是再通过 http 将消息发送给 ServerB。 最终 ServerB 将消息通过与 ClientB 的长连接通道 push 下去，至此消息发送成功。 这里我截取了 ClientA 向 Route 发起请求的代码：可以看到这就是利用 okhttp 发起了一个 http 请求，这样虽然能实现功能，但其实并不优雅。 举个例子：假设我们需要对接支付宝的接口，这里发送一个 http 请求自然是没问题；但对于支付宝内部各部门直接互相调用接口时那就不应该再使用原始的 http 请求了。 应该是由服务提供方提供一个 api 包，服务消费者只需要依赖这个包就可以实现接口调用。 当然最终使用的是 http、还是自定义私有协议都可以。 也类似于我们在使用 Dubbo 或者是 SpringCloud 时，通常是直接依赖一个 api 包，便可以像调用一个本地方法一样调用远程服务了，并且完全屏蔽了底层细节，不管是使用的 http 还是 其他私有协议都没关系，对于调用者来说完全不关心。 这么一说是不是有内味了，这不就是 RPC 的官方解释嘛。 对应到这里也是同样的道理，Client 、Route、Server 本质上都是一个系统，他们互相的接口调用也应当是走 RPC 才合理。 所以我重构之后的变成这样了： 是不是代码也简洁了许多，就和调用本地方法一样了，而且这样也有几个好处： 完全屏蔽了底层细节，可以更好的实现业务及维护代码。 即便是服务提供方修改了参数，在编译期间就能很快发现，而像之前那样调用是完全不知情的，所以也增加了风险。 绕不开的动态代理下面来聊聊具体是如何实现的。 其实在上文《动态代理的实际应用》 中也有讲到，原理是类似的。 要想做到对调用者无感知，就得创建一个接口的代理对象；在这个代理对象中实现编码、调用、解码的过程。 对应到此处其实就是创建一个 routeApi 的代理对象，关键就是这段代码： 1RouteApi routeApi = new ProxyManager&lt;&gt;(RouteApi.class, routeUrl, okHttpClient).getInstance(); 完整源码如下： 其中的 getInstance() 函数就是返回了需要被代理的接口对象；而其中的 ProxyInvocation 则是一个实现了 InvocationHandler 接口的类，这套代码就是利用 JDK 实现动态代理的三板斧。 查看 ProxyInvocation 的源码会发现当我们调用被代理接口的任意一个方法时，都会执行这里的 invoke() 方法。 而 invoke() 方法自然就实现了上图中提到的：编码、远程调用、解码的过程；相信大家很容易看明白，由于不是本次探讨的重点就不过多介绍了。 总结其实理解这些就也就很容易看懂 Dubbo 这类 RPC 框架的核心源码了，总体的思路也是类似的，只不过使用的私有协议，所以在编解码时会有所不同。 所以大家要是想自己动手实现一个 RPC 框架，不妨参考这个思路试试，当用自己写的代码跑通一个 RPC 的 helloworld 时的感觉是和自己整合了一个 Dubbo、SpringCloud 这样的第三方框架的感觉是完全不同的。 本文的所有源码： https://github.com/crossoverJie/cim 你的点赞与分享是对我最大的支持]]></content>
@@ -499,9 +512,9 @@
         <tag>Java</tag>
         <tag>Thread</tag>
         <tag>concurrent</tag>
-        <tag>HashMap</tag>
         <tag>JVM</tag>
         <tag>HashSet</tag>
+        <tag>HashMap</tag>
       </tags>
   </entry>
   <entry>
@@ -754,8 +767,8 @@
       <tags>
         <tag>Java</tag>
         <tag>concurrent</tag>
-        <tag>ConcurrentHashMap</tag>
         <tag>HashMap</tag>
+        <tag>ConcurrentHashMap</tag>
       </tags>
   </entry>
   <entry>
@@ -1441,8 +1454,8 @@
         <category>blog</category>
       </categories>
       <tags>
-        <tag>Markdown</tag>
         <tag>总结</tag>
+        <tag>Markdown</tag>
       </tags>
   </entry>
   <entry>
