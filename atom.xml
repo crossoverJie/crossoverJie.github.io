@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2020-07-28T08:44:44.641Z</updated>
+  <updated>2020-08-23T17:23:52.568Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,157 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>ElasticSearch 索引 VS MySQL 索引</title>
+    <link href="http://crossoverjie.top/2020/08/24/elasticsearch/ElasticSearch%20VS%20MySQL/"/>
+    <id>http://crossoverjie.top/2020/08/24/elasticsearch/ElasticSearch VS MySQL/</id>
+    <published>2020-08-24T00:10:36.000Z</published>
+    <updated>2020-08-23T17:23:52.568Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi01tzwikkj31hc0u0toq.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>这段时间在维护产品的搜索功能，每次在管理台看到 <code>elasticsearch</code> 这么高效的查询效率我都很好奇他是如何做到的。</p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi18y8no3wj318y0dcac1.jpg" alt=""></p>
+<p>这甚至比在我本地使用 <code>MySQL</code> 通过主键的查询速度还快。</p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi18yukebvj30ps0363yo.jpg" alt=""></p>
+<a id="more"></a>
+<p>为此我搜索了相关资料：</p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi18z0c7plj30u016z4er.jpg" alt=""></p>
+<p>这类问题网上很多答案，大概意思呢如下：</p>
+<ul>
+<li>ES 是基于 <code>Lucene</code> 的全文检索引擎，它会对数据进行分词后保存索引，擅长管理大量的索引数据，相对于 <code>MySQL</code> 来说不擅长经常更新数据及关联查询。</li>
+</ul>
+<p>说的不是很透彻，没有解析相关的原理；不过既然反复提到了索引，那我们就从索引的角度来对比下两者的差异。</p>
+<h1 id="MySQL-索引"><a href="#MySQL-索引" class="headerlink" title="MySQL 索引"></a>MySQL 索引</h1><p>先从 <code>MySQL</code> 说起，索引这个词想必大家也是烂熟于心，通常存在于一些查询的场景，是典型的空间换时间的案例。</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">以下内容以 Innodb 引擎为例。</div></pre></td></tr></table></figure>
+<h2 id="常见的数据结构"><a href="#常见的数据结构" class="headerlink" title="常见的数据结构"></a>常见的数据结构</h2><p>假设由我们自己来设计 <code>MySQL</code> 的索引，大概会有哪些选择呢？</p>
+<h3 id="散列表"><a href="#散列表" class="headerlink" title="散列表"></a>散列表</h3><p>首先我们应当想到的是散列表，这是一个非常常见且高效的查询、写入的数据结构，对应到 <code>Java</code> 中就是 <code>HashMap</code></p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi18zcyxozj31ap0u0gph.jpg" alt=""></p>
+<p>这个数据结构应该不需要过多介绍了，它的写入效率很高<code>O(1)</code>,比如我们要查询 <code>id=3</code> 的数据时，需要将 3 进行哈希运算，然后再这个数组中找到对应的位置即可。</p>
+<p>但如果我们想查询 <code>1≤id≤6</code> 这样的区间数据时，散列表就不能很好的满足了，由于它是无序的，所以得将所有数据遍历一遍才能知道哪些数据属于这个区间。</p>
+<h3 id="有序数组"><a href="#有序数组" class="headerlink" title="有序数组"></a>有序数组</h3><p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi18zpdguqj31600aiaax.jpg" alt=""></p>
+<p>有序数组的查询效率也很高，当我们要查询 <code>id=4</code> 的数据时，只需要通过二分查找也能高效定位到数据<code>O(logn)</code>。</p>
+<p>同时由于数据也是有序的，所以自然也能支持区间查询；这么看来有序数组适合用做索引咯?</p>
+<p>自然是不行，它有另一个重大问题；假设我们插入了 <code>id=2.5</code> 的数据，就得同时将后续的所有数据都移动一位，这个写入效率就会变得非常低。</p>
+<h3 id="平衡二叉树"><a href="#平衡二叉树" class="headerlink" title="平衡二叉树"></a>平衡二叉树</h3><p>既然有序数组的写入效率不高，那我们就来看看写入效率高的，很容易就能想到二叉树；这里我们以平衡二叉树为例：</p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi18zx774dj313g0jwn36.jpg" alt=""></p>
+<p>由于平衡二叉树的特性：</p>
+<blockquote>
+<p>左节点小于父节点、右节点大于父节点。</p>
+</blockquote>
+<p>所以假设我们要查询 <code>id=11</code> 的数据，只需要查询 <code>10—&gt;12—&gt;11</code> 便能最终找到数据，时间复杂度为<code>O(logn)</code>，同理写入数据时也为<code>O(logn)</code>。</p>
+<p>但依然不能很好的支持区间范围查找，假设我们要查询<code>5≤id≤20</code> 的数据时，需要先查询10节点的左子树再查询10节点的右子树最终才能查询到所有数据。</p>
+<p>导致这样的查询效率并不高。</p>
+<h3 id="跳表"><a href="#跳表" class="headerlink" title="跳表"></a>跳表</h3><p>跳表可能不像上边提到的散列表、有序数组、二叉树那样日常见的比较多，但其实 <code>Redis</code> 中的 <code>sort set</code> 就采用了跳表实现。</p>
+<p>这里我们简单介绍下跳表实现的数据结构有何优势。</p>
+<p>我们都知道即便是对一个<strong>有序链表</strong>进行查询效率也不高，由于它不能使用数组下标进行二分查找，所以时间复杂度是<code>o(n)</code></p>
+<p>但我们也可以巧妙的优化链表来变相的实现二分查找，如下图：</p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi190dy4wqj31bw0hc448.jpg" alt=""></p>
+<p>我们可以为最底层的数据提取出一级索引、二级索引，根据数据量的不同，我们可以提取出 N 级索引。</p>
+<p>当我们查询时便可以利用这里的索引变相的实现了二分查找。</p>
+<p>假设现在要查询 <code>id=13</code> 的数据，只需要遍历 <code>1—&gt;7—&gt;10—&gt;13</code> 四个节点便可以查询到数据，当数越多时，效率提升会更明显。</p>
+<p>同时区间查询也是支持，和刚才的查询单个节点类似，只需要查询到起始节点，然后依次往后遍历（<strong>链表有序</strong>）到目标节点便能将整个范围的数据查询出来。</p>
+<p>同时由于我们在索引上不会存储真正的数据，只是存放一个指针，相对于最底层存放数据的链表来说占用的空间便可以忽略不计了。</p>
+<h2 id="平衡二叉树的优化"><a href="#平衡二叉树的优化" class="headerlink" title="平衡二叉树的优化"></a>平衡二叉树的优化</h2><p>但其实 <code>MySQL</code> 中的 <code>Innodb</code> 并没有采用跳表，而是使用的一个叫做 <code>B+</code> 树的数据结构。</p>
+<p>这个数据结构不像是二叉树那样大学老师当做基础数据结构经常讲到，由于这类数据结构都是在实际工程中根据需求场景在基础数据结构中演化而来。</p>
+<p>比如这里的 <code>B+</code> 树就可以认为是由平衡二叉树演化而来。</p>
+<p>刚才我们提到二叉树的区间查询效率不高，针对这一点便可进行优化：</p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi190og1h6j31o40u0k67.jpg" alt=""></p>
+<p>在原有二叉树的基础上优化后：所有的非叶子都不存放数据，只是作为叶子节点的索引，数据全部都存放在叶子节点。</p>
+<p>这样所有叶子节点的数据都是有序存放的，便能很好的支持区间查询。</p>
+<p>只需要先通过查询到起始节点的位置，然后在叶子节点中依次往后遍历即可。</p>
+<p>当数据量巨大时，很明显索引文件是不能存放于内存中，虽然速度很快但消耗的资源也不小；所以 <code>MySQL</code> 会将索引文件直接存放于磁盘中。</p>
+<p>这点和后文提到 elasticsearch 的索引略有不同。</p>
+<p>由于索引存放于磁盘中，所以我们要尽可能的减少与磁盘的 IO（磁盘 IO 的效率与内存不在一个数量级）</p>
+<p>通过上图可以看出，我们要查询一条数据至少得进行 4 次IO，很明显这个 IO 次数是与树的高度密切相关的，树的高度越低 IO 次数就会越少，同时性能也会越好。</p>
+<p>那怎样才能降低树的高度呢？</p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi190wn3k2j311u0jo43r.jpg" alt="">    </p>
+<p>我们可以尝试把二叉树变为三叉树，这样树的高度就会下降很多，这样查询数据时的 IO 次数自然也会降低，同时查询效率也会提高许多。</p>
+<blockquote>
+<p>这其实就是 B+ 树的由来。</p>
+</blockquote>
+<h2 id="使用索引的一些建议"><a href="#使用索引的一些建议" class="headerlink" title="使用索引的一些建议"></a>使用索引的一些建议</h2><p>其实通过上图对 <code>B+树</code>的理解，也能优化日常工作的一些小细节；比如为什么需要最好是有序递增的？</p>
+<p>假设我们写入的主键数据是无序的，那么有可能后写入数据的 id 小于之前写入的，这样在维护 <code>B+树</code> 索引时便有可能需要移动已经写好数据。</p>
+<p>如果是按照递增写入数据时则不会有这个考虑，每次只需要依次写入即可。</p>
+<blockquote>
+<p>所以我们才会要求数据库主键尽量是趋势递增的，不考虑分表的情况时最合理的就是自增主键。</p>
+</blockquote>
+<p>整体来看思路和跳表类似，只是针对使用场景做了相关的调整（比如数据全部存储于叶子节点）。</p>
+<h1 id="ES-索引"><a href="#ES-索引" class="headerlink" title="ES 索引"></a>ES 索引</h1><p><code>MySQL</code> 聊完了，现在来看看 <code>Elasticsearch</code> 是如何来使用索引的。</p>
+<h2 id="正排索引"><a href="#正排索引" class="headerlink" title="正排索引"></a>正排索引</h2><p>在 ES 中采用的是一种名叫<code>倒排索引</code>的数据结构；在正式讲倒排索引之前先来聊聊和他相反的<code>正排索引</code>。</p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi193iw11cj313u0bsgms.jpg" alt=""></p>
+<p>以上图为例，我们可以通过 <code>doc_id</code> 查询到具体对象的方式称为使用<code>正排索引</code>，其实也能理解为一种散列表。</p>
+<blockquote>
+<p>本质是通过 key 来查找 value。</p>
+</blockquote>
+<p>比如通过 <code>doc_id=4</code> 便能很快查询到 <code>name=jetty wang,age=20</code> 这条数据。</p>
+<h2 id="倒排索引"><a href="#倒排索引" class="headerlink" title="倒排索引"></a>倒排索引</h2><p>那如果反过来我想查询 <code>name</code> 中包含了 <code>li</code> 的数据有哪些？这样如何高效查询呢？</p>
+<p>仅仅通过上文提到的正排索引显然起不到什么作用，只能依次将所有数据遍历后判断名称中是否包含 <code>li</code> ；这样效率十分低下。</p>
+<p>但如果我们重新构建一个索引结构：</p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi1940f4trj314e0f0q4e.jpg" alt=""></p>
+<p>当要查询 <code>name</code> 中包含 <code>li</code> 的数据时，只需要通过这个索引结构查询到 <code>Posting List</code> 中所包含的数据，再通过映射的方式查询到最终的数据。</p>
+<p>这个索引结构其实就是<code>倒排索引</code>。</p>
+<h2 id="Term-Dictionary"><a href="#Term-Dictionary" class="headerlink" title="Term Dictionary"></a>Term Dictionary</h2><p>但如何高效的在这个索引结构中查询到 <code>li</code> 呢，结合我们之前的经验，只要我们将 <code>Term</code> 有序排列，便可以使用二叉树搜索树的数据结构在<code>o(logn)</code> 下查询到数据。</p>
+<p>将一个文本拆分成一个一个独立<code>Term</code> 的过程其实就是我们常说的分词。</p>
+<p>而将所有 <code>Term</code> 合并在一起就是一个 <code>Term Dictionary</code>，也可以叫做单词词典。</p>
+<ul>
+<li>英文的分词相对简单，只需要通过空格、标点符号将文本分隔便能拆词，中文则相对复杂，但也有许多开源工具做支持（由于不是本文重点，对分词感兴趣的可以自行搜索）。</li>
+</ul>
+<p>当我们的文本量巨大时，分词后的 <code>Term</code> 也会很多，这样一个倒排索引的数据结构如果存放于内存那肯定是不够存的，但如果像 <code>MySQL</code> 那样存放于磁盘，效率也没那么高。</p>
+<h2 id="Term-Index"><a href="#Term-Index" class="headerlink" title="Term Index"></a>Term Index</h2><p>所以我们可以选择一个折中的方法，既然无法将整个 <code>Term Dictionary</code> 放入内存中，那我们可以为<code>Term Dictionary</code> 创建一个索引然后放入内存中。</p>
+<p>这样便可以高效的查询<code>Term Dictionary</code> ，最后再通过<code>Term Dictionary</code> 查询到 <code>Posting List</code>。</p>
+<p>相对于 <code>MySQL</code> 中的 <code>B+树</code>来说也会减少了几次<code>磁盘IO</code>。</p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi191apu10j30ua0h0q7c.jpg" alt=""></p>
+<p>这个 <code>Term Index</code> 我们可以使用这样的 <code>Trie树</code> 也就是我们常说的<code>字典树</code> 来存放。</p>
+<p>更多关于字典树的内容请查看<a href="https://crossoverjie.top/2019/01/14/netty/cim02-v1.0.1/">这里</a>。</p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi191fxwgxj318o094782.jpg" alt=""></p>
+<p>如果我们是以 <code>j</code> 开头的 <code>Term</code> 进行搜索，首先第一步就是通过在内存中的 <code>Term Index</code> 查询出以 <code>j</code> 打头的 <code>Term</code> 在 <code>Term Dictionary</code> 字典文件中的哪个位置（这个位置可以是一个文件指针，可能是一个区间范围）。</p>
+<p>紧接着在将这个位置区间中的所有 <code>Term</code> 取出，由于已经排好序，便可通过二分查找快速定位到具体位置；这样便可查询出 <code>Posting List</code>。</p>
+<p>最终通过 <code>Posting List</code> 中的位置信息便可在原始文件中将目标数据检索出来。</p>
+<h2 id="更多优化"><a href="#更多优化" class="headerlink" title="更多优化"></a>更多优化</h2><p>当然 <code>ElasticSearch</code> 还做了许多针对性的优化，当我们对两个字段进行检索时，就可以利用 <code>bitmap</code> 进行优化。</p>
+<p>比如现在需要查询 <code>name=li and age=18</code> 的数据，这时我们需要通过这两个字段将各自的结果 <code>Posting List</code> 取出。</p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi194k1jk5j3138080t9e.jpg" alt=""></p>
+<p>最简单的方法是分别遍历两个集合，取出重复的数据，但这个明显效率低下。</p>
+<p>这时我们便可使用 <code>bitmap</code> 的方式进行存储（还节省存储空间），同时利用先天的<code>位与</code> <strong>**计算便可得出结果</strong>。**</p>
+<p><code>[1, 3, 5]</code>       ⇒ <code>10101</code></p>
+<p><code>[1, 2, 4, 5]</code> ⇒ <code>11011</code></p>
+<p>这样两个二进制数组求与便可得出结果：</p>
+<p><code>10001</code> ⇒ <code>[1, 5]</code></p>
+<p>最终反解出 <code>Posting List</code> 为<code>[1, 5]</code>,这样的效率自然是要高上许多。</p>
+<p>同样的查询需求在 <code>MySQL</code> 中并没有特殊优化，只是先将数据量小的数据筛选出来之后再筛选第二个字段，效率自然也就没有 <code>ES</code> 高。</p>
+<p>当然在最新版的 <code>ES</code> 中也会对 <code>Posting List</code> 进行压缩，具体压缩规则可以查看<a href="https://www.elastic.co/cn/blog/frame-of-reference-and-roaring-bitmaps" target="_blank" rel="external">官方文档</a>，这里就不具体介绍了。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>最后我们来总结一下：</p>
+<p><img src="https://tva1.sinaimg.cn/large/007S8ZIlly1gi194xf948j315y0ca40z.jpg" alt=""></p>
+<p>通过以上内容可以看出再复杂的产品最终都是基础数据结构组成，只是会对不同应用场景针对性的优化，所以打好数据结构与算法的基础后再看某个新的技术或中间件时才能快速上手，甚至自己就能知道优化方向。</p>
+<p>最后画个饼，后续我会尝试按照 <code>ES</code> 倒排索引的思路做一个单机版的搜索引擎，只有自己写一遍才能加深理解。</p>
+<blockquote>
+<p>更好的阅读体验请访问<a href="https://www.notion.so/ElasticSearch-VS-MySQL-54bddcc092c64c26b2127f1fb9772a23" target="_blank" rel="external">此处</a>：<a href="https://www.notion.so/ElasticSearch-VS-MySQL-54bddcc092c64c26b2127f1fb9772a23" target="_blank" rel="external">https://www.notion.so/ElasticSearch-VS-MySQL-54bddcc092c64c26b2127f1fb9772a23</a></p>
+</blockquote>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://tva1.sinaimg.cn/large/007S8ZIlly1gi01tzwikkj31hc0u0toq.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;这段时间在维护产品的搜索功能，每次在管理台看到 &lt;code&gt;elasticsearch&lt;/code&gt; 这么高效的查询效率我都很好奇他是如何做到的。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;https://tva1.sinaimg.cn/large/007S8ZIlly1gi18y8no3wj318y0dcac1.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;p&gt;这甚至比在我本地使用 &lt;code&gt;MySQL&lt;/code&gt; 通过主键的查询速度还快。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;https://tva1.sinaimg.cn/large/007S8ZIlly1gi18yukebvj30ps0363yo.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="数据结构" scheme="http://crossoverjie.top/categories/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/"/>
+    
+    
+      <category term="MySQL" scheme="http://crossoverjie.top/tags/MySQL/"/>
+    
+      <category term="Elasticsearch" scheme="http://crossoverjie.top/tags/Elasticsearch/"/>
+    
+      <category term="倒排索引" scheme="http://crossoverjie.top/tags/%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95/"/>
+    
+      <category term="B+ 树" scheme="http://crossoverjie.top/tags/B-%E6%A0%91/"/>
+    
+  </entry>
   
   <entry>
     <title>撸了一个 Feign 增强包</title>
@@ -2225,77 +2376,6 @@
       <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
     
       <category term="ThreadPool" scheme="http://crossoverjie.top/tags/ThreadPool/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>图床失效了？也许你应该试试这个工具</title>
-    <link href="http://crossoverjie.top/2019/05/08/tools/blog-toolbox/"/>
-    <id>http://crossoverjie.top/2019/05/08/tools/blog-toolbox/</id>
-    <published>2019-05-07T17:50:36.000Z</published>
-    <updated>2019-05-07T18:58:10.593Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/05/08/5cd1cbf638ec7.png" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>经过几个小伙伴的提醒，发现个人博客中的许多图片都裂了无法访问；原因就不多说，既然出现问题就得要解决。</p>
-<a id="more"></a>
-<p><img src="https://i.loli.net/2019/05/08/5cd1c6bfd8ff2.jpg" alt=""></p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1cc4598afb.jpg" alt=""></p>
-<p>原本我的处理方式非常简单粗暴：找到原有的图片重新下载下来上传到新的可用图床再把图片地址替换。</p>
-<p>这样搞了一两篇之后我就绝望了。。。</p>
-<p>之前为了代码能在公众号里也有好的阅读体验，所以能截图的我绝不贴代码，导致一篇文章多的得有十几张图片。</p>
-<p>好在哪位大佬说过“以人肉XX为耻”，这种重复劳动力完全可自动化；于是便有了本次的这个工具。</p>
-<p>它可以一行命令把你所有 <code>Markdown</code> 写的内容中的图片全部替换为新的图床。</p>
-<p>运行效果如下：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1cc7612c25.gif" alt=""></p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1cd6062d2a.png" alt=""></p>
-<h1 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h1><p>可以直接在这个地址下载 jar 包运行：<a href="https://github.com/crossoverJie/blog.toolbox/releases/download/v0.0.1/blog.toolbox-0.0.1-SNAPSHOT.jar" target="_blank" rel="external">https://github.com/crossoverJie/blog.toolbox/releases/download/v0.0.1/blog.toolbox-0.0.1-SNAPSHOT.jar</a></p>
-<p>当然也可以下载源码编译运行：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">git clone https://github.com/crossoverJie/blog.toolbox</div><div class="line">mvn clean package</div><div class="line">java -jar nows-0.0.1-SNAPSHOT.jar --app.downLoad.path=/xx/img /xx/xx/path 100</div></pre></td></tr></table></figure>
-<p>看运行方式也知道，其实就是用 <code>SpringBoot</code> 写了一个工具用于批量下载文中出现的图片同时上传后完成替换。</p>
-<ul>
-<li>其中 <code>app.downLoad.path</code> 是用于将下载的图片保存到本地磁盘的目录。</li>
-<li><code>/xx/xx/path</code> 则是扫描 <code>.md</code> 文件的目录，会递归扫描所有出所有文件。</li>
-<li>100 则是需要替换文件的数量，默认是按照文件修改时间排序。</li>
-</ul>
-<p>如果自己的图片较多的话还是有几个坑需要注意下。</p>
-<h2 id="线程数量"><a href="#线程数量" class="headerlink" title="线程数量"></a>线程数量</h2><p>默认是启动了两个线程去遍历文件、上传下载图片、更新文本等内容，其中的网络 IO 其实挺耗时的，所以其实可以适当的多开些线程来提高任务的执行效率。</p>
-<p>但线程过多也许会触发图床的保护机制，同时也和自己电脑配置有关，这个得结合实际情况考虑了。</p>
-<p>所以可以通过 <code>--app.thread=6</code> 这样的参数来调整线程数量。</p>
-<h2 id="图床限制"><a href="#图床限制" class="headerlink" title="图床限制"></a>图床限制</h2><p>这个是图片过多一定是大概率出现的，上传请求的频次过高很容易被限流封 IP。</p>
-<figure class="highlight json"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">&#123;<span class="attr">"code"</span>:<span class="string">"error"</span>,<span class="attr">"msg"</span>:<span class="string">"Upload file count limit. Time left 1027 second."</span>&#125;</div></pre></td></tr></table></figure>
-<p>目前来看是封 IP 居多，所以可以通过走代理、换网络的方式来解决。</p>
-<p>当然如果是自搭图床可以无视。</p>
-<h2 id="重试"><a href="#重试" class="headerlink" title="重试"></a>重试</h2><p>由于我使用的是免费图床，上传过程中偶尔也会出现上传失败的情况，因此默认是有 5 次重试机制的；如果五次都失败了那么大概率是 IP 被封了。</p>
-<blockquote>
-<p>即便是 ip 被封后只要换了新的 ip 重新执行程序它会自动过滤掉已经替换的图片，不会再做无用功，这点可以放心。</p>
-</blockquote>
-<h2 id="图片保存"><a href="#图片保存" class="headerlink" title="图片保存"></a>图片保存</h2><p><img src="https://i.loli.net/2019/05/08/5cd1d002b6cff.jpg" alt=""></p>
-<p>默认情况下,下载的图片会保存在本地，我也建议借此机会自己本地都缓存一份，同时名字还和文中的名字一样，避免今后图床彻底挂掉后连恢复的机会都没有。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这个程序的代码就没怎么讲了，确实也挺简单，感兴趣的可以自己下来看看。</p>
-<p>目前功能也很单一，自用完全够了；看后续大家是否还有其他需求再逐渐完善吧，比如：</p>
-<ul>
-<li>图床上传失败自动切换到可用图床。</li>
-<li>整体处理效率提升。</li>
-<li>任务执行过程中更好的进度展现等。</li>
-</ul>
-<p>再次贴一下源码地址：</p>
-<p><a href="https://github.com/crossoverJie/blog.toolbox" target="_blank" rel="external">https://github.com/crossoverJie/blog.toolbox</a></p>
-<p><strong>你的点赞与分享是对我最大的支持</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/05/08/5cd1cbf638ec7.png&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;经过几个小伙伴的提醒，发现个人博客中的许多图片都裂了无法访问；原因就不多说，既然出现问题就得要解决。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="工具" scheme="http://crossoverjie.top/categories/%E5%B7%A5%E5%85%B7/"/>
-    
-    
-      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
-    
-      <category term="策略模式" scheme="http://crossoverjie.top/tags/%E7%AD%96%E7%95%A5%E6%A8%A1%E5%BC%8F/"/>
     
   </entry>
   
