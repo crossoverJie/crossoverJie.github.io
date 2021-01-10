@@ -1,0 +1,1250 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/vendors/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/vendors/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Java,Python,Golang," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml" />
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.1" />
+
+
+
+
+
+
+<meta name="description" content="前言最近一年多的时间陆续接触了一些对我来说陌生的语言，主要就是 Python 和 Go，期间为了快速实现需求只是依葫芦画瓢的撸代码；并没有深究一些细节与原理。
+就拿参数传递一事来说各个语言的实现细节各不相同，但又有类似之处；在许多新手入门时容易搞不清楚，导致犯一些低级错误。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一个小时学会用 Go 编写命令行工具">
+<meta property="og:url" content="http://crossoverjie.top/2020/12/08/basic/parameter-trans/index.html">
+<meta property="og:site_name" content="crossoverJie's Blog">
+<meta property="og:description" content="前言最近一年多的时间陆续接触了一些对我来说陌生的语言，主要就是 Python 和 Go，期间为了快速实现需求只是依葫芦画瓢的撸代码；并没有深究一些细节与原理。
+就拿参数传递一事来说各个语言的实现细节各不相同，但又有类似之处；在许多新手入门时容易搞不清楚，导致犯一些低级错误。">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gmj52jjb2ej30ji0jggmr.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4w063qsj317w08eac8.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4u1bs8cj30e206nt8x.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4wcjfsij30xw0r2q4l.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4wp7rl4j30wa0rkmz1.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4x0jl2vj31760iy0ue.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4xmzws5j30q40dc75g.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4xwu2i5j30ia08kwgb.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4y5v9t4j30wa0rkmz1.jpg">
+<meta property="og:updated_time" content="2021-01-10T18:01:22.232Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="一个小时学会用 Go 编写命令行工具">
+<meta name="twitter:description" content="前言最近一年多的时间陆续接触了一些对我来说陌生的语言，主要就是 Python 和 Go，期间为了快速实现需求只是依葫芦画瓢的撸代码；并没有深究一些细节与原理。
+就拿参数传递一事来说各个语言的实现细节各不相同，但又有类似之处；在许多新手入门时容易搞不清楚，导致犯一些低级错误。">
+<meta name="twitter:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gmj52jjb2ej30ji0jggmr.jpg">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: 555390,
+      author: 'crossoverJie'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="http://crossoverjie.top/2020/12/08/basic/parameter-trans/"/>
+
+  <title> 一个小时学会用 Go 编写命令行工具 | crossoverJie's Blog </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+
+
+
+
+
+
+
+
+  <div style="display: none;">
+    <script src="https://s6.cnzz.com/stat.php?id=1259025147&web_id=1259025147" type="text/javascript"></script>
+  </div>
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">crossoverJie's Blog</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle">baller</p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            Home
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            Categories
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            About
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            Archives
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            Tags
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-photo">
+          <a href="/favourite" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-photo"></i> <br />
+            
+            photo
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-jcsprout">
+          <a href="https://crossoverjie.top/JCSprout/#/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-leaf"></i> <br />
+            
+            JCSprout
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-cicada">
+          <a href="https://github.com/TogetherOS/cicada" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-github"></i> <br />
+            
+            cicada
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-cim">
+          <a href="https://github.com/crossoverjie/cim" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-far fa-comment"></i> <br />
+            
+            CIM
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-vlog">
+          <a href="https://space.bilibili.com/42339430" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-youtube"></i> <br />
+            
+            Vlog
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="#" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br />
+            
+            Search
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup">
+ <span class="search-icon fa fa-search"></span>
+ <input type="text" id="local-search-input">
+ <div id="local-search-result"></div>
+ <span class="popup-btn-close">close</span>
+</div>
+
+
+    </div>
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                一个小时学会用 Go 编写命令行工具
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">Posted on</span>
+            <time itemprop="dateCreated" datetime="2020-12-08T08:10:36+08:00" content="2020-12-08">
+              2020-12-08
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/基础原理/" itemprop="url" rel="index">
+                    <span itemprop="name">基础原理</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/2020/12/08/basic/parameter-trans/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2020/12/08/basic/parameter-trans/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+             <span id="/2020/12/08/basic/parameter-trans/" class="leancloud_visitors" data-flag-title="一个小时学会用 Go 编写命令行工具">
+               &nbsp; | &nbsp;
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               <span class="post-meta-item-text">visitors </span>
+               <span class="leancloud-visitors-count"></span>
+              </span>
+          
+
+          
+              &nbsp; | &nbsp;
+              <span class="page-pv">本文总阅读量
+              <span class="busuanzi-value" id="busuanzi_value_page_pv" ></span>次
+              </span>
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj52jjb2ej30ji0jggmr.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近一年多的时间陆续接触了一些对我来说陌生的语言，主要就是 <code>Python</code> 和 <code>Go</code>，期间为了快速实现需求只是依葫芦画瓢的撸代码；并没有深究一些细节与原理。</p>
+<p>就拿参数传递一事来说各个语言的实现细节各不相同，但又有类似之处；在许多新手入门时容易搞不清楚，导致犯一些低级错误。</p>
+<a id="more"></a>
+<h1 id="Java"><a href="#Java" class="headerlink" title="Java"></a>Java</h1><h2 id="基本类型传递"><a href="#基本类型传递" class="headerlink" title="基本类型传递"></a>基本类型传递</h2><p>先拿我最熟悉的 <code>Java</code> 来说，我相信应该没人会写这样的代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Test</span></div><div class="line">  <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testBasic</span><span class="params">()</span> </span>&#123;</div><div class="line">      <span class="keyword">int</span> a = <span class="number">10</span>;</div><div class="line">      modifyBasic(a);</div><div class="line">      System.out.println(String.format(<span class="string">"最终结果 main a==%s"</span>, a));</div><div class="line">  &#125;</div><div class="line"></div><div class="line">  <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">modifyBasic</span><span class="params">(<span class="keyword">int</span> aa)</span> </span>&#123;</div><div class="line">      System.out.println(String.format(<span class="string">"修改之前 aa==%s"</span>, aa));</div><div class="line">      aa = <span class="number">20</span>;</div><div class="line">      System.out.println(String.format(<span class="string">"修改之后 aa==%s"</span>, aa));</div><div class="line">  &#125;</div></pre></td></tr></table></figure>
+<p>输出结果:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">修改之前 aa==<span class="number">10</span></div><div class="line">修改之后 aa==<span class="number">20</span></div><div class="line">最终结果 main a==<span class="number">10</span></div></pre></td></tr></table></figure>
+<p>不过从这段代码的目的来看应该是想要修改 <code>a</code> 的值，从直觉上来说如果修改成功也是能理解的。</p>
+<p>至于结果与预期不符合的根本原因是理解错了参数的值传递与引用传递。</p>
+<hr>
+<p>在这之前还是先明确下值传递与引用传递的区别：</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4w063qsj317w08eac8.jpg" alt=""></p>
+<p>这里咱们先抛出结论，<code>Java</code> 采用的是值传递；这样也能解释为什么上文的例子没有成功修改原始数据。</p>
+<p>参考下图更好理解：</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4u1bs8cj30e206nt8x.jpg" alt=""></p>
+<p>当发生函数调用的时候 <code>a</code> 将自己传入到 <code>modifyBasic</code> 方法中，同时将自己的值复制了一份并赋值给了一个新变量 <code>aa</code> 从图中可以看出这是 <code>a</code> 和 <code>aa</code> 两个变量没有一毛钱关系，所以对 <code>aa</code> 的修改并不会影响到 <code>a</code>。</p>
+<p>有点类似于我把苹果给了老婆，她把苹果削好了；但我手里这颗并没有变化，因为她只是从餐盘里拿了一颗一模一样的苹果削好了。</p>
+<p>如果我想要她那颗，只能让她把削好的苹果给我；也就类似于使用方法的返回值。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">a = modifyBasic(a);</div></pre></td></tr></table></figure>
+<h2 id="引用类型传递"><a href="#引用类型传递" class="headerlink" title="引用类型传递"></a>引用类型传递</h2><p>下面来看看引用类型的传递：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div></pre></td><td class="code"><pre><div class="line">	</div><div class="line"><span class="keyword">private</span> <span class="class"><span class="keyword">class</span> <span class="title">Car</span></span>&#123;</div><div class="line">      <span class="keyword">private</span> String name;</div><div class="line"></div><div class="line">      <span class="function"><span class="keyword">public</span> <span class="title">Car</span><span class="params">(String name)</span> </span>&#123;</div><div class="line">          <span class="keyword">this</span>.name = name;</div><div class="line">      &#125;</div><div class="line"></div><div class="line">      <span class="meta">@Override</span></div><div class="line">      <span class="function"><span class="keyword">public</span> String <span class="title">toString</span><span class="params">()</span> </span>&#123;</div><div class="line">          <span class="keyword">return</span> <span class="string">"Car&#123;"</span> +</div><div class="line">                  <span class="string">"name='"</span> + name + <span class="string">'\''</span> +</div><div class="line">                  <span class="string">'&#125;'</span>;</div><div class="line">      &#125;</div><div class="line">  &#125;</div><div class="line"></div><div class="line"><span class="meta">@Test</span></div><div class="line">  <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">test01</span><span class="params">()</span></span>&#123;</div><div class="line">      Car car1 = <span class="keyword">new</span> Car(<span class="string">"benz"</span>);</div><div class="line">      modifyCar1(car1);</div><div class="line">      System.out.println(String.format(<span class="string">"最终结果 main car1==%s"</span>, car1));</div><div class="line">  &#125;</div><div class="line"></div><div class="line">  <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">modifyCar1</span><span class="params">(Car car)</span></span>&#123;</div><div class="line">      System.out.println(String.format(<span class="string">"修改之前 car==%s"</span>, car));</div><div class="line">      car.name = <span class="string">"bwm"</span>;</div><div class="line">      System.out.println(String.format(<span class="string">"修改之后 car==%s"</span>, car));</div><div class="line">  &#125;</div></pre></td></tr></table></figure>
+<p>在这个例子里先创建了一个 <code>benz</code> 的 <code>car1</code>，通过一个方法修改为 <code>bmw</code> 那最开始的  <code>car1</code> 会受到影响嘛？</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">修改之前 car==Car&#123;name=<span class="string">'benz'</span>&#125;</div><div class="line">修改之后 car==Car&#123;name=<span class="string">'bwm'</span>&#125;</div><div class="line">最终结果 main car1==Car&#123;name=<span class="string">'bwm'</span>&#125;</div></pre></td></tr></table></figure>
+<p>结果可能会与部分人预期相反，这样的修改却是可以影响到原有数据的？这岂不是和<code>值传递</code>不符，看样子这是<code>引用传递</code>吧？</p>
+<p>别急，通过下图分析后大家就能明白：</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4wcjfsij30xw0r2q4l.jpg" alt=""></p>
+<p>在 <code>test01</code> 方法中我们创建了一个 <code>car1</code> 的对象，该对象存放于堆内存中，假设内存地址为 <code>0x1102</code> ，于是 <code>car1</code> 这个变量便应用了这块内存地址。</p>
+<p>当我们调用 <code>modifyCar1</code> 这个方法的时候会在该方法栈中创建一个变量 <code>car</code> ,接下来重点到了：</p>
+<p>这个 <code>car</code> 变量是由原本的入参 <code>car1</code> 复制而来，所以它所对应的堆内存依然是 <code>0x1102</code>；</p>
+<p>所以当我们通过 <code>car</code> 这个变量修改了数据后，本质上修改的是同一块堆内存中的数据。从而原本引用了这块内存地址的 <code>car1</code> 也能查看到对应的变化。</p>
+<p>这里理解起来可能会比较绕，但我们记住一点就行：</p>
+<p>传递引用类型的数据时，传递的并不是引用本身，依然是值；只是这个<code>值</code> 是<strong>内存地址</strong>罢了。</p>
+<p>因为把相同的内存地址传过去了，所以对数据的操作依然会影响到外部。</p>
+<p>所以同理，类似于这样的代码也会影响到外部原始数据：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Test</span></div><div class="line">   <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testList</span><span class="params">()</span></span>&#123;</div><div class="line">       List&lt;Integer&gt; list = <span class="keyword">new</span> ArrayList&lt;&gt;();</div><div class="line">       list.add(<span class="number">1</span>);</div><div class="line">       addList(list);</div><div class="line">       System.out.println(list);</div><div class="line">   &#125;</div><div class="line"></div><div class="line">   <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">addList</span><span class="params">(List&lt;Integer&gt; list)</span> </span>&#123;</div><div class="line">       list.add(<span class="number">2</span>);</div><div class="line">   &#125;</div><div class="line"></div><div class="line">   [<span class="number">1</span>, <span class="number">2</span>]</div></pre></td></tr></table></figure>
+<hr>
+<p>那如果是这样的代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Test</span></div><div class="line">   <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">test02</span><span class="params">()</span></span>&#123;</div><div class="line">       Car car1 = <span class="keyword">new</span> Car(<span class="string">"benz"</span>);</div><div class="line">       modifyCar(car1);</div><div class="line">       System.out.println(String.format(<span class="string">"最终结果 main car1==%s"</span>, car1));</div><div class="line">   &#125;</div><div class="line"></div><div class="line">   <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">modifyCar</span><span class="params">(Car car2)</span> </span>&#123;</div><div class="line">       System.out.println(String.format(<span class="string">"修改之前 car2==%s"</span>, car2));</div><div class="line">       car2 = <span class="keyword">new</span> Car(<span class="string">"bmw"</span>);</div><div class="line">       System.out.println(String.format(<span class="string">"修改之后 car2==%s"</span>, car2));</div><div class="line">   &#125;</div></pre></td></tr></table></figure>
+<p>假设 <code>Java</code> 是引用传递那最终的结果应该是打印 <code>bmw</code> 才对。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">修改之前 car2==Car&#123;name=<span class="string">'benz'</span>&#125;</div><div class="line">修改之后 car2==Car&#123;name=<span class="string">'bmw'</span>&#125;</div><div class="line">最终结果 main car1==Car&#123;name=<span class="string">'benz'</span>&#125;</div></pre></td></tr></table></figure>
+<p>从结果又能佐证这里依然是值传递。</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4wp7rl4j30wa0rkmz1.jpg" alt=""></p>
+<p>如果是引用传递，原本的 <code>0x1102</code> 应该是被直接替换为新创建的 <code>0x1103</code> 才对；而实际情况如上图所示，<code>car2</code> 直接重新引用了一个对象，两个对象之间互不干扰。</p>
+<h1 id="Go"><a href="#Go" class="headerlink" title="Go"></a>Go</h1><p>相对于 <code>Java</code> 来说  <code>Go</code> 的用法又有所不同，不过我们也可以先得出结论：</p>
+<p><code>Go语言的参数也是值传递。</code></p>
+<p>在 <code>Go</code> 语言中数据类型主要有以下两种：</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4x0jl2vj31760iy0ue.jpg" alt=""></p>
+<p>值类型与引用类型；</p>
+<h2 id="值类型"><a href="#值类型" class="headerlink" title="值类型"></a>值类型</h2><p>先以值类型举例：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</div><div class="line">	a :=<span class="number">10</span></div><div class="line">	modifyValue(a)</div><div class="line">	fmt.Printf(<span class="string">"最终 a=%v"</span>, a)</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">modifyValue</span><span class="params">(a <span class="keyword">int</span>)</span></span> &#123;</div><div class="line">	a = <span class="number">20</span></div><div class="line">&#125;</div><div class="line">输出：最终 a=<span class="number">20</span></div></pre></td></tr></table></figure>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4xmzws5j30q40dc75g.jpg" alt=""></p>
+<p>函数调用过程与之前的 <code>Java</code> 类似，本质上传递到函数中的值也是  <code>a</code>  的拷贝，所以对其的修改不会影响到原始数据。</p>
+<p>当我们把代码稍加修改：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</div><div class="line">	a :=<span class="number">10</span></div><div class="line">	fmt.Printf(<span class="string">"传递之前a的内存地址%p \n"</span>, &amp;a)</div><div class="line">	modifyValue(&amp;a)</div><div class="line">	fmt.Printf(<span class="string">"最终 a=%v"</span>, a)</div><div class="line">&#125;</div><div class="line">	</div><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">modifyValue</span><span class="params">(a *<span class="keyword">int</span>)</span></span> &#123;</div><div class="line">	fmt.Printf(<span class="string">"传递之后a的内存地址%p \n"</span>, &amp;a)</div><div class="line">	*a = <span class="number">20</span></div><div class="line">&#125;</div><div class="line"></div><div class="line">传递之前a的内存地址<span class="number">0xc0000b4040</span> </div><div class="line">传递之后a的内存地址<span class="number">0xc0000ae020</span></div><div class="line">最终 a=<span class="number">20</span></div></pre></td></tr></table></figure>
+<p>从结果来看最终 <code>a</code> 的值是被方法修改了，这点便是 <code>Go</code> 与 <code>Java</code> 很大的不同点：</p>
+<p>在 <code>Go</code> 中存在着指针的概念，我们可以将变量通过指针的方式传递到不同的方法中，在方法里便可通过这个指针访问甚至修改原始数据。</p>
+<p>那这么一看不就是引用传递嘛？</p>
+<p>其实不然，我们仔细看看刚才的输出会发现参数传递前后的内存地址并不相同。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">传递之前a的内存地址<span class="number">0xc0000b4040</span> </div><div class="line">传递之后a的内存地址<span class="number">0xc0000ae020</span></div></pre></td></tr></table></figure>
+<p>这也恰好论证了值传递，因为这里实际传递的是指针的拷贝。</p>
+<p>也就是说 <code>modifyValue</code> 方法中的参数与入参的<code>&amp;a</code>都是同一块内存的指针，但指针本身也是需要内存来存放的，所以在方法调用过程中新建了一个指针 <code>a</code> ，从而导致他们的内存地址不同。</p>
+<p>虽然内存地址不同，但指向的数据都是同一块，所以方法内修改后原始数据也受到了影响。</p>
+<h2 id="引用类型"><a href="#引用类型" class="headerlink" title="引用类型"></a>引用类型</h2><p>对于 <code>map slice channel</code> 这类引用类型又略有不同：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</div><div class="line">	<span class="keyword">var</span> personList = []<span class="keyword">string</span>&#123;<span class="string">"张三"</span>,<span class="string">"李四"</span>&#125;</div><div class="line">	modifySlice(personList)</div><div class="line">	fmt.Printf(<span class="string">"slice=%v \n"</span>, personList)</div><div class="line">&#125;</div><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">modifySlice</span><span class="params">(personList []<span class="keyword">string</span>)</span></span> &#123;</div><div class="line">	personList[<span class="number">1</span>] = <span class="string">"王五"</span></div><div class="line">&#125;</div><div class="line"></div><div class="line">slice=[张三 王五]</div></pre></td></tr></table></figure>
+<p>最终我们会发现原始数据也被修改了，但我们并没有传递指针；同样的特性也适用于 <code>map</code> 。</p>
+<p>但其实我们查看 <code>slice</code> 的源码会发现存放数据的 <code>array</code> 就是指针类型：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">type</span> slice <span class="keyword">struct</span> &#123;</div><div class="line">	array unsafe.Pointer</div><div class="line">	<span class="built_in">len</span>   <span class="keyword">int</span></div><div class="line">	<span class="built_in">cap</span>   <span class="keyword">int</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>所以我们可以直接对数据进行修改，相当于间接的带了指针。</p>
+<hr>
+<h2 id="使用建议"><a href="#使用建议" class="headerlink" title="使用建议"></a>使用建议</h2><p>那我们在什么时候使用指针呢？有以下几点建议：</p>
+<ul>
+<li>如果参数是基本的值类型，比如 <code>int,float</code> 建议直接传值。</li>
+<li>如果需要修改基本的值类型，那只能是指针；但考虑到代码可读性还是建议将修改后的值返回用于重新赋值。</li>
+<li>数据量较大时建议使用指针，减少不必要的值拷贝。（具体多大可以自行判断）</li>
+</ul>
+<h1 id="Python"><a href="#Python" class="headerlink" title="Python"></a>Python</h1><p>在 <code>Python</code> 中变量是否可变是影响参数传递的重要因素：</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4xwu2i5j30ia08kwgb.jpg" alt=""></p>
+<p>如上图所示，<code>bool int float</code> 这些不可变类型在参数传递过程中是不能修改原始数据的。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</div><div class="line">		x = <span class="number">1</span></div><div class="line">    modify(x)</div><div class="line">    print(<span class="string">'最终 x=&#123;&#125;'</span>.format(x))	</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">modify</span><span class="params">(val)</span>:</span></div><div class="line">    val = <span class="number">2</span></div><div class="line"></div><div class="line">最终 x=<span class="number">1</span></div></pre></td></tr></table></figure>
+<p>原理与 <code>Java Go</code>中类似，是基于值传递的，这里就不再复述。</p>
+<p>这里重点看看可变数据类型在参数传递中的过程：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</div><div class="line">		x = [<span class="number">1</span>]</div><div class="line">    modify(x)</div><div class="line">    print(<span class="string">'最终 x=&#123;&#125;'</span>.format(x))	</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">modify</span><span class="params">(val)</span>:</span></div><div class="line">    val.append(<span class="number">2</span>)</div><div class="line"></div><div class="line">最终 x=[<span class="number">1</span>, <span class="number">2</span>]</div></pre></td></tr></table></figure>
+<p>最终数据受到了影响，那么就表明这是引用传递嘛？再看个例子试试：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</div><div class="line">		x = [<span class="number">1</span>]</div><div class="line">    modify(x)</div><div class="line">    print(<span class="string">'最终 x=&#123;&#125;'</span>.format(x))	</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">modify</span><span class="params">(val)</span>:</span></div><div class="line">    val = [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]</div><div class="line"></div><div class="line">最终 x=[<span class="number">1</span>]</div></pre></td></tr></table></figure>
+<p>显而易见这并不是引用传递，如果是引用传递最终 <code>x</code> 应当等于 <code>[1, 2 ,3]</code> 。</p>
+<p>从结果来看这个传递过程非常类似 <code>Go</code> 中的指针传递，<code>val</code> 拿到的也是 <code>x</code> 这个参数内存地址的拷贝；他们都指向了同一块内存地址。</p>
+<p>所以对这块数据的修改本质上改的是同一份数据，但一旦重新赋值就会创建一块新的内存从而不会影响到原始数据。</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4y5v9t4j30wa0rkmz1.jpg" alt=""></p>
+<p>与 <code>Java</code> 中的上图类似。</p>
+<p>所以总结下：</p>
+<ul>
+<li>对于不可变数据：在参数传递时传递的是值，对参数的修改不会影响到原有数据。</li>
+<li>对于可变数据：传递的是内存地址的拷贝，对参数的操作会影响到原始数据。</li>
+</ul>
+<hr>
+<p>这么说来这三种都是值传递了，那有没有引用传递的语言呢？</p>
+<p>当然，<code>C++</code>是支持引用传递的：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div></pre></td><td class="code"><pre><div class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></div><div class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</div><div class="line"> </div><div class="line"><span class="keyword">class</span> Box</div><div class="line">&#123;</div><div class="line">   <span class="keyword">public</span>:</div><div class="line">      <span class="keyword">double</span> len;</div><div class="line">&#125;;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">void</span> <span class="title">modify</span><span class="params">(Box&amp; b)</span></span>;</div><div class="line"> </div><div class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span> <span class="params">()</span></span></div><div class="line">&#123;</div><div class="line">	Box b1;</div><div class="line">	b1.len=<span class="number">100</span>;</div><div class="line">	<span class="built_in">cout</span> &lt;&lt; <span class="string">"调用前，b1 的值："</span> &lt;&lt; b1.len &lt;&lt; <span class="built_in">endl</span>;</div><div class="line">	modify(b1);</div><div class="line">	<span class="built_in">cout</span> &lt;&lt; <span class="string">"调用后，b1 的值："</span> &lt;&lt; b1.len &lt;&lt; <span class="built_in">endl</span>;</div><div class="line">	<span class="keyword">return</span> <span class="number">0</span>;</div><div class="line">&#125;</div><div class="line"> </div><div class="line"><span class="function"><span class="keyword">void</span> <span class="title">modify</span><span class="params">(Box&amp; b)</span></span></div><div class="line">&#123;</div><div class="line">	b.len=<span class="number">10.0</span>;</div><div class="line">	Box b2;</div><div class="line">	b2.len = <span class="number">999</span>;</div><div class="line">	b = b2;</div><div class="line">  </div><div class="line">	<span class="keyword">return</span>;</div><div class="line">&#125;</div><div class="line"></div><div class="line">调用前，b1 的值：<span class="number">100</span></div><div class="line">调用后，b1 的值：<span class="number">999</span></div></pre></td></tr></table></figure>
+<p>可以看到把新对象 <code>b2</code> 赋值给入参 <code>b</code> 后是会影响到原有数据的。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>其实这几种语言看下来会发现他们中也有许多相似之处，所以通常我们在掌握一门语言后也能快速学习其他语言。</p>
+<p>但往往是这些基础中的基础最让人忽略，希望大家在日常编码时能够考虑到这些基础知识多想想一定会写出更漂亮的代码(bug)。</p>
+
+      
+    </div>
+
+    <div>
+      
+        
+<div id="wechat_subscriber" style="display: block； padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+    <img id="wechat_subscriber_qcode" src="/uploads/weixinfooter1.jpg" alt="crossoverJie wechat" style="width: 200px; max-width: 100%;"/>
+    <div>我很有眼光！</div>
+</div>
+
+      
+    </div>
+
+    <div>
+      
+        
+  <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+    <div>请我吃🍗</div>
+    <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+      <span>赏</span>
+    </button>
+    <div id="QR" style="display: none;">
+      
+        <div id="wechat" style="display: inline-block">
+          <img id="wechat_qr" src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay"/>
+          <p>微信打赏</p>
+        </div>
+      
+      
+        <div id="alipay" style="display: inline-block">
+          <img id="alipay_qr" src="/alipay-reward-image.jpg" alt="crossoverJie Alipay"/>
+          <p>支付宝打赏</p>
+        </div>
+      
+    </div>
+  </div>
+
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Java/" rel="tag">#Java</a>
+          
+            <a href="/tags/Python/" rel="tag">#Python</a>
+          
+            <a href="/tags/Golang/" rel="tag">#Golang</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2020/12/08/go/one-hour-write-cli-app/" rel="next" title="一个小时学会用 Go 编写命令行工具">
+                <i class="fa fa-chevron-left"></i> 一个小时学会用 Go 编写命令行工具
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+  <p>热评文章</p>
+  <div class="ds-top-threads" data-range="weekly" data-num-items="4"></div>
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/uploads/crossoverjie.jpg"
+               alt="crossoverJie" />
+          <p class="site-author-name" itemprop="name">crossoverJie</p>
+          <p class="site-description motion-element" itemprop="description">You never know what you can do till you try.</p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">126</span>
+              <span class="site-state-item-name">posts</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">58</span>
+                <span class="site-state-item-name">categories</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">118</span>
+                <span class="site-state-item-name">tags</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/crossoverJie" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://www.jianshu.com/users/e2d07947c112/latest_articles" target="_blank" title="简书">
+                  
+                    <i class="fa fa-fw fa-book"></i>
+                  
+                  简书
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" target="_blank" title="掘金">
+                  
+                    <i class="fa fa-fw fa-bookmark"></i>
+                  
+                  掘金
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://twitter.com/crossoverJie" target="_blank" title="Twitter">
+                  
+                    <i class="fa fa-fw fa-twitter"></i>
+                  
+                  Twitter
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://wuchong.me" title="Jark's Blog" target="_blank">Jark's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://tengj.top" title="嘟嘟独立博客" target="_blank">嘟嘟独立博客</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://yemengying.com/" title="Giraffe Home" target="_blank">Giraffe Home</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://blog.jamespan.me/" title="潘小鶸(ruò)" target="_blank">潘小鶸(ruò)</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://fangjian0423.github.io/" title="Format's Notes" target="_blank">Format's Notes</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://yuzhouwan.com/" title="Benedict Jin" target="_blank">Benedict Jin</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.didispace.com/" title="程序猿DD" target="_blank">程序猿DD</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://blog.52itstyle.vip/" title="小柒博客" target="_blank">小柒博客</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://cmsblogs.com/" title="Java技术驿站" target="_blank">Java技术驿站</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://vim.ink/" title="vim 教程网" target="_blank">vim 教程网</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.jitwxs.cn" title="jitwxs" target="_blank">jitwxs</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.javaboy.org" title="江南一点雨" target="_blank">江南一点雨</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.liangsonghua.me" title="松花皮蛋的黑板报" target="_blank">松花皮蛋的黑板报</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.fi-ads.com" title="Future iDeal" target="_blank">Future iDeal</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://dbarobin.com/" title="Cryptospace" target="_blank">Cryptospace</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Java"><span class="nav-number">2.</span> <span class="nav-text">Java</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#基本类型传递"><span class="nav-number">2.1.</span> <span class="nav-text">基本类型传递</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#引用类型传递"><span class="nav-number">2.2.</span> <span class="nav-text">引用类型传递</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Go"><span class="nav-number">3.</span> <span class="nav-text">Go</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#值类型"><span class="nav-number">3.1.</span> <span class="nav-text">值类型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#引用类型"><span class="nav-number">3.2.</span> <span class="nav-text">引用类型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用建议"><span class="nav-number">3.3.</span> <span class="nav-text">使用建议</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Python"><span class="nav-number">4.</span> <span class="nav-text">Python</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy;  2016 - 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+
+<div class="powered-by">
+  Powered by <a class="theme-link" href="http://hexo.io">Hexo</a>
+</div>
+
+<div class="theme-info">
+  Theme -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+        
+
+<div class="busuanzi-count">
+
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="site-uv"><i class="fa fa-user"></i><span class="busuanzi-value" id="busuanzi_value_site_uv"></span>人数</span>
+  
+
+  
+    <span class="site-pv">您是第<span class="busuanzi-value" id="busuanzi_value_site_pv"></span>位童鞋</span>
+  
+  
+</div>
+
+
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/vendors/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/vendors/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.0.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.1"></script>
+
+
+
+  
+
+
+
+  
+
+    <script type="text/javascript">
+      var disqus_shortname = 'crossoverjie';
+      var disqus_identifier = '2020/12/08/basic/parameter-trans/';
+      var disqus_title = "一个小时学会用 Go 编写命令行工具";
+      var disqus_url = 'http://crossoverjie.top/2020/12/08/basic/parameter-trans/';
+
+      function run_disqus_script(disqus_script){
+        var dsq = document.createElement('script');
+        dsq.type = 'text/javascript';
+        dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      }
+
+      run_disqus_script('count.js');
+      
+        run_disqus_script('embed.js');
+      
+    </script>
+  
+
+
+
+
+  
+  
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length == 0) {
+       search_path = "search.xml";
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    function proceedsearch() {
+      $("body").append('<div class="popoverlay">').css('overflow', 'hidden');
+      $('.popup').toggle();
+
+    }
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+    'use strict';
+    $.ajax({
+        url: path,
+        dataType: "xml",
+        async: true,
+        success: function( xmlResponse ) {
+            // get the contents from search data
+            isfetched = true;
+            $('.popup').detach().appendTo('.header-inner');
+            var datas = $( "entry", xmlResponse ).map(function() {
+                return {
+                    title: $( "title", this ).text(),
+                    content: $("content",this).text(),
+                    url: $( "url" , this).text()
+                };
+            }).get();
+            var $input = document.getElementById(search_id);
+            var $resultContent = document.getElementById(content_id);
+            $input.addEventListener('input', function(){
+                var matchcounts = 0;
+                var str='<ul class=\"search-result-list\">';                
+                var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                $resultContent.innerHTML = "";
+                if (this.value.trim().length > 1) {
+                // perform local searching
+                datas.forEach(function(data) {
+                    var isMatch = true;
+                    var content_index = [];
+                    var data_title = data.title.trim().toLowerCase();
+                    var data_content = data.content.trim().replace(/<[^>]+>/g,"").toLowerCase();
+                    var data_url = data.url;
+                    var index_title = -1;
+                    var index_content = -1;
+                    var first_occur = -1;
+                    // only match artiles with not empty titles and contents
+                    if(data_title != '' && data_content != '') {
+                        keywords.forEach(function(keyword, i) {
+                            index_title = data_title.indexOf(keyword);
+                            index_content = data_content.indexOf(keyword);
+                            if( index_title < 0 && index_content < 0 ){
+                                isMatch = false;
+                            } else {
+                                if (index_content < 0) {
+                                    index_content = 0;
+                                }
+                                if (i == 0) {
+                                    first_occur = index_content;
+                                }
+                            }
+                        });
+                    }
+                    // show search results
+                    if (isMatch) {
+                        matchcounts += 1;
+                        str += "<li><a href='"+ data_url +"' class='search-result-title'>"+ data_title +"</a>";
+                        var content = data.content.trim().replace(/<[^>]+>/g,"");
+                        if (first_occur >= 0) {
+                            // cut out 100 characters
+                            var start = first_occur - 20;
+                            var end = first_occur + 80;
+                            if(start < 0){
+                                start = 0;
+                            }
+                            if(start == 0){
+                                end = 50;
+                            }
+                            if(end > content.length){
+                                end = content.length;
+                            }
+                            var match_content = content.substring(start, end);
+                            // highlight all keywords
+                            keywords.forEach(function(keyword){
+                                var regS = new RegExp(keyword, "gi");
+                                match_content = match_content.replace(regS, "<b class=\"search-keyword\">"+keyword+"</b>");
+                            });
+                            
+                            str += "<p class=\"search-result\">" + match_content +"...</p>"
+                        }
+                        str += "</li>";
+                    }
+                })};
+                str += "</ul>";
+                if (matchcounts == 0) { str = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>' }
+                if (keywords == "") { str = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>' }
+                $resultContent.innerHTML = str;
+            });
+            proceedsearch();
+        }
+    });}
+
+    // handle and trigger popup window;
+    $('.popup-trigger').mousedown(function(e) {
+      e.stopPropagation();
+      if (isfetched == false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+
+    });
+
+    $('.popup-btn-close').click(function(e){
+      $('.popup').hide();
+      $(".popoverlay").remove();
+      $('body').css('overflow', '');
+    });
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+  </script>
+
+  
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.1.js"></script>
+  <script>AV.initialize("Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz", "NXiHFodQfmI8oxkK6IThhjrF");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script type="text/javascript" src="/js/src/particle.js" count="50" zindex="-2" opacity="1" color="0,104,183"></script>
+</body>
+</html>

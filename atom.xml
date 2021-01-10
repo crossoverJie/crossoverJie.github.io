@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2020-12-07T17:19:31.440Z</updated>
+  <updated>2021-01-10T18:01:22.232Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,136 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>一个小时学会用 Go 编写命令行工具</title>
+    <link href="http://crossoverjie.top/2020/12/08/basic/parameter-trans/"/>
+    <id>http://crossoverjie.top/2020/12/08/basic/parameter-trans/</id>
+    <published>2020-12-08T00:10:36.000Z</published>
+    <updated>2021-01-10T18:01:22.232Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj52jjb2ej30ji0jggmr.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近一年多的时间陆续接触了一些对我来说陌生的语言，主要就是 <code>Python</code> 和 <code>Go</code>，期间为了快速实现需求只是依葫芦画瓢的撸代码；并没有深究一些细节与原理。</p>
+<p>就拿参数传递一事来说各个语言的实现细节各不相同，但又有类似之处；在许多新手入门时容易搞不清楚，导致犯一些低级错误。</p>
+<a id="more"></a>
+<h1 id="Java"><a href="#Java" class="headerlink" title="Java"></a>Java</h1><h2 id="基本类型传递"><a href="#基本类型传递" class="headerlink" title="基本类型传递"></a>基本类型传递</h2><p>先拿我最熟悉的 <code>Java</code> 来说，我相信应该没人会写这样的代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Test</span></div><div class="line">  <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testBasic</span><span class="params">()</span> </span>&#123;</div><div class="line">      <span class="keyword">int</span> a = <span class="number">10</span>;</div><div class="line">      modifyBasic(a);</div><div class="line">      System.out.println(String.format(<span class="string">"最终结果 main a==%s"</span>, a));</div><div class="line">  &#125;</div><div class="line"></div><div class="line">  <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">modifyBasic</span><span class="params">(<span class="keyword">int</span> aa)</span> </span>&#123;</div><div class="line">      System.out.println(String.format(<span class="string">"修改之前 aa==%s"</span>, aa));</div><div class="line">      aa = <span class="number">20</span>;</div><div class="line">      System.out.println(String.format(<span class="string">"修改之后 aa==%s"</span>, aa));</div><div class="line">  &#125;</div></pre></td></tr></table></figure>
+<p>输出结果:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">修改之前 aa==<span class="number">10</span></div><div class="line">修改之后 aa==<span class="number">20</span></div><div class="line">最终结果 main a==<span class="number">10</span></div></pre></td></tr></table></figure>
+<p>不过从这段代码的目的来看应该是想要修改 <code>a</code> 的值，从直觉上来说如果修改成功也是能理解的。</p>
+<p>至于结果与预期不符合的根本原因是理解错了参数的值传递与引用传递。</p>
+<hr>
+<p>在这之前还是先明确下值传递与引用传递的区别：</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4w063qsj317w08eac8.jpg" alt=""></p>
+<p>这里咱们先抛出结论，<code>Java</code> 采用的是值传递；这样也能解释为什么上文的例子没有成功修改原始数据。</p>
+<p>参考下图更好理解：</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4u1bs8cj30e206nt8x.jpg" alt=""></p>
+<p>当发生函数调用的时候 <code>a</code> 将自己传入到 <code>modifyBasic</code> 方法中，同时将自己的值复制了一份并赋值给了一个新变量 <code>aa</code> 从图中可以看出这是 <code>a</code> 和 <code>aa</code> 两个变量没有一毛钱关系，所以对 <code>aa</code> 的修改并不会影响到 <code>a</code>。</p>
+<p>有点类似于我把苹果给了老婆，她把苹果削好了；但我手里这颗并没有变化，因为她只是从餐盘里拿了一颗一模一样的苹果削好了。</p>
+<p>如果我想要她那颗，只能让她把削好的苹果给我；也就类似于使用方法的返回值。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">a = modifyBasic(a);</div></pre></td></tr></table></figure>
+<h2 id="引用类型传递"><a href="#引用类型传递" class="headerlink" title="引用类型传递"></a>引用类型传递</h2><p>下面来看看引用类型的传递：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div></pre></td><td class="code"><pre><div class="line">	</div><div class="line"><span class="keyword">private</span> <span class="class"><span class="keyword">class</span> <span class="title">Car</span></span>&#123;</div><div class="line">      <span class="keyword">private</span> String name;</div><div class="line"></div><div class="line">      <span class="function"><span class="keyword">public</span> <span class="title">Car</span><span class="params">(String name)</span> </span>&#123;</div><div class="line">          <span class="keyword">this</span>.name = name;</div><div class="line">      &#125;</div><div class="line"></div><div class="line">      <span class="meta">@Override</span></div><div class="line">      <span class="function"><span class="keyword">public</span> String <span class="title">toString</span><span class="params">()</span> </span>&#123;</div><div class="line">          <span class="keyword">return</span> <span class="string">"Car&#123;"</span> +</div><div class="line">                  <span class="string">"name='"</span> + name + <span class="string">'\''</span> +</div><div class="line">                  <span class="string">'&#125;'</span>;</div><div class="line">      &#125;</div><div class="line">  &#125;</div><div class="line"></div><div class="line"><span class="meta">@Test</span></div><div class="line">  <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">test01</span><span class="params">()</span></span>&#123;</div><div class="line">      Car car1 = <span class="keyword">new</span> Car(<span class="string">"benz"</span>);</div><div class="line">      modifyCar1(car1);</div><div class="line">      System.out.println(String.format(<span class="string">"最终结果 main car1==%s"</span>, car1));</div><div class="line">  &#125;</div><div class="line"></div><div class="line">  <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">modifyCar1</span><span class="params">(Car car)</span></span>&#123;</div><div class="line">      System.out.println(String.format(<span class="string">"修改之前 car==%s"</span>, car));</div><div class="line">      car.name = <span class="string">"bwm"</span>;</div><div class="line">      System.out.println(String.format(<span class="string">"修改之后 car==%s"</span>, car));</div><div class="line">  &#125;</div></pre></td></tr></table></figure>
+<p>在这个例子里先创建了一个 <code>benz</code> 的 <code>car1</code>，通过一个方法修改为 <code>bmw</code> 那最开始的  <code>car1</code> 会受到影响嘛？</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">修改之前 car==Car&#123;name=<span class="string">'benz'</span>&#125;</div><div class="line">修改之后 car==Car&#123;name=<span class="string">'bwm'</span>&#125;</div><div class="line">最终结果 main car1==Car&#123;name=<span class="string">'bwm'</span>&#125;</div></pre></td></tr></table></figure>
+<p>结果可能会与部分人预期相反，这样的修改却是可以影响到原有数据的？这岂不是和<code>值传递</code>不符，看样子这是<code>引用传递</code>吧？</p>
+<p>别急，通过下图分析后大家就能明白：</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4wcjfsij30xw0r2q4l.jpg" alt=""></p>
+<p>在 <code>test01</code> 方法中我们创建了一个 <code>car1</code> 的对象，该对象存放于堆内存中，假设内存地址为 <code>0x1102</code> ，于是 <code>car1</code> 这个变量便应用了这块内存地址。</p>
+<p>当我们调用 <code>modifyCar1</code> 这个方法的时候会在该方法栈中创建一个变量 <code>car</code> ,接下来重点到了：</p>
+<p>这个 <code>car</code> 变量是由原本的入参 <code>car1</code> 复制而来，所以它所对应的堆内存依然是 <code>0x1102</code>；</p>
+<p>所以当我们通过 <code>car</code> 这个变量修改了数据后，本质上修改的是同一块堆内存中的数据。从而原本引用了这块内存地址的 <code>car1</code> 也能查看到对应的变化。</p>
+<p>这里理解起来可能会比较绕，但我们记住一点就行：</p>
+<p>传递引用类型的数据时，传递的并不是引用本身，依然是值；只是这个<code>值</code> 是<strong>内存地址</strong>罢了。</p>
+<p>因为把相同的内存地址传过去了，所以对数据的操作依然会影响到外部。</p>
+<p>所以同理，类似于这样的代码也会影响到外部原始数据：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Test</span></div><div class="line">   <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testList</span><span class="params">()</span></span>&#123;</div><div class="line">       List&lt;Integer&gt; list = <span class="keyword">new</span> ArrayList&lt;&gt;();</div><div class="line">       list.add(<span class="number">1</span>);</div><div class="line">       addList(list);</div><div class="line">       System.out.println(list);</div><div class="line">   &#125;</div><div class="line"></div><div class="line">   <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">addList</span><span class="params">(List&lt;Integer&gt; list)</span> </span>&#123;</div><div class="line">       list.add(<span class="number">2</span>);</div><div class="line">   &#125;</div><div class="line"></div><div class="line">   [<span class="number">1</span>, <span class="number">2</span>]</div></pre></td></tr></table></figure>
+<hr>
+<p>那如果是这样的代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Test</span></div><div class="line">   <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">test02</span><span class="params">()</span></span>&#123;</div><div class="line">       Car car1 = <span class="keyword">new</span> Car(<span class="string">"benz"</span>);</div><div class="line">       modifyCar(car1);</div><div class="line">       System.out.println(String.format(<span class="string">"最终结果 main car1==%s"</span>, car1));</div><div class="line">   &#125;</div><div class="line"></div><div class="line">   <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">modifyCar</span><span class="params">(Car car2)</span> </span>&#123;</div><div class="line">       System.out.println(String.format(<span class="string">"修改之前 car2==%s"</span>, car2));</div><div class="line">       car2 = <span class="keyword">new</span> Car(<span class="string">"bmw"</span>);</div><div class="line">       System.out.println(String.format(<span class="string">"修改之后 car2==%s"</span>, car2));</div><div class="line">   &#125;</div></pre></td></tr></table></figure>
+<p>假设 <code>Java</code> 是引用传递那最终的结果应该是打印 <code>bmw</code> 才对。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">修改之前 car2==Car&#123;name=<span class="string">'benz'</span>&#125;</div><div class="line">修改之后 car2==Car&#123;name=<span class="string">'bmw'</span>&#125;</div><div class="line">最终结果 main car1==Car&#123;name=<span class="string">'benz'</span>&#125;</div></pre></td></tr></table></figure>
+<p>从结果又能佐证这里依然是值传递。</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4wp7rl4j30wa0rkmz1.jpg" alt=""></p>
+<p>如果是引用传递，原本的 <code>0x1102</code> 应该是被直接替换为新创建的 <code>0x1103</code> 才对；而实际情况如上图所示，<code>car2</code> 直接重新引用了一个对象，两个对象之间互不干扰。</p>
+<h1 id="Go"><a href="#Go" class="headerlink" title="Go"></a>Go</h1><p>相对于 <code>Java</code> 来说  <code>Go</code> 的用法又有所不同，不过我们也可以先得出结论：</p>
+<p><code>Go语言的参数也是值传递。</code></p>
+<p>在 <code>Go</code> 语言中数据类型主要有以下两种：</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4x0jl2vj31760iy0ue.jpg" alt=""></p>
+<p>值类型与引用类型；</p>
+<h2 id="值类型"><a href="#值类型" class="headerlink" title="值类型"></a>值类型</h2><p>先以值类型举例：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</div><div class="line">	a :=<span class="number">10</span></div><div class="line">	modifyValue(a)</div><div class="line">	fmt.Printf(<span class="string">"最终 a=%v"</span>, a)</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">modifyValue</span><span class="params">(a <span class="keyword">int</span>)</span></span> &#123;</div><div class="line">	a = <span class="number">20</span></div><div class="line">&#125;</div><div class="line">输出：最终 a=<span class="number">20</span></div></pre></td></tr></table></figure>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4xmzws5j30q40dc75g.jpg" alt=""></p>
+<p>函数调用过程与之前的 <code>Java</code> 类似，本质上传递到函数中的值也是  <code>a</code>  的拷贝，所以对其的修改不会影响到原始数据。</p>
+<p>当我们把代码稍加修改：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</div><div class="line">	a :=<span class="number">10</span></div><div class="line">	fmt.Printf(<span class="string">"传递之前a的内存地址%p \n"</span>, &amp;a)</div><div class="line">	modifyValue(&amp;a)</div><div class="line">	fmt.Printf(<span class="string">"最终 a=%v"</span>, a)</div><div class="line">&#125;</div><div class="line">	</div><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">modifyValue</span><span class="params">(a *<span class="keyword">int</span>)</span></span> &#123;</div><div class="line">	fmt.Printf(<span class="string">"传递之后a的内存地址%p \n"</span>, &amp;a)</div><div class="line">	*a = <span class="number">20</span></div><div class="line">&#125;</div><div class="line"></div><div class="line">传递之前a的内存地址<span class="number">0xc0000b4040</span> </div><div class="line">传递之后a的内存地址<span class="number">0xc0000ae020</span></div><div class="line">最终 a=<span class="number">20</span></div></pre></td></tr></table></figure>
+<p>从结果来看最终 <code>a</code> 的值是被方法修改了，这点便是 <code>Go</code> 与 <code>Java</code> 很大的不同点：</p>
+<p>在 <code>Go</code> 中存在着指针的概念，我们可以将变量通过指针的方式传递到不同的方法中，在方法里便可通过这个指针访问甚至修改原始数据。</p>
+<p>那这么一看不就是引用传递嘛？</p>
+<p>其实不然，我们仔细看看刚才的输出会发现参数传递前后的内存地址并不相同。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">传递之前a的内存地址<span class="number">0xc0000b4040</span> </div><div class="line">传递之后a的内存地址<span class="number">0xc0000ae020</span></div></pre></td></tr></table></figure>
+<p>这也恰好论证了值传递，因为这里实际传递的是指针的拷贝。</p>
+<p>也就是说 <code>modifyValue</code> 方法中的参数与入参的<code>&amp;a</code>都是同一块内存的指针，但指针本身也是需要内存来存放的，所以在方法调用过程中新建了一个指针 <code>a</code> ，从而导致他们的内存地址不同。</p>
+<p>虽然内存地址不同，但指向的数据都是同一块，所以方法内修改后原始数据也受到了影响。</p>
+<h2 id="引用类型"><a href="#引用类型" class="headerlink" title="引用类型"></a>引用类型</h2><p>对于 <code>map slice channel</code> 这类引用类型又略有不同：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</div><div class="line">	<span class="keyword">var</span> personList = []<span class="keyword">string</span>&#123;<span class="string">"张三"</span>,<span class="string">"李四"</span>&#125;</div><div class="line">	modifySlice(personList)</div><div class="line">	fmt.Printf(<span class="string">"slice=%v \n"</span>, personList)</div><div class="line">&#125;</div><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">modifySlice</span><span class="params">(personList []<span class="keyword">string</span>)</span></span> &#123;</div><div class="line">	personList[<span class="number">1</span>] = <span class="string">"王五"</span></div><div class="line">&#125;</div><div class="line"></div><div class="line">slice=[张三 王五]</div></pre></td></tr></table></figure>
+<p>最终我们会发现原始数据也被修改了，但我们并没有传递指针；同样的特性也适用于 <code>map</code> 。</p>
+<p>但其实我们查看 <code>slice</code> 的源码会发现存放数据的 <code>array</code> 就是指针类型：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">type</span> slice <span class="keyword">struct</span> &#123;</div><div class="line">	array unsafe.Pointer</div><div class="line">	<span class="built_in">len</span>   <span class="keyword">int</span></div><div class="line">	<span class="built_in">cap</span>   <span class="keyword">int</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>所以我们可以直接对数据进行修改，相当于间接的带了指针。</p>
+<hr>
+<h2 id="使用建议"><a href="#使用建议" class="headerlink" title="使用建议"></a>使用建议</h2><p>那我们在什么时候使用指针呢？有以下几点建议：</p>
+<ul>
+<li>如果参数是基本的值类型，比如 <code>int,float</code> 建议直接传值。</li>
+<li>如果需要修改基本的值类型，那只能是指针；但考虑到代码可读性还是建议将修改后的值返回用于重新赋值。</li>
+<li>数据量较大时建议使用指针，减少不必要的值拷贝。（具体多大可以自行判断）</li>
+</ul>
+<h1 id="Python"><a href="#Python" class="headerlink" title="Python"></a>Python</h1><p>在 <code>Python</code> 中变量是否可变是影响参数传递的重要因素：</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4xwu2i5j30ia08kwgb.jpg" alt=""></p>
+<p>如上图所示，<code>bool int float</code> 这些不可变类型在参数传递过程中是不能修改原始数据的。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</div><div class="line">		x = <span class="number">1</span></div><div class="line">    modify(x)</div><div class="line">    print(<span class="string">'最终 x=&#123;&#125;'</span>.format(x))	</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">modify</span><span class="params">(val)</span>:</span></div><div class="line">    val = <span class="number">2</span></div><div class="line"></div><div class="line">最终 x=<span class="number">1</span></div></pre></td></tr></table></figure>
+<p>原理与 <code>Java Go</code>中类似，是基于值传递的，这里就不再复述。</p>
+<p>这里重点看看可变数据类型在参数传递中的过程：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</div><div class="line">		x = [<span class="number">1</span>]</div><div class="line">    modify(x)</div><div class="line">    print(<span class="string">'最终 x=&#123;&#125;'</span>.format(x))	</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">modify</span><span class="params">(val)</span>:</span></div><div class="line">    val.append(<span class="number">2</span>)</div><div class="line"></div><div class="line">最终 x=[<span class="number">1</span>, <span class="number">2</span>]</div></pre></td></tr></table></figure>
+<p>最终数据受到了影响，那么就表明这是引用传递嘛？再看个例子试试：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</div><div class="line">		x = [<span class="number">1</span>]</div><div class="line">    modify(x)</div><div class="line">    print(<span class="string">'最终 x=&#123;&#125;'</span>.format(x))	</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">modify</span><span class="params">(val)</span>:</span></div><div class="line">    val = [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]</div><div class="line"></div><div class="line">最终 x=[<span class="number">1</span>]</div></pre></td></tr></table></figure>
+<p>显而易见这并不是引用传递，如果是引用传递最终 <code>x</code> 应当等于 <code>[1, 2 ,3]</code> 。</p>
+<p>从结果来看这个传递过程非常类似 <code>Go</code> 中的指针传递，<code>val</code> 拿到的也是 <code>x</code> 这个参数内存地址的拷贝；他们都指向了同一块内存地址。</p>
+<p>所以对这块数据的修改本质上改的是同一份数据，但一旦重新赋值就会创建一块新的内存从而不会影响到原始数据。</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gmj4y5v9t4j30wa0rkmz1.jpg" alt=""></p>
+<p>与 <code>Java</code> 中的上图类似。</p>
+<p>所以总结下：</p>
+<ul>
+<li>对于不可变数据：在参数传递时传递的是值，对参数的修改不会影响到原有数据。</li>
+<li>对于可变数据：传递的是内存地址的拷贝，对参数的操作会影响到原始数据。</li>
+</ul>
+<hr>
+<p>这么说来这三种都是值传递了，那有没有引用传递的语言呢？</p>
+<p>当然，<code>C++</code>是支持引用传递的：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div></pre></td><td class="code"><pre><div class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></div><div class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</div><div class="line"> </div><div class="line"><span class="keyword">class</span> Box</div><div class="line">&#123;</div><div class="line">   <span class="keyword">public</span>:</div><div class="line">      <span class="keyword">double</span> len;</div><div class="line">&#125;;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">void</span> <span class="title">modify</span><span class="params">(Box&amp; b)</span></span>;</div><div class="line"> </div><div class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span> <span class="params">()</span></span></div><div class="line">&#123;</div><div class="line">	Box b1;</div><div class="line">	b1.len=<span class="number">100</span>;</div><div class="line">	<span class="built_in">cout</span> &lt;&lt; <span class="string">"调用前，b1 的值："</span> &lt;&lt; b1.len &lt;&lt; <span class="built_in">endl</span>;</div><div class="line">	modify(b1);</div><div class="line">	<span class="built_in">cout</span> &lt;&lt; <span class="string">"调用后，b1 的值："</span> &lt;&lt; b1.len &lt;&lt; <span class="built_in">endl</span>;</div><div class="line">	<span class="keyword">return</span> <span class="number">0</span>;</div><div class="line">&#125;</div><div class="line"> </div><div class="line"><span class="function"><span class="keyword">void</span> <span class="title">modify</span><span class="params">(Box&amp; b)</span></span></div><div class="line">&#123;</div><div class="line">	b.len=<span class="number">10.0</span>;</div><div class="line">	Box b2;</div><div class="line">	b2.len = <span class="number">999</span>;</div><div class="line">	b = b2;</div><div class="line">  </div><div class="line">	<span class="keyword">return</span>;</div><div class="line">&#125;</div><div class="line"></div><div class="line">调用前，b1 的值：<span class="number">100</span></div><div class="line">调用后，b1 的值：<span class="number">999</span></div></pre></td></tr></table></figure>
+<p>可以看到把新对象 <code>b2</code> 赋值给入参 <code>b</code> 后是会影响到原有数据的。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>其实这几种语言看下来会发现他们中也有许多相似之处，所以通常我们在掌握一门语言后也能快速学习其他语言。</p>
+<p>但往往是这些基础中的基础最让人忽略，希望大家在日常编码时能够考虑到这些基础知识多想想一定会写出更漂亮的代码(bug)。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://tva1.sinaimg.cn/large/008eGmZEly1gmj52jjb2ej30ji0jggmr.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;最近一年多的时间陆续接触了一些对我来说陌生的语言，主要就是 &lt;code&gt;Python&lt;/code&gt; 和 &lt;code&gt;Go&lt;/code&gt;，期间为了快速实现需求只是依葫芦画瓢的撸代码；并没有深究一些细节与原理。&lt;/p&gt;
+&lt;p&gt;就拿参数传递一事来说各个语言的实现细节各不相同，但又有类似之处；在许多新手入门时容易搞不清楚，导致犯一些低级错误。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="基础原理" scheme="http://crossoverjie.top/categories/%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="Python" scheme="http://crossoverjie.top/tags/Python/"/>
+    
+      <category term="Golang" scheme="http://crossoverjie.top/tags/Golang/"/>
+    
+  </entry>
   
   <entry>
     <title>一个小时学会用 Go 编写命令行工具</title>
@@ -124,9 +254,9 @@
       <category term="Golang" scheme="http://crossoverjie.top/categories/Golang/"/>
     
     
-      <category term="cli" scheme="http://crossoverjie.top/tags/cli/"/>
-    
       <category term="Golang" scheme="http://crossoverjie.top/tags/Golang/"/>
+    
+      <category term="cli" scheme="http://crossoverjie.top/tags/cli/"/>
     
   </entry>
   
@@ -221,9 +351,9 @@
     
       <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
     
-      <category term="Golang" scheme="http://crossoverjie.top/tags/Golang/"/>
-    
       <category term="Python" scheme="http://crossoverjie.top/tags/Python/"/>
+    
+      <category term="Golang" scheme="http://crossoverjie.top/tags/Golang/"/>
     
   </entry>
   
@@ -2073,174 +2203,6 @@
     
     
       <category term="db" scheme="http://crossoverjie.top/tags/db/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>线程池没你想的那么简单（续）</title>
-    <link href="http://crossoverjie.top/2019/06/06/concurrent/threadpool-02/"/>
-    <id>http://crossoverjie.top/2019/06/06/concurrent/threadpool-02/</id>
-    <published>2019-06-06T00:10:00.000Z</published>
-    <updated>2019-06-05T18:02:36.680Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/06/06/5cf7fff98dd9f45508.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前段时间写过一篇<a href="https://crossoverjie.top/2019/05/20/concurrent/threadpool-01/">《线程池没你想的那么简单》</a>，和大家一起撸了一个基本的线程池，具备：</p>
-<ul>
-<li>线程池基本调度功能。</li>
-<li>线程池自动扩容缩容。</li>
-<li>队列缓存线程。</li>
-<li>关闭线程池。</li>
-</ul>
-<a id="more"></a>
-<p>这些功能，最后也留下了三个待实现的 <code>features</code> 。</p>
-<ul>
-<li>执行带有返回值的线程。</li>
-<li>异常处理怎么办？</li>
-<li>所有任务执行完怎么通知我？</li>
-</ul>
-<p>这次就实现这三个特性来看看 <code>j.u.c</code> 中的线程池是如何实现这些需求的。</p>
-<blockquote>
-<p>再看本文之前，强烈建议先查看上文<a href="https://crossoverjie.top/2019/05/20/concurrent/threadpool-01/">《线程池没你想的那么简单》</a></p>
-</blockquote>
-<h1 id="任务完成后的通知"><a href="#任务完成后的通知" class="headerlink" title="任务完成后的通知"></a>任务完成后的通知</h1><p>大家在用线程池的时候或多或少都会有这样的需求：</p>
-<p>线程池中的任务执行完毕后再通知主线程做其他事情，比如一批任务都执行完毕后再执行下一波任务等等。</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf7fffa58a8081569.jpg" alt=""></p>
-<p>以我们之前的代码为例：</p>
-<blockquote>
-<p>总共往线程池中提交了 13 个任务，直到他们都执行完毕后再打印 “任务执行完毕” 这个日志。</p>
-</blockquote>
-<p>执行结果如下：</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf7fffb21f8d45495.jpg" alt=""></p>
-<p>为了简单的达到这个效果，我们可以在初始化线程池的时候传入一个接口的实现，这个接口就是用于任务完成之后的回调。</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf7fffbe663629607.jpg" alt=""></p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Notify</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 回调</div><div class="line">     */</div><div class="line">    <span class="function"><span class="keyword">void</span> <span class="title">notifyListen</span><span class="params">()</span> </span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>以上就是线程池的构造函数以及接口的定义。</p>
-<p>所以想要实现这个功能的关键是在何时回调这个接口？</p>
-<p>仔细想想其实也简单：只要我们记录提交到线程池中的任务及完成的数量，他们两者的差为 0 时就认为线程池中的任务已执行完毕；这时便可回调这个接口。</p>
-<p>所以在往线程池中写入任务时我们需要记录任务数量：</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf7fffc8161b82626.jpg" alt=""></p>
-<p>为了并发安全的考虑，这里的计数器采用了原子的 <code>AtomicInteger</code> 。</p>
-<hr>
-<p><img src="https://i.loli.net/2019/06/06/5cf7fffd0634612268.jpg" alt=""></p>
-<p>而在任务执行完毕后就将计数器 -1 ，一旦为 0 时则任务任务全部执行完毕；这时便可回调我们自定义的接口完成通知。</p>
-<hr>
-<h2 id="JDK-的实现"><a href="#JDK-的实现" class="headerlink" title="JDK 的实现"></a>JDK 的实现</h2><p>这样的需求在 jdk 中的 <code>ThreadPoolExecutor</code> 中也有相关的 <code>API</code> ，只是用法不太一样，但本质原理都大同小异。</p>
-<p>我们使用 <code>ThreadPoolExecutor</code> 的常规关闭流程如下：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">executorService.shutdown();</div><div class="line"><span class="keyword">while</span> (!executorService.awaitTermination(<span class="number">100</span>, TimeUnit.MILLISECONDS)) &#123;</div><div class="line">    logger.info(<span class="string">"thread running"</span>);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>线程提交完毕后执行 <code>shutdown()</code> 关闭线程池，接着循环调用 <code>awaitTermination()</code> 方法，一旦任务全部执行完毕后则会返回 <code>true</code> 从而退出循环。</p>
-<p>这两个方法的目的和原理如下：</p>
-<ul>
-<li>执行 <code>shutdown()</code> 后会将线程池的状态置为关闭状态，这时将会停止接收新的任务同时会等待队列中的任务全部执行完毕后才真正关闭线程池。</li>
-<li><code>awaitTermination</code> 会阻塞直到线程池所有任务执行完毕或者超时时间已到。</li>
-</ul>
-<p>为什么要两个 <code>api</code> 结合一起使用呢？</p>
-<p>主要还在最终的目的是：所有线程执行完毕后再做某件事情，也就是在线程执行完毕之前其实主线程是需要<strong>被阻塞</strong>的。</p>
-<p><code>shutdown()</code> 执行后并不会阻塞，会立即返回，所有才需要后续用循环不停的调用 <code>awaitTermination()</code>，因为这个 api 才会阻塞线程。</p>
-<p>其实我们查看源码会发现，<code>ThreadPoolExecutor</code> 中的阻塞依然也是等待通知机制的运用，只不过用的是 <code>LockSupport</code> 的 <code>API</code> 而已。</p>
-<h1 id="带有返回值的线程"><a href="#带有返回值的线程" class="headerlink" title="带有返回值的线程"></a>带有返回值的线程</h1><p>接下来是带有返回值的线程，这个需求也非常常见；比如需要线程异步计算某些数据然后得到结果最终汇总使用。</p>
-<p>先来看看如何使用（和 jdk 的类似）：</p>
-<p>首先任务是不能实现 <code>Runnable</code> 接口了，毕竟他的 <code>run()</code> 函数是没有返回值的；所以我们改实现一个 <code>Callable</code> 的接口：</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf7fffd755d053986.jpg" alt=""></p>
-<p>这个接口有一个返回值。</p>
-<p>同时在提交任务时也稍作改动：</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf7fffe1162589733.jpg" alt=""></p>
-<p>首先是执行任务的函数由 <code>execute()</code> 换为了 <code>submit()</code>，同时他会返回一个返回值 <code>Future</code>，通过它便可拿到线程执行的结果。</p>
-<p>最后通过第二步将所有执行结果打印出来：</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf7ffff5b48143266.jpg" alt=""></p>
-<h2 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h2><p>再看具体实现之前先来思考下这样的功能如何实现？</p>
-<ul>
-<li>首先受限于 <code>jdk</code> 的线程 <code>api</code> 的规范，要执行一个线程不管是实现接口还是继承类，最终都是执行的 <code>run()</code> 函数。</li>
-<li>所以我们想要一个线程有返回值无非只能是在执行 <code>run()</code> 函数时去调用一个有返回值的方法，再将这个返回值存放起来用于后续使用。</li>
-</ul>
-<p>比如我们这里新建了一个 <code>Callable&lt;T&gt;</code> 的接口：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Callable</span>&lt;<span class="title">T</span>&gt; </span>&#123;</div><div class="line"></div><div class="line">    <span class="comment">/**</span></div><div class="line">     * 执行任务</div><div class="line">     * <span class="doctag">@return</span> 执行结果</div><div class="line">     */</div><div class="line">    <span class="function">T <span class="title">call</span><span class="params">()</span> </span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>它的 <code>call</code> 函数就是刚才提到的有返回值的方法，所以我们应当在线程的 run() 函数中去调用它。</p>
-<p>接着还会有一个 <code>Future</code> 的接口，他的主要作用是获取线程的返回值，也就是 <code>再将这个返回值存放起来用于后续使用</code> 这里提到的<strong>后续使用</strong>。</p>
-<p>既然有了接口那自然就得有它的实现 <code>FutureTask</code>，它实现了 <code>Future</code> 接口用于后续获取返回值。</p>
-<p>同时实现了 <code>Runnable</code> 接口会把自己变为一个线程。</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf7ffffe7dac41090.jpg" alt=""></p>
-<p>所以在它的 <code>run()</code> 函数中会调用刚才提到的具有返回值的 <code>call()</code> 函数。</p>
-<hr>
-<p>再次结合 <code>submit()</code> 提交任务和 <code>get()</code> 获取返回值的源码来看会更加理解这其中的门道。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * 有返回值</div><div class="line"> *</div><div class="line"> * <span class="doctag">@param</span> callable</div><div class="line"> * <span class="doctag">@param</span> &lt;T&gt;</div><div class="line"> * <span class="doctag">@return</span></div><div class="line"> */</div><div class="line"><span class="keyword">public</span> &lt;T&gt; <span class="function">Future&lt;T&gt; <span class="title">submit</span><span class="params">(Callable&lt;T&gt; callable)</span> </span>&#123;</div><div class="line">    FutureTask&lt;T&gt; future = <span class="keyword">new</span> FutureTask(callable);</div><div class="line">    execute(future);</div><div class="line">    <span class="keyword">return</span> future;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p><code>submit()</code> 非常简单，将我们丢进来的 <code>Callable</code> 对象转换为一个 <code>FutureTask</code> 对象，然后再调用之前的 <code>execute()</code> 来丢进线程池（后续的流程就和一个普通的线程进入线程池的流程一样）。</p>
-<blockquote>
-<p>FutureTask 本身也是线程，所以可以直接使用 <code>execute()</code> 函数。</p>
-</blockquote>
-<hr>
-<p>而 <code>future.get()</code> 函数中 <code>future</code> 对象由于在 <code>submit()</code> 中返回的真正对象是 <code>FutureTask</code>，所以我们直接看其中的源码就好。</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf80005766ef25838.jpg" alt=""></p>
-<p>由于 <code>get()</code> 在线程没有返回之前是一个阻塞函数，最终也是通过 <code>notify.wait()</code> 使线程进入阻塞状态来实现的。</p>
-<p>而使其从 <code>wait()</code> 中返回的条件必然是在线程执行完毕拿到返回值的时候才进行唤醒。</p>
-<p>也就是图中的第二部分；一旦线程执行完毕（<code>callable.call()</code>）就会唤醒 <code>notify</code> 对象，这样 <code>get</code> 方法也就能返回了。</p>
-<hr>
-<p>同样的道理，<code>ThreadPoolExecutor</code> 中的原理也是类似，只不过它考虑的细节更多所以看起来很复杂，但精简代码后核心也就是这些。</p>
-<p>甚至最终使用的 api 看起来都是类似的：</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf80006c916e52248.jpg" alt=""></p>
-<h1 id="异常处理"><a href="#异常处理" class="headerlink" title="异常处理"></a>异常处理</h1><p>最后一个是一些新手使用线程池很容易踩坑的一个地方：那就是异常处理。</p>
-<p>比如类似于这样的场景：</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf8000749e6c64762.jpg" alt=""></p>
-<p>创建了只有<strong>一个线程</strong>的线程池，这个线程只做一件事，就是一直不停的 while 循环。</p>
-<p>但是循环的过程中不小心抛出了一个异常，巧的是这个异常又没有被捕获。你觉得后续会发生什么事情呢？</p>
-<p>是线程继续运行？还是线程池会退出？</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf800079d51a22414.jpg" alt=""></p>
-<p>通过现象来看其实哪种都不是，线程既没有继续运行同时线程池也没有退出，会一直卡在这里。</p>
-<p>当我们 <code>dump</code> 线程快照会发现：</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf8000823ad870419.jpg" alt=""></p>
-<p>这时线程池中还有一个线程在运行，通过线程名称会发现这是新创建的一个线程（之前是<code>Thread-0</code>，现在是 <code>Thread-1</code>）。</p>
-<p>它的线程状态为 <code>WAITING</code> ，通过堆栈发现是卡在了 <code>CustomThreadPool.java:272</code> 处。</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf8000872d1f43610.jpg" alt=""></p>
-<p>就是卡在了从队列里获取任务的地方，由于此时的任务队列是空的，所以他会一直阻塞在这里。</p>
-<p><strong>看到这里，之前关注的朋友有没有似曾相识的感觉。</strong></p>
-<p>没错，我之前写过两篇：</p>
-<ul>
-<li><a href="https://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/">一个线程罢工的诡异事件</a></li>
-<li><a href="https://crossoverjie.top/2019/03/26/troubleshoot/thread-gone2/">线程池中你不容错过的一些细节</a></li>
-</ul>
-<p>线程池相关的问题，当时的讨论也非常<code>“激烈”</code>，其实最终的原因和这里是一模一样的。</p>
-<p>所以就这次简版的代码来看看其中的问题：</p>
-<p><img src="https://i.loli.net/2019/06/06/5cf80008d46e642627.jpg" alt=""></p>
-<p>现在又简化了一版代码我觉得之前还有疑问的朋友这次应该会更加明白。</p>
-<p>其实在线程池内部会对线程的运行捕获异常，但它并不会处理，只是用于标记是否执行成功；</p>
-<p>一旦执行失败则会回收掉当前异常的线程，然后重新创建一个新的 <code>Worker</code> 线程继续从<strong>队列里取任务然后执行</strong>。</p>
-<p>所以最终才会卡在<code>从队列中取任务</code>处。</p>
-<p>其实 <code>ThreadPoolExecutor</code> 的异常处理也是类似的，具体的源码就不多分析了，在上面两篇文章中已经说过几次。</p>
-<p><strong>所以我们在使用线程池时，其中的任务一定要做好异常处理。</strong></p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这一波下来我觉得线程池搞清楚没啥问题了，总的来看它内部运用了非常多的多线程解决方案，比如：</p>
-<ul>
-<li><code>ReentrantLock</code> 重入锁来保证线程写入的并发安全。</li>
-<li>利用等待通知机制来实现线程间通信（线程执行结果、等待线程池执行完毕等）。</li>
-</ul>
-<p>最后也学会了：</p>
-<ul>
-<li>标准的线程池关闭流程。</li>
-<li>如何使用有返回值的线程。</li>
-<li>线程异常捕获的重要性。</li>
-</ul>
-<p>最后本文所有源码（结合其中的测试代码使用）：</p>
-<p><a href="https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/concurrent/CustomThreadPool.java" target="_blank" rel="external">https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/concurrent/CustomThreadPool.java</a></p>
-<p><strong>你的点赞与分享是对我最大的支持</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/06/06/5cf7fff98dd9f45508.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;前段时间写过一篇&lt;a href=&quot;https://crossoverjie.top/2019/05/20/concurrent/threadpool-01/&quot;&gt;《线程池没你想的那么简单》&lt;/a&gt;，和大家一起撸了一个基本的线程池，具备：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;线程池基本调度功能。&lt;/li&gt;
-&lt;li&gt;线程池自动扩容缩容。&lt;/li&gt;
-&lt;li&gt;队列缓存线程。&lt;/li&gt;
-&lt;li&gt;关闭线程池。&lt;/li&gt;
-&lt;/ul&gt;
-    
-    </summary>
-    
-      <category term="并发" scheme="http://crossoverjie.top/categories/%E5%B9%B6%E5%8F%91/"/>
-    
-    
-      <category term="concurrent" scheme="http://crossoverjie.top/tags/concurrent/"/>
-    
-      <category term="ThreadPool" scheme="http://crossoverjie.top/tags/ThreadPool/"/>
     
   </entry>
   
