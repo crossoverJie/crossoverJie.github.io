@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[写了一个 gorm 乐观锁插件]]></title>
+    <url>%2F2021%2F03%2F15%2Fgo%2Fgorm-optimistic%2F</url>
+    <content type="text"><![CDATA[前言最近在用 Go 写业务的时碰到了并发更新数据的场景，由于该业务并发度不高，只是为了防止出现并发时数据异常。 所以自然就想到了乐观锁的解决方案。 实现乐观锁的实现比较简单，相信大部分有数据库使用经验的都能想到。 1UPDATE `table` SET `amount`=100,`version`=version+1 WHERE `version` = 1 AND `id` = 1 需要在表中新增一个类似于 version 的字段，本质上我们只是执行这段 SQL，在更新时比较当前版本与数据库版本是否一致。 如上图所示：版本一致则更新成功，并且将版本号+1；如果不一致则认为出现并发冲突，更新失败。 这时可以直接返回失败，让业务重试；当然也可以再次获取最新数据进行更新尝试。 我们使用的是 gorm 这个 orm 库，不过我查阅了官方文档却没有发现乐观锁相关的支持，看样子后续也不打算提供实现。 不过借助 gorm 实现也很简单： 123456789101112131415161718type Optimistic struct &#123; Id int64 `gorm:"column:id;primary_key;AUTO_INCREMENT" json:"id"` UserId string `gorm:"column:user_id;default:0;NOT NULL" json:"user_id"` // 用户ID Amount float32 `gorm:"column:amount;NOT NULL" json:"amount"` // 金额 Version int64 `gorm:"column:version;default:0;NOT NULL" json:"version"` // 版本&#125;func TestUpdate(t *testing.T) &#123; dsn := "root:abc123@/test?charset=utf8&amp;parseTime=True&amp;loc=Local" db, err := gorm.Open(mysql.Open(dsn), &amp;gorm.Config&#123;&#125;) var out Optimistic db.First(&amp;out, Optimistic&#123;Id: 1&#125;) out.Amount = out.Amount + 10 column := db.Model(&amp;out).Where("id", out.Id).Where("version", out.Version). UpdateColumn("amount", out.Amount). UpdateColumn("version", gorm.Expr("version+1")) fmt.Printf("#######update %v line \n", column.RowsAffected)&#125; 这里我们创建了一张 t_optimistic 表用于测试，生成的 SQL 也满足乐观锁的要求。 不过考虑到这类业务的通用性，每次需要乐观锁更新时都需要这样硬编码并不太合适。对于业务来说其实 version 是多少压根不需要关心，只要能满足并发更新时的准确性即可。 因此我做了一个封装，最终使用如下： 1234567var out Optimisticdb.First(&amp;out, Optimistic&#123;Id: 1&#125;)out.Amount = out.Amount + 10if err = UpdateWithOptimistic(db, &amp;out, nil, 0, 0); err != nil &#123; fmt.Printf("%+v \n", err)&#125; 这里的使用场景是每次更新时将 amount 金额加上 10。 这样只会更新一次，如果更新失败会返回一个异常。 当然也支持更新失败时执行一个回调函数，在该函数中实现对应的业务逻辑，同时会使用该业务逻辑尝试更新 N 次。 123456789101112131415161718192021func BenchmarkUpdateWithOptimistic(b *testing.B) &#123; dsn := "root:abc123@/test?charset=utf8&amp;parseTime=True&amp;loc=Local" db, err := gorm.Open(mysql.Open(dsn), &amp;gorm.Config&#123;&#125;) if err != nil &#123; fmt.Println(err) return &#125; b.RunParallel(func(pb *testing.PB) &#123; var out Optimistic db.First(&amp;out, Optimistic&#123;Id: 1&#125;) out.Amount = out.Amount + 10 err = UpdateWithOptimistic(db, &amp;out, func(model Lock) Lock &#123; bizModel := model.(*Optimistic) bizModel.Amount = bizModel.Amount + 10 return bizModel &#125;, 3, 0) if err != nil &#123; fmt.Printf("%+v \n", err) &#125; &#125;)&#125; 以上代码的目的是： 将 amount 金额 +10，失败时再次依然将金额+10，尝试更新 3 次；经过上述的并行测试，最终查看数据库确认数据并没有发生错误。 面向接口编程下面来看看具体是如何实现的；其实真正核心的代码也比较少： 123456789101112131415161718192021222324func UpdateWithOptimistic(db *gorm.DB, model Lock, callBack func(model Lock) Lock, retryCount, currentRetryCount int32) (err error) &#123; if currentRetryCount &gt; retryCount &#123; return errors.WithStack(NewOptimisticError("Maximum number of retries exceeded:" + strconv.Itoa(int(retryCount)))) &#125; currentVersion := model.GetVersion() model.SetVersion(currentVersion + 1) column := db.Model(model).Where("version", currentVersion).UpdateColumns(model) affected := column.RowsAffected if affected == 0 &#123; if callBack == nil &amp;&amp; retryCount == 0 &#123; return errors.WithStack(NewOptimisticError("Concurrent optimistic update error")) &#125; time.Sleep(100 * time.Millisecond) db.First(model) bizModel := callBack(model) currentRetryCount++ err := UpdateWithOptimistic(db, bizModel, callBack, retryCount, currentRetryCount) if err != nil &#123; return err &#125; &#125; return column.Error&#125; 具体步骤如下： 判断重试次数是否达到上限。 获取当前更新对象的版本号，将当前版本号 +1。 根据版本号条件执行更新语句。 更新成功直接返回。 更新失败 affected == 0 时，执行重试逻辑。 重新查询该对象的最新数据，目的是获取最新版本号。 执行回调函数。 从回调函数中拿到最新的业务数据。 递归调用自己执行更新，直到重试次数达到上限。 这里有几个地方值得说一下；由于 Go 目前还不支持泛型，所以我们如果想要获取 struct 中的 version 字段只能通过反射。 考虑到反射的性能损耗以及代码的可读性，有没有更”优雅“的实现方式呢？ 于是我定义了一个 interface: 1234type Lock interface &#123; SetVersion(version int64) GetVersion() int64&#125; 其中只有两个方法，目的则是获取 struct 中的 version 字段；所以每个需要乐观锁的 struct 都得实现该接口，类似于这样： 1234567func (o *Optimistic) GetVersion() int64 &#123; return o.Version&#125;func (o *Optimistic) SetVersion(version int64) &#123; o.Version = version&#125; 这样还带来了一个额外的好处： 一旦该结构体没有实现接口，在乐观锁更新时编译器便会提前报错，如果使用反射只能是在运行期间才能进行校验。 所以这里在接收数据库实体的便可以是 Lock 接口，同时获取和重新设置 version 字段也是非常的方便。 12currentVersion := model.GetVersion()model.SetVersion(currentVersion + 1) 类型断言当并发更新失败时affected == 0，便会回调传入进来的回调函数，在回调函数中我们需要实现自己的业务逻辑。 12345678err = UpdateWithOptimistic(db, &amp;out, func(model Lock) Lock &#123; bizModel := model.(*Optimistic) bizModel.Amount = bizModel.Amount + 10 return bizModel &#125;, 2, 0) if err != nil &#123; fmt.Printf("%+v \n", err) &#125; 但由于回调函数的入参只能知道是一个 Lock 接口，并不清楚具体是哪个 struct，所以在执行业务逻辑之前需要将这个接口转换为具体的 struct。 这其实和 Java 中的父类向子类转型非常类似，必须得是强制类型转换，也就是说运行时可能会出问题。 在 Go 语言中这样的行为被称为类型断言；虽然叫法不同，但目的类似。其语法如下： 123x.(T)x:表示 interface T:表示 向下转型的具体 struct 所以在回调函数中得根据自己的需要将 interface 转换为自己的 struct，这里得确保是自己所使用的 struct ，因为是强制转换，编译器无法帮你做校验，具体能否转换成功得在运行时才知道。 总结有需要的朋友可以在这里获取到源码及具体使用方式: https://github.com/crossoverJie/gorm-optimistic 最近工作中使用了几种不同的编程语言，会发现除了语言自身的语法特性外大部分知识点都是相同的； 比如面向对象、数据库、IO操作等；所以掌握了这些基本知识，学习其他语言自然就能触类旁通了。]]></content>
+      <categories>
+        <category>数据库</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>Go</tag>
+        <tag>OOP</tag>
+        <tag>乐观锁</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[可能是最晚的2020年终总结]]></title>
     <url>%2F2021%2F03%2F02%2Fannual-summary%2F2020%2F</url>
     <content type="text"><![CDATA[前言首先还是祝大家新年快乐，虽然还有300来天。 哈哈，圆规正传。 近三年每年我都有写年终总结，每次看上一年的新年计划时心里就会骂一句：TMD 又白写了；当然今年也不例外。 虽说计划对我来说意义不大，但回顾一年的重要事项用于茶余饭后的谈资还是很有用的。 回顾依照惯例还是首先回归下 2020 这一整年对我来说有哪些重要事件。 疫情首先自然是所有人都面临的疫情；我最直接的感受就是让我对二人世界有了新的认识。 但也是第一次为老婆单独过生日，谁让她出生的日子挑在了正月初五呢，平常这个时候都还在走亲访友，能记得她生日的都是真爱了。 为此我还特地为她准备了一个小惊喜； 悄悄的订了一个蛋糕，运气不错，赶在小区彻底封闭前取到了货，然后在她玩游戏的时候突然袭击；具体见视频： 蜜月旅行之后整个上半年对我来说都没有什么特别的记忆，因为我一直在期待下半年的婚假。 我是在 19 年 12月中的时候领的证，按照规定我得在20年的12月中旬将婚假休了；由于上半年的疫情也不太乐观（头一年打算去日本的计划也不得不落空），加上工作的上的事情也没有怎么排开；所以我便准备在11月份出去旅行。 说来也惭愧，这还是我们耍朋友8、9年来第一次正儿八经的出远门旅行。 因为有足足 15 天的婚假，加上一个周末就是 17 天；所以我准备将整个旅行分为两部分。 第一部分是在云南，主要地点是大理和丽江。 第二部分则是作为内陆人一直想见的大海：三亚。 为此我还特地做了一个行程表： 云南之行我也做了一个视频回顾： 在三亚的花费是整个旅程最多的部分，但我个人感觉并没有物超所值； 一个是饮食不太习惯，当地的海鲜吃法对我这种吃惯了川菜的确实有点难以接受，即便尝过了麻辣香锅版的海鲜。 最后三天还咬牙斥”巨资“入驻了三亚出名的亚特兰蒂斯酒店，原本想着这么贵的酒店总得图个清静吧； 没想到办理入住的时候活活排了两个小时队，果然是贫穷限制了想象力。 后面我们发现部分游客居然和我们一样，在市内采购了许多吃得拿到酒店里，因为基本房型只包含了早上的自助早餐。 而这里”普普通通“餐厅大概是人均 2000 一位。 住着 2 3千一晚的酒店，却在里边吃着 5 块的加大号方便面，可能这就是当代打工人和干饭人的基本素养吧。 三亚部分的视频内容也在紧张制作中（文件夹建好了）感兴趣的不妨点个关注吧。 婚礼再一个重要的事情就是婚礼了，本来我们两个是不太打算办婚礼的，但碍不过家人的要求最终就简简单单的走了个流程。 在我们的观念中婚礼也就是走个形式，为了这个形式足够简单我们花了半天时间加上 700 块钱拍了”婚纱照“。 甚至最终婚礼现场的婚纱也是网上花了 300 块买来的，后面还准备再二手卖掉回回血。 婚礼前一周再和司仪沟通流程时，我还打算去掉所有的对话环节；想着几分钟就搞定不耽搁大家吃饭时间。 本以为我对待婚礼”无所谓“的态度加上我的二皮脸能让这个仪式快些结束，但真等到我上了那个T台，才发现时间是如此的漫长。 耳边亲友们的欢呼仿佛和我没有丝毫关系，脑子里会不由自主的像放电影一样回顾我和老婆在一起的点滴；不得不庆幸我在”单身夜“后半段背了两个小时的演讲稿，不然当时可能我一句话都说不出来。 当流程走到给双方父母敬茶时，司仪让我们低头看着父母两鬓的白发；虽说我深知这是惯用的煽情”套路“，但依然还是有些绷不住。 果然是：男儿有泪不轻弹 只是未到伤心处。 当时为了婚庆简洁不交”智商税“，婚礼整个过程的摄影都是我老弟帮忙拍摄的，所以回忆还得我自己来剪；同样的也是文件夹已建好。 工作接下来聊聊工作，我记得我们公司算是到现场复工比较晚的一批；因为在疫情期间的远程工作我们发现效率还挺不错。 后来我仔细一合计，可不就是因为远程工作，随时随地都可以写代码嘛，连出去玩的机会都没有。 哈哈，开个玩笑；其实本质原因还是疫情前我们和产品的需求就一直是远程沟通，整个工作中最扯皮的事情以前我们都能”从容解决“，所以被迫远程时还不就张手就来。 当五月份复工时，还有些一起工作三个多月却素未谋面的新同事，那真的是大型网友见面会。 技术公众号老实说，20年我对自己的要求实在是有点低了；关注我的朋友应该知道整个 20 年我都没更新几篇技术文。 最扯的是我在19年的总结时也说过类似的话，究其原因我自己总结了几点： 个人”包袱“有点重，内心深处觉得毕竟是工作几年的老鸟，不能再像刚入行那样写一些浅显的入门文章。然而现实情况却是入门的看不上，有深度的一篇没有。 第二点是我在影视飓风年度总结上学到的新词：”死亡三角状态“。 大家是否觉得似曾相识；没错，这不就是 CAP 理论嘛？ 只是我在遇到这个问题时却是选择将三者都拉倒了底。。。 发现这个问题后我在年初尝试做了一些转变，截止目前为止我转载了两篇优秀的原创博文，至少在数量和质量上能先提高上来。 同时我也在逼迫自己可以做到周更，为什么觉得自己能做到？是因为我发现自己并不是缺时间，只是单纯的懒而已。 毕竟两年前的我也能做到，是时候拿出那时的激情了。 开源接下来聊聊开源，开源这事我觉得是我这几年做的最对的一个选择，但同样的也是在18年那段时间产出最多。 20年一共磕磕盼盼写了三个项目： sqlalchemy-transfer 应该算是比较有技术含量的一个，主要是复习，相当于重学了一些编译原理的知识。 用于解析 MySQL 的 DDL 语句生成 Python ORM 项目所需要的 model 文件。 第二个 feign-plus，核心功能是可以不依赖于 SpringCloud 那一套包，从而可以直接在 SpringBoot 中实现 feign 的声明式调用。 这个本身思路还不错，但由于公司技术栈现在转向 Golang 之后就没怎么维护了。 最后一个 btb 其实是用 Go 重写了之前 Java 写的一个博客工具，可以备份、替换自己文章中的图片。 btb 用 Go 重写之后便改为命令行交互了，使用起来更方便一些。 遗憾的是原本是准备将 cim 也用 Go 重构一次，但终究是没有实施，不过今年一定会提上议程。 总结还是照例看看去年的规划完成了多少： 不出所料，大部分都没完成。 但没关系，既然没完成那就顺延到今年吧： 工作内容有数量+质量的产出。 深入学习和理解 Go、Docker、云原生相关内容。 博客周更。 减肥。 整个20年对我来说玩是玩好了，毕竟还出去玩了大半个月；但相对的个人进步确实太少。 18 年时比现在忙的多，同时个人成长也是呈加速度走势；于是今年 21 年我也在公司主动承担更多的职责，往往不逼自己一把就不知道自己的上限在哪儿。 最后放两段篮球的 mixtap ，希望今年大家身体健康。]]></content>
@@ -17,9 +31,9 @@
       </categories>
       <tags>
         <tag>Java</tag>
+        <tag>Go</tag>
         <tag>OOP</tag>
         <tag>鸭子类型</tag>
-        <tag>Go</tag>
       </tags>
   </entry>
   <entry>
@@ -30,9 +44,9 @@
         <category>基础原理</category>
       </categories>
       <tags>
-        <tag>Python</tag>
         <tag>OOP</tag>
         <tag>鸭子类型</tag>
+        <tag>Python</tag>
       </tags>
   </entry>
   <entry>
@@ -599,8 +613,8 @@
         <tag>Java</tag>
         <tag>Thread</tag>
         <tag>concurrent</tag>
-        <tag>JVM</tag>
         <tag>HashMap</tag>
+        <tag>JVM</tag>
         <tag>HashSet</tag>
       </tags>
   </entry>
