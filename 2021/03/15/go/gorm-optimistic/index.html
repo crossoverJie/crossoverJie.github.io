@@ -87,22 +87,31 @@
 
 
 <meta name="description" content="前言最近在用 Go 写业务的时碰到了并发更新数据的场景，由于该业务并发度不高，只是为了防止出现并发时数据异常。
-所以自然就想到了乐观锁的解决方案。">
+所以自然就想到了乐观锁的解决方案。
+实现乐观锁的实现比较简单，相信大部分有数据库使用经验的都能想到。
+1UPDATE `table` SET `amount`=100,`version`=version+1 WHERE `version` = 1 AND `id` = 1
+需要在表中新">
 <meta property="og:type" content="article">
 <meta property="og:title" content="写了一个 gorm 乐观锁插件">
 <meta property="og:url" content="http://crossoverjie.top/2021/03/15/go/gorm-optimistic/index.html">
 <meta property="og:site_name" content="crossoverJie's Blog">
 <meta property="og:description" content="前言最近在用 Go 写业务的时碰到了并发更新数据的场景，由于该业务并发度不高，只是为了防止出现并发时数据异常。
-所以自然就想到了乐观锁的解决方案。">
+所以自然就想到了乐观锁的解决方案。
+实现乐观锁的实现比较简单，相信大部分有数据库使用经验的都能想到。
+1UPDATE `table` SET `amount`=100,`version`=version+1 WHERE `version` = 1 AND `id` = 1
+需要在表中新">
 <meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1gojwsoe6oij21d00u0dnu.jpg">
 <meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1gojwsxscq3j218j0u076y.jpg">
 <meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1gojwt4j20zj21fg07kq47.jpg">
-<meta property="og:image" content="http://crossoverjie.top/%E5%86%99%E4%BA%86%E4%B8%80%E4%B8%AA%20gorm%20%E4%B9%90%E8%A7%82%E9%94%81%E6%8F%92%E4%BB%B6%20e166a01ec6dc4484bb5236820a351440/Untitled%202.png">
-<meta property="og:updated_time" content="2021-03-14T16:42:47.289Z">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1gojwzotvdkj21gq096775.jpg">
+<meta property="og:updated_time" content="2021-03-14T16:48:02.748Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="写了一个 gorm 乐观锁插件">
 <meta name="twitter:description" content="前言最近在用 Go 写业务的时碰到了并发更新数据的场景，由于该业务并发度不高，只是为了防止出现并发时数据异常。
-所以自然就想到了乐观锁的解决方案。">
+所以自然就想到了乐观锁的解决方案。
+实现乐观锁的实现比较简单，相信大部分有数据库使用经验的都能想到。
+1UPDATE `table` SET `amount`=100,`version`=version+1 WHERE `version` = 1 AND `id` = 1
+需要在表中新">
 <meta name="twitter:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1gojwsoe6oij21d00u0dnu.jpg">
 
 
@@ -428,7 +437,6 @@
         <p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1gojwsoe6oij21d00u0dnu.jpg" alt=""></p>
 <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近在用 <code>Go</code> 写业务的时碰到了并发更新数据的场景，由于该业务并发度不高，只是为了防止出现并发时数据异常。</p>
 <p>所以自然就想到了乐观锁的解决方案。</p>
-<a id="more"></a>
 <h1 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h1><p>乐观锁的实现比较简单，相信大部分有数据库使用经验的都能想到。</p>
 <figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">UPDATE</span> <span class="string">`table`</span> <span class="keyword">SET</span> <span class="string">`amount`</span>=<span class="number">100</span>,<span class="string">`version`</span>=<span class="keyword">version</span>+<span class="number">1</span> <span class="keyword">WHERE</span> <span class="string">`version`</span> = <span class="number">1</span> <span class="keyword">AND</span> <span class="string">`id`</span> = <span class="number">1</span></div></pre></td></tr></table></figure>
 <p>需要在表中新增一个类似于 <code>version</code> 的字段，本质上我们只是执行这段 <code>SQL</code>，在更新时比较当前版本与数据库版本是否一致。</p>
@@ -475,7 +483,7 @@
 <p>其中只有两个方法，目的则是获取 <code>struct</code> 中的 <code>version</code> 字段；所以每个需要乐观锁的 <code>struct</code> 都得实现该接口，类似于这样：</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *Optimistic)</span> <span class="title">GetVersion</span><span class="params">()</span> <span class="title">int64</span></span> &#123;</div><div class="line">	<span class="keyword">return</span> o.Version</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *Optimistic)</span> <span class="title">SetVersion</span><span class="params">(version <span class="keyword">int64</span>)</span></span> &#123;</div><div class="line">	o.Version = version</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>这样还带来了一个额外的好处：</p>
-<p><img src="%E5%86%99%E4%BA%86%E4%B8%80%E4%B8%AA%20gorm%20%E4%B9%90%E8%A7%82%E9%94%81%E6%8F%92%E4%BB%B6%20e166a01ec6dc4484bb5236820a351440/Untitled%202.png" alt="%E5%86%99%E4%BA%86%E4%B8%80%E4%B8%AA%20gorm%20%E4%B9%90%E8%A7%82%E9%94%81%E6%8F%92%E4%BB%B6%20e166a01ec6dc4484bb5236820a351440/Untitled%202.png"></p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1gojwzotvdkj21gq096775.jpg" alt=""></p>
 <p>一旦该结构体没有实现接口，在乐观锁更新时编译器便会提前报错，如果使用反射只能是在运行期间才能进行校验。</p>
 <p>所以这里在接收数据库实体的便可以是 <code>Lock</code> 接口，同时获取和重新设置 <code>version</code> 字段也是非常的方便。</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">currentVersion := model.GetVersion()</div><div class="line">model.SetVersion(currentVersion + <span class="number">1</span>)</div></pre></td></tr></table></figure>
