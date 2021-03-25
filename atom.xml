@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2021-03-14T16:48:40.157Z</updated>
+  <updated>2021-03-25T16:22:24.059Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,108 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title></title>
+    <link href="http://crossoverjie.top/2021/03/25/go/github-actions/"/>
+    <id>http://crossoverjie.top/2021/03/25/go/github-actions/</id>
+    <published>2021-03-25T07:59:58.000Z</published>
+    <updated>2021-03-25T16:22:24.059Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="利用-GitHub-Action-自动发布-Docker"><a href="#利用-GitHub-Action-自动发布-Docker" class="headerlink" title="利用 GitHub Action 自动发布 Docker"></a>利用 GitHub Action 自动发布 Docker</h1><hr>
+<p>title: 利用 GitHub Action 自动发布 Docker<br>date: 2021/03/26 08:13:26<br>categories: </p>
+<ul>
+<li>CICD<br>tags: </li>
+<li>Go</li>
+<li>Docker</li>
+<li>GitHub Actions</li>
+</ul>
+<hr>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近公司内部项目的发布流程接入了 <code>GitHub Actions</code>，整个体验过程还是比较美好的；本文主要目的是对于没有还接触过 <code>GitHub Actions</code>的新手，能够利用它快速构建自动测试及打包推送 <code>Docker</code> 镜像等自动化流程。</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gowm06si3fj30jg0jg3zv.jpg" alt=""></p>
+<a id="more"></a>
+<h1 id="创建项目"><a href="#创建项目" class="headerlink" title="创建项目"></a>创建项目</h1><p>本文主要以 <code>Go</code> 语言为例，当然其他语言也是类似的，与语言本身关系不大。</p>
+<p>这里我们首先在 <code>GitHub</code> 上创建一个项目，编写了几段简单的代码 <code>main.go</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> version = <span class="string">"0.0.1"</span></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetVersion</span><span class="params">()</span> <span class="title">string</span></span> &#123;</div><div class="line">	<span class="keyword">return</span> version</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</div><div class="line">	fmt.Println(GetVersion())</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>内容非常简单，只是打印了了版本号；同时配套了一个单元测试 <code>main_test.go</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestGetVersion1</span><span class="params">(t *testing.T)</span></span> &#123;</div><div class="line">	tests := []<span class="keyword">struct</span> &#123;</div><div class="line">		name <span class="keyword">string</span></div><div class="line">		want <span class="keyword">string</span></div><div class="line">	&#125;&#123;</div><div class="line">		&#123;name: <span class="string">"test1"</span>, want: <span class="string">"0.0.1"</span>&#125;,</div><div class="line">	&#125;</div><div class="line">	<span class="keyword">for</span> _, tt := <span class="keyword">range</span> tests &#123;</div><div class="line">		t.Run(tt.name, <span class="function"><span class="keyword">func</span><span class="params">(t *testing.T)</span></span> &#123;</div><div class="line">			<span class="keyword">if</span> got := GetVersion(); got != tt.want &#123;</div><div class="line">				t.Errorf(<span class="string">"GetVersion() = %v, want %v"</span>, got, tt.want)</div><div class="line">			&#125;</div><div class="line">		&#125;)</div><div class="line">	&#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>我们可以执行  <code>go test</code> 运行该单元测试。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">$ go <span class="built_in">test</span>                          </div><div class="line">PASS</div><div class="line">ok      github.com/crossoverJie/go-docker       1.729s</div></pre></td></tr></table></figure>
+<h2 id="自动测试"><a href="#自动测试" class="headerlink" title="自动测试"></a>自动测试</h2><p>当然以上流程完全可以利用 <code>Actions</code> 自动化搞定。</p>
+<p>首选我们需要在项目根路径创建一个 <em>`.github/workflows/</em>.yml`* 的配置文件，新增如下内容：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="attr">name:</span> go-docker</div><div class="line"><span class="attr">on:</span> push</div><div class="line"><span class="attr">jobs:</span></div><div class="line"><span class="attr">  test:</span></div><div class="line"><span class="attr">    runs-on:</span> ubuntu-latest</div><div class="line"><span class="attr">    if:</span> github.ref == <span class="string">'refs/heads/main'</span> || startsWith(github.ref, <span class="string">'refs/tags'</span>)</div><div class="line"><span class="attr">    steps:</span></div><div class="line"><span class="attr">      - uses:</span> actions/checkout@v2</div><div class="line"><span class="attr">      - name:</span> Run Unit Tests</div><div class="line"><span class="attr">        run:</span> go test</div></pre></td></tr></table></figure>
+<p>简单解释下：</p>
+<ul>
+<li><code>name</code> 不必多说，是为当前工作流创建一个名词。</li>
+<li><code>on</code> 指在什么事件下触发，这里指代码发生 <code>push</code> 时触发，更多事件定义可以参考官方文档：</li>
+</ul>
+<p><a href="https://docs.github.com/en/actions/reference/events-that-trigger-workflows" target="_blank" rel="external">Events that trigger workflows</a></p>
+<ul>
+<li><code>jobs</code> 则是定义任务，这里只有一个名为 <code>test</code> 的任务。</li>
+</ul>
+<p>该任务是运行在 <code>ubuntu-latest</code> 的环境下，只有在 <code>main</code> 分支有推送或是有 <code>tag</code> 推送时运行。</p>
+<p>运行时会使用 <code>actions/checkout@v2</code> 这个由他人封装好的 <code>Action</code>，当然这里使用的是由官方提供的拉取代码 <code>Action</code>。</p>
+<ul>
+<li>基于这个逻辑，我们可以灵活的分享和使用他人的 <code>Action</code> 来简化流程，这点也是 <code>GitHub Action</code>扩展性非常强的地方。</li>
+</ul>
+<p>最后的 <code>run</code> 则是运行自己命令，这里自然就是触发单元测试了。</p>
+<ul>
+<li>如果是 Java 便可改为  <code>mvn test</code>.</li>
+</ul>
+<p>之后一旦我们在 <code>main</code> 分支上推送代码，或者有其他分支的代码合并过来时都会自动运行单元测试，非常方便。</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gowm0l4ucyj3093072q2y.jpg" alt=""></p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gowm0r240sj30p10ab3z6.jpg" alt=""></p>
+<p>与我们本地运行效果一致。</p>
+<h2 id="自动发布"><a href="#自动发布" class="headerlink" title="自动发布"></a>自动发布</h2><p>接下来考虑自动打包 <code>Docker</code> 镜像，同时上传到 <code>Docker Hub</code>；为此首先创建 <code>Dockerfile</code> ：</p>
+<figure class="highlight docker"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">FROM</span> golang:<span class="number">1.15</span> AS builder</div><div class="line">ARG VERSION=<span class="number">0.0</span>.<span class="number">10</span></div><div class="line"><span class="keyword">WORKDIR</span><span class="bash"> /go/src/app</span></div><div class="line"><span class="keyword">COPY</span><span class="bash"> main.go .</span></div><div class="line"><span class="keyword">RUN</span><span class="bash"> go build -o main -ldflags=<span class="string">"-X 'main.version=<span class="variable">$&#123;VERSION&#125;</span>'"</span> main.go</span></div><div class="line"></div><div class="line"><span class="keyword">FROM</span> debian:stable-slim</div><div class="line"><span class="keyword">COPY</span><span class="bash"> --from=builder /go/src/app/main /go/bin/main</span></div><div class="line"><span class="keyword">ENV</span> PATH=<span class="string">"/go/bin:$&#123;PATH&#125;"</span></div><div class="line"><span class="keyword">CMD</span><span class="bash"> [<span class="string">"main"</span>]</span></div></pre></td></tr></table></figure>
+<p>这里利用 <code>ldflags</code> 可在编译期间将一些参数传递进打包程序中，比如打包时间、go 版本、git 版本等。</p>
+<p>这里只是将 <code>VERSION</code> 传入了  <code>main.version</code> 变量中，这样在运行时就便能取到了。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">docker build -t go-docker:last .</div><div class="line">docker run --rm go-docker:0.0.10</div><div class="line">0.0.10</div></pre></td></tr></table></figure>
+<p>接着继续编写 <code>docker.yml</code> 新增自动打包 <code>Docker</code> 以及推送到 <code>docker hub</code> 中。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div></pre></td><td class="code"><pre><div class="line"><span class="attr">deploy:</span></div><div class="line"><span class="attr">    runs-on:</span> ubuntu-latest</div><div class="line"><span class="attr">    needs:</span> test</div><div class="line"><span class="attr">    if:</span> startsWith(github.ref, <span class="string">'refs/tags'</span>)</div><div class="line"><span class="attr">    steps:</span></div><div class="line"><span class="attr">      - name:</span> Extract Version</div><div class="line"><span class="attr">        id:</span> version_step</div><div class="line"><span class="attr">        run:</span> <span class="string">|</span></div><div class="line">          echo "##[set-output name=version;]VERSION=$&#123;GITHUB_REF#$"refs/tags/v"&#125;"</div><div class="line">          echo "##[set-output name=version_tag;]$GITHUB_REPOSITORY:$&#123;GITHUB_REF#$"refs/tags/v"&#125;"</div><div class="line">          echo "##[set-output name=latest_tag;]$GITHUB_REPOSITORY:latest"</div><div class="line"></div><div class="line"><span class="attr">      - name:</span> Set up QEMU</div><div class="line"><span class="attr">        uses:</span> docker/setup-qemu-action@v1</div><div class="line"></div><div class="line"><span class="attr">      - name:</span> Set up Docker Buildx</div><div class="line"><span class="attr">        uses:</span> docker/setup-buildx-action@v1</div><div class="line"></div><div class="line"><span class="attr">      - name:</span> Login to DockerHub</div><div class="line"><span class="attr">        uses:</span> docker/login-action@v1</div><div class="line"><span class="attr">        with:</span></div><div class="line"><span class="attr">          username:</span> $&#123;&#123; secrets.DOCKER_USER_NAME &#125;&#125;</div><div class="line"><span class="attr">          password:</span> $&#123;&#123; secrets.DOCKER_ACCESS_TOKEN &#125;&#125;</div><div class="line"></div><div class="line"><span class="attr">      - name:</span> PrepareReg Names</div><div class="line"><span class="attr">        id:</span> read-docker-image-identifiers</div><div class="line"><span class="attr">        run:</span> <span class="string">|</span></div><div class="line">          echo VERSION_TAG=$(echo $<span class="template-variable">&#123;&#123; steps.version_step.outputs.version_tag &#125;&#125;</span> | tr '[:upper:]' '[:lower:]') &gt;&gt; $GITHUB_ENV</div><div class="line">          echo LASTEST_TAG=$(echo $<span class="template-variable">&#123;&#123; steps.version_step.outputs.latest_tag  &#125;&#125;</span> | tr '[:upper:]' '[:lower:]') &gt;&gt; $GITHUB_ENV</div><div class="line"></div><div class="line"><span class="attr">      - name:</span> Build and push Docker images</div><div class="line"><span class="attr">        id:</span> docker_build</div><div class="line"><span class="attr">        uses:</span> docker/build-push-action@v2<span class="number">.3</span><span class="number">.0</span></div><div class="line"><span class="attr">        with:</span></div><div class="line"><span class="attr">          push:</span> <span class="literal">true</span></div><div class="line"><span class="attr">          tags:</span> <span class="string">|</span></div><div class="line">            $<span class="template-variable">&#123;&#123;env.VERSION_TAG&#125;&#125;</span></div><div class="line">            $<span class="template-variable">&#123;&#123;env.LASTEST_TAG&#125;&#125;</span></div><div class="line"><span class="attr">          build-args:</span> <span class="string">|</span></div><div class="line">            $<span class="template-variable">&#123;&#123;steps.version_step.outputs.version&#125;&#125;</span></div></pre></td></tr></table></figure>
+<p>新增了一个 <code>deploy</code> 的 job。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="attr">needs:</span> test</div><div class="line"><span class="attr">if:</span> startsWith(github.ref, <span class="string">'refs/tags'</span>)</div></pre></td></tr></table></figure>
+<p>运行的条件是上一步的单测流程跑通，同时有新的 <code>tag</code> 生成时才会触发后续的 <code>steps</code>。</p>
+<p><code>name: Login to DockerHub</code></p>
+<p>在这一步中我们需要登录到 <code>DockerHub</code>，所以首先需要在 GitHub 项目中配置 hub 的 <code>user_name</code> 以及 <code>access_token</code>.</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gowm13r9v0j31mk062gm4.jpg" alt=""></p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gowm18qwv7j30rs0pqwfx.jpg" alt=""></p>
+<p>配置好后便能在 action 中使用该变量了。</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gowm1d85wqj30ro06q3zr.jpg" alt=""></p>
+<p>这里使用的是由 docker 官方提供的登录 action(<code>docker/login-action</code>)。</p>
+<p>有一点要非常注意，我们需要将镜像名称改为小写，不然会上传失败，比如我的名称中 <code>J</code> 字母是大写的，直接上传时就会报错。</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gowm23o0trj31t406wwh0.jpg" alt=""></p>
+<p>所以在上传之前先要执行该步骤转换为小写。</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gowm28jjvjj31080dimz3.jpg" alt=""></p>
+<p>最后再用这两个变量上传到 Docker Hub。</p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gowm2gm4lhj30j8080gmb.jpg" alt=""></p>
+<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gowm2gm4lhj30j8080gmb.jpg" alt=""></p>
+<p>今后只要我们打上 <code>tag</code> 时，<code>Action</code> 就会自动执行单测、构建、上传的流程。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>GitHub Actions</code> 非常灵活，你所需要的大部分功能都能在 <code>marketplace</code> 找到现成的直接使用，</p>
+<p>比如可以利用 <code>ssh</code> 登录自己的服务器，执行一些命令或脚本，这样想象空间就很大了。</p>
+<p>使用起来就像是搭积木一样，可以很灵活的完成自己的需求。</p>
+<p>参考链接：</p>
+<p><a href="https://tonyuk.medium.com/how-to-build-a-ci-cd-pipeline-with-go-github-actions-and-docker-3c69e50b6043" target="_blank" rel="external">How to Build a CI/CD Pipeline with Go, GitHub Actions and Docker</a></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h1 id=&quot;利用-GitHub-Action-自动发布-Docker&quot;&gt;&lt;a href=&quot;#利用-GitHub-Action-自动发布-Docker&quot; class=&quot;headerlink&quot; title=&quot;利用 GitHub Action 自动发布 Docker&quot;&gt;&lt;/a&gt;利用 GitHub Action 自动发布 Docker&lt;/h1&gt;&lt;hr&gt;
+&lt;p&gt;title: 利用 GitHub Action 自动发布 Docker&lt;br&gt;date: 2021/03/26 08:13:26&lt;br&gt;categories: &lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;CICD&lt;br&gt;tags: &lt;/li&gt;
+&lt;li&gt;Go&lt;/li&gt;
+&lt;li&gt;Docker&lt;/li&gt;
+&lt;li&gt;GitHub Actions&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;最近公司内部项目的发布流程接入了 &lt;code&gt;GitHub Actions&lt;/code&gt;，整个体验过程还是比较美好的；本文主要目的是对于没有还接触过 &lt;code&gt;GitHub Actions&lt;/code&gt;的新手，能够利用它快速构建自动测试及打包推送 &lt;code&gt;Docker&lt;/code&gt; 镜像等自动化流程。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;https://tva1.sinaimg.cn/large/008eGmZEly1gowm06si3fj30jg0jg3zv.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+    
+    </summary>
+    
+    
+  </entry>
   
   <entry>
     <title>写了一个 gorm 乐观锁插件</title>
@@ -2113,102 +2215,6 @@
     
     
       <category term="db" scheme="http://crossoverjie.top/tags/db/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>设计一个全局异常处理器</title>
-    <link href="http://crossoverjie.top/2019/07/15/wheel/cicada7-exception-handle/"/>
-    <id>http://crossoverjie.top/2019/07/15/wheel/cicada7-exception-handle/</id>
-    <published>2019-07-15T00:29:36.000Z</published>
-    <updated>2020-12-04T16:42:53.606Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/07/14/5d2b4a7010e6815837.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近稍微闲了一点于是把这个半年都没更新的开源项目 <a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">cicada</a> 重新捡了起来。</p>
-<p>一些新关注的朋友应该还不知道这项目是干啥的？先来看看官方介绍吧（其实就我自己写的😀）</p>
-<blockquote>
-<p>cicada: 基于 Netty4 实现的快速、轻量级 WEB 框架；没有过多的依赖，核心 jar 包仅 <code>30KB</code>。</p>
-</blockquote>
-<a id="more"></a>
-<p><img src="https://i.loli.net/2019/07/14/5d2b4a70635d532624.jpg" alt=""></p>
-<p>针对这个轮子以前也写过相关的介绍，感兴趣的可以再翻回去看看：</p>
-<ul>
-<li><a href="https://crossoverjie.top/2018/09/03/wheel/cicada1/">「造个轮子」——cicada(轻量级 WEB 框架)</a></li>
-<li><a href="https://crossoverjie.top/2018/09/05/wheel/cicada2/">「造个轮子」——cicada 源码分析</a></li>
-<li><a href="https://crossoverjie.top/2018/09/14/wheel/cicada3/">「造个轮子」——cicada 设计一个配置模块</a></li>
-<li><a href="https://crossoverjie.top/2018/10/09/wheel/cicada4/">「造个轮子」——cicada 设计全局上下文</a></li>
-<li><a href="https://crossoverjie.top/2018/10/22/wheel/cicada5/">利用责任链模式设计一个拦截器</a></li>
-<li><a href="https://crossoverjie.top/2018/11/15/wheel/cicada6/">设计一个可拔插的 IOC 容器</a></li>
-</ul>
-<p>这些都看完了相信对这个小玩意应该会有更多的想法。</p>
-<h1 id="效果"><a href="#效果" class="headerlink" title="效果"></a>效果</h1><p>广告打完了，回到正题；大家平时最常用的 <code>MVC</code> 框架当属 <code>SpringMVC</code> 了，而在搭建脚手架的时候相信全局异常处理是必不可少的。</p>
-<h2 id="Spring-用法"><a href="#Spring-用法" class="headerlink" title="Spring 用法"></a>Spring 用法</h2><p>通常我们的做法如下：</p>
-<p>传统 <code>Spring</code> 版本：</p>
-<ul>
-<li>实现一个 <code>Spring</code> 自带的接口，重写其中的方法，最后的异常处理便在此处。</li>
-<li>将这个类配置在 <code>Spring</code> 的 <code>xml</code> ，当做一个 bean 注册到 <code>Spring</code> 容器中。</li>
-</ul>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CustomExceptionResolver</span> <span class="keyword">implements</span> <span class="title">HandlerExceptionResolver</span> </span>&#123;</div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> ModelAndView <span class="title">resolveException</span><span class="params">(HttpServletRequest request,</span></span></div><div class="line">            HttpServletResponse response, Object handler, Exception ex) &#123;</div><div class="line">	<span class="comment">//自定义处理</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">class</span>=<span class="string">"ssm.exception.CustomExceptionResolver"</span>&gt;</span><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></div></pre></td></tr></table></figure>
-<hr>
-<p>当然现在流行的 <code>SpringBoot</code> 也有对应的简化版本：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@ControllerAdvice</span></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">GlobalExceptionHandler</span> </span>&#123;</div><div class="line">    <span class="meta">@ExceptionHandler</span>(value = Exception.class)</div><div class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">defaultErrorHandler</span><span class="params">(HttpServletRequest req, Exception e)</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line">        <span class="comment">//自定义处理</span></div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>全部都换为注解形式，但本质上还是一样的。</p>
-<blockquote>
-<p>都是要在容器中创建一个特殊的 bean，这个 bean 专门用于处理异常，当系统运行时出现异常，就从容器中找到该 bean，并执行其中的方法即可。</p>
-</blockquote>
-<p>至于这个特殊的 <code>bean</code> 如何标识出来，无非就是实现某个特定接口或者用注解声明，也就对应了传统 <code>Spring</code> 和 <code>SpringBoot</code> 的用法。</p>
-<h2 id="cicada-用法"><a href="#cicada-用法" class="headerlink" title="cicada 用法"></a>cicada 用法</h2><p><code>cicada</code> 在设计自己的全局异常处理器时也参考了 Spring 的相关设计，所以最终用法如下：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@CicadaBean</span></div><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ExceptionHandle</span> <span class="keyword">implements</span> <span class="title">GlobalHandelException</span> </span>&#123;</div><div class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> Logger LOGGER = LoggerBuilder.getLogger(ExceptionHandle.class);</div><div class="line"></div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">resolveException</span><span class="params">(CicadaContext context, Exception e)</span> </span>&#123;</div><div class="line">        LOGGER.error(<span class="string">"Exception"</span>, e);</div><div class="line">        WorkRes workRes = <span class="keyword">new</span> WorkRes();</div><div class="line">        workRes.setCode(<span class="string">"500"</span>);</div><div class="line">        workRes.setMessage(e.getClass().getName() + <span class="string">"系统运行出现异常"</span>);</div><div class="line">        context.json(workRes);</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>自定义一个实现了 <code>GlobalHandelException</code> 接口的类，当请求出现异常时，页面和后台将会如下输出：</p>
-<p><img src="https://i.loli.net/2019/07/14/5d2b4a708987b32808.jpg" alt=""><br><img src="https://i.loli.net/2019/07/14/5d2b4a70e668052739.jpg" alt=""></p>
-<h1 id="设计"><a href="#设计" class="headerlink" title="设计"></a>设计</h1><p>看得出用法和 <code>Spring</code> 非常类似，也是需要实现一个接口 <code>GlobalHandelException</code>，同时使用 <code>@CicadaBean</code> 注解该类将他加载到 <code>cicada</code> 内置的 <code>IOC</code> 容器内。</p>
-<p>当出现异常时则在这个 <code>IOC</code> 容器中找到该对象调用它的 <code>resolveException</code> 即可。</p>
-<p>其中还可以通过 <code>CicadaContext</code> 全局上下文响应不同的输出（<code>json/text/html</code>）。</p>
-<h2 id="核心原理"><a href="#核心原理" class="headerlink" title="核心原理"></a>核心原理</h2><p><img src="https://i.loli.net/2019/07/14/5d2b4a712df5717670.jpg" alt=""></p>
-<p>简单画了下流程图，步骤如下：</p>
-<ul>
-<li>初始化时会找到实现了 <code>GlobalHandelException</code> 接口的类，将它实例化并注册到 <code>IOC</code> 容器中。</li>
-<li>当发生异常时从容器中获取到异常处理器的对象，执行其中的处理函数即可。</li>
-</ul>
-<p>说了半天原理来看看源码是如何实现的。</p>
-<p><img src="https://i.loli.net/2019/07/14/5d2b4a716caeb94532.jpg" alt=""></p>
-<p>在初始化 <code>bean</code> 时，如果是一个异常处理器则会将他单独存放（也就相当于前文说的打标识）。</p>
-<p>其中的 <code>GlobalHandelException</code> 本身的定义也非常简单：</p>
-<p><img src="https://i.loli.net/2019/07/14/5d2b4a7198bb390309.jpg" alt=""></p>
-<hr>
-<p>接下来是运行时：</p>
-<p><img src="https://i.loli.net/2019/07/14/5d2b4a71bc98986729.jpg" alt=""><br><img src="https://i.loli.net/2019/07/14/5d2b4a71f27d495514.jpg" alt=""><br><img src="https://i.loli.net/2019/07/14/5d2b4a7221b4f38396.jpg" alt=""></p>
-<p>而当出现异常时则会通过之前的保存的异常处理 <code>bean</code> 进行异常处理，在调用的同时将全局上下文及异常信息传递过去就齐活了。</p>
-<p>这样就可以在这个实现类中实现我们自己的异常处理逻辑了。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>万一今后面试官问你们 <code>SpringMVC</code> 的异常处理是如何实现的？你该知道怎么回答了吧😏。</p>
-<p>同时也可以发散一下，是否可以配置一个针对于某一个 <code>controller</code> 的异常处理，这样每个 <code>controller</code> 产生的异常可以单独处理，如果没有配置则进入全局异常；原理也差不多，感兴趣的朋友可以提个 <code>PR</code> 完成该 <code>feature</code>。</p>
-<p>项目源码：</p>
-<p><a href="https://github.com/TogetherOS/cicada" target="_blank" rel="external">https://github.com/TogetherOS/cicada</a></p>
-<p><strong>你的点赞与分享是对我最大的支持</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/07/14/5d2b4a7010e6815837.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;最近稍微闲了一点于是把这个半年都没更新的开源项目 &lt;a href=&quot;https://github.com/TogetherOS/cicada&quot;&gt;cicada&lt;/a&gt; 重新捡了起来。&lt;/p&gt;
-&lt;p&gt;一些新关注的朋友应该还不知道这项目是干啥的？先来看看官方介绍吧（其实就我自己写的😀）&lt;/p&gt;
-&lt;blockquote&gt;
-&lt;p&gt;cicada: 基于 Netty4 实现的快速、轻量级 WEB 框架；没有过多的依赖，核心 jar 包仅 &lt;code&gt;30KB&lt;/code&gt;。&lt;/p&gt;
-&lt;/blockquote&gt;
-    
-    </summary>
-    
-      <category term="cicada" scheme="http://crossoverjie.top/categories/cicada/"/>
-    
-      <category term="轮子" scheme="http://crossoverjie.top/categories/cicada/%E8%BD%AE%E5%AD%90/"/>
-    
-    
-      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
-    
-      <category term="HTTP" scheme="http://crossoverjie.top/tags/HTTP/"/>
-    
-      <category term="Netty" scheme="http://crossoverjie.top/tags/Netty/"/>
     
   </entry>
   
