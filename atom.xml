@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2021-03-25T17:04:19.403Z</updated>
+  <updated>2021-04-20T16:18:47.855Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,106 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>Pulsar 入门及介绍</title>
+    <link href="http://crossoverjie.top/2021/04/18/pulsar/pulsar-start/"/>
+    <id>http://crossoverjie.top/2021/04/18/pulsar/pulsar-start/</id>
+    <published>2021-04-18T00:12:26.000Z</published>
+    <updated>2021-04-20T16:18:47.855Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gpmzjhe824j31400u0wni.jpg" alt=""></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>我们最近在做新业务的技术选型，其中涉及到了对消息中间件的选择；结合我们的实际情况希望它能满足以下几个要求：</p>
+<ul>
+<li>友好的云原生支持：因为现在的主力语言是 <code>Go</code>，同时在运维上能够足够简单。</li>
+<li>官方支持多种语言的 <code>SDK</code>：还有一些 <code>Python</code>、<code>Java</code> 相关的代码需要维护。</li>
+<li>最好是有一些方便好用的特性，比如：延时消息、死信队列、多租户等。</li>
+</ul>
+<a id="more"></a>
+<p>当然还有一些水平扩容、吞吐量、低延迟这些特性就不用多说了，几乎所有成熟的消息中间件都能满足这些要求。</p>
+<p>基于以上的筛选条件，<code>Pulsar</code> 进入了我们的视野。</p>
+<p>作为 <code>Apache</code> 下的顶级项目，以上特性都能很好的支持。</p>
+<p>下面我们来它有什么过人之处。</p>
+<h1 id="架构"><a href="#架构" class="headerlink" title="架构"></a>架构</h1><p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gpqk0mtjtzj30wt0lp421.jpg" alt=""></p>
+<p>从官方的架构图中可以看出 <code>Pulsar</code> 主要有以下组件组成：</p>
+<ol>
+<li><code>Broker</code> 无状态组件，可以水平扩展，主要用于生产者、消费者连接；与 Kafka 的 broker 类似，但没有数据存储功能，因此扩展更加轻松。</li>
+<li><code>BookKeeper</code> 集群：主要用于数据的持久化存储。</li>
+<li><code>Zookeeper</code> 用于存储 <code>broker</code> 与 <code>BookKeeper</code> 的元数据。</li>
+</ol>
+<p>整体一看似乎比 Kafka 所依赖的组件还多，这样确实会提供系统的复杂性；但同样的好处也很明显。</p>
+<p><code>Pulsar</code> 的存储于计算是分离的，当需要扩容时会非常简单，直接新增 <code>broker</code> 即可，没有其他的心智负担。</p>
+<p>当存储成为瓶颈时也只需要扩容 <code>BookKeeper</code>，不需要人为的做重平衡，<code>BookKeeper</code> 会自动负载。</p>
+<p>同样的操作，<code>Kafka</code> 就要复杂的多了。</p>
+<h2 id="特性"><a href="#特性" class="headerlink" title="特性"></a>特性</h2><h3 id="多租户"><a href="#多租户" class="headerlink" title="多租户"></a>多租户</h3><p>多租户也是一个刚需功能，可以在同一个集群中对不同业务、团队的数据进行隔离。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">persistent://core/order/create-order</div></pre></td></tr></table></figure>
+<p>以这个 topic 名称为例，在 <code>core</code> 这个租户下有一个 <code>order</code> 的 <code>namespace</code>，最终才是 <code>create-order</code> 的 <code>topic</code> 名称。</p>
+<p>在实际使用中租户一般是按照业务团队进行划分，<code>namespace</code> 则是当前团队下的不同业务；这样便可以很清晰的对 topic 进行管理。</p>
+<p>通常有对比才会有伤害，在没有多租户的消息中间件中是如何处理这类问题的呢：</p>
+<ol>
+<li>干脆不分这么细，所有业务线混着用，当团队较小时可能问题不大；一旦业务增加，管理起来会非常麻烦。</li>
+<li>自己在 topic 之前做一层抽象，但其实本质上也是在实现多租户。</li>
+<li>各个业务团队各自维护自己的集群，这样当然也能解决问题，但运维复杂度自然也就提高了。</li>
+</ol>
+<p>以上就很直观的看出多租户的重要性了。</p>
+<h3 id="Function-函数计算"><a href="#Function-函数计算" class="headerlink" title="Function 函数计算"></a>Function 函数计算</h3><p><code>Pulsar</code> 还支持轻量级的函数计算，例如需要对某些消息进行数据清洗、转换，然后再发布到另一个 topic 中。</p>
+<p>这类需求就可以编写一个简单的函数，<code>Pulsar</code> 提供了 <code>SDK</code> 可以方便的对数据进行处理，最后使用官方工具发布到 <code>broker</code> 中。</p>
+<p>在这之前这类简单的需求可能也需要自己处理流处理引擎。</p>
+<h2 id="应用"><a href="#应用" class="headerlink" title="应用"></a>应用</h2><p>除此之外的上层应用，比如生产者、消费者这类概念与使用大家都差不多。</p>
+<p>比如 <code>Pulsar</code> 支持四种消费模式：</p>
+<ul>
+<li><code>Exclusive</code>：独占模式，同时只有一个消费者可以启动并消费数据；通过 <code>SubscriptionName</code> 标明是同一个消费者），适用范围较小。</li>
+<li><code>Failover</code> 故障转移模式：在独占模式基础之上可以同时启动多个 <code>consumer</code>，一旦一个 <code>consumer</code>  挂掉之后其余的可以快速顶上，但也只有一个 <code>consumer</code> 可以消费；部分场景可用。</li>
+<li><code>Shared</code> 共享模式：可以有 N 个消费者同时运行，消息按照 <code>round-robin</code> 轮询投递到每个 <code>consumer</code> 中；当某个 <code>consumer</code> 宕机没有 <code>ack</code> 时，该消息将会被投递给其他消费者。这种消费模式可以提高消费能力，但消息无法做到有序。</li>
+<li><code>KeyShared</code> 共享模式：基于共享模式；相当于对同一个<code>topic</code>中的消息进行分组，同一分组内的消息只能被同一个消费者有序消费。</li>
+</ul>
+<p>第三种共享消费模式应该是使用最多的，当对消息有顺序要求时可以使用 <code>KeyShared</code> 模式。</p>
+<h2 id="SDK"><a href="#SDK" class="headerlink" title="SDK"></a>SDK</h2><p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gpqm3kl6r2j30940euwex.jpg" alt=""></p>
+<p>官方支持的 <code>SDK</code> 非常丰富；我也在官方的 <code>SDK</code> 的基础之上封装了一个内部使用的 <code>SDK</code>。</p>
+<p>因为我们使用了 <a href="https://pkg.go.dev/go.uber.org/dig" target="_blank" rel="external">dig</a> 这样的轻量级依赖注入库，所以使用起来大概是这个样子：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div></pre></td><td class="code"><pre><div class="line">SetUpPulsar(lookupURL)</div><div class="line">container := dig.New()</div><div class="line">container.Provide(<span class="function"><span class="keyword">func</span><span class="params">()</span> <span class="title">ConsumerConfigInstance</span></span> &#123;</div><div class="line">	<span class="keyword">return</span> NewConsumer(&amp;pulsar.ConsumerOptions&#123;</div><div class="line">		Topic:            <span class="string">"persistent://core/order/create-order"</span>,</div><div class="line">		SubscriptionName: <span class="string">"order-sub"</span>,</div><div class="line">		Type:             pulsar.Shared,</div><div class="line">		Name:             <span class="string">"consumer01"</span>,</div><div class="line">	&#125;, ConsumerOrder)</div><div class="line"></div><div class="line">&#125;)</div><div class="line"></div><div class="line">container.Provide(<span class="function"><span class="keyword">func</span><span class="params">()</span> <span class="title">ConsumerConfigInstance</span></span> &#123;</div><div class="line">	<span class="keyword">return</span> NewConsumer(&amp;pulsar.ConsumerOptions&#123;</div><div class="line">		Topic:            <span class="string">"persistent://core/order/update-order"</span>,</div><div class="line">		SubscriptionName: <span class="string">"order-sub"</span>,</div><div class="line">		Type:             pulsar.Shared,</div><div class="line">		Name:             <span class="string">"consumer02"</span>,</div><div class="line">	&#125;, ConsumerInvoice)</div><div class="line"></div><div class="line">&#125;)</div><div class="line"></div><div class="line">container.Invoke(StartConsumer)</div></pre></td></tr></table></figure>
+<p>其中的两个 <code>container.Provide()</code> 函数用于注入 <code>consumer</code> 对象。</p>
+<p><code>container.Invoke(StartConsumer)</code>  会从容器中取出所有的 <code>consumer</code> 对象，同时开始消费。</p>
+<p>这时以我有限的 <code>Go</code> 开发经验也在思考一个问题，在 <code>Go</code> 中是否需要依赖注入？</p>
+<p>先来看看使用 <code>Dig</code> 这类库所带来的好处：</p>
+<ul>
+<li>对象交由容器管理，很方便的实现单例。</li>
+<li>当各个对象之前依赖关系复杂时，可以减少许多创建、获取对象的代码，依赖关系更清晰。</li>
+</ul>
+<p>同样的坏处也有：</p>
+<ul>
+<li>跟踪阅读代码时没有那么直观，不能一眼看出某个依赖对象是如何创建的。</li>
+<li>与 Go 所推崇的简洁之道不符。</li>
+</ul>
+<p>对于使用过 <code>Spring</code> 的 <code>Java</code> 开发者来说肯定直呼真香，毕竟还是熟悉的味道；但对于完全没有接触过类似需求的 <code>Gopher</code> 来说貌似也不是刚需。</p>
+<p>目前市面上各式各样的 Go 依赖注入库层出不穷，也不乏许多大厂出品，可见还是很有市场的。</p>
+<p>我相信有很多 <code>Gopher</code> 非常反感将 <code>Java</code> 中的一些复杂概念引入到 <code>Go</code>，但我觉得依赖注入本身是不受语言限制，各种语言也都有自己的实现，只是 Java 中的 Spring 不仅仅只是一个依赖注入框架，还有许多复杂功能，让许多开发者望而生畏。</p>
+<p>如果只是依赖注入这个细分需求，实现起来并不复杂，并不会给带来太多复杂度。如果花时间去看源码，在理解概念的基础上很快就能掌握。</p>
+<p>回到 <code>SDK</code> 本身来说，<code>Go</code> 的 <code>SDK</code> 现阶段要比 <code>Java</code> 版本的功能少（准确来说只有 <code>Java</code> 版的功能最丰富），但核心的都有了，并不影响日常使用。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本文介绍了 <code>Pulsar</code> 的一些基本概念与优点，同时顺便讨论一下 <code>Go</code> 的依赖注入；如果大家和我们一样在做技术选型，不妨考虑一下 <code>Pulsar</code>。</p>
+<p>后续会继续分享 Pulsar 的相关内容，有相关经验的朋友也可以在评论区留下自己的见解。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://tva1.sinaimg.cn/large/008eGmZEly1gpmzjhe824j31400u0wni.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;背景&quot;&gt;&lt;a href=&quot;#背景&quot; class=&quot;headerlink&quot; title=&quot;背景&quot;&gt;&lt;/a&gt;背景&lt;/h1&gt;&lt;p&gt;我们最近在做新业务的技术选型，其中涉及到了对消息中间件的选择；结合我们的实际情况希望它能满足以下几个要求：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;友好的云原生支持：因为现在的主力语言是 &lt;code&gt;Go&lt;/code&gt;，同时在运维上能够足够简单。&lt;/li&gt;
+&lt;li&gt;官方支持多种语言的 &lt;code&gt;SDK&lt;/code&gt;：还有一些 &lt;code&gt;Python&lt;/code&gt;、&lt;code&gt;Java&lt;/code&gt; 相关的代码需要维护。&lt;/li&gt;
+&lt;li&gt;最好是有一些方便好用的特性，比如：延时消息、死信队列、多租户等。&lt;/li&gt;
+&lt;/ul&gt;
+    
+    </summary>
+    
+      <category term="Pulsar" scheme="http://crossoverjie.top/categories/Pulsar/"/>
+    
+    
+      <category term="Go" scheme="http://crossoverjie.top/tags/Go/"/>
+    
+      <category term="消息队列" scheme="http://crossoverjie.top/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/"/>
+    
+  </entry>
   
   <entry>
     <title>利用 GitHub Action 自动发布 Docker</title>
@@ -2087,123 +2187,6 @@
       <category term="thread" scheme="http://crossoverjie.top/tags/thread/"/>
     
       <category term="多线程" scheme="http://crossoverjie.top/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>一次难得的分库分表实践</title>
-    <link href="http://crossoverjie.top/2019/07/24/framework-design/sharding-db-03/"/>
-    <id>http://crossoverjie.top/2019/07/24/framework-design/sharding-db-03/</id>
-    <published>2019-07-24T00:12:00.000Z</published>
-    <updated>2019-07-29T07:47:09.116Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/07/25/5d39840d169ae80383.jpg" alt=""></p>
-<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前不久发过两篇关于分表的文章：</p>
-<ul>
-<li><a href="https://crossoverjie.top/2019/04/16/framework-design/sharding-db/">一次分表踩坑实践的探讨</a></li>
-<li><a href="https://crossoverjie.top/2019/06/13/framework-design/sharding-db-02/">分表后需要注意的二三事</a></li>
-</ul>
-<p>从标题可以看得出来，当时我们只做了分表；还是由于业务发展，截止到现在也做了分库，目前看来都还比较顺利，所以借着脑子还记得清楚来一次复盘。</p>
-<a id="more"></a>
-<p>先来回顾下整个分库分表的流程如下：</p>
-<p><img src="https://i.loli.net/2019/07/25/5d39840dd28fd13220.jpg" alt=""></p>
-<p>整个过程也很好理解，基本符合大部分公司的一个发展方向。</p>
-<p>很少会有业务一开始就会设计为分库分表，虽说这样会减少后续的坑，但部分公司刚开始都是以业务为主。</p>
-<p>直到业务发展到单表无法支撑时，自然而然会考虑分表甚至分库的事情。</p>
-<p>于是本篇会作一次总结，之前提过的内容可能会再重复一次。</p>
-<h1 id="分表"><a href="#分表" class="headerlink" title="分表"></a>分表</h1><p>首先讨论下什么样的情况下适合分表？</p>
-<p>根据我的经验来看，当某张表的数据量已经达到千万甚至上亿，同时日增数据量在 2% 以上。</p>
-<p>当然这些数字并不是绝对的，最重要的还是对这张表的写入和查询都已经影响到正常业务执行，比如查询速度明显下降，数据库整体 IO 居高不下等。</p>
-<p>而谈到分表时我们着重讨论的还是水平分表；</p>
-<p><img src="https://i.loli.net/2019/06/13/5d0126128f1e678414.jpg" alt=""></p>
-<p>也就是将一张大表数据通过某种路由算法将数据尽可能的均匀分配到 N 张小表中。</p>
-<h2 id="Range"><a href="#Range" class="headerlink" title="Range"></a>Range</h2><p>而分表策略也有好几种，分别适用不同的场景。</p>
-<p>首先第一种是按照范围划分，比如我们可以将某张表的创建时间按照日期划分存为月表；也可以将某张表的主键按照范围划分，比如 【1~10000】在一张表，【10001~20000】在一张表，以此类推。</p>
-<p><img src="https://i.loli.net/2019/07/25/5d39840e3a15251220.jpg" alt=""></p>
-<p>这样的分表适合需要对数据做归档处理，比如系统默认只提供近三个月历史数据的查询功能，这样也方便操作；只需要把三月之前的数据单独移走备份保存即可）。</p>
-<p>这个方案有好处也有弊端：</p>
-<ul>
-<li>好处是自带水平扩展，不需要过多干预。</li>
-<li>缺点是可能会出现数据不均匀的情况（比如某个月请求暴增）。</li>
-</ul>
-<h2 id="Hash"><a href="#Hash" class="headerlink" title="Hash"></a>Hash</h2><p>按照日期这样的范围分表固然简单，但适用范围还是比较窄；毕竟我们大部分的数据查询都不想带上时间。</p>
-<p>比如某个用户想查询他产生的所有订单信息，这是很常见的需求。</p>
-<p>于是我们分表的维度就得改改，分表算法可以采用主流的 <code>hash+mod</code> 的组合。</p>
-<p>这是一个经典的算法，大名鼎鼎的 <code>HashMap</code> 也是这样来存储数据。</p>
-<p>假设我们这里将原有的一张大表订单信息分为 64 张分表：</p>
-<p><img src="https://i.loli.net/2019/07/25/5d39840e7691e58337.jpg" alt=""></p>
-<p>这里的 <code>hash</code> 便是将我们需要分表的字段进行一次散列运算，使得经过散列的数据尽可能的均匀并且不重复。</p>
-<p>当然如果本身这个字段就是一个整形并且不重复也可以省略这个步骤，直接进行 <code>Mod</code> 得到分表下标即可。</p>
-<h3 id="分表数量选择"><a href="#分表数量选择" class="headerlink" title="分表数量选择"></a>分表数量选择</h3><p>至于这里的分表数量（64）也是有讲究的，具体设为多少这个没有标准值，需要根据自身业务发展，数据增量进行预估。</p>
-<p>根据我个人的经验来看，至少需要保证分好之后的小表在业务发展的几年之内都不会出现单表数据量过大（比如达到千万级）。</p>
-<p>我更倾向于在数据库可接受的范围内尽可能的增大这个分表数，毕竟如果后续小表也达到瓶颈需要再进行一次分表扩容，那是非常痛苦的。</p>
-<blockquote>
-<p>目前笔者还没经历这一步，所以本文没有相关介绍。</p>
-</blockquote>
-<p>但是这个数量又不是瞎选的，和 <code>HashMap</code> 一样，也建议得是 <code>2^n</code>，这样可以方便在扩容的时尽可能的少迁移数据。</p>
-<h2 id="Range-Hash"><a href="#Range-Hash" class="headerlink" title="Range + Hash"></a>Range + Hash</h2><p>当然还有一种思路，<code>Range</code> 和 <code>Hash</code> 是否可以混用。</p>
-<p>比如我们一开始采用的是 Hash 分表，但是数据增长巨大，导致每张分表数据很快达到瓶颈，这样就不得不再做扩容，比如由 64 张表扩容到 256 张。</p>
-<p>但扩容时想要做到不停机迁移数据非常困难，即便是停机，那停多久呢？也不好说。</p>
-<p>所以我们是否可以在 <code>Mod</code> 分表的基础上再分为月表，借助于 <code>Range</code> 自身的扩展性就不用考虑后续数据迁移的事情了。</p>
-<p><img src="https://i.loli.net/2019/07/25/5d39840eedaf273526.jpg" alt=""></p>
-<p>这种方式理论可行，但我没有实际用过，给大家的思路做个参考吧。</p>
-<h2 id="烦人的数据迁移"><a href="#烦人的数据迁移" class="headerlink" title="烦人的数据迁移"></a>烦人的数据迁移</h2><p>分表规则弄好后其实只是完成了分表的第一步，真正麻烦的是数据迁移，或者说是如何做到对业务影响最小的数据迁移。</p>
-<p>除非是一开始就做了分表，所以数据迁移这一步骤肯定是跑不掉的。</p>
-<p>下面整理下目前我们的做法供大家参考：</p>
-<ol>
-<li>一旦分表上线后所有的数据写入、查询都是针对于分表的，所以原有大表内的数据必须得迁移到分表里，不然对业务的影响极大。</li>
-<li>我们估算了对一张 2 亿左右的表进行迁移，自己写的迁移程序，大概需要花 4~5 天的时间才能完成迁移。</li>
-<li>意味着这段时间内，以前的数据对用户是不可见的，显然这样业务不能接受。</li>
-<li>于是我们做了一个兼容处理：分表改造上线后，所有新产生的数据写入分表，但对历史数据的操作还走老表，这样就少了数据迁移这一步骤。</li>
-<li>只是需要在操作数据之前做一次路由判断，当新数据产生的足够多时（我们是两个月时间），几乎所有的操作都是针对于分表，再从库启动数据迁移，数据迁移完毕后将原有的路由判断去掉。</li>
-<li>最后所有的数据都从分表产生和写入。</li>
-</ol>
-<p>至此整个分表操作完成。</p>
-<p><img src="https://i.loli.net/2019/07/25/5d39840f3b3d054411.jpg" alt=""></p>
-<p><img src="https://i.loli.net/2019/07/25/5d39840f6b9fd31724.jpg" alt=""></p>
-<h2 id="业务兼容"><a href="#业务兼容" class="headerlink" title="业务兼容"></a>业务兼容</h2><p>同时分表之后还需要兼容其他业务；比如原有的报表业务、分页查询等，现在来看看我们是如何处理的。</p>
-<h3 id="报表"><a href="#报表" class="headerlink" title="报表"></a>报表</h3><p>首先是报表，没分表之前之间查询一张表就搞定了，现在不同，由一张表变为 N 张表。</p>
-<p>所以原有的查询要改为遍历所有的分表，考虑到性能可以利用多线程并发查询分表数据然后汇总。</p>
-<p>不过只依靠 <code>Java</code> 来对这么大量的数据做统计分析还是不现实，刚开始可以应付过去，后续还得用上大数据平台来处理。</p>
-<h3 id="查询"><a href="#查询" class="headerlink" title="查询"></a>查询</h3><p>再一个是查询，原有的分页查询肯定是不能用了，毕竟对上亿的数据分页其实没什么意义。</p>
-<p>只能提供通过分表字段的查询，比如是按照订单 ID 分表，那查询条件就得带上这个字段，不然就会涉及到遍历所有表。</p>
-<p>这也是所有分表之后都会遇到的一个问题，除非不用 <code>MySQL</code> 这类关系型数据库。</p>
-<h1 id="分库"><a href="#分库" class="headerlink" title="分库"></a>分库</h1><p>分表完成后可以解决单表的压力，但数据库本身的压力却没有下降。</p>
-<p>我们在完成分表之后的一个月内又由于数据库里“其他表”的写入导致整个数据库 IO 增加，而且这些“其他表”还和业务关系不大。</p>
-<p>也就是说一些可有可无的数据导致了整体业务受影响，这是非常不划算的事情。</p>
-<p>于是我们便把这几张表单独移到一个新的数据库中，完全和现有的业务隔离开来。</p>
-<p>这样就会涉及到几个改造：</p>
-<ol>
-<li>应用自身对这些数据的查询、写入都要改为调用一个独立的 <code>Dubbo</code> 服务，由这个服务对迁移的表进行操作。</li>
-<li>暂时不做数据迁移，所以查询时也得按照分表那样做一个兼容，如果查询老数据就要在当前库查询，新数据就要调用 <code>Dubbo</code> 接口进行查询。</li>
-<li>对这些表的一些关联查询也得改造为查询 <code>Dubbo</code> 接口，在内存中进行拼接即可。</li>
-<li>如果数据量确实很大，也可将同步的 <code>Dubbo</code> 接口换为写入消息队列来提高吞吐量。</li>
-</ol>
-<p>目前我们将这类数据量巨大但对业务不太影响的表单独迁到一个库后，数据库的整体 <code>IO</code> 下降明显，业务也恢复正常。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>最后我们还需要做一步历史数据归档的操作，将 N 个月之前的数据要定期迁移到 <code>HBASE</code> 之类存储，保证 <code>MySQL</code> 中的数据一直保持在一个可接受的范围。</p>
-<p>而归档数据的查询便依赖于大数据提供服务。</p>
-<p>本次分库分表是一次非常难得的实践操作，网上大部分的资料都是在汽车出厂前就换好了轮胎。</p>
-<p>而我们大部分碰到的场景都是要对高速路上跑着的车子换胎，一不小心就“车毁人亡”。</p>
-<p>有更好的方式方法欢迎大家评论区留言讨论。</p>
-<p><strong>你的点赞与分享是对我最大的支持</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/07/25/5d39840d169ae80383.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;背景&quot;&gt;&lt;a href=&quot;#背景&quot; class=&quot;headerlink&quot; title=&quot;背景&quot;&gt;&lt;/a&gt;背景&lt;/h1&gt;&lt;p&gt;前不久发过两篇关于分表的文章：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;a href=&quot;https://crossoverjie.top/2019/04/16/framework-design/sharding-db/&quot;&gt;一次分表踩坑实践的探讨&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href=&quot;https://crossoverjie.top/2019/06/13/framework-design/sharding-db-02/&quot;&gt;分表后需要注意的二三事&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;从标题可以看得出来，当时我们只做了分表；还是由于业务发展，截止到现在也做了分库，目前看来都还比较顺利，所以借着脑子还记得清楚来一次复盘。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="架构" scheme="http://crossoverjie.top/categories/%E6%9E%B6%E6%9E%84/"/>
-    
-    
-      <category term="db" scheme="http://crossoverjie.top/tags/db/"/>
     
   </entry>
   

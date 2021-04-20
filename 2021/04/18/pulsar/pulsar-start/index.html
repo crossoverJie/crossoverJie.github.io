@@ -1,0 +1,1219 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/vendors/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/vendors/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Go,消息队列," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml" />
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.1" />
+
+
+
+
+
+
+<meta name="description" content="背景我们最近在做新业务的技术选型，其中涉及到了对消息中间件的选择；结合我们的实际情况希望它能满足以下几个要求：
+
+友好的云原生支持：因为现在的主力语言是 Go，同时在运维上能够足够简单。
+官方支持多种语言的 SDK：还有一些 Python、Java 相关的代码需要维护。
+最好是有一些方便好用的特性，比如：延时消息、死信队列、多租户等。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Pulsar 入门及介绍">
+<meta property="og:url" content="http://crossoverjie.top/2021/04/18/pulsar/pulsar-start/index.html">
+<meta property="og:site_name" content="crossoverJie's Blog">
+<meta property="og:description" content="背景我们最近在做新业务的技术选型，其中涉及到了对消息中间件的选择；结合我们的实际情况希望它能满足以下几个要求：
+
+友好的云原生支持：因为现在的主力语言是 Go，同时在运维上能够足够简单。
+官方支持多种语言的 SDK：还有一些 Python、Java 相关的代码需要维护。
+最好是有一些方便好用的特性，比如：延时消息、死信队列、多租户等。">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gpmzjhe824j31400u0wni.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gpqk0mtjtzj30wt0lp421.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gpqm3kl6r2j30940euwex.jpg">
+<meta property="og:updated_time" content="2021-04-20T16:18:47.855Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Pulsar 入门及介绍">
+<meta name="twitter:description" content="背景我们最近在做新业务的技术选型，其中涉及到了对消息中间件的选择；结合我们的实际情况希望它能满足以下几个要求：
+
+友好的云原生支持：因为现在的主力语言是 Go，同时在运维上能够足够简单。
+官方支持多种语言的 SDK：还有一些 Python、Java 相关的代码需要维护。
+最好是有一些方便好用的特性，比如：延时消息、死信队列、多租户等。">
+<meta name="twitter:image" content="https://tva1.sinaimg.cn/large/008eGmZEly1gpmzjhe824j31400u0wni.jpg">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: 555390,
+      author: 'crossoverJie'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="http://crossoverjie.top/2021/04/18/pulsar/pulsar-start/"/>
+
+  <title> Pulsar 入门及介绍 | crossoverJie's Blog </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+
+
+
+
+
+
+
+
+  <div style="display: none;">
+    <script src="https://s6.cnzz.com/stat.php?id=1259025147&web_id=1259025147" type="text/javascript"></script>
+  </div>
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">crossoverJie's Blog</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle">baller</p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            Home
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            Categories
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            About
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            Archives
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            Tags
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-photo">
+          <a href="/favourite" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-photo"></i> <br />
+            
+            photo
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-jcsprout">
+          <a href="https://crossoverjie.top/JCSprout/#/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-leaf"></i> <br />
+            
+            JCSprout
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-cicada">
+          <a href="https://github.com/TogetherOS/cicada" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-github"></i> <br />
+            
+            cicada
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-cim">
+          <a href="https://github.com/crossoverjie/cim" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-far fa-comment"></i> <br />
+            
+            CIM
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-vlog">
+          <a href="https://space.bilibili.com/42339430" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-youtube"></i> <br />
+            
+            Vlog
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="#" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br />
+            
+            Search
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup">
+ <span class="search-icon fa fa-search"></span>
+ <input type="text" id="local-search-input">
+ <div id="local-search-result"></div>
+ <span class="popup-btn-close">close</span>
+</div>
+
+
+    </div>
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Pulsar 入门及介绍
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">Posted on</span>
+            <time itemprop="dateCreated" datetime="2021-04-18T08:12:26+08:00" content="2021-04-18">
+              2021-04-18
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/Pulsar/" itemprop="url" rel="index">
+                    <span itemprop="name">Pulsar</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/2021/04/18/pulsar/pulsar-start/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2021/04/18/pulsar/pulsar-start/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+             <span id="/2021/04/18/pulsar/pulsar-start/" class="leancloud_visitors" data-flag-title="Pulsar 入门及介绍">
+               &nbsp; | &nbsp;
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               <span class="post-meta-item-text">visitors </span>
+               <span class="leancloud-visitors-count"></span>
+              </span>
+          
+
+          
+              &nbsp; | &nbsp;
+              <span class="page-pv">本文总阅读量
+              <span class="busuanzi-value" id="busuanzi_value_page_pv" ></span>次
+              </span>
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gpmzjhe824j31400u0wni.jpg" alt=""></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>我们最近在做新业务的技术选型，其中涉及到了对消息中间件的选择；结合我们的实际情况希望它能满足以下几个要求：</p>
+<ul>
+<li>友好的云原生支持：因为现在的主力语言是 <code>Go</code>，同时在运维上能够足够简单。</li>
+<li>官方支持多种语言的 <code>SDK</code>：还有一些 <code>Python</code>、<code>Java</code> 相关的代码需要维护。</li>
+<li>最好是有一些方便好用的特性，比如：延时消息、死信队列、多租户等。</li>
+</ul>
+<a id="more"></a>
+<p>当然还有一些水平扩容、吞吐量、低延迟这些特性就不用多说了，几乎所有成熟的消息中间件都能满足这些要求。</p>
+<p>基于以上的筛选条件，<code>Pulsar</code> 进入了我们的视野。</p>
+<p>作为 <code>Apache</code> 下的顶级项目，以上特性都能很好的支持。</p>
+<p>下面我们来它有什么过人之处。</p>
+<h1 id="架构"><a href="#架构" class="headerlink" title="架构"></a>架构</h1><p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gpqk0mtjtzj30wt0lp421.jpg" alt=""></p>
+<p>从官方的架构图中可以看出 <code>Pulsar</code> 主要有以下组件组成：</p>
+<ol>
+<li><code>Broker</code> 无状态组件，可以水平扩展，主要用于生产者、消费者连接；与 Kafka 的 broker 类似，但没有数据存储功能，因此扩展更加轻松。</li>
+<li><code>BookKeeper</code> 集群：主要用于数据的持久化存储。</li>
+<li><code>Zookeeper</code> 用于存储 <code>broker</code> 与 <code>BookKeeper</code> 的元数据。</li>
+</ol>
+<p>整体一看似乎比 Kafka 所依赖的组件还多，这样确实会提供系统的复杂性；但同样的好处也很明显。</p>
+<p><code>Pulsar</code> 的存储于计算是分离的，当需要扩容时会非常简单，直接新增 <code>broker</code> 即可，没有其他的心智负担。</p>
+<p>当存储成为瓶颈时也只需要扩容 <code>BookKeeper</code>，不需要人为的做重平衡，<code>BookKeeper</code> 会自动负载。</p>
+<p>同样的操作，<code>Kafka</code> 就要复杂的多了。</p>
+<h2 id="特性"><a href="#特性" class="headerlink" title="特性"></a>特性</h2><h3 id="多租户"><a href="#多租户" class="headerlink" title="多租户"></a>多租户</h3><p>多租户也是一个刚需功能，可以在同一个集群中对不同业务、团队的数据进行隔离。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">persistent://core/order/create-order</div></pre></td></tr></table></figure>
+<p>以这个 topic 名称为例，在 <code>core</code> 这个租户下有一个 <code>order</code> 的 <code>namespace</code>，最终才是 <code>create-order</code> 的 <code>topic</code> 名称。</p>
+<p>在实际使用中租户一般是按照业务团队进行划分，<code>namespace</code> 则是当前团队下的不同业务；这样便可以很清晰的对 topic 进行管理。</p>
+<p>通常有对比才会有伤害，在没有多租户的消息中间件中是如何处理这类问题的呢：</p>
+<ol>
+<li>干脆不分这么细，所有业务线混着用，当团队较小时可能问题不大；一旦业务增加，管理起来会非常麻烦。</li>
+<li>自己在 topic 之前做一层抽象，但其实本质上也是在实现多租户。</li>
+<li>各个业务团队各自维护自己的集群，这样当然也能解决问题，但运维复杂度自然也就提高了。</li>
+</ol>
+<p>以上就很直观的看出多租户的重要性了。</p>
+<h3 id="Function-函数计算"><a href="#Function-函数计算" class="headerlink" title="Function 函数计算"></a>Function 函数计算</h3><p><code>Pulsar</code> 还支持轻量级的函数计算，例如需要对某些消息进行数据清洗、转换，然后再发布到另一个 topic 中。</p>
+<p>这类需求就可以编写一个简单的函数，<code>Pulsar</code> 提供了 <code>SDK</code> 可以方便的对数据进行处理，最后使用官方工具发布到 <code>broker</code> 中。</p>
+<p>在这之前这类简单的需求可能也需要自己处理流处理引擎。</p>
+<h2 id="应用"><a href="#应用" class="headerlink" title="应用"></a>应用</h2><p>除此之外的上层应用，比如生产者、消费者这类概念与使用大家都差不多。</p>
+<p>比如 <code>Pulsar</code> 支持四种消费模式：</p>
+<ul>
+<li><code>Exclusive</code>：独占模式，同时只有一个消费者可以启动并消费数据；通过 <code>SubscriptionName</code> 标明是同一个消费者），适用范围较小。</li>
+<li><code>Failover</code> 故障转移模式：在独占模式基础之上可以同时启动多个 <code>consumer</code>，一旦一个 <code>consumer</code>  挂掉之后其余的可以快速顶上，但也只有一个 <code>consumer</code> 可以消费；部分场景可用。</li>
+<li><code>Shared</code> 共享模式：可以有 N 个消费者同时运行，消息按照 <code>round-robin</code> 轮询投递到每个 <code>consumer</code> 中；当某个 <code>consumer</code> 宕机没有 <code>ack</code> 时，该消息将会被投递给其他消费者。这种消费模式可以提高消费能力，但消息无法做到有序。</li>
+<li><code>KeyShared</code> 共享模式：基于共享模式；相当于对同一个<code>topic</code>中的消息进行分组，同一分组内的消息只能被同一个消费者有序消费。</li>
+</ul>
+<p>第三种共享消费模式应该是使用最多的，当对消息有顺序要求时可以使用 <code>KeyShared</code> 模式。</p>
+<h2 id="SDK"><a href="#SDK" class="headerlink" title="SDK"></a>SDK</h2><p><img src="https://tva1.sinaimg.cn/large/008eGmZEly1gpqm3kl6r2j30940euwex.jpg" alt=""></p>
+<p>官方支持的 <code>SDK</code> 非常丰富；我也在官方的 <code>SDK</code> 的基础之上封装了一个内部使用的 <code>SDK</code>。</p>
+<p>因为我们使用了 <a href="https://pkg.go.dev/go.uber.org/dig" target="_blank" rel="external">dig</a> 这样的轻量级依赖注入库，所以使用起来大概是这个样子：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div></pre></td><td class="code"><pre><div class="line">SetUpPulsar(lookupURL)</div><div class="line">container := dig.New()</div><div class="line">container.Provide(<span class="function"><span class="keyword">func</span><span class="params">()</span> <span class="title">ConsumerConfigInstance</span></span> &#123;</div><div class="line">	<span class="keyword">return</span> NewConsumer(&amp;pulsar.ConsumerOptions&#123;</div><div class="line">		Topic:            <span class="string">"persistent://core/order/create-order"</span>,</div><div class="line">		SubscriptionName: <span class="string">"order-sub"</span>,</div><div class="line">		Type:             pulsar.Shared,</div><div class="line">		Name:             <span class="string">"consumer01"</span>,</div><div class="line">	&#125;, ConsumerOrder)</div><div class="line"></div><div class="line">&#125;)</div><div class="line"></div><div class="line">container.Provide(<span class="function"><span class="keyword">func</span><span class="params">()</span> <span class="title">ConsumerConfigInstance</span></span> &#123;</div><div class="line">	<span class="keyword">return</span> NewConsumer(&amp;pulsar.ConsumerOptions&#123;</div><div class="line">		Topic:            <span class="string">"persistent://core/order/update-order"</span>,</div><div class="line">		SubscriptionName: <span class="string">"order-sub"</span>,</div><div class="line">		Type:             pulsar.Shared,</div><div class="line">		Name:             <span class="string">"consumer02"</span>,</div><div class="line">	&#125;, ConsumerInvoice)</div><div class="line"></div><div class="line">&#125;)</div><div class="line"></div><div class="line">container.Invoke(StartConsumer)</div></pre></td></tr></table></figure>
+<p>其中的两个 <code>container.Provide()</code> 函数用于注入 <code>consumer</code> 对象。</p>
+<p><code>container.Invoke(StartConsumer)</code>  会从容器中取出所有的 <code>consumer</code> 对象，同时开始消费。</p>
+<p>这时以我有限的 <code>Go</code> 开发经验也在思考一个问题，在 <code>Go</code> 中是否需要依赖注入？</p>
+<p>先来看看使用 <code>Dig</code> 这类库所带来的好处：</p>
+<ul>
+<li>对象交由容器管理，很方便的实现单例。</li>
+<li>当各个对象之前依赖关系复杂时，可以减少许多创建、获取对象的代码，依赖关系更清晰。</li>
+</ul>
+<p>同样的坏处也有：</p>
+<ul>
+<li>跟踪阅读代码时没有那么直观，不能一眼看出某个依赖对象是如何创建的。</li>
+<li>与 Go 所推崇的简洁之道不符。</li>
+</ul>
+<p>对于使用过 <code>Spring</code> 的 <code>Java</code> 开发者来说肯定直呼真香，毕竟还是熟悉的味道；但对于完全没有接触过类似需求的 <code>Gopher</code> 来说貌似也不是刚需。</p>
+<p>目前市面上各式各样的 Go 依赖注入库层出不穷，也不乏许多大厂出品，可见还是很有市场的。</p>
+<p>我相信有很多 <code>Gopher</code> 非常反感将 <code>Java</code> 中的一些复杂概念引入到 <code>Go</code>，但我觉得依赖注入本身是不受语言限制，各种语言也都有自己的实现，只是 Java 中的 Spring 不仅仅只是一个依赖注入框架，还有许多复杂功能，让许多开发者望而生畏。</p>
+<p>如果只是依赖注入这个细分需求，实现起来并不复杂，并不会给带来太多复杂度。如果花时间去看源码，在理解概念的基础上很快就能掌握。</p>
+<p>回到 <code>SDK</code> 本身来说，<code>Go</code> 的 <code>SDK</code> 现阶段要比 <code>Java</code> 版本的功能少（准确来说只有 <code>Java</code> 版的功能最丰富），但核心的都有了，并不影响日常使用。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本文介绍了 <code>Pulsar</code> 的一些基本概念与优点，同时顺便讨论一下 <code>Go</code> 的依赖注入；如果大家和我们一样在做技术选型，不妨考虑一下 <code>Pulsar</code>。</p>
+<p>后续会继续分享 Pulsar 的相关内容，有相关经验的朋友也可以在评论区留下自己的见解。</p>
+
+      
+    </div>
+
+    <div>
+      
+        
+<div id="wechat_subscriber" style="display: block； padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+    <img id="wechat_subscriber_qcode" src="/uploads/weixinfooter1.jpg" alt="crossoverJie wechat" style="width: 200px; max-width: 100%;"/>
+    <div>我很有眼光！</div>
+</div>
+
+      
+    </div>
+
+    <div>
+      
+        
+  <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+    <div>请我吃🍗</div>
+    <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+      <span>赏</span>
+    </button>
+    <div id="QR" style="display: none;">
+      
+        <div id="wechat" style="display: inline-block">
+          <img id="wechat_qr" src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay"/>
+          <p>微信打赏</p>
+        </div>
+      
+      
+        <div id="alipay" style="display: inline-block">
+          <img id="alipay_qr" src="/alipay-reward-image.jpg" alt="crossoverJie Alipay"/>
+          <p>支付宝打赏</p>
+        </div>
+      
+    </div>
+  </div>
+
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Go/" rel="tag">#Go</a>
+          
+            <a href="/tags/消息队列/" rel="tag">#消息队列</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2021/03/26/go/github-actions/" rel="next" title="利用 GitHub Action 自动发布 Docker">
+                <i class="fa fa-chevron-left"></i> 利用 GitHub Action 自动发布 Docker
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+  <p>热评文章</p>
+  <div class="ds-top-threads" data-range="weekly" data-num-items="4"></div>
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/uploads/logo.jpg"
+               alt="crossoverJie" />
+          <p class="site-author-name" itemprop="name">crossoverJie</p>
+          <p class="site-description motion-element" itemprop="description">You never know what you can do till you try.</p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">132</span>
+              <span class="site-state-item-name">posts</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">61</span>
+                <span class="site-state-item-name">categories</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">125</span>
+                <span class="site-state-item-name">tags</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/crossoverJie" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://www.jianshu.com/users/e2d07947c112/latest_articles" target="_blank" title="简书">
+                  
+                    <i class="fa fa-fw fa-book"></i>
+                  
+                  简书
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" target="_blank" title="掘金">
+                  
+                    <i class="fa fa-fw fa-bookmark"></i>
+                  
+                  掘金
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="https://twitter.com/crossoverJie" target="_blank" title="Twitter">
+                  
+                    <i class="fa fa-fw fa-twitter"></i>
+                  
+                  Twitter
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              友情链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://wuchong.me" title="Jark's Blog" target="_blank">Jark's Blog</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://tengj.top" title="嘟嘟独立博客" target="_blank">嘟嘟独立博客</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://yemengying.com/" title="Giraffe Home" target="_blank">Giraffe Home</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://blog.jamespan.me/" title="潘小鶸(ruò)" target="_blank">潘小鶸(ruò)</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://fangjian0423.github.io/" title="Format's Notes" target="_blank">Format's Notes</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://yuzhouwan.com/" title="Benedict Jin" target="_blank">Benedict Jin</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.didispace.com/" title="程序猿DD" target="_blank">程序猿DD</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://blog.52itstyle.vip/" title="小柒博客" target="_blank">小柒博客</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://cmsblogs.com/" title="Java技术驿站" target="_blank">Java技术驿站</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://vim.ink/" title="vim 教程网" target="_blank">vim 教程网</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.jitwxs.cn" title="jitwxs" target="_blank">jitwxs</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.javaboy.org" title="江南一点雨" target="_blank">江南一点雨</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.liangsonghua.me" title="松花皮蛋的黑板报" target="_blank">松花皮蛋的黑板报</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.fi-ads.com" title="Future iDeal" target="_blank">Future iDeal</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://dbarobin.com/" title="Cryptospace" target="_blank">Cryptospace</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#背景"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#架构"><span class="nav-number">2.</span> <span class="nav-text">架构</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#特性"><span class="nav-number">2.1.</span> <span class="nav-text">特性</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#多租户"><span class="nav-number">2.1.1.</span> <span class="nav-text">多租户</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Function-函数计算"><span class="nav-number">2.1.2.</span> <span class="nav-text">Function 函数计算</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#应用"><span class="nav-number">2.2.</span> <span class="nav-text">应用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SDK"><span class="nav-number">2.3.</span> <span class="nav-text">SDK</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy;  2016 - 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+
+<div class="powered-by">
+  Powered by <a class="theme-link" href="http://hexo.io">Hexo</a>
+</div>
+
+<div class="theme-info">
+  Theme -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+        
+
+<div class="busuanzi-count">
+
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="site-uv"><i class="fa fa-user"></i><span class="busuanzi-value" id="busuanzi_value_site_uv"></span>人数</span>
+  
+
+  
+    <span class="site-pv">您是第<span class="busuanzi-value" id="busuanzi_value_site_pv"></span>位童鞋</span>
+  
+  
+</div>
+
+
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/vendors/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/vendors/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.0.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.1"></script>
+
+
+
+  
+
+
+
+  
+
+    <script type="text/javascript">
+      var disqus_shortname = 'crossoverjie';
+      var disqus_identifier = '2021/04/18/pulsar/pulsar-start/';
+      var disqus_title = "Pulsar 入门及介绍";
+      var disqus_url = 'http://crossoverjie.top/2021/04/18/pulsar/pulsar-start/';
+
+      function run_disqus_script(disqus_script){
+        var dsq = document.createElement('script');
+        dsq.type = 'text/javascript';
+        dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+      }
+
+      run_disqus_script('count.js');
+      
+        run_disqus_script('embed.js');
+      
+    </script>
+  
+
+
+
+
+  
+  
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length == 0) {
+       search_path = "search.xml";
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    function proceedsearch() {
+      $("body").append('<div class="popoverlay">').css('overflow', 'hidden');
+      $('.popup').toggle();
+
+    }
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+    'use strict';
+    $.ajax({
+        url: path,
+        dataType: "xml",
+        async: true,
+        success: function( xmlResponse ) {
+            // get the contents from search data
+            isfetched = true;
+            $('.popup').detach().appendTo('.header-inner');
+            var datas = $( "entry", xmlResponse ).map(function() {
+                return {
+                    title: $( "title", this ).text(),
+                    content: $("content",this).text(),
+                    url: $( "url" , this).text()
+                };
+            }).get();
+            var $input = document.getElementById(search_id);
+            var $resultContent = document.getElementById(content_id);
+            $input.addEventListener('input', function(){
+                var matchcounts = 0;
+                var str='<ul class=\"search-result-list\">';                
+                var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                $resultContent.innerHTML = "";
+                if (this.value.trim().length > 1) {
+                // perform local searching
+                datas.forEach(function(data) {
+                    var isMatch = true;
+                    var content_index = [];
+                    var data_title = data.title.trim().toLowerCase();
+                    var data_content = data.content.trim().replace(/<[^>]+>/g,"").toLowerCase();
+                    var data_url = data.url;
+                    var index_title = -1;
+                    var index_content = -1;
+                    var first_occur = -1;
+                    // only match artiles with not empty titles and contents
+                    if(data_title != '' && data_content != '') {
+                        keywords.forEach(function(keyword, i) {
+                            index_title = data_title.indexOf(keyword);
+                            index_content = data_content.indexOf(keyword);
+                            if( index_title < 0 && index_content < 0 ){
+                                isMatch = false;
+                            } else {
+                                if (index_content < 0) {
+                                    index_content = 0;
+                                }
+                                if (i == 0) {
+                                    first_occur = index_content;
+                                }
+                            }
+                        });
+                    }
+                    // show search results
+                    if (isMatch) {
+                        matchcounts += 1;
+                        str += "<li><a href='"+ data_url +"' class='search-result-title'>"+ data_title +"</a>";
+                        var content = data.content.trim().replace(/<[^>]+>/g,"");
+                        if (first_occur >= 0) {
+                            // cut out 100 characters
+                            var start = first_occur - 20;
+                            var end = first_occur + 80;
+                            if(start < 0){
+                                start = 0;
+                            }
+                            if(start == 0){
+                                end = 50;
+                            }
+                            if(end > content.length){
+                                end = content.length;
+                            }
+                            var match_content = content.substring(start, end);
+                            // highlight all keywords
+                            keywords.forEach(function(keyword){
+                                var regS = new RegExp(keyword, "gi");
+                                match_content = match_content.replace(regS, "<b class=\"search-keyword\">"+keyword+"</b>");
+                            });
+                            
+                            str += "<p class=\"search-result\">" + match_content +"...</p>"
+                        }
+                        str += "</li>";
+                    }
+                })};
+                str += "</ul>";
+                if (matchcounts == 0) { str = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>' }
+                if (keywords == "") { str = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>' }
+                $resultContent.innerHTML = str;
+            });
+            proceedsearch();
+        }
+    });}
+
+    // handle and trigger popup window;
+    $('.popup-trigger').mousedown(function(e) {
+      e.stopPropagation();
+      if (isfetched == false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+
+    });
+
+    $('.popup-btn-close').click(function(e){
+      $('.popup').hide();
+      $(".popoverlay").remove();
+      $('body').css('overflow', '');
+    });
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+  </script>
+
+  
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.1.js"></script>
+  <script>AV.initialize("Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz", "NXiHFodQfmI8oxkK6IThhjrF");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script type="text/javascript" src="/js/src/particle.js" count="50" zindex="-2" opacity="1" color="0,104,183"></script>
+</body>
+</html>
