@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2021-05-15T15:04:19.649Z</updated>
+  <updated>2021-07-01T17:17:51.249Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -14,6 +14,133 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>Go chennel VS Java BlockingQueue</title>
+    <link href="http://crossoverjie.top/2021/07/02/go/go%20channel%20vs%20java%20BlockingQueue/"/>
+    <id>http://crossoverjie.top/2021/07/02/go/go channel vs java BlockingQueue/</id>
+    <published>2021-07-02T00:25:16.000Z</published>
+    <updated>2021-07-01T17:17:51.249Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://tva1.sinaimg.cn/large/008i3skNly1grzit9soenj31hc0u010l.jpg" alt=""></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近在实现两个需求，由于两者之间并没有依赖关系，所以想利用队列进行解耦；但在 <code>Go</code> 的标准库中并没有现成可用并且并发安全的数据结构；但 <code>Go</code> 提供了一个更加优雅的解决方案，那就是 <code>channel</code>。</p>
+<h1 id="channel-应用"><a href="#channel-应用" class="headerlink" title="channel 应用"></a>channel 应用</h1><p><code>Go</code> 与 <code>Java</code> 的一个很大的区别就是并发模型不同，Go 采用的是 <code>CSP(Communicating sequential processes)</code> 模型；用 Go 官方的说法：</p>
+<blockquote>
+<p>Do not communicate by sharing memory; instead, share memory by communicating.</p>
+</blockquote>
+<a id="more"></a>
+<p>翻译过来就是：不用使用共享内存来通信，而是用通信来共享内存。</p>
+<p>而这里所提到的<strong>通信</strong>，在 Go 里就是指代的 <code>channel</code>。</p>
+<p>只讲概念并不能快速的理解与应用，所以接下来会结合几个实际案例更方便理解。</p>
+<h2 id="futrue-task"><a href="#futrue-task" class="headerlink" title="futrue task"></a>futrue task</h2><p><code>Go</code> 官方没有提供类似于 <code>Java</code> 的 <code>FutureTask</code> 支持：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div></pre></td><td class="code"><pre><div class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> InterruptedException, ExecutionException </span>&#123;</div><div class="line">        ExecutorService executorService = Executors.newFixedThreadPool(<span class="number">2</span>);</div><div class="line">        Task task = <span class="keyword">new</span> Task();</div><div class="line">        FutureTask&lt;String&gt; futureTask = <span class="keyword">new</span> FutureTask&lt;&gt;(task);</div><div class="line">        executorService.submit(futureTask);</div><div class="line">        String s = futureTask.get();</div><div class="line">        System.out.println(s);</div><div class="line">        executorService.shutdown();</div><div class="line">    &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">Task</span> <span class="keyword">implements</span> <span class="title">Callable</span>&lt;<span class="title">String</span>&gt; </span>&#123;</div><div class="line">    <span class="meta">@Override</span></div><div class="line">    <span class="function"><span class="keyword">public</span> String <span class="title">call</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</div><div class="line">        <span class="comment">// 模拟http</span></div><div class="line">        System.out.println(<span class="string">"http request"</span>);</div><div class="line">        Thread.sleep(<span class="number">1000</span>);</div><div class="line"></div><div class="line">        <span class="keyword">return</span> <span class="string">"request success"</span>;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>但我们可以使用 <code>channel</code> 配合 <code>goroutine</code> 实现类似的功能：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</div><div class="line">	ch := Request(<span class="string">"https://github.com"</span>)</div><div class="line">	<span class="keyword">select</span> &#123;</div><div class="line">	<span class="keyword">case</span> r := &lt;-ch:</div><div class="line">		fmt.Println(r)</div><div class="line">	&#125;</div><div class="line">&#125;</div><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">Request</span><span class="params">(url <span class="keyword">string</span>)</span> &lt;-<span class="title">chan</span> <span class="title">string</span></span> &#123;</div><div class="line">	ch := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="keyword">string</span>)</div><div class="line">	<span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</div><div class="line">		<span class="comment">// 模拟http请求</span></div><div class="line">		time.Sleep(time.Second)</div><div class="line">		ch &lt;- fmt.Sprintf(<span class="string">"url=%s, res=%s"</span>, url, <span class="string">"ok"</span>)</div><div class="line">	&#125;()</div><div class="line">	<span class="keyword">return</span> ch</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p><code>goroutine</code> 发起请求后直接将这个 <code>channel</code> 返回，调用方会在请求响应之前一直阻塞，直到 <code>goroutine</code> 拿到了响应结果。</p>
+<h2 id="goroutine-互相通信"><a href="#goroutine-互相通信" class="headerlink" title="goroutine 互相通信"></a>goroutine 互相通信</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line">  * 偶数线程</div><div class="line">  */</div><div class="line"> <span class="keyword">public</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">OuNum</span> <span class="keyword">implements</span> <span class="title">Runnable</span> </span>&#123;</div><div class="line">     <span class="keyword">private</span> TwoThreadWaitNotifySimple number;</div><div class="line"></div><div class="line">     <span class="function"><span class="keyword">public</span> <span class="title">OuNum</span><span class="params">(TwoThreadWaitNotifySimple number)</span> </span>&#123;</div><div class="line">         <span class="keyword">this</span>.number = number;</div><div class="line">     &#125;</div><div class="line"></div><div class="line">     <span class="meta">@Override</span></div><div class="line">     <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</div><div class="line">         <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">11</span>; i++) &#123;</div><div class="line">             <span class="keyword">synchronized</span> (TwoThreadWaitNotifySimple.class) &#123;</div><div class="line">                 <span class="keyword">if</span> (number.flag) &#123;</div><div class="line">                     <span class="keyword">if</span> (i % <span class="number">2</span> == <span class="number">0</span>) &#123;</div><div class="line">                         System.out.println(Thread.currentThread().getName() + <span class="string">"+-+偶数"</span> + i);</div><div class="line"></div><div class="line">                         number.flag = <span class="keyword">false</span>;</div><div class="line">                         TwoThreadWaitNotifySimple.class.notify();</div><div class="line">                     &#125;</div><div class="line"></div><div class="line">                 &#125; <span class="keyword">else</span> &#123;</div><div class="line">                     <span class="keyword">try</span> &#123;</div><div class="line">                         TwoThreadWaitNotifySimple.class.wait();</div><div class="line">                     &#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</div><div class="line">                         e.printStackTrace();</div><div class="line">                     &#125;</div><div class="line">                 &#125;</div><div class="line">             &#125;</div><div class="line">         &#125;</div><div class="line">     &#125;</div><div class="line"> &#125;</div><div class="line"></div><div class="line"></div><div class="line"> <span class="comment">/**</span></div><div class="line">  * 奇数线程</div><div class="line">  */</div><div class="line"> <span class="keyword">public</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">JiNum</span> <span class="keyword">implements</span> <span class="title">Runnable</span> </span>&#123;</div><div class="line">     <span class="keyword">private</span> TwoThreadWaitNotifySimple number;</div><div class="line"></div><div class="line">     <span class="function"><span class="keyword">public</span> <span class="title">JiNum</span><span class="params">(TwoThreadWaitNotifySimple number)</span> </span>&#123;</div><div class="line">         <span class="keyword">this</span>.number = number;</div><div class="line">     &#125;</div><div class="line"></div><div class="line">     <span class="meta">@Override</span></div><div class="line">     <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</div><div class="line">         <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">11</span>; i++) &#123;</div><div class="line">             <span class="keyword">synchronized</span> (TwoThreadWaitNotifySimple.class) &#123;</div><div class="line">                 <span class="keyword">if</span> (!number.flag) &#123;</div><div class="line">                     <span class="keyword">if</span> (i % <span class="number">2</span> == <span class="number">1</span>) &#123;</div><div class="line">                         System.out.println(Thread.currentThread().getName() + <span class="string">"+-+奇数"</span> + i);</div><div class="line"></div><div class="line">                         number.flag = <span class="keyword">true</span>;</div><div class="line">                         TwoThreadWaitNotifySimple.class.notify();</div><div class="line">                     &#125;</div><div class="line"></div><div class="line">                 &#125; <span class="keyword">else</span> &#123;</div><div class="line">                     <span class="keyword">try</span> &#123;</div><div class="line">                         TwoThreadWaitNotifySimple.class.wait();</div><div class="line">                     &#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</div><div class="line">                         e.printStackTrace();</div><div class="line">                     &#125;</div><div class="line">                 &#125;</div><div class="line">             &#125;</div><div class="line">         &#125;</div><div class="line">     &#125;</div><div class="line"> &#125;</div></pre></td></tr></table></figure>
+<blockquote>
+<p>这里截取了”两个线程交替打印奇偶数“的部分代码。</p>
+</blockquote>
+<p>Java 提供了 <code>object.wait()/object.notify()</code> 这样的等待通知机制，可以实现两个线程间通信。</p>
+<p><code>go</code> 通过 <code>channel</code> 也能实现相同效果：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</div><div class="line">	ch := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="keyword">struct</span>&#123;&#125;)</div><div class="line">	<span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</div><div class="line">		<span class="keyword">for</span> i := <span class="number">1</span>; i &lt; <span class="number">11</span>; i++ &#123;</div><div class="line">			ch &lt;- <span class="keyword">struct</span>&#123;&#125;&#123;&#125;</div><div class="line">			<span class="comment">//奇数</span></div><div class="line">			<span class="keyword">if</span> i%<span class="number">2</span> == <span class="number">1</span> &#123;</div><div class="line">				fmt.Println(<span class="string">"奇数:"</span>, i)</div><div class="line">			&#125;</div><div class="line">		&#125;</div><div class="line">	&#125;()</div><div class="line"></div><div class="line">	<span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</div><div class="line">		<span class="keyword">for</span> i := <span class="number">1</span>; i &lt; <span class="number">11</span>; i++ &#123;</div><div class="line">			&lt;-ch</div><div class="line">			<span class="keyword">if</span> i%<span class="number">2</span> == <span class="number">0</span> &#123;</div><div class="line">				fmt.Println(<span class="string">"偶数:"</span>, i)</div><div class="line">			&#125;</div><div class="line">		&#125;</div><div class="line">	&#125;()</div><div class="line"></div><div class="line">	time.Sleep(<span class="number">10</span> * time.Second)</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>本质上他们都是利用了线程(<code>goroutine</code>)阻塞然后唤醒的特性，只是 Java 是通过 wait/notify 机制；</p>
+<p>而 go 提供的 channel 也有类似的特性：</p>
+<ol>
+<li>向 <code>channel</code> 发送数据时(<code>ch&lt;-struct{}{}</code>)会被阻塞，直到 channel 被消费(<code>&lt;-ch</code>)。</li>
+</ol>
+<blockquote>
+<p>以上针对于<code>无缓冲 channel</code>。</p>
+</blockquote>
+<p><code>channel</code> 本身是由 <code>go</code> 原生保证并发安全的，不用额外的同步措施，可以放心使用。</p>
+<h2 id="广播通知"><a href="#广播通知" class="headerlink" title="广播通知"></a>广播通知</h2><p>不仅是两个 <code>goroutine</code> 之间通信，同样也能广播通知，类似于如下 <code>Java</code> 代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</div><div class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">10</span>; i++) &#123;</div><div class="line">        <span class="keyword">new</span> Thread(() -&gt; &#123;</div><div class="line">            <span class="keyword">try</span> &#123;</div><div class="line">                <span class="keyword">synchronized</span> (NotifyAll.class)&#123;</div><div class="line">                    NotifyAll.class.wait();</div><div class="line">                &#125;</div><div class="line">                System.out.println(Thread.currentThread().getName() + <span class="string">"done...."</span>);</div><div class="line">            &#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</div><div class="line">                e.printStackTrace();</div><div class="line">            &#125;</div><div class="line">        &#125;).start();</div><div class="line">    &#125;</div><div class="line">    Thread.sleep(<span class="number">3000</span>);</div><div class="line">    <span class="keyword">synchronized</span> (NotifyAll.class)&#123;</div><div class="line">        NotifyAll.class.notifyAll();</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>主线程将所有等待的子线程全部唤醒，这个本质上也是通过 <code>wait/notify</code> 机制实现的，区别只是通知了所有等待的线程。</p>
+<p>换做是 <code>go</code> 的实现：<br><figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</div><div class="line">	notify := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="keyword">struct</span>&#123;&#125;)</div><div class="line">	<span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">10</span>; i++ &#123;</div><div class="line">		<span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">(i <span class="keyword">int</span>)</span></span> &#123;</div><div class="line">			<span class="keyword">for</span> &#123;</div><div class="line">				<span class="keyword">select</span> &#123;</div><div class="line">				<span class="keyword">case</span> &lt;-notify:</div><div class="line">					fmt.Println(<span class="string">"done......."</span>,i)</div><div class="line">					<span class="keyword">return</span></div><div class="line">				<span class="keyword">case</span> &lt;-time.After(<span class="number">1</span> * time.Second):</div><div class="line">					fmt.Println(<span class="string">"wait notify"</span>,i)</div><div class="line"></div><div class="line">				&#125;</div><div class="line">			&#125;</div><div class="line">		&#125;(i)</div><div class="line">	&#125;</div><div class="line">	time.Sleep(<span class="number">1</span> * time.Second)</div><div class="line">	<span class="built_in">close</span>(notify)</div><div class="line">	time.Sleep(<span class="number">3</span> * time.Second)</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>当关闭一个 <code>channel</code> 后，会使得所有获取 <code>channel</code> 的 <code>goroutine</code> 直接返回，不会阻塞，正是利用这一特性实现了广播通知所有 <code>goroutine</code> 的目的。</p>
+<blockquote>
+<p>注意，同一个 channel 不能反复关闭，不然会出现panic。</p>
+</blockquote>
+<h2 id="channel-解耦"><a href="#channel-解耦" class="headerlink" title="channel 解耦"></a>channel 解耦</h2><p>以上例子都是基于无缓冲的 <code>channel</code>，通常用于 <code>goroutine</code> 之间的同步；同时 channel 也具备缓冲的特性：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">ch :=<span class="built_in">make</span>(<span class="keyword">chan</span> T, <span class="number">100</span>)</div></pre></td></tr></table></figure>
+<p>可以直接将其理解为队列，正是因为具有缓冲能力，所以我们可以将业务之间进行解耦，生产方只管往 <code>channel</code> 中丢数据，消费者只管将数据取出后做自己的业务。</p>
+<p>同时也具有阻塞队列的特性：</p>
+<ul>
+<li>当 <code>channel</code> 写满时生产者将会被阻塞。</li>
+<li>当 <code>channel</code> 为空时消费者也会阻塞。</li>
+</ul>
+<blockquote>
+<p>从上文的例子中可以看出，实现相同的功能 go 的写法会更加简单直接，相对的 Java 就会复杂许多（当然这也和这里使用的偏底层 api 有关）。</p>
+</blockquote>
+<h1 id="Java-中的-BlockingQueue"><a href="#Java-中的-BlockingQueue" class="headerlink" title="Java 中的 BlockingQueue"></a>Java 中的 BlockingQueue</h1><p>这些特性都与 Java 中的 <code>BlockingQueue</code> 非常类似，他们具有以下的相同点：</p>
+<ul>
+<li>可以通过两者来进行 <code>goroutine/thread</code> 通信。</li>
+<li>具备队列的特征，可以解耦业务。</li>
+<li>支持并发安全。</li>
+</ul>
+<p>同样的他们又有很大的区别，从表现上看：</p>
+<ul>
+<li><code>channel</code> 支持 <code>select</code> 语法，对 <code>channel</code> 的管理更加简洁直观。</li>
+<li><code>channel</code> 支持关闭，不能向已关闭的 <code>channel</code> 发送消息。</li>
+<li><code>channel</code> 支持定义方向，在编译器的帮助下可以在语义上对行为的描述更加准确。</li>
+</ul>
+<p>当然还有本质上的区别就是 channel 是 go 推荐的 <code>CSP</code> 模型的核心，具有编译器的支持，可以有很轻量的成本实现并发通信。</p>
+<p>而 <code>BlockingQueue</code> 对于 <code>Java</code> 来说只是一个实现了并发安全的数据结构，即便不使用它也有其他的通信方式；只是他们都具有阻塞队列的特征，所有在初步接触 <code>channel</code> 时容易产生混淆。</p>
+<table>
+<thead>
+<tr>
+<th>相同点</th>
+<th>channel 特有</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>阻塞策略</td>
+<td>支持select</td>
+</tr>
+<tr>
+<td>设置大小</td>
+<td>支持关闭</td>
+</tr>
+<tr>
+<td>并发安全</td>
+<td>自定义方向</td>
+</tr>
+<tr>
+<td>普通数据结构</td>
+<td>编译器支持</td>
+</tr>
+</tbody>
+</table>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>有过一门编程语言的使用经历在学习其他语言是确实是要方便许多，比如之前写过 <code>Java</code> 再看 <code>Go</code> 时就会发现许多类似之处，只是实现不同。</p>
+<p>拿这里的并发通信来说，本质上是因为并发模型上的不同；</p>
+<p><code>Go</code> 更推荐使用通信来共享内存，而 <code>Java</code> 大部分场景都是使用共享内存来通信（这样就得加锁来同步）。</p>
+<p>带着疑问来学习确实会事半功倍。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;&lt;img src=&quot;https://tva1.sinaimg.cn/large/008i3skNly1grzit9soenj31hc0u010l.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;最近在实现两个需求，由于两者之间并没有依赖关系，所以想利用队列进行解耦；但在 &lt;code&gt;Go&lt;/code&gt; 的标准库中并没有现成可用并且并发安全的数据结构；但 &lt;code&gt;Go&lt;/code&gt; 提供了一个更加优雅的解决方案，那就是 &lt;code&gt;channel&lt;/code&gt;。&lt;/p&gt;
+&lt;h1 id=&quot;channel-应用&quot;&gt;&lt;a href=&quot;#channel-应用&quot; class=&quot;headerlink&quot; title=&quot;channel 应用&quot;&gt;&lt;/a&gt;channel 应用&lt;/h1&gt;&lt;p&gt;&lt;code&gt;Go&lt;/code&gt; 与 &lt;code&gt;Java&lt;/code&gt; 的一个很大的区别就是并发模型不同，Go 采用的是 &lt;code&gt;CSP(Communicating sequential processes)&lt;/code&gt; 模型；用 Go 官方的说法：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Do not communicate by sharing memory; instead, share memory by communicating.&lt;/p&gt;
+&lt;/blockquote&gt;
+    
+    </summary>
+    
+      <category term="Go" scheme="http://crossoverjie.top/categories/Go/"/>
+    
+    
+      <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+      <category term="Go" scheme="http://crossoverjie.top/tags/Go/"/>
+    
+      <category term="channel" scheme="http://crossoverjie.top/tags/channel/"/>
+    
+      <category term="BlockingQueue" scheme="http://crossoverjie.top/tags/BlockingQueue/"/>
+    
+  </entry>
   
   <entry>
     <title>Python 中的 os.popen 函数 与 Pipe 管道的坑</title>
@@ -2070,113 +2197,6 @@
     
     
       <category term="时间轮" scheme="http://crossoverjie.top/tags/%E6%97%B6%E9%97%B4%E8%BD%AE/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>不要小看小小的 emoji 表情😂</title>
-    <link href="http://crossoverjie.top/2019/09/10/cs/not%20easy%20emoji/"/>
-    <id>http://crossoverjie.top/2019/09/10/cs/not easy emoji/</id>
-    <published>2019-09-10T00:13:00.000Z</published>
-    <updated>2019-09-09T18:54:57.077Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://i.loli.net/2019/09/10/GDoscUdhbC4k3AL.jpg" alt=""></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>好久没更新了，最近事比较多，或许下个月就会恢复到正常的发文频次。</p>
-<p>这篇文章得从一个 <code>emoji</code> 表情开始，我之前开源的一个 <code>IM</code> 项目中有朋友提到希望可以支持 <code>emoji</code> 表情传输。</p>
-<p><a href="https://github.com/crossoverJie/cim/issues/12" target="_blank" rel="external">https://github.com/crossoverJie/cim/issues/12</a></p>
-<p><img src="https://i.loli.net/2019/09/10/jwW5rIiUQdLMnkB.jpg" alt=""></p>
-<p>正好那段时间有空，加上这功能看着也比较简单准备把它实现了。</p>
-<a id="more"></a>
-<p>但在真正实现时却发现没那么简单。</p>
-<p><img src="https://i.loli.net/2019/09/10/dTJSxgEQlAwuKeR.jpg" alt=""></p>
-<hr>
-<p>我首先尝试将一个 <code>emoji</code> 表情存入数据库看看：</p>
-<p><img src="https://i.loli.net/2019/09/10/eyEfVD8SKiH23Uu.jpg" alt=""></p>
-<p>果不其然的出错了，导致这个异常的原因是目前数据库所支持的编码中并不能存放 <code>emoji</code>，那 <code>emoji</code> 表情到底是个什么东西呢。</p>
-<p>本质上来说计算机所存储的信息都是二进制 <code>01</code>，<code>emoji</code> 也不例外，只要存储和读取（编解码）的方式一致那就可以准确的展示这个信息。</p>
-<blockquote>
-<p>更多编解码的内容后文再介绍，这里先想想如何快速解决问题。</p>
-</blockquote>
-<h1 id="存储-emoji"><a href="#存储-emoji" class="headerlink" title="存储 emoji"></a>存储 emoji</h1><p>虽说想要在 <code>MySQL</code> 中存储 <code>emoji</code> 的方式也有好几种，比如可以升级存储字符集到可以存放 <code>emoji</code> ，但这种需要 <code>MySQL</code> 的版本支持。</p>
-<p>所以更保险的方式还是在应用层解决，比如我们是否可以将 emoji 当做字符串存储，只是显示的时候要格式化为一个 emoji 表情，这样对于所有的数据库版本都可兼容。</p>
-<p>于是我们这里的需求是一个 <code>emoji</code> 表情转换为字符串，同时还得将这个字符串转换为 emoji。</p>
-<p>为此我在 <code>GitHub</code> 上找到了一个库，它可以方便的将一个 <code>emoji</code> 转换为字符串的别名，同时也支持将这个别名转换为 <code>emoji</code>。</p>
-<p><a href="https://github.com/vdurmont/emoji-java" target="_blank" rel="external">https://github.com/vdurmont/emoji-java</a></p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Test</span></div><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">emoji</span><span class="params">()</span> <span class="keyword">throws</span> Exception</span>&#123;</div><div class="line">    String str = <span class="string">"An :grinning:awesome :smiley:string &amp;#128516;with a few :wink:emojis!"</span>;</div><div class="line">    String result = EmojiParser.parseToUnicode(str);</div><div class="line">    System.out.println(result);</div><div class="line"></div><div class="line">    result = EmojiParser.parseToAliases(str);</div><div class="line">    System.out.println(result);</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p><img src="https://i.loli.net/2019/09/10/Xr6EwodnJepOqKT.jpg" alt=""></p>
-<p>所以基于这个基础库最终实现了表情功能。</p>
-<p><img src="https://i.loli.net/2019/09/10/V4LGmUtx7k1Suvj.jpg" alt=""></p>
-<p>其实它本质上是自己维护了一个 emoji 的别名及它的 Unicode 编码(本质上是 <code>UTF-16</code>)的映射关系，再每次格式化数据的时候都会从这个表中进行翻译。</p>
-<p><img src="https://i.loli.net/2019/09/10/FLs7w8NXfzbYKgH.jpg" alt=""></p>
-<h1 id="编码知识回顾"><a href="#编码知识回顾" class="headerlink" title="编码知识回顾"></a>编码知识回顾</h1><p>自此需求是完成了，但还有几个问题待解决。</p>
-<ul>
-<li><code>Java</code> 中是如何存储 <code>emoji</code> 的？</li>
-<li><code>emoji</code> 是如何进行编码的？</li>
-</ul>
-<h2 id="ASCII"><a href="#ASCII" class="headerlink" title="ASCII"></a>ASCII</h2><p>在谈 <code>emoji</code> 之前非常有必要了解下计算机编码鼻祖的 ASCII 码。</p>
-<p>大家现在都知道在计算机内部存储数据本质上都是二进制的 0/1，对于一个字节来说有 8 位；每一位可以表示两种状态，也就是 0 或 1，这样排列组合下来，一个字节就可以表示 256(2∧8) 种不同的状态。</p>
-<p><img src="https://i.loli.net/2019/09/10/APbq73R4mWMI9Tj.jpg" alt=""></p>
-<hr>
-<p>对于美国来说他们日常使用的英语只需要 26 个英文字母，再加上一些标点符号就足够用计算机来进行信息交流。</p>
-<p>于是上个世纪 60年代定义了一套二进制与英文字符的映射关系，可以表明 128 个不同的英文字符，也就是现在的 <code>ASCII</code> 码。</p>
-<p>这样我们就可以使用一个字节来表示现代英文，看起来非常不错。</p>
-<h2 id="Unicode"><a href="#Unicode" class="headerlink" title="Unicode"></a>Unicode</h2><p>随着计算机的发展，逐渐在欧洲、亚洲地区流行；再利用这套 <code>ASCII</code> 码进行信息交流显然是不行的，很多地区压根就不使用英文，而且也远超了 128 位字符（中文就更不用说了）。</p>
-<p>虽说一个字节在 <code>ASCII</code> 码中只用了 <code>128</code> 位，但剩下(<code>258-128</code>)的依然不足用用于描述其他语言。</p>
-<p>这时如果能有一种包含了世界上所有的文字的字符集，每一个地区的文字都在这个字符集中有唯一的二进制表示，这样便不会出现乱码问题了。</p>
-<p><code>Unicode</code> 就是来做这个的，截止目前 <code>Unicode</code> 已经收录了 10W+ 的字符，你所能使用的字符都包含进去了。</p>
-<h2 id="UTF-8"><a href="#UTF-8" class="headerlink" title="UTF-8"></a>UTF-8</h2><p><code>Unicode</code> 虽说包含了几乎所有的文字，但在我们日常使用好像很少看到他的身影，我们用的更多的还是 <code>UTF-8</code> 这样的编码规则。</p>
-<p>这也有几方面的原因，比如说除开英文，其他大部分的文字都需要用 2 个甚至更多的字节来表示；如果统一都用 Unicode 来表示，那必然需要以占用字节最多的字符长度为标准。</p>
-<p>比如汉字需要 2 个字节来表示，而英文只需要一个字节；这时就得规定 2 个字节表示一个字符，不然汉字就没法表示了。</p>
-<p>但这样也会带来一个问题：用两个字节表示英文会使得第一个字节完全是浪费的，如果一段信息全是英文那对内存的浪费是巨大的。</p>
-<hr>
-<p>这时大家应该都能想到，我们需要一个可变的长度的字符编码规则，当是英文时我们就用一个字节表示，甚至可以完全兼容 ASCII 码。</p>
-<p>UTF-8 便是实现这个需求的，它利用两种规则可以表示一个字节以及多字节的字符。</p>
-<p><img src="https://i.loli.net/2019/09/10/DFOgGqsnAH2h56b.jpg" alt=""></p>
-<p>大致规则如下：</p>
-<ul>
-<li>当第一个字节的第一位为 0 时便表示为单字节字符，此时和 ASCII 码一致，完全兼容。</li>
-<li>当第一个字节为 1 时，有几个 1 便代表是几个字节 Unicode 字符。</li>
-</ul>
-<p>这样便可根据字符的长度最大程度的节省存储空间。</p>
-<p>当然还有其他的编码规则，比如 <code>UTF-16</code>、<code>UTF-32</code>，平时用的不多，但本质上都和 <code>UTF-8</code> 一样，都是 <code>Unicode</code> 的不同实现，也是用于表示世界上大部分文字的字符集。</p>
-<h1 id="Java-中的-emoji"><a href="#Java-中的-emoji" class="headerlink" title="Java 中的 emoji"></a>Java 中的 emoji</h1><p>现在来回到本次的主题，<code>emoji</code>。</p>
-<p>刚才说到 <code>Unicode</code> 包含了世界上大部分的字符，<code>emoji</code> 自然也不例外。</p>
-<p><img src="https://i.loli.net/2019/09/10/Aeo5tuh8HGsNijp.jpg" alt=""></p>
-<p><a href="https://apps.timwhitlock.info/emoji/tables/unicode" target="_blank" rel="external">https://apps.timwhitlock.info/emoji/tables/unicode</a></p>
-<p>这个表格中包含了所有的 <code>emoji</code> 以及它所对应的 <code>Unicode</code> 编码，同时也有对应的 <code>UTF-8</code> 编码的实现。</p>
-<p>从图中也可以看出 <code>emoji</code> 表情用 <code>UTF-8</code> 表示时会占用 4 个字节，那在 Java 中它会是怎么存储的呢？</p>
-<p>很简单，debug 一下就知道了。</p>
-<p><img src="https://i.loli.net/2019/09/10/CHZ3UjuQOmqAklY.jpg" alt=""></p>
-<p>在 <code>Java</code> 中也是通过 <code>char</code> 来存储 <code>emoji</code> 的，<code>char</code> 作为基本数据类型会占用 2 个字节；从刚才的图中可以看出，<code>emoji</code> 使用 <code>UTF-8</code> 会占用四个字节，这样很明显 <code>char</code> 是没法存储的，所以在这里其实是使用 <code>UTF-16</code> 编码进行存储。</p>
-<p>基于这个原理，我们也可以自己实现将一个 <code>emoji</code> 表情转换为字符串，同时也可通过字符串转换为 <code>emoji</code>。</p>
-<p><img src="https://i.loli.net/2019/09/10/LwHmaYAy4Fx9kZD.jpg" alt=""></p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>从这次研究 <code>emoji</code> 可以看出，任何一门基础知识都是应用的根基，在计算机行业尤为突出，希望大家看完这篇能回忆起大学课堂被老师支配的恐惧😂。</p>
-<p>随便提一下，相关源码可在这里查看：</p>
-<p><a href="https://github.com/crossoverJie/cim" target="_blank" rel="external">https://github.com/crossoverJie/cim</a></p>
-<p><strong>你的点赞与分享是对我最大的支持</strong></p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/09/10/GDoscUdhbC4k3AL.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;好久没更新了，最近事比较多，或许下个月就会恢复到正常的发文频次。&lt;/p&gt;
-&lt;p&gt;这篇文章得从一个 &lt;code&gt;emoji&lt;/code&gt; 表情开始，我之前开源的一个 &lt;code&gt;IM&lt;/code&gt; 项目中有朋友提到希望可以支持 &lt;code&gt;emoji&lt;/code&gt; 表情传输。&lt;/p&gt;
-&lt;p&gt;&lt;a href=&quot;https://github.com/crossoverJie/cim/issues/12&quot;&gt;https://github.com/crossoverJie/cim/issues/12&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;https://i.loli.net/2019/09/10/jwW5rIiUQdLMnkB.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
-&lt;p&gt;正好那段时间有空，加上这功能看着也比较简单准备把它实现了。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="cs" scheme="http://crossoverjie.top/categories/cs/"/>
-    
-    
-      <category term="emoji" scheme="http://crossoverjie.top/tags/emoji/"/>
-    
-      <category term="unicode" scheme="http://crossoverjie.top/tags/unicode/"/>
-    
-      <category term="utf-8" scheme="http://crossoverjie.top/tags/utf-8/"/>
-    
-      <category term="ascii" scheme="http://crossoverjie.top/tags/ascii/"/>
     
   </entry>
   
