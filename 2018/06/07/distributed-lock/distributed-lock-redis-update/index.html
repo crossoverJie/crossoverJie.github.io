@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前言之前在做 秒杀架构实践 时有提到对 distributed-redis-tool 的一次小升级，但是没有细说。 其实主要原因是：  秒杀时我做压测：由于集成了这个限流组件，并发又比较大，所以导致连接、断开 Redis 非常频繁。最终导致获取不了 Redis connection 的异常。  池化技术这就是一个典型的对稀缺资源使用不善导致的。 何为稀缺资源？常见的有：  线程 数据库连接 网络">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分布式工具的一次小升级⏫">
+<meta property="og:url" content="http://crossoverjie.top/2018/06/07/distributed-lock/distributed-lock-redis-update/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言之前在做 秒杀架构实践 时有提到对 distributed-redis-tool 的一次小升级，但是没有细说。 其实主要原因是：  秒杀时我做压测：由于集成了这个限流组件，并发又比较大，所以导致连接、断开 Redis 非常频繁。最终导致获取不了 Redis connection 的异常。  池化技术这就是一个典型的对稀缺资源使用不善导致的。 何为稀缺资源？常见的有：  线程 数据库连接 网络">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d53277e6e.jpg">
+<meta property="article:published_time" content="2018-06-07T14:20:46.000Z">
+<meta property="article:modified_time" content="2019-05-07T18:58:42.734Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Distributed Lock">
+<meta property="article:tag" content="Distributed Limited">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1d53277e6e.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2018/06/07/distributed-lock/distributed-lock-redis-update/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2018/06/07/distributed-lock/distributed-lock-redis-update/","path":"2018/06/07/distributed-lock/distributed-lock-redis-update/","title":"分布式工具的一次小升级⏫"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>分布式工具的一次小升级⏫ | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B1%A0%E5%8C%96%E6%8A%80%E6%9C%AF"><span class="nav-number">2.</span> <span class="nav-text">池化技术</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%85%8D%E5%90%88-Spring"><span class="nav-number">3.</span> <span class="nav-text">配合 Spring</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2018/06/07/distributed-lock/distributed-lock-redis-update/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="分布式工具的一次小升级⏫ | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          分布式工具的一次小升级⏫
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-06-07 22:20:46" itemprop="dateCreated datePublished" datetime="2018-06-07T22:20:46+08:00">2018-06-07</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2019-05-08 02:58:42" itemprop="dateModified" datetime="2019-05-08T02:58:42+08:00">2019-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Distributed-Tools/" itemprop="url" rel="index"><span itemprop="name">Distributed Tools</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2018/06/07/distributed-lock/distributed-lock-redis-update/" class="post-meta-item leancloud_visitors" data-flag-title="分布式工具的一次小升级⏫" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2018/06/07/distributed-lock/distributed-lock-redis-update/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/06/07/distributed-lock/distributed-lock-redis-update/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2019/05/08/5cd1d53277e6e.jpg"></p>
+<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>之前在做 <a href="https://crossoverjie.top/2018/05/07/ssm/SSM18-seconds-kill/#distributed-redis-tool-%E2%AC%86%EF%B8%8Fv1-0-3">秒杀架构实践</a> 时有提到对 <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/distributed-redis-tool">distributed-redis-tool</a> 的一次小升级，但是没有细说。</p>
+<p>其实主要原因是：</p>
+<blockquote>
+<p>秒杀时我做压测：由于集成了这个限流组件，并发又比较大，所以导致连接、断开 Redis 非常频繁。<br>最终导致获取不了 Redis connection 的异常。</p>
+</blockquote>
+<h2 id="池化技术"><a href="#池化技术" class="headerlink" title="池化技术"></a>池化技术</h2><p>这就是一个典型的对稀缺资源使用不善导致的。</p>
+<p>何为稀缺资源？常见的有：</p>
+<ul>
+<li>线程</li>
+<li>数据库连接</li>
+<li>网络连接等</li>
+</ul>
+<p>这些资源都有共同的特点：<strong>创建销毁成本较高</strong>。</p>
+<span id="more"></span>
+
+<p>这里涉及到的 Redis 连接也属于该类资源。</p>
+<p>我们希望将这些稀有资源管理起来放到一个池子里，当需要时就从中获取，用完就放回去，不够用时就等待（或返回）。</p>
+<p>这样我们只需要初始化并维护好这个池子，就能避免频繁的创建、销毁这些资源（也有资源长期未使用需要缩容的情况）。</p>
+<p>通常我们称这项姿势为池化技术，如常见的：</p>
+<ul>
+<li>线程池</li>
+<li>各种资源的连接池等。</li>
+</ul>
+<p>为此我将使用到 Redis 的 <a href="https://crossoverjie.top/%2F2018%2F03%2F29%2Fdistributed-lock%2Fdistributed-lock-redis%2F">分布式锁</a>、<a href="https://crossoverjie.top/2018/04/28/sbc/sbc7-Distributed-Limit/">分布式限流</a> 都升级为利用连接池来获取 Redis 的连接。</p>
+<p>这里以<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/distributed-redis-tool#distributed-lock">分布式锁</a>为例：</p>
+<p>将使用的 api 修改为：</p>
+<p>原有：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RedisLockConfig</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> RedisLock <span class="title function_">build</span><span class="params">()</span>&#123;</span><br><span class="line">        <span class="comment">//Need to get Redis connection </span></span><br><span class="line">        <span class="type">RedisLock</span> <span class="variable">redisLock</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">RedisLock</span>() ;</span><br><span class="line">        <span class="type">HostAndPort</span> <span class="variable">hostAndPort</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HostAndPort</span>(<span class="string">&quot;127.0.0.1&quot;</span>,<span class="number">7000</span>) ;</span><br><span class="line">        <span class="type">JedisCluster</span> <span class="variable">jedisCluster</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">JedisCluster</span>(hostAndPort) ;</span><br><span class="line">        <span class="type">RedisLock</span> <span class="variable">redisLock</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">RedisLock</span>.Builder(jedisCluster)</span><br><span class="line">                .lockPrefix(<span class="string">&quot;lock_test&quot;</span>)</span><br><span class="line">                .sleepTime(<span class="number">100</span>)</span><br><span class="line">                .build();</span><br><span class="line">                </span><br><span class="line">        <span class="keyword">return</span> redisLock ;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>现在：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RedisLockConfig</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">Logger</span> <span class="variable">logger</span> <span class="operator">=</span> LoggerFactory.getLogger(RedisLockConfig.class);</span><br><span class="line">    </span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> JedisConnectionFactory jedisConnectionFactory;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> RedisLock <span class="title function_">build</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="type">RedisLock</span> <span class="variable">redisLock</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">RedisLock</span>.Builder(jedisConnectionFactory,RedisToolsConstant.SINGLE)</span><br><span class="line">                .lockPrefix(<span class="string">&quot;lock_&quot;</span>)</span><br><span class="line">                .sleepTime(<span class="number">100</span>)</span><br><span class="line">                .build();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> redisLock;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>将以前的 Jedis 修改为 <code>JedisConnectionFactory</code>，后续的 Redis 连接就可通过这个对象获取。</p>
+<p>并且显示的传入使用 RedisCluster 还是单机的 Redis。</p>
+<p>所以在真正操作 Redis 时需要修改：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">tryLock</span><span class="params">(String key, String request)</span> &#123;</span><br><span class="line">    <span class="comment">//get connection</span></span><br><span class="line">    <span class="type">Object</span> <span class="variable">connection</span> <span class="operator">=</span> getConnection();</span><br><span class="line">    String result ;</span><br><span class="line">    <span class="keyword">if</span> (connection <span class="keyword">instanceof</span> Jedis)&#123;</span><br><span class="line">        result =  ((Jedis) connection).set(lockPrefix + key, request, SET_IF_NOT_EXIST, SET_WITH_EXPIRE_TIME, <span class="number">10</span> * TIME);</span><br><span class="line">        ((Jedis) connection).close();</span><br><span class="line">    &#125;<span class="keyword">else</span> &#123;</span><br><span class="line">        result = ((JedisCluster) connection).set(lockPrefix + key, request, SET_IF_NOT_EXIST, SET_WITH_EXPIRE_TIME, <span class="number">10</span> * TIME);</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            ((JedisCluster) connection).close();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">            logger.error(<span class="string">&quot;IOException&quot;</span>,e);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (LOCK_MSG.equals(result)) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//获取连接</span></span><br><span class="line"><span class="keyword">private</span> Object <span class="title function_">getConnection</span><span class="params">()</span> &#123;</span><br><span class="line">    Object connection ;</span><br><span class="line">    <span class="keyword">if</span> (type == RedisToolsConstant.SINGLE)&#123;</span><br><span class="line">        <span class="type">RedisConnection</span> <span class="variable">redisConnection</span> <span class="operator">=</span> jedisConnectionFactory.getConnection();</span><br><span class="line">        connection = redisConnection.getNativeConnection();</span><br><span class="line">    &#125;<span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="type">RedisClusterConnection</span> <span class="variable">clusterConnection</span> <span class="operator">=</span> jedisConnectionFactory.getClusterConnection();</span><br><span class="line">        connection = clusterConnection.getNativeConnection() ;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> connection;</span><br><span class="line">&#125;    </span><br></pre></td></tr></table></figure>
+
+<p>最大的改变就是将原有操作 Redis 的对象（<code>T extends JedisCommands</code>）改为从连接池中获取。</p>
+<p>由于使用了 <code>org.springframework.data.redis.connection.jedis.JedisConnectionFactory</code> 作为 Redis 连接池。</p>
+<p>所以需要再使用时构件好这个对象：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">JedisPoolConfig</span> <span class="variable">config</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">JedisPoolConfig</span>();</span><br><span class="line">config.setMaxIdle(<span class="number">10</span>);</span><br><span class="line">config.setMaxTotal(<span class="number">300</span>);</span><br><span class="line">config.setMaxWaitMillis(<span class="number">10000</span>);</span><br><span class="line">config.setTestOnBorrow(<span class="literal">true</span>);</span><br><span class="line">config.setTestOnReturn(<span class="literal">true</span>);</span><br><span class="line"></span><br><span class="line"><span class="type">RedisClusterConfiguration</span> <span class="variable">redisClusterConfiguration</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">RedisClusterConfiguration</span>();</span><br><span class="line">redisClusterConfiguration.addClusterNode(<span class="keyword">new</span> <span class="title class_">RedisNode</span>(<span class="string">&quot;10.19.13.51&quot;</span>, <span class="number">7000</span>));</span><br><span class="line"></span><br><span class="line"><span class="comment">//单机</span></span><br><span class="line"><span class="type">JedisConnectionFactory</span> <span class="variable">jedisConnectionFactory</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">JedisConnectionFactory</span>(config);</span><br><span class="line"></span><br><span class="line"><span class="comment">//集群</span></span><br><span class="line"><span class="comment">//JedisConnectionFactory jedisConnectionFactory = new JedisConnectionFactory(redisClusterConfiguration) ;</span></span><br><span class="line">jedisConnectionFactory.setHostName(<span class="string">&quot;47.98.194.60&quot;</span>);</span><br><span class="line">jedisConnectionFactory.setPort(<span class="number">6379</span>);</span><br><span class="line">jedisConnectionFactory.setPassword(<span class="string">&quot;&quot;</span>);</span><br><span class="line">jedisConnectionFactory.setTimeout(<span class="number">100000</span>);</span><br><span class="line">jedisConnectionFactory.afterPropertiesSet();</span><br><span class="line"><span class="comment">//jedisConnectionFactory.setShardInfo(new JedisShardInfo(&quot;47.98.194.60&quot;, 6379));</span></span><br><span class="line"><span class="comment">//JedisCluster jedisCluster = new JedisCluster(hostAndPort);</span></span><br><span class="line"></span><br><span class="line"><span class="type">HostAndPort</span> <span class="variable">hostAndPort</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HostAndPort</span>(<span class="string">&quot;10.19.13.51&quot;</span>, <span class="number">7000</span>);</span><br><span class="line"><span class="type">JedisCluster</span> <span class="variable">jedisCluster</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">JedisCluster</span>(hostAndPort);</span><br><span class="line">redisLock = <span class="keyword">new</span> <span class="title class_">RedisLock</span>.Builder(jedisConnectionFactory, RedisToolsConstant.SINGLE)</span><br><span class="line">        .lockPrefix(<span class="string">&quot;lock_&quot;</span>)</span><br><span class="line">        .sleepTime(<span class="number">100</span>)</span><br><span class="line">        .build();</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>看起比较麻烦，需要构建对象的较多。</p>
+<p>但整合 Spring 使用时就要清晰许多。</p>
+<h2 id="配合-Spring"><a href="#配合-Spring" class="headerlink" title="配合 Spring"></a>配合 Spring</h2><p>Spring 很大的一个作用就是帮我们管理对象，所以像上文那些看似很复杂的对象都可以交由它来管理：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- jedis 配置 --&gt;</span></span><br><span class="line"> <span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;JedispoolConfig&quot;</span> <span class="attr">class</span>=<span class="string">&quot;redis.clients.jedis.JedisPoolConfig&quot;</span>&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;maxIdle&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.maxIdle&#125;&quot;</span>/&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;maxTotal&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.maxTotal&#125;&quot;</span>/&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;maxWaitMillis&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.maxWait&#125;&quot;</span>/&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;testOnBorrow&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.testOnBorrow&#125;&quot;</span>/&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;testOnReturn&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.testOnBorrow&#125;&quot;</span>/&gt;</span></span><br><span class="line"> <span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line"> <span class="comment">&lt;!-- redis服务器中心 --&gt;</span></span><br><span class="line"> <span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;connectionFactory&quot;</span> <span class="attr">class</span>=<span class="string">&quot;org.springframework.data.redis.connection.jedis.JedisConnectionFactory&quot;</span>&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;poolConfig&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;JedispoolConfig&quot;</span>/&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;port&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.port&#125;&quot;</span>/&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;hostName&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.host&#125;&quot;</span>/&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;password&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.password&#125;&quot;</span>/&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;timeout&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.timeout&#125;&quot;</span>&gt;</span><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"> <span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line"> <span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;redisTemplate&quot;</span> <span class="attr">class</span>=<span class="string">&quot;org.springframework.data.redis.core.RedisTemplate&quot;</span>&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;connectionFactory&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;connectionFactory&quot;</span>/&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;keySerializer&quot;</span>&gt;</span></span><br><span class="line">         <span class="tag">&lt;<span class="name">bean</span> <span class="attr">class</span>=<span class="string">&quot;org.springframework.data.redis.serializer.StringRedisSerializer&quot;</span>/&gt;</span></span><br><span class="line">     <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;valueSerializer&quot;</span>&gt;</span></span><br><span class="line">         <span class="tag">&lt;<span class="name">bean</span> <span class="attr">class</span>=<span class="string">&quot;org.springframework.data.redis.serializer.StringRedisSerializer&quot;</span>/&gt;</span></span><br><span class="line">     <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"> <span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>这个其实没多少好说的，就算是换成 SpringBoot 也是创建 <code>JedispoolConfig,connectionFactory,redisTemplate</code> 这些 bean 即可。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>换为连接池之后再进行压测自然没有出现获取不了 Redis 连接的异常（并发达到一定的量也会出错）说明更新是很有必要的。</p>
+<p>推荐有用到该组件的朋友都升级下，也欢迎提出 Issues 和 PR。</p>
+<p>项目地址：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/distributed-redis-tool">https://github.com/crossoverJie/distributed-redis-tool</a></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2018/06/07/distributed-lock/distributed-lock-redis-update/" title="分布式工具的一次小升级⏫">http://crossoverjie.top/2018/06/07/distributed-lock/distributed-lock-redis-update/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Distributed-Lock/" rel="tag"><i class="fa fa-tag"></i> Distributed Lock</a>
+              <a href="/tags/Distributed-Limited/" rel="tag"><i class="fa fa-tag"></i> Distributed Limited</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/06/06/exam/2018-06-07-The-university-entrance-exam/" rel="prev" title="记于 2018 年高考！">
+                  <i class="fa fa-chevron-left"></i> 记于 2018 年高考！
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/06/13/guava/guava-cache/" rel="next" title="Guava 源码分析（Cache 原理）">
+                  Guava 源码分析（Cache 原理） <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

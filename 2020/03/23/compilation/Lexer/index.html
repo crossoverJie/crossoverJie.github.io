@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前言最近大部分时间都在撸 Python，其中也会涉及到将数据库表转换为 Python 中 ORM 框架的 Model，但我们并没有找到一个合适的工具来做这个意义不大的”体力活“，所以每次新建表后大家都是根据自己的表结构手写一遍 Model。 一两张表还好，一旦 10 几张表都要写一遍时那痛苦只有自己知道；这时程序员的 slogan 再次印证：一切毫无意义的体力劳动终将被计算机取代。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="词法分析器的应用">
+<meta property="og:url" content="http://crossoverjie.top/2020/03/23/compilation/Lexer/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言最近大部分时间都在撸 Python，其中也会涉及到将数据库表转换为 Python 中 ORM 框架的 Model，但我们并没有找到一个合适的工具来做这个意义不大的”体力活“，所以每次新建表后大家都是根据自己的表结构手写一遍 Model。 一两张表还好，一旦 10 几张表都要写一遍时那痛苦只有自己知道；这时程序员的 slogan 再次印证：一切毫无意义的体力劳动终将被计算机取代。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/4onkHVWNTsELqaK.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/dLpAoxf4BwEj81S.gif">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/XPcKbDVUNsSeGM9.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/3mRvj4O1y8EgPNu.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/3WU5vyiGF1eCq47.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/BXqdW1JPMj59yTG.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/xvB3uJAPm8tsDSF.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/EDNnAXGTJRbmkij.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/p1UxCHKNGbDQZ5d.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/mtsRX534r7hpqHy.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/MHdbTgSY5IELwQc.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/bDYsyUZB3cwLHu6.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/MYVlc4Sb9LovH2z.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/qRkbKrH9IWtVnw1.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/k3GCZe1sKujtbrp.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/1V8vsNFdxMLiRlY.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/03/23/6bTSWEcxzaykX9N.jpg">
+<meta property="article:published_time" content="2020-03-23T00:29:36.000Z">
+<meta property="article:modified_time" content="2020-03-26T17:22:07.193Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="递归">
+<meta property="article:tag" content="DDL">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2020/03/23/4onkHVWNTsELqaK.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2020/03/23/compilation/Lexer/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2020/03/23/compilation/Lexer/","path":"2020/03/23/compilation/Lexer/","title":"词法分析器的应用"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>词法分析器的应用 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#intellij-plugin"><span class="nav-number">2.</span> <span class="nav-text">intellij plugin</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%AF%8D%E6%B3%95%E8%A7%A3%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">词法解析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8A%B6%E6%80%81%E8%BF%81%E7%A7%BB"><span class="nav-number">3.1.</span> <span class="nav-text">状态迁移</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DDL-%E8%A7%A3%E6%9E%90"><span class="nav-number">3.2.</span> <span class="nav-text">DDL 解析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%80%92%E5%BD%92%E8%A7%A3%E6%9E%90"><span class="nav-number">3.3.</span> <span class="nav-text">递归解析</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2020/03/23/compilation/Lexer/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="词法分析器的应用 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          词法分析器的应用
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-03-23 08:29:36" itemprop="dateCreated datePublished" datetime="2020-03-23T08:29:36+08:00">2020-03-23</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2020-03-27 01:22:07" itemprop="dateModified" datetime="2020-03-27T01:22:07+08:00">2020-03-27</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E7%BC%96%E8%AF%91%E5%8E%9F%E7%90%86/" itemprop="url" rel="index"><span itemprop="name">编译原理</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2020/03/23/compilation/Lexer/" class="post-meta-item leancloud_visitors" data-flag-title="词法分析器的应用" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2020/03/23/compilation/Lexer/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2020/03/23/compilation/Lexer/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2020/03/23/4onkHVWNTsELqaK.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近大部分时间都在撸 <code>Python</code>，其中也会涉及到将数据库表转换为 <code>Python</code> 中 <code>ORM</code> 框架的 <code>Model</code>，但我们并没有找到一个合适的工具来做这个意义不大的”体力活“，所以每次新建表后大家都是根据自己的表结构手写一遍 <code>Model</code>。</p>
+<p>一两张表还好，一旦 10 几张表都要写一遍时那痛苦只有自己知道；这时程序员的 slogan 再次印证：一切毫无意义的体力劳动终将被计算机取代。</p>
+<span id="more"></span>
+
+<h1 id="intellij-plugin"><a href="#intellij-plugin" class="headerlink" title="intellij plugin"></a>intellij plugin</h1><p>既然没有现成的工具那就自己写一个吧，演示效果如下：<br><img src="https://i.loli.net/2020/03/23/dLpAoxf4BwEj81S.gif" alt="1-min.gif"></p>
+<p>考虑到我们主要是用 <code>PyCharm</code> 开发，正好 <code>jetbrains</code> 也提供了 <code>SDK</code> 用于开发插件，所以 <code>UI</code> 层面可以不用额外考虑了。</p>
+<p>使用流程很简单，只需要导入 <code>DDL</code> 语句就可以生成 <code>Python</code> 所需要的 <code>Model</code> 代码。</p>
+<p>例如导入以下 DDL：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> `<span class="keyword">user</span>` (</span><br><span class="line">  `id` <span class="type">int</span>(<span class="number">11</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span> AUTO_INCREMENT,</span><br><span class="line">  `userName` <span class="type">varchar</span>(<span class="number">20</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span> COMMENT <span class="string">&#x27;用户名&#x27;</span>,</span><br><span class="line">  `password` <span class="type">varchar</span>(<span class="number">100</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span> COMMENT <span class="string">&#x27;密码&#x27;</span>,</span><br><span class="line">  `roleId` <span class="type">int</span>(<span class="number">11</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span> COMMENT <span class="string">&#x27;角色ID&#x27;</span>,</span><br><span class="line">  <span class="keyword">PRIMARY</span> KEY (`id`),  </span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB AUTO_INCREMENT<span class="operator">=</span><span class="number">7</span> <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8</span><br></pre></td></tr></table></figure>
+
+<p>便会生成对应的 Python 代码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">User</span>(db.Model):</span><br><span class="line">    __tablename__ = <span class="string">&#x27;user&#x27;</span></span><br><span class="line">    <span class="built_in">id</span> = db.Column(db.Integer, primary_key=<span class="literal">True</span>, autoincrement=<span class="literal">True</span>)</span><br><span class="line">    userName = db.Column(db.String)  <span class="comment"># 用户名</span></span><br><span class="line">    password = db.Column(db.String)  <span class="comment"># 密码</span></span><br><span class="line">    roleId = db.Column(db.Integer)  <span class="comment"># 角色ID</span></span><br></pre></td></tr></table></figure>
+
+
+<h1 id="词法解析"><a href="#词法解析" class="headerlink" title="词法解析"></a>词法解析</h1><p>仔细对比源文件及目标代码会很容易找出规律，无非就是解析出表名、字段、及字段的属性（是否为主键、类型、长度），最后再转换为 <code>Python</code> 所需要的模板即可。</p>
+<p>在我动手之前我认为是非常简单的，无非就是解析字符串，但实际上手后发现不是那么回事；主要是有以下几个问题：</p>
+<ol>
+<li>如何识别出表名称？</li>
+<li>同样的如何识别出字段名称，同时还得关联上该字段的类型、长度、注释。</li>
+<li>如何识别出主键？</li>
+</ol>
+<p>总结一句话，如何通过一系列规则识别出一段字符串中的关键信息，这同样也是 MySQL Server 所做的事情。</p>
+<p>在开始真正解析 DDL 之前，先来看下一段简单的脚本如何解析：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">x = <span class="number">20</span></span><br></pre></td></tr></table></figure>
+
+<p>按照我们平时开发的经验，这条语句分为以下几部分：</p>
+<ul>
+<li><code>x</code> 表示变量</li>
+<li><code>=</code> 表示赋值符号</li>
+<li><code>20</code> 表示赋值结果</li>
+</ul>
+<p>所以我们对这段脚本的解析结果应当为：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">VAR 	 x</span><br><span class="line">GE 	    =</span><br><span class="line">VAL 	 100</span><br></pre></td></tr></table></figure>
+
+<p>这个解析过程在编译原理中称为”词法解析“，可能大家听到<code>编译原理</code>这几个字就头大（我也是）；对于刚才那段脚本我们可以编写一个非常简单的词法解析器生成这样的结果。</p>
+<h2 id="状态迁移"><a href="#状态迁移" class="headerlink" title="状态迁移"></a>状态迁移</h2><p>再开始之前先捋一下思路，可以看到上文的结果中通过 <code>VAR</code> 表示变量、<code>GE</code> 表示赋值符号 ”&#x3D;“、<code>VAL</code> 表示赋值结果，现在需要重点记住这三个状态。</p>
+<p>在依次读取字符解析时，程序就是在这几个状态中来回切换，如下图：<br><img src="https://i.loli.net/2020/03/23/XPcKbDVUNsSeGM9.jpg"></p>
+<ol>
+<li>默认为初始状态。</li>
+<li>当字符为字母时进入 <code>VAR</code> 状态。</li>
+<li>当字符为 ”&#x3D;“ 符号时进入 <code>GE</code> 状态。</li>
+</ol>
+<p><img src="https://i.loli.net/2020/03/23/3mRvj4O1y8EgPNu.jpg"></p>
+<p>同理，当不满足这几个状态时候又会回到初始从而再次确认新的状态。</p>
+<p>光看图有点抽象，直接来看核心代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Result</span>&#123;</span><br><span class="line">    <span class="keyword">public</span> TokenType tokenType ;</span><br><span class="line">    <span class="keyword">public</span> <span class="type">StringBuilder</span> <span class="variable">text</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">StringBuilder</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>首先定义了一个结果类，收集最终的解析结果；其中的 <code>TokenType</code> 就对应了图中的三种状态，简单的用枚举值来表示。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">enum</span> <span class="title class_">TokenType</span> &#123;</span><br><span class="line">    INIT,</span><br><span class="line">    VAR,</span><br><span class="line">    GE,</span><br><span class="line">    VAL</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>首先对应到第一张图：初始化状态。</p>
+<p>需要对当前解析的字符定义一个 <code>TokenType</code>：<br><img src="https://i.loli.net/2020/03/23/3WU5vyiGF1eCq47.jpg"></p>
+<p>和图中描述的流程一致，判断当前字符给定一个状态即可。</p>
+<p>接着对应到第二张图：状态之间的转换。</p>
+<p><img src="https://i.loli.net/2020/03/23/BXqdW1JPMj59yTG.jpg"></p>
+<p>会根据不同的状态进入不同的 <code>case</code>，在不同的 <code>case</code> 中判断是否应当跳转到其他状态（进入 <code>INIT</code> 状态后会重新生成状态）。</p>
+<p>举个例子： <code>x = 20</code>:</p>
+<p>首选会进入 <code>VAR</code> 状态，接着下一个字符为空格，自然在 38 行中重新进入初始状态，导致再次确定下一个字符 <code>=</code> 进入 <code>GE</code> 状态。</p>
+<p>当脚本为 <code>ab = 30</code>:<br>第一个字符为 a 也是进入 <code>VAR</code> 状态，第二个字符为 b，依然为字母，所以进入 36 行，状态不会改变，同时将 b 这个字符追加进来；后续步骤就和上一个例子一致了。</p>
+<p>多说无益，建议大家自己跑一下单测就会明白：<br><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/sqlalchemy-transfer/blob/master/src/test/java/top/crossoverjie/plugin/core/lab/TestLexerTest.java">https://github.com/crossoverJie/sqlalchemy-transfer/blob/master/src/test/java/top/crossoverjie/plugin/core/lab/TestLexerTest.java</a><br><img src="https://i.loli.net/2020/03/23/xvB3uJAPm8tsDSF.jpg"><br><img src="https://i.loli.net/2020/03/23/EDNnAXGTJRbmkij.jpg"></p>
+<h2 id="DDL-解析"><a href="#DDL-解析" class="headerlink" title="DDL 解析"></a>DDL 解析</h2><p>简单的解析完成后来看看 <code>DDL</code> 这样的脚本应当如何解析：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> `<span class="keyword">user</span>` (</span><br><span class="line">  `id` <span class="type">int</span>(<span class="number">11</span>) <span class="keyword">NOT</span> <span class="keyword">NULL</span> AUTO_INCREMENT,</span><br><span class="line">  `userName` <span class="type">varchar</span>(<span class="number">20</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span> COMMENT <span class="string">&#x27;用户名&#x27;</span>,</span><br><span class="line">  `password` <span class="type">varchar</span>(<span class="number">100</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span> COMMENT <span class="string">&#x27;密码&#x27;</span>,</span><br><span class="line">  `roleId` <span class="type">int</span>(<span class="number">11</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span> COMMENT <span class="string">&#x27;角色ID&#x27;</span>,</span><br><span class="line">  <span class="keyword">PRIMARY</span> KEY (`id`),  </span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB AUTO_INCREMENT<span class="operator">=</span><span class="number">7</span> <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8</span><br></pre></td></tr></table></figure>
+
+<p>原理类似，首先还是要看出规律（也就是语法）：</p>
+<ul>
+<li>表名是第一行语句，同时以 <code>CREATE TABLE</code> 开头。</li>
+<li>每一个字段的信息（名称、类型、长度、备注）都是以 “&#96;” 符号开头 “,” 结尾。 </li>
+<li>主键是以 PRIMART 字符串开头的字段，以 <code>)</code> 结尾。</li>
+</ul>
+<p>根据我们需要解析的数据种类，我这里定义了这个枚举：<br><img src="https://i.loli.net/2020/03/23/p1UxCHKNGbDQZ5d.jpg"></p>
+<p>然后在初始化类型时进行判断赋值：<br><img src="https://i.loli.net/2020/03/23/mtsRX534r7hpqHy.jpg"></p>
+<p>由于需要解析的数据不少，所以这里的判断条件自然也就多了。</p>
+<h2 id="递归解析"><a href="#递归解析" class="headerlink" title="递归解析"></a>递归解析</h2><p>针对于 <code>DDL</code> 的语法规则，我们这里还有需要有特殊处理的地方；比如解析具体字段信息时如何关联起来？</p>
+<p>举个例子：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">`userName` <span class="type">varchar</span>(<span class="number">20</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span> COMMENT <span class="string">&#x27;用户名&#x27;</span>,</span><br><span class="line">`password` <span class="type">varchar</span>(<span class="number">100</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span> COMMENT <span class="string">&#x27;密码&#x27;</span>,</span><br></pre></td></tr></table></figure>
+
+<p>这里我们解析出来的数据得有一个映射关系：</p>
+<p><img src="https://i.loli.net/2020/03/23/MHdbTgSY5IELwQc.jpg"></p>
+<p>所以我们只能一个字段的全部信息解析完成并且关联好之后才能解析下一个字段。</p>
+<p>于是这里我采用了递归的方式进行解析（不一定是最好的，欢迎大家提出更优的方案）。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (value == <span class="string">&#x27;`&#x27;</span> &amp;&amp; pStatus == Status.BASE_INIT) &#123;</span><br><span class="line">    result.tokenType = DDLTokenType.FI;</span><br><span class="line">    result.text.append(value);</span><br><span class="line">&#125; </span><br></pre></td></tr></table></figure>
+
+<p>当当前字符为 ”&#96;“ 符号时，将状态置为 “FI”(FieldInfo)，同时当解析到为 “,” 符号时便进入递归处理。</p>
+<p><img src="https://i.loli.net/2020/03/23/bDYsyUZB3cwLHu6.jpg"></p>
+<p>可以理解为将这一段字符串单独提取出来处理：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">`userName` <span class="type">varchar</span>(<span class="number">20</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span> COMMENT <span class="string">&#x27;用户名&#x27;</span>,</span><br></pre></td></tr></table></figure>
+
+<p>接着再将这段字符递归调用当前方法再次进行解析，这时便按照字段名称、类型、长度、注释的规则解析即可。</p>
+<p>同时既然存在递归，还需要将子递归的数据关联起来，所以我在返回结果中新增了一个 <code>pid</code> 的字段，这个也容易理解。</p>
+<p>默认值为 0，一旦递归后便自增 +1，保证每次递归的数据都是唯一的。</p>
+<p>用同样的方法在解析主键时也是先将整个字符串提取出来:</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">PRIMARY</span> KEY (`id`)</span><br></pre></td></tr></table></figure>
+
+<p>只不过是 “P” 打头 “)” 结尾。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (value == <span class="string">&#x27;P&#x27;</span> &amp;&amp; pStatus == Status.BASE_INIT) &#123;</span><br><span class="line">    result.tokenType = DDLTokenType.P_K;</span><br><span class="line">    result.text.append(value);</span><br><span class="line">&#125; </span><br></pre></td></tr></table></figure>
+
+<p><img src="https://i.loli.net/2020/03/23/MYVlc4Sb9LovH2z.jpg"></p>
+<p>也是将整段字符串递归解析，再递归的过程中进行状态切换 <code>P_K ---&gt; P_K_V</code> 最终获取到主键。</p>
+<hr>
+<p><img src="https://i.loli.net/2020/03/23/qRkbKrH9IWtVnw1.jpg"></p>
+<p>所以通过对刚才那段 <code>DDL</code> 解析得到的结果如下：</p>
+<p><img src="https://i.loli.net/2020/03/23/k3GCZe1sKujtbrp.jpg"></p>
+<p>这样每个字段也通过了 <code>pid</code> 进行了区分关联。</p>
+<p>所以现在只需要对这个词法解析器进行封装，便可以提供一个简单的 <code>API</code> 来获取表中的数据了。</p>
+<p><img src="https://i.loli.net/2020/03/23/1V8vsNFdxMLiRlY.jpg"></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>到此整个词法解析器的全部内容都已经完成了，虽然实现的是一个小功能，但我自己花的时间可不少，其中光复习编译原理就让人头疼。</p>
+<p>但这还只是整个编译语言知识点的冰山一角，后续还有语法、语义、中间、目标代码等一系列内容，都是一个比一个难啃。</p>
+<p>其实我相信大多数人和我想法一样，这个东西太底层而且枯燥，真正从事这方面工作的也都是凤毛麟角，所以花这时间干啥呢？</p>
+<p>所以我也决定这个弄完后就弃坑啦。</p>
+<p><img src="https://i.loli.net/2020/03/23/6bTSWEcxzaykX9N.jpg"></p>
+<hr>
+<p>哈哈，开个玩笑，或许有生之年自己也能实现一门编程语言，当老了和儿子吹牛时也能有点资本。</p>
+<p>本文所有源码及插件地址：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/sqlalchemy-transfer">https://github.com/crossoverJie/sqlalchemy-transfer</a></p>
+<p><strong>大家看完记得点赞分享一键三连哦</strong></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2020/03/23/compilation/Lexer/" title="词法分析器的应用">http://crossoverjie.top/2020/03/23/compilation/Lexer/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Java/" rel="tag"><i class="fa fa-tag"></i> Java</a>
+              <a href="/tags/%E9%80%92%E5%BD%92/" rel="tag"><i class="fa fa-tag"></i> 递归</a>
+              <a href="/tags/DDL/" rel="tag"><i class="fa fa-tag"></i> DDL</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/02/24/wheel/cicada8-spi/" rel="prev" title="Java SPI 的原理与应用">
+                  <i class="fa fa-chevron-left"></i> Java SPI 的原理与应用
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/03/30/wheel/cicada9-proxy/" rel="next" title="动态代理的实际应用">
+                  动态代理的实际应用 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

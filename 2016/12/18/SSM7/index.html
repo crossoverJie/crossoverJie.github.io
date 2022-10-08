@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前言由于最近换(mang)了(de)家(yi)公(bi)司接触了新的东西所以很久没有更新了。这次谈谈Redis，关于Redis应该很多朋友就算没有用过也听过，算是这几年最流行的NoSql之一了。Redis的应用场景非常多这里就不一一列举了，这次就以一个最简单的也最常用的 缓存数据 来举例。先来看一张效果图：">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SSM(七)在JavaWeb应用中使用Redis">
+<meta property="og:url" content="http://crossoverjie.top/2016/12/18/SSM7/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言由于最近换(mang)了(de)家(yi)公(bi)司接触了新的东西所以很久没有更新了。这次谈谈Redis，关于Redis应该很多朋友就算没有用过也听过，算是这几年最流行的NoSql之一了。Redis的应用场景非常多这里就不一一列举了，这次就以一个最简单的也最常用的 缓存数据 来举例。先来看一张效果图：">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://ooo.0o0.ooo/2017/05/07/590ea75de0d84.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba0ab8f76.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba0d7badf.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba12c0bb0.jpg">
+<meta property="article:published_time" content="2016-12-18T05:44:54.000Z">
+<meta property="article:modified_time" content="2019-05-07T17:02:59.108Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Redis">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://ooo.0o0.ooo/2017/05/07/590ea75de0d84.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2016/12/18/SSM7/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2016/12/18/SSM7/","path":"2016/12/18/SSM7/","title":"SSM(七)在JavaWeb应用中使用Redis"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>SSM(七)在JavaWeb应用中使用Redis | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Redis%E5%AE%89%E8%A3%85%E4%B8%8E%E4%BD%BF%E7%94%A8"><span class="nav-number">2.</span> <span class="nav-text">Redis安装与使用</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Spring%E6%95%B4%E5%90%88Redis"><span class="nav-number">3.</span> <span class="nav-text">Spring整合Redis</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Spring%E5%88%87%E9%9D%A2%E4%BD%BF%E7%94%A8%E7%BC%93%E5%AD%98"><span class="nav-number">4.</span> <span class="nav-text">Spring切面使用缓存</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8PageHelper"><span class="nav-number">4.1.</span> <span class="nav-text">使用PageHelper</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E7%AB%AF%E8%81%94%E8%B0%83"><span class="nav-number">5.</span> <span class="nav-text">前端联调</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2016/12/18/SSM7/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="SSM(七)在JavaWeb应用中使用Redis | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          SSM(七)在JavaWeb应用中使用Redis
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2016-12-18 13:44:54" itemprop="dateCreated datePublished" datetime="2016-12-18T13:44:54+08:00">2016-12-18</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2019-05-08 01:02:59" itemprop="dateModified" datetime="2019-05-08T01:02:59+08:00">2019-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/SSM/" itemprop="url" rel="index"><span itemprop="name">SSM</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2016/12/18/SSM7/" class="post-meta-item leancloud_visitors" data-flag-title="SSM(七)在JavaWeb应用中使用Redis" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2016/12/18/SSM7/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2016/12/18/SSM7/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://ooo.0o0.ooo/2017/05/07/590ea75de0d84.jpg" alt="redis封面.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>由于最近换(mang)了(de)家(yi)公(bi)司接触了新的东西所以很久没有更新了。<br>这次谈谈Redis，关于<code>Redis</code>应该很多朋友就算没有用过也听过，算是这几年最流行的<code>NoSql</code>之一了。<br><code>Redis</code>的应用场景非常多这里就不一一列举了，这次就以一个最简单的也最常用的 <strong>缓存数据</strong> 来举例。<br>先来看一张效果图：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1ba0ab8f76.jpg"></p>
+<span id="more"></span>
+<p>作用就是在每次查询接口的时候首先判断<code>Redis</code>中是否有缓存，有的话就读取，没有就查询数据库并保存到<code>Redis</code>中，下次再查询的话就会直接从缓存中读取了。<br><code>Redis</code>中的结果：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1ba0d7badf.jpg"></p>
+<p>之后查询redis发现确实是存进来了。</p>
+<h1 id="Redis安装与使用"><a href="#Redis安装与使用" class="headerlink" title="Redis安装与使用"></a>Redis安装与使用</h1><p>首先第一步自然是安装<code>Redis</code>。我是在我<code>VPS</code>上进行安装的，操作系统是<code>CentOS6.5</code>。</p>
+<ul>
+<li><p>下载Redis<a target="_blank" rel="noopener" href="https://redis.io/download">https://redis.io/download</a>，我机器上安装的是<code>3.2.5</code></p>
+</li>
+<li><p>将下载下来的’reidis-3.2.5-tar.gz’上传到<code>usr/local</code>这个目录进行解压。</p>
+</li>
+<li><p>进入该目录。</p>
+</li>
+</ul>
+<p><img src="https://i.loli.net/2019/05/08/5cd1ba12c0bb0.jpg"></p>
+<ul>
+<li><p>编译安装</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">make</span><br><span class="line">make install</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>修改<code>redis.conf</code>配置文件。</p>
+</li>
+</ul>
+<p>这里我只是简单的加上密码而已。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">vi redis.conf</span><br><span class="line">requirepass 你的密码</span><br></pre></td></tr></table></figure>
+<ul>
+<li>启动Redis</li>
+</ul>
+<p>启动时候要选择我们之前修改的配置文件才能使配置文件生效。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">进入src目录</span><br><span class="line">cd /usr/local/redis-3.2.5/src</span><br><span class="line">启动服务</span><br><span class="line">./redis-server ../redis.conf</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>登陆redis<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./redis-cli -a 你的密码</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h1 id="Spring整合Redis"><a href="#Spring整合Redis" class="headerlink" title="Spring整合Redis"></a>Spring整合Redis</h1><p>这里我就直接开始用Spring整合毕竟在实际使用中都是和<code>Spring</code>一起使用的。</p>
+<ul>
+<li>修改<code>Spring</code>配置文件<br>加入以下内容：<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- jedis 配置 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;poolConfig&quot;</span> <span class="attr">class</span>=<span class="string">&quot;redis.clients.jedis.JedisPoolConfig&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;maxIdle&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.maxIdle&#125;&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;maxWaitMillis&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.maxWait&#125;&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;testOnBorrow&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.testOnBorrow&#125;&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- redis服务器中心 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;connectionFactory&quot;</span> <span class="attr">class</span>=<span class="string">&quot;org.springframework.data.redis.connection.jedis.JedisConnectionFactory&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;poolConfig&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;poolConfig&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;port&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.port&#125;&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;hostName&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.host&#125;&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;password&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.password&#125;&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;timeout&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;redis.timeout&#125;&quot;</span>&gt;</span><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;redisTemplate&quot;</span> <span class="attr">class</span>=<span class="string">&quot;org.springframework.data.redis.core.RedisTemplate&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;connectionFactory&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;connectionFactory&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;keySerializer&quot;</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">bean</span> <span class="attr">class</span>=<span class="string">&quot;org.springframework.data.redis.serializer.StringRedisSerializer&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;valueSerializer&quot;</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">bean</span> <span class="attr">class</span>=<span class="string">&quot;org.springframework.data.redis.serializer.JdkSerializationRedisSerializer&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">&lt;!-- cache配置 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;methodCacheInterceptor&quot;</span> <span class="attr">class</span>=<span class="string">&quot;com.crossoverJie.intercept.MethodCacheInterceptor&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;redisUtil&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;redisUtil&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;redisUtil&quot;</span> <span class="attr">class</span>=<span class="string">&quot;com.crossoverJie.util.RedisUtil&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;redisTemplate&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;redisTemplate&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">&lt;!--配置切面拦截方法 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">aop:config</span> <span class="attr">proxy-target-class</span>=<span class="string">&quot;true&quot;</span>&gt;</span></span><br><span class="line">        <span class="comment">&lt;!--将com.crossoverJie.service包下的所有select开头的方法加入拦截</span></span><br><span class="line"><span class="comment">        去掉select则加入所有方法w</span></span><br><span class="line"><span class="comment">        --&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">aop:pointcut</span> <span class="attr">id</span>=<span class="string">&quot;controllerMethodPointcut&quot;</span> <span class="attr">expression</span>=<span class="string">&quot;</span></span></span><br><span class="line"><span class="string"><span class="tag">        execution(* com.crossoverJie.service.*.select*(..))&quot;</span>/&gt;</span></span><br><span class="line"></span><br><span class="line">        <span class="tag">&lt;<span class="name">aop:pointcut</span> <span class="attr">id</span>=<span class="string">&quot;selectMethodPointcut&quot;</span> <span class="attr">expression</span>=<span class="string">&quot;</span></span></span><br><span class="line"><span class="string"><span class="tag">        execution(* com.crossoverJie.dao..*Mapper.select*(..))&quot;</span>/&gt;</span></span><br><span class="line"></span><br><span class="line">        <span class="tag">&lt;<span class="name">aop:advisor</span> <span class="attr">advice-ref</span>=<span class="string">&quot;methodCacheInterceptor&quot;</span> <span class="attr">pointcut-ref</span>=<span class="string">&quot;controllerMethodPointcut&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">aop:config</span>&gt;</span></span><br></pre></td></tr></table></figure>
+更多的配置可以直接在源码里面查看：<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/SSM/blob/master/src/main/resources/spring-mybatis.xml">https://github.com/crossoverJie/SSM/blob/master/src/main/resources/spring-mybatis.xml</a>。<br>以上都写有注释，也都是一些简单的配置相信都能看懂。<br>下面我会着重说下如何配置缓存的。</li>
+</ul>
+<h1 id="Spring切面使用缓存"><a href="#Spring切面使用缓存" class="headerlink" title="Spring切面使用缓存"></a>Spring切面使用缓存</h1><p>Spring的<code>AOP</code>真是是一个好东西，还不太清楚是什么的同学建议先自行<code>Google</code>下吧。<br>在不使用切面的时候如果我们想给某个方法加入缓存的话肯定是在方法返回之前就要加入相应的逻辑判断，只有一个或几个倒还好，如果有几十上百个的话那GG了，而且维护起来也特别麻烦。</p>
+<blockquote>
+<p>好在Spring的AOP可以帮我们解决这个问题。<br>这次就在我们需要加入缓存方法的切面加入这个逻辑，并且只需要一个配置即可搞定，就是上文中所提到的配置文件，如下：</p>
+</blockquote>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!--配置切面拦截方法 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">aop:config</span> <span class="attr">proxy-target-class</span>=<span class="string">&quot;true&quot;</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!--将com.crossoverJie.service包下的所有select开头的方法加入拦截</span></span><br><span class="line"><span class="comment">    去掉select则加入所有方法w</span></span><br><span class="line"><span class="comment">    --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">aop:pointcut</span> <span class="attr">id</span>=<span class="string">&quot;controllerMethodPointcut&quot;</span> <span class="attr">expression</span>=<span class="string">&quot;</span></span></span><br><span class="line"><span class="string"><span class="tag">    execution(* com.crossoverJie.service.*.select*(..))&quot;</span>/&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="tag">&lt;<span class="name">aop:pointcut</span> <span class="attr">id</span>=<span class="string">&quot;selectMethodPointcut&quot;</span> <span class="attr">expression</span>=<span class="string">&quot;</span></span></span><br><span class="line"><span class="string"><span class="tag">    execution(* com.crossoverJie.dao..*Mapper.select*(..))&quot;</span>/&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="tag">&lt;<span class="name">aop:advisor</span> <span class="attr">advice-ref</span>=<span class="string">&quot;methodCacheInterceptor&quot;</span> <span class="attr">pointcut-ref</span>=<span class="string">&quot;controllerMethodPointcut&quot;</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">aop:config</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>这里我们使用表达式<code>execution(* com.crossoverJie.service.*.select*(..))</code>来拦截<code>service</code>中所有以<code>select</code>开头的方法。这样只要我们要将加入的缓存的方法以select命名开头的话每次进入方法之前都会进入我们自定义的<code>MethodCacheInterceptor</code>拦截器。<br>这里贴一下<code>MethodCacheInterceptor</code>中处理逻辑的核心方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Object <span class="title function_">invoke</span><span class="params">(MethodInvocation invocation)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">        <span class="type">Object</span> <span class="variable">value</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">        <span class="type">String</span> <span class="variable">targetName</span> <span class="operator">=</span> invocation.getThis().getClass().getName();</span><br><span class="line">        <span class="type">String</span> <span class="variable">methodName</span> <span class="operator">=</span> invocation.getMethod().getName();</span><br><span class="line">        <span class="comment">// 不需要缓存的内容</span></span><br><span class="line">        <span class="comment">//if (!isAddCache(StringUtil.subStrForLastDot(targetName), methodName)) &#123;</span></span><br><span class="line">        <span class="keyword">if</span> (!isAddCache(targetName, methodName)) &#123;</span><br><span class="line">            <span class="comment">// 执行方法返回结果</span></span><br><span class="line">            <span class="keyword">return</span> invocation.proceed();</span><br><span class="line">        &#125;</span><br><span class="line">        Object[] arguments = invocation.getArguments();</span><br><span class="line">        <span class="type">String</span> <span class="variable">key</span> <span class="operator">=</span> getCacheKey(targetName, methodName, arguments);</span><br><span class="line">        logger.debug(<span class="string">&quot;redisKey: &quot;</span> + key);</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// 判断是否有缓存</span></span><br><span class="line">            <span class="keyword">if</span> (redisUtil.exists(key)) &#123;</span><br><span class="line">                <span class="keyword">return</span> redisUtil.get(key);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="comment">// 写入缓存</span></span><br><span class="line">            value = invocation.proceed();</span><br><span class="line">            <span class="keyword">if</span> (value != <span class="literal">null</span>) &#123;</span><br><span class="line">                <span class="keyword">final</span> <span class="type">String</span> <span class="variable">tkey</span> <span class="operator">=</span> key;</span><br><span class="line">                <span class="keyword">final</span> <span class="type">Object</span> <span class="variable">tvalue</span> <span class="operator">=</span> value;</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">Thread</span>(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line">                    <span class="meta">@Override</span></span><br><span class="line">                    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">                        <span class="keyword">if</span> (tkey.startsWith(<span class="string">&quot;com.service.impl.xxxRecordManager&quot;</span>)) &#123;</span><br><span class="line">                            redisUtil.set(tkey, tvalue, xxxRecordManagerTime);</span><br><span class="line">                        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (tkey.startsWith(<span class="string">&quot;com.service.impl.xxxSetRecordManager&quot;</span>)) &#123;</span><br><span class="line">                            redisUtil.set(tkey, tvalue, xxxSetRecordManagerTime);</span><br><span class="line">                        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                            redisUtil.set(tkey, tvalue, defaultCacheExpireTime);</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;).start();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">            <span class="keyword">if</span> (value == <span class="literal">null</span>) &#123;</span><br><span class="line">                <span class="keyword">return</span> invocation.proceed();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> value;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>先是查看了当前方法是否在我们自定义的方法中，如果不是的话就直接返回，不进入拦截器。</li>
+<li>之后利用反射获取的类名、方法名、参数生成<code>redis</code>的<code>key</code>。</li>
+<li>用key在redis中查询是否已经有缓存。</li>
+<li>有缓存就直接返回缓存内容，不再继续查询数据库。</li>
+<li>如果没有缓存就查询数据库并将返回信息加入到redis中。</li>
+</ul>
+<h2 id="使用PageHelper"><a href="#使用PageHelper" class="headerlink" title="使用PageHelper"></a>使用PageHelper</h2><p>这次为了分页方便使用了比较流行的<code>PageHelper</code>来帮我们更简单的进行分页。<br>首先是新增一个mybatis的配置文件<code>mybatis-config</code>：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?xml version=<span class="string">&quot;1.0&quot;</span> encoding=<span class="string">&quot;UTF-8&quot;</span> ?&gt;</span></span><br><span class="line"><span class="meta">&lt;!DOCTYPE <span class="keyword">configuration</span></span></span><br><span class="line"><span class="meta">        <span class="keyword">PUBLIC</span> <span class="string">&quot;-//mybatis.org//DTD Config 3.0//EN&quot;</span></span></span><br><span class="line"><span class="meta">        <span class="string">&quot;http://mybatis.org/dtd/mybatis-3-config.dtd&quot;</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">configuration</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">settings</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;cacheEnabled&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;lazyLoadingEnabled&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;multipleResultSetsEnabled&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;useColumnLabel&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;useGeneratedKeys&quot;</span> <span class="attr">value</span>=<span class="string">&quot;false&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;autoMappingBehavior&quot;</span> <span class="attr">value</span>=<span class="string">&quot;PARTIAL&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;defaultExecutorType&quot;</span> <span class="attr">value</span>=<span class="string">&quot;SIMPLE&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;defaultStatementTimeout&quot;</span> <span class="attr">value</span>=<span class="string">&quot;25&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;safeRowBoundsEnabled&quot;</span> <span class="attr">value</span>=<span class="string">&quot;false&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;mapUnderscoreToCamelCase&quot;</span> <span class="attr">value</span>=<span class="string">&quot;false&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;localCacheScope&quot;</span> <span class="attr">value</span>=<span class="string">&quot;SESSION&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;jdbcTypeForNull&quot;</span> <span class="attr">value</span>=<span class="string">&quot;OTHER&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;lazyLoadTriggerMethods&quot;</span> <span class="attr">value</span>=<span class="string">&quot;equals,clone,hashCode,toString&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">settings</span>&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="tag">&lt;<span class="name">plugins</span>&gt;</span></span><br><span class="line">        <span class="comment">&lt;!-- com.github.pagehelper为PageHelper类所在包名 --&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">plugin</span> <span class="attr">interceptor</span>=<span class="string">&quot;com.github.pagehelper.PageHelper&quot;</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;dialect&quot;</span> <span class="attr">value</span>=<span class="string">&quot;mysql&quot;</span>/&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 该参数默认为false --&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 设置为true时，会将RowBounds第一个参数offset当成pageNum页码使用 --&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 和startPage中的pageNum效果一样 --&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;offsetAsPageNum&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 该参数默认为false --&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 设置为true时，使用RowBounds分页会进行count查询 --&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;rowBoundsWithCount&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line"></span><br><span class="line">            <span class="comment">&lt;!-- 设置为true时，如果pageSize=0或者RowBounds.limit = 0就会查询出全部的结果 --&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- （相当于没有执行分页查询，但是返回结果仍然是Page类型） &lt;property name=&quot;pageSizeZero&quot; value=&quot;true&quot;/&gt; --&gt;</span></span><br><span class="line"></span><br><span class="line">            <span class="comment">&lt;!-- 3.3.0版本可用 - 分页参数合理化，默认false禁用 --&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 启用合理化时，如果pageNum&lt;1会查询第一页，如果pageNum&gt;pages会查询最后一页 --&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 禁用合理化时，如果pageNum&lt;1或pageNum&gt;pages会返回空数据 --&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;reasonable&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 3.5.0版本可用 - 为了支持startPage(Object params)方法 --&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 增加了一个`params`参数来配置参数映射，用于从Map或ServletRequest中取值 --&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 可以配置pageNum,pageSize,count,pageSizeZero,reasonable,不配置映射的用默认值 --&gt;</span></span><br><span class="line">            <span class="comment">&lt;!-- 不理解该含义的前提下，不要随便复制该配置 --&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;params&quot;</span> <span class="attr">value</span>=<span class="string">&quot;pageNum=start;pageSize=limit;&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">plugin</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">plugins</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">configuration</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>接着在mybatis的配置文件中引入次配置文件：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;sqlSessionFactory&quot;</span> <span class="attr">class</span>=<span class="string">&quot;org.mybatis.spring.SqlSessionFactoryBean&quot;</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;dataSource&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;dataSource&quot;</span> /&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- 自动扫描mapping.xml文件 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;mapperLocations&quot;</span> <span class="attr">value</span>=<span class="string">&quot;classpath:mapping/*.xml&quot;</span>&gt;</span><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!--加入PageHelper--&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;configLocation&quot;</span> <span class="attr">value</span>=<span class="string">&quot;classpath:mybatis-config.xml&quot;</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>接着在service方法中：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> PageEntity&lt;Rediscontent&gt; <span class="title function_">selectByPage</span><span class="params">(Integer pageNum, Integer pageSize)</span> &#123;</span><br><span class="line">    PageHelper.startPage(pageNum, pageSize);</span><br><span class="line">    <span class="comment">//因为是demo，所以这里默认没有查询条件。</span></span><br><span class="line">    List&lt;Rediscontent&gt; rediscontents = rediscontentMapper.selectByExample(<span class="keyword">new</span> <span class="title class_">RediscontentExample</span>());</span><br><span class="line">    PageEntity&lt;Rediscontent&gt; rediscontentPageEntity = <span class="keyword">new</span> <span class="title class_">PageEntity</span>&lt;Rediscontent&gt;();</span><br><span class="line">    rediscontentPageEntity.setList(rediscontents);</span><br><span class="line">    <span class="type">int</span> <span class="variable">size</span> <span class="operator">=</span> rediscontentMapper.selectByExample(<span class="keyword">new</span> <span class="title class_">RediscontentExample</span>()).size();</span><br><span class="line">    rediscontentPageEntity.setCount(size);</span><br><span class="line">    <span class="keyword">return</span> rediscontentPageEntity;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>只需要使用<code>PageHelper.startPage(pageNum, pageSize);</code>方法就可以帮我们简单的分页了。<br>这里我自定义了一个分页工具类<code>PageEntity</code>来更方便的帮我们在之后生成<code>JSON</code>数据。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.crossoverJie.util;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.io.Serializable;</span><br><span class="line"><span class="keyword">import</span> java.util.List;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 分页实体</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@param</span> &lt;T&gt;</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">PageEntity</span>&lt;T&gt; <span class="keyword">implements</span> <span class="title class_">Serializable</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> List&lt;T&gt; list;<span class="comment">// 分页后的数据</span></span><br><span class="line">    <span class="keyword">private</span> Integer count;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> Integer <span class="title function_">getCount</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> count;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">setCount</span><span class="params">(Integer count)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.count = count;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> List&lt;T&gt; <span class="title function_">getList</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> list;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">setList</span><span class="params">(List&lt;T&gt; list)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.list = list;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>更多<code>PageHelper</code>的使用请查看一下链接：<br><a target="_blank" rel="noopener" href="https://github.com/pagehelper/Mybatis-PageHelper">https://github.com/pagehelper/Mybatis-PageHelper</a></p>
+<h1 id="前端联调"><a href="#前端联调" class="headerlink" title="前端联调"></a>前端联调</h1><p>接下来看下控制层<code>RedisController</code>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.crossoverJie.controller;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> com.crossoverJie.pojo.Rediscontent;</span><br><span class="line"><span class="keyword">import</span> com.crossoverJie.service.RediscontentService;</span><br><span class="line"><span class="keyword">import</span> com.crossoverJie.util.CommonUtil;</span><br><span class="line"><span class="keyword">import</span> com.crossoverJie.util.PageEntity;</span><br><span class="line"><span class="keyword">import</span> com.github.pagehelper.PageHelper;</span><br><span class="line"><span class="keyword">import</span> net.sf.json.JSONArray;</span><br><span class="line"><span class="keyword">import</span> net.sf.json.JSONObject;</span><br><span class="line"><span class="keyword">import</span> org.slf4j.Logger;</span><br><span class="line"><span class="keyword">import</span> org.slf4j.LoggerFactory;</span><br><span class="line"><span class="keyword">import</span> org.springframework.beans.factory.annotation.Autowired;</span><br><span class="line"><span class="keyword">import</span> org.springframework.stereotype.Controller;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.bind.annotation.RequestMapping;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.bind.annotation.RequestParam;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> javax.servlet.http.HttpServletResponse;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">@Controller</span></span><br><span class="line"><span class="meta">@RequestMapping(&quot;/redis&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RedisController</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="type">Logger</span> <span class="variable">logger</span> <span class="operator">=</span> LoggerFactory.getLogger(RedisController.class);</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> RediscontentService rediscontentService;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="meta">@RequestMapping(&quot;/redis_list&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">club_list</span><span class="params">(HttpServletResponse response,</span></span><br><span class="line"><span class="params">                          <span class="meta">@RequestParam(value = &quot;page&quot;, defaultValue = &quot;0&quot;)</span> <span class="type">int</span> page,</span></span><br><span class="line"><span class="params">                          <span class="meta">@RequestParam(value = &quot;pageSize&quot;, defaultValue = &quot;0&quot;)</span> <span class="type">int</span> pageSize)</span> &#123;</span><br><span class="line">        <span class="type">JSONObject</span> <span class="variable">jsonObject</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">JSONObject</span>();</span><br><span class="line">        <span class="type">JSONObject</span> <span class="variable">jo</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">JSONObject</span>();</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="type">JSONArray</span> <span class="variable">ja</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">JSONArray</span>();</span><br><span class="line">            PageHelper.startPage(<span class="number">1</span>, <span class="number">10</span>);</span><br><span class="line">            PageEntity&lt;Rediscontent&gt; rediscontentPageEntity = rediscontentService.selectByPage(page, pageSize);</span><br><span class="line">            <span class="keyword">for</span> (Rediscontent rediscontent : rediscontentPageEntity.getList()) &#123;</span><br><span class="line">                <span class="type">JSONObject</span> <span class="variable">jo1</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">JSONObject</span>();</span><br><span class="line">                jo1.put(<span class="string">&quot;rediscontent&quot;</span>, rediscontent);</span><br><span class="line">                ja.add(jo1);</span><br><span class="line">            &#125;</span><br><span class="line">            jo.put(<span class="string">&quot;redisContents&quot;</span>, ja);</span><br><span class="line">            jo.put(<span class="string">&quot;count&quot;</span>, rediscontentPageEntity.getCount());</span><br><span class="line">            jsonObject = CommonUtil.parseJson(<span class="string">&quot;1&quot;</span>, <span class="string">&quot;成功&quot;</span>, jo);</span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            jsonObject = CommonUtil.parseJson(<span class="string">&quot;2&quot;</span>, <span class="string">&quot;操作异常&quot;</span>, <span class="string">&quot;&quot;</span>);</span><br><span class="line">            logger.error(e.getMessage(), e);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//构建返回</span></span><br><span class="line">        CommonUtil.responseBuildJson(response, jsonObject);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里就不做过多解释了，就是从redis或者是service中查询出数据并返回。</p>
+<p>前端的显示界面在<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/SSM/blob/master/src/main/webapp/redis/showRedis.jsp">https://github.com/crossoverJie/SSM/blob/master/src/main/webapp/redis/showRedis.jsp</a>中(并不是前端，将就看)。<br>其中核心的<code>redis_list.js</code>的代码如下：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> page = <span class="number">1</span>,</span><br><span class="line">    rows = <span class="number">10</span>;</span><br><span class="line">$(<span class="variable language_">document</span>).<span class="title function_">ready</span>(<span class="keyword">function</span> (<span class="params"></span>) &#123;</span><br><span class="line">    <span class="title function_">initJqPaginator</span>();</span><br><span class="line">    <span class="comment">//加载</span></span><br><span class="line">    <span class="title function_">load_redis_list</span>();</span><br><span class="line">    $(<span class="string">&quot;.query_but&quot;</span>).<span class="title function_">click</span>(<span class="keyword">function</span> (<span class="params"></span>) &#123;<span class="comment">//查询按钮</span></span><br><span class="line">        page = <span class="number">1</span>;</span><br><span class="line">        <span class="title function_">load_redis_list</span>();</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;);</span><br><span class="line"><span class="comment">//初始化分页</span></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">initJqPaginator</span>(<span class="params"></span>) &#123;</span><br><span class="line">    $.<span class="title function_">jqPaginator</span>(<span class="string">&#x27;#pagination&#x27;</span>, &#123;</span><br><span class="line">        <span class="attr">totalPages</span>: <span class="number">100</span>,</span><br><span class="line">        <span class="attr">visiblePages</span>: <span class="number">10</span>,</span><br><span class="line">        <span class="attr">currentPage</span>: <span class="number">1</span>,</span><br><span class="line">        <span class="attr">first</span>: <span class="string">&#x27;&lt;li class=&quot;prev&quot;&gt;&lt;a href=&quot;javascript:;&quot;&gt;首页&lt;/a&gt;&lt;/li&gt;&#x27;</span>,</span><br><span class="line">        <span class="attr">last</span>: <span class="string">&#x27;&lt;li class=&quot;prev&quot;&gt;&lt;a href=&quot;javascript:;&quot;&gt;末页&lt;/a&gt;&lt;/li&gt;&#x27;</span>,</span><br><span class="line">        <span class="attr">prev</span>: <span class="string">&#x27;&lt;li class=&quot;prev&quot;&gt;&lt;a href=&quot;javascript:;&quot;&gt;上一页&lt;/a&gt;&lt;/li&gt;&#x27;</span>,</span><br><span class="line">        <span class="attr">next</span>: <span class="string">&#x27;&lt;li class=&quot;next&quot;&gt;&lt;a href=&quot;javascript:;&quot;&gt;下一页&lt;/a&gt;&lt;/li&gt;&#x27;</span>,</span><br><span class="line">        <span class="attr">page</span>: <span class="string">&#x27;&lt;li class=&quot;page&quot;&gt;&lt;a href=&quot;javascript:;&quot;&gt;&#123;&#123;page&#125;&#125;&lt;/a&gt;&lt;/li&gt;&#x27;</span>,</span><br><span class="line">        <span class="attr">onPageChange</span>: <span class="keyword">function</span> (<span class="params">num, type</span>) &#123;</span><br><span class="line">            page = num;</span><br><span class="line">            <span class="keyword">if</span> (type == <span class="string">&quot;change&quot;</span>) &#123;</span><br><span class="line">                <span class="title function_">load_redis_list</span>();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//列表</span></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">create_club_list</span>(<span class="params">redisContens</span>) &#123;</span><br><span class="line">    <span class="keyword">var</span> phone = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">var</span> html = <span class="string">&#x27;&lt;div class=&quot;product_box&quot;&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;div class=&quot;br&quot;&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;div class=&quot;product_link&quot;&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;div class=&quot;product_phc&quot;&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;img class=&quot;phc&quot; src=&quot;&quot; &gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;/div&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;span class=&quot;product_name&quot;&gt;&#x27;</span> + redisContens.<span class="property">id</span> + <span class="string">&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;div class=&quot;product_link toto&quot;&gt;&#x27;</span> + redisContens.<span class="property">content</span> + <span class="string">&#x27;&lt;/div&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;div class=&quot;product_link toto&quot;&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;span&gt;&#x27;</span> + <span class="string">&quot;&quot;</span> + <span class="string">&#x27;&lt;/span&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;/div&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;div class=&quot;product_link toto&quot;&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;span&gt;&#x27;</span> + phone + <span class="string">&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;div class=&quot;product_link toto&quot;&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;span&gt;&#x27;</span> + <span class="number">0</span> + <span class="string">&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;div class=&quot;product_link toto product_operation&quot;&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;span onclick=&quot;edit_club(&#x27;</span> + <span class="number">0</span> + <span class="string">&#x27;)&quot;&gt;编辑&lt;/span&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;span onclick=&quot;edit_del(&#x27;</span> + <span class="number">0</span> + <span class="string">&#x27;)&quot;&gt;删除&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&#x27;</span></span><br><span class="line">        + <span class="string">&#x27;&lt;/div&gt;&#x27;</span>;</span><br><span class="line">    <span class="keyword">return</span> html;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//加载列表</span></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">load_redis_list</span>(<span class="params"></span>) &#123;</span><br><span class="line">    <span class="keyword">var</span> name = $(<span class="string">&quot;#name&quot;</span>).<span class="title function_">val</span>();</span><br><span class="line">    $.<span class="title function_">ajax</span>(&#123;</span><br><span class="line">        <span class="attr">type</span>: <span class="string">&#x27;POST&#x27;</span>,</span><br><span class="line">        <span class="attr">url</span>: <span class="title function_">getPath</span>() + <span class="string">&#x27;/redis/redis_list&#x27;</span>,</span><br><span class="line">        <span class="attr">async</span>: <span class="literal">false</span>,</span><br><span class="line">        <span class="attr">data</span>: &#123;<span class="attr">name</span>: name, <span class="attr">page</span>: page, <span class="attr">pageSize</span>: rows&#125;,</span><br><span class="line">        <span class="attr">datatype</span>: <span class="string">&#x27;json&#x27;</span>,</span><br><span class="line">        <span class="attr">success</span>: <span class="keyword">function</span> (<span class="params">data</span>) &#123;</span><br><span class="line">            <span class="keyword">if</span> (data.<span class="property">result</span> == <span class="number">1</span>) &#123;</span><br><span class="line">                $(<span class="string">&quot;.product_length_number&quot;</span>).<span class="title function_">html</span>(data.<span class="property">data</span>.<span class="property">count</span>);</span><br><span class="line">                <span class="keyword">var</span> html = <span class="string">&quot;&quot;</span>;</span><br><span class="line">                <span class="keyword">var</span> count = data.<span class="property">data</span>.<span class="property">count</span>;</span><br><span class="line">                <span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; data.<span class="property">data</span>.<span class="property">redisContents</span>.<span class="property">length</span>; i++) &#123;</span><br><span class="line">                    <span class="keyword">var</span> redisContent = data.<span class="property">data</span>.<span class="property">redisContents</span>[i];</span><br><span class="line">                    html += <span class="title function_">create_club_list</span>(redisContent.<span class="property">rediscontent</span>);</span><br><span class="line">                &#125;</span><br><span class="line">                $(<span class="string">&quot;.product_content&quot;</span>).<span class="title function_">html</span>(html);</span><br><span class="line">                <span class="comment">//这里是分页的插件</span></span><br><span class="line">                $(<span class="string">&#x27;#pagination&#x27;</span>).<span class="title function_">jqPaginator</span>(<span class="string">&#x27;option&#x27;</span>, &#123;</span><br><span class="line">                    <span class="attr">totalPages</span>: (<span class="title class_">Math</span>.<span class="title function_">ceil</span>(count / rows) &lt; <span class="number">1</span> ? <span class="number">1</span> : <span class="title class_">Math</span>.<span class="title function_">ceil</span>(count / rows)),</span><br><span class="line">                    <span class="attr">currentPage</span>: page</span><br><span class="line">                &#125;);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="title function_">alert</span>(data.<span class="property">msg</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">    $(<span class="string">&quot;.product_box:even&quot;</span>).<span class="title function_">css</span>(<span class="string">&quot;background&quot;</span>, <span class="string">&quot;#e6e6e6&quot;</span>);<span class="comment">//隔行变色</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其实就是一个简单的请求接口，并根据返回数据动态生成<code>Dom</code>而已。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>以上就是一个简单的<code>redis</code>的应用。<br>redis的应用场景还非常的多，比如现在我所在做的一个项目就有用来处理短信验证码的业务场景，之后有时间可以写一个demo。</p>
+<blockquote>
+<p>项目地址：<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/SSM.git">https://github.com/crossoverJie/SSM.git</a><br>GitHub地址：<a target="_blank" rel="noopener" href="https://github.com/crossoverJie">https://github.com/crossoverJie</a>。</p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2016/12/18/SSM7/" title="SSM(七)在JavaWeb应用中使用Redis">http://crossoverjie.top/2016/12/18/SSM7/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Java/" rel="tag"><i class="fa fa-tag"></i> Java</a>
+              <a href="/tags/Redis/" rel="tag"><i class="fa fa-tag"></i> Redis</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2016/10/18/SSM6/" rel="prev" title="SSM(六)跨域传输">
+                  <i class="fa fa-chevron-left"></i> SSM(六)跨域传输
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2016/12/31/annual-summary/GoodBye%202016,Welcome%202017%20%7C%20%E7%A0%81%E5%86%9C%E7%A0%8C%E5%A2%99%E8%AE%B0/" rel="next" title="GoodBye 2016,Welcome 2017 | 码农砌墙记">
+                  GoodBye 2016,Welcome 2017 | 码农砌墙记 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

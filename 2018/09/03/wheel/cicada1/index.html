@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前言俗话说 「不要重复造轮子」，关于是否有必要不再本次讨论范围。 创建这个项目的主要目的还是提升自己，看看和知名类开源项目的差距以及学习优秀的开源方式。 好了，现在着重来谈谈 cicada 这个项目的核心功能。 我把他定义为一个快速、轻量级 WEB 框架；没有过多的依赖，核心 jar 包仅 30KB。 也仅需要一行代码即可启动一个 HTTP 服务。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="「造个轮子」——cicada(轻量级 WEB 框架)">
+<meta property="og:url" content="http://crossoverjie.top/2018/09/03/wheel/cicada1/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言俗话说 「不要重复造轮子」，关于是否有必要不再本次讨论范围。 创建这个项目的主要目的还是提升自己，看看和知名类开源项目的差距以及学习优秀的开源方式。 好了，现在着重来谈谈 cicada 这个项目的核心功能。 我把他定义为一个快速、轻量级 WEB 框架；没有过多的依赖，核心 jar 包仅 30KB。 也仅需要一行代码即可启动一个 HTTP 服务。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d1720ab7a.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d17354c8b.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d1741f0cb.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d175166b9.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d21b836c2.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d21c7ebc4.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d21d32a5f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d220bbdbf.jpg">
+<meta property="article:published_time" content="2018-09-02T17:10:36.000Z">
+<meta property="article:modified_time" content="2020-12-04T16:42:53.604Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="HTTP">
+<meta property="article:tag" content="Netty">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1d1720ab7a.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2018/09/03/wheel/cicada1/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2018/09/03/wheel/cicada1/","path":"2018/09/03/wheel/cicada1/","title":"「造个轮子」——cicada(轻量级 WEB 框架)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>「造个轮子」——cicada(轻量级 WEB 框架) | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%89%B9%E6%80%A7"><span class="nav-number">2.</span> <span class="nav-text">特性</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%BF%AB%E9%80%9F%E5%90%AF%E5%8A%A8"><span class="nav-number">3.</span> <span class="nav-text">快速启动</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%85%8D%E7%BD%AE%E4%B8%9A%E5%8A%A1-Action"><span class="nav-number">3.1.</span> <span class="nav-text">配置业务 Action</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%81%B5%E6%B4%BB%E7%9A%84%E5%8F%82%E6%95%B0%E9%85%8D%E7%BD%AE"><span class="nav-number">3.2.</span> <span class="nav-text">灵活的参数配置</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E6%8B%A6%E6%88%AA%E5%99%A8"><span class="nav-number">4.</span> <span class="nav-text">自定义拦截器</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8B%A6%E6%88%AA%E9%80%82%E9%85%8D%E5%99%A8"><span class="nav-number">4.1.</span> <span class="nav-text">拦截适配器</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95"><span class="nav-number">5.</span> <span class="nav-text">性能测试</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2018/09/03/wheel/cicada1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="「造个轮子」——cicada(轻量级 WEB 框架) | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          「造个轮子」——cicada(轻量级 WEB 框架)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-09-03 01:10:36" itemprop="dateCreated datePublished" datetime="2018-09-03T01:10:36+08:00">2018-09-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2020-12-05 00:42:53" itemprop="dateModified" datetime="2020-12-05T00:42:53+08:00">2020-12-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/cicada/" itemprop="url" rel="index"><span itemprop="name">cicada</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/cicada/%E8%BD%AE%E5%AD%90/" itemprop="url" rel="index"><span itemprop="name">轮子</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2018/09/03/wheel/cicada1/" class="post-meta-item leancloud_visitors" data-flag-title="「造个轮子」——cicada(轻量级 WEB 框架)" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2018/09/03/wheel/cicada1/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/09/03/wheel/cicada1/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2019/05/08/5cd1d1720ab7a.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>俗话说 「不要重复造轮子」，关于是否有必要不再本次讨论范围。</p>
+<p>创建这个项目的主要目的还是提升自己，看看和知名类开源项目的差距以及学习优秀的开源方式。</p>
+<p>好了，现在着重来谈谈 <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/cicada">cicada</a> 这个项目的核心功能。</p>
+<p>我把他定义为一个快速、轻量级 WEB 框架；没有过多的依赖，核心 jar 包仅 30KB。</p>
+<p>也仅需要一行代码即可启动一个 <code>HTTP</code> 服务。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d17354c8b.jpg"></p>
+<span id="more"></span>
+
+<hr>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d1741f0cb.jpg"></p>
+<h1 id="特性"><a href="#特性" class="headerlink" title="特性"></a>特性</h1><p>现在来谈谈重要的几个特性。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d175166b9.jpg"></p>
+<p>当前版本主要实现了基本的请求、响应、自定义参数以及拦截器功能。</p>
+<blockquote>
+<p>功能虽少，但五脏俱全。</p>
+</blockquote>
+<p>在今后的迭代过程中会逐渐完善上图功能，有好的想法也欢迎提 <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/cicada/issues">https://github.com/crossoverJie/cicada/issues</a>。</p>
+<h1 id="快速启动"><a href="#快速启动" class="headerlink" title="快速启动"></a>快速启动</h1><p>下面来看看如何快速启动一个 HTTP 服务。</p>
+<p>只需要创建一个 Maven 项目，并引入核心包。</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>top.crossoverjie.opensource<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>cicada-core<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>1.0.1<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>如上图所示，再配置一个启动类即可。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MainStart</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> InterruptedException &#123;</span><br><span class="line">        CicadaServer.start(MainStart.class,<span class="string">&quot;/cicada-example&quot;</span>) ;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="配置业务-Action"><a href="#配置业务-Action" class="headerlink" title="配置业务 Action"></a>配置业务 Action</h2><p>当然我们还需要一个实现业务逻辑的地方。<code>cicada</code> 提供了一个接口，只需要实现该接口即可实现具体逻辑。</p>
+<p>创建业务 Action 实现 <code>top.crossoverjie.cicada.server.action.WorkAction</code> 接口。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@CicadaAction(value = &quot;demoAction&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DemoAction</span> <span class="keyword">implements</span> <span class="title class_">WorkAction</span> &#123;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Logger</span> <span class="variable">LOGGER</span> <span class="operator">=</span> LoggerBuilder.getLogger(DemoAction.class) ;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="type">AtomicLong</span> <span class="variable">index</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">AtomicLong</span>() ;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> WorkRes&lt;DemoResVO&gt; <span class="title function_">execute</span><span class="params">(Param paramMap)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">name</span> <span class="operator">=</span> paramMap.getString(<span class="string">&quot;name&quot;</span>);</span><br><span class="line">        <span class="type">Integer</span> <span class="variable">id</span> <span class="operator">=</span> paramMap.getInteger(<span class="string">&quot;id&quot;</span>);</span><br><span class="line">        LOGGER.info(<span class="string">&quot;name=[&#123;&#125;],id=[&#123;&#125;]&quot;</span> , name,id);</span><br><span class="line"></span><br><span class="line">        <span class="type">DemoResVO</span> <span class="variable">demoResVO</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DemoResVO</span>() ;</span><br><span class="line">        demoResVO.setIndex(index.incrementAndGet());</span><br><span class="line">        WorkRes&lt;DemoResVO&gt; res = <span class="keyword">new</span> <span class="title class_">WorkRes</span>();</span><br><span class="line">        res.setCode(StatusEnum.SUCCESS.getCode());</span><br><span class="line">        res.setMessage(StatusEnum.SUCCESS.getMessage());</span><br><span class="line">        res.setDataBody(demoResVO) ;</span><br><span class="line">        <span class="keyword">return</span> res;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>同时需要再自定义类中加上 <code>@CicadaAction</code> 注解，并需要指定一个 <code>value</code>，该 value 主要是为了在请求路由时能找到业务类。</p>
+<p>这样启动应用并访问 </p>
+<p><code>http://127.0.0.1:7317/cicada-example/demoAction?name=12345&amp;id=10</code> </p>
+<p>便能执行业务逻辑同时得到服务端的返回。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d21b836c2.jpg"></p>
+<p>目前默认支持的是 <code>json</code> 响应，后期也会加上模板解析。</p>
+<p>服务中也会打印相关日志。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d21c7ebc4.jpg"></p>
+<h2 id="灵活的参数配置"><a href="#灵活的参数配置" class="headerlink" title="灵活的参数配置"></a>灵活的参数配置</h2><p>这里所有的请求参数都封装在 <code>Param</code> 中，可以利用其中的各种 API 获取请求数据。</p>
+<p>之所以是灵活的：我们甚至可以这样请求：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">http://127.0.0.1:7317/cicada-example/demoAction?jsonData=&quot;info&quot;: &#123;</span><br><span class="line">    &quot;age&quot;: 22,</span><br><span class="line">    &quot;name&quot;: &quot;zhangsan&quot;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样就可以传递任意结构的数据，只要业务处理时进行解析即可。</p>
+<h1 id="自定义拦截器"><a href="#自定义拦截器" class="headerlink" title="自定义拦截器"></a>自定义拦截器</h1><p>拦截器是一个框架的基本功能，可以利用拦截器实现日志记录、事务提交等通用工作。</p>
+<p>为此 <code>cicada</code> 提供一个接口: <code>top.crossoverjie.cicada.server.intercept.CicadaInterceptor</code>。</p>
+<p>我们只需要实现该接口即可编写拦截功能：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Interceptor(value = &quot;executeTimeInterceptor&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ExecuteTimeInterceptor</span> <span class="keyword">implements</span> <span class="title class_">CicadaInterceptor</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Logger</span> <span class="variable">LOGGER</span> <span class="operator">=</span> LoggerBuilder.getLogger(ExecuteTimeInterceptor.class);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> Long start;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> Long end;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">before</span><span class="params">(Param param)</span> &#123;</span><br><span class="line">        start = System.currentTimeMillis();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">after</span><span class="params">(Param param)</span> &#123;</span><br><span class="line">        end = System.currentTimeMillis();</span><br><span class="line"></span><br><span class="line">        LOGGER.info(<span class="string">&quot;cast [&#123;&#125;] times&quot;</span>, end - start);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里演示的是记录所有 action 的执行时间。</p>
+<p>目前默认只实现了 action 的拦截，后期也会加入自定义拦截器。</p>
+<h2 id="拦截适配器"><a href="#拦截适配器" class="headerlink" title="拦截适配器"></a>拦截适配器</h2><p>虽说在拦截器中提供了 <code>before/after</code> 两个方法，但也不是所有的方法都需要实现。</p>
+<p>因此 <code>cicada</code> 提供了一个适配器：</p>
+<p><code>top.crossoverjie.cicada.server.intercept.AbstractCicadaInterceptorAdapter</code></p>
+<p>我们需要继承他便可按需实现其中的某个方法，如下所示：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Interceptor(value = &quot;loggerInterceptor&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">LoggerInterceptorAbstract</span> <span class="keyword">extends</span> <span class="title class_">AbstractCicadaInterceptorAdapter</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Logger</span> <span class="variable">LOGGER</span> <span class="operator">=</span> LoggerBuilder.getLogger(LoggerInterceptorAbstract.class) ;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">before</span><span class="params">(Param param)</span> &#123;</span><br><span class="line">        LOGGER.info(<span class="string">&quot;logger param=[&#123;&#125;]&quot;</span>,param.toString());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="性能测试"><a href="#性能测试" class="headerlink" title="性能测试"></a>性能测试</h1><p>既然是一个 HTTP 服务框架，那性能自然也得保证。</p>
+<p>在测试条件为：<code>300 并发连续压测两轮；1G 内存、单核 CPU、1Mbps。</code>用 Jmeter 压测情况如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d21d32a5f.jpg"></p>
+<p>同样的服务器用 Tomcat 来压测看看结果。</p>
+<p>Tomcat 的线程池配置:</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">Executor</span> <span class="attr">name</span>=<span class="string">&quot;tomcatThreadPool&quot;</span> <span class="attr">namePrefix</span>=<span class="string">&quot;consumer-exec-&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">maxThreads</span>=<span class="string">&quot;510&quot;</span> <span class="attr">minSpareThreads</span>=<span class="string">&quot;10&quot;</span>/&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p><img src="https://i.loli.net/2019/05/08/5cd1d220bbdbf.jpg"></p>
+<p>我这里请求的是 Tomcat 的一个 doc 目录，虽说结果看似 <code>cicada</code> 的性能比 Tomcat  还强。</p>
+<p>但其实这个对比过程中的变量并没有完全控制好，Tomcat 所返回的是 HTML，而 <code>cicada</code> 仅仅返回了 json，当然问题也不止这些。</p>
+<p>但还是能说明 <code>cicada</code> 目前的性能还是不错的。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本文没有过多讨论 <code>cicada</code> 实现原理，感兴趣的可以看看源码，都比较简单。</p>
+<p>在后续的更新中会仔细探讨这块内容。</p>
+<p>同时不出意外 <code>cicada</code> 会持续更新，未来也会加入更多实用的功能。</p>
+<p>甚至我会在适当的时机将它应用于我的生产项目，也希望更多朋友能参与进来一起把这个「轮子」做的更好。</p>
+<p>项目地址：<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/cicada">https://github.com/crossoverJie/cicada</a></p>
+<p><strong>你的点赞与转发是最大的支持。</strong></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2018/09/03/wheel/cicada1/" title="「造个轮子」——cicada(轻量级 WEB 框架)">http://crossoverjie.top/2018/09/03/wheel/cicada1/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Java/" rel="tag"><i class="fa fa-tag"></i> Java</a>
+              <a href="/tags/HTTP/" rel="tag"><i class="fa fa-tag"></i> HTTP</a>
+              <a href="/tags/Netty/" rel="tag"><i class="fa fa-tag"></i> Netty</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/08/29/java-senior/OOM-Disruptor/" rel="prev" title="强如 Disruptor 也发生内存溢出？">
+                  <i class="fa fa-chevron-left"></i> 强如 Disruptor 也发生内存溢出？
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/09/05/wheel/cicada2/" rel="next" title="「造个轮子」——cicada 源码分析">
+                  「造个轮子」——cicada 源码分析 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前言前不久帮同事一起 review 一个 job 执行缓慢的问题时发现不少朋友在撸码实现功能时还是有需要细节不够注意，于是便有了这篇文章。 ArrayList 踩坑1234567List&lt;String&gt; temp &#x3D; new ArrayList() ;&#x2F;&#x2F;获取一批数据List&lt;String&gt; all &#x3D; getData();for(String str : all) &amp;#">
+<meta property="og:type" content="article">
+<meta property="og:title" content="常见的集合容器应当避免的坑">
+<meta property="og:url" content="http://crossoverjie.top/2019/07/04/java-senior/ArrayList%20VS%20LinkedList/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言前不久帮同事一起 review 一个 job 执行缓慢的问题时发现不少朋友在撸码实现功能时还是有需要细节不够注意，于是便有了这篇文章。 ArrayList 踩坑1234567List&lt;String&gt; temp &#x3D; new ArrayList() ;&#x2F;&#x2F;获取一批数据List&lt;String&gt; all &#x3D; getData();for(String str : all) &amp;#">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/07/04/5d1cdc7680acc67477.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/04/5d1cdc77047aa18412.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/04/5d1cdc774fbe780989.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/04/5d1cdc78ce03788576.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/04/5d1cdc791275268933.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/04/5d1cdc7a45b6264440.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/04/5d1cdc7a910a851524.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/04/5d1cdc7adefae63526.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/04/5d1cdc7b0c7d526575.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/04/5d1cdc7b3353a90285.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/07/04/5d1cdc9f5b7d645892.jpg">
+<meta property="article:published_time" content="2019-07-03T17:10:16.000Z">
+<meta property="article:modified_time" content="2019-07-03T17:04:28.030Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="ArrayList">
+<meta property="article:tag" content="LinkedList">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2019/07/04/5d1cdc7680acc67477.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2019/07/04/java-senior/ArrayList%20VS%20LinkedList/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2019/07/04/java-senior/ArrayList%20VS%20LinkedList/","path":"2019/07/04/java-senior/ArrayList VS LinkedList/","title":"常见的集合容器应当避免的坑"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>常见的集合容器应当避免的坑 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#ArrayList-%E8%B8%A9%E5%9D%91"><span class="nav-number">2.</span> <span class="nav-text">ArrayList 踩坑</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A1%AB%E5%9D%91%E6%8C%87%E5%8D%97"><span class="nav-number">2.1.</span> <span class="nav-text">填坑指南</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#LinkedList"><span class="nav-number">3.</span> <span class="nav-text">LinkedList</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AF%B9%E6%AF%94%E6%B5%8B%E8%AF%95"><span class="nav-number">4.</span> <span class="nav-text">对比测试</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2019/07/04/java-senior/ArrayList%20VS%20LinkedList/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="常见的集合容器应当避免的坑 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          常见的集合容器应当避免的坑
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2019-07-04 01:10:16 / Modified: 01:04:28" itemprop="dateCreated datePublished" datetime="2019-07-04T01:10:16+08:00">2019-07-04</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Java-%E8%BF%9B%E9%98%B6/" itemprop="url" rel="index"><span itemprop="name">Java 进阶</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2019/07/04/java-senior/ArrayList%20VS%20LinkedList/" class="post-meta-item leancloud_visitors" data-flag-title="常见的集合容器应当避免的坑" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2019/07/04/java-senior/ArrayList%20VS%20LinkedList/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2019/07/04/java-senior/ArrayList VS LinkedList/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2019/07/04/5d1cdc7680acc67477.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前不久帮同事一起 <code>review</code> 一个 <code>job</code> 执行缓慢的问题时发现不少朋友在撸码实现功能时还是有需要细节不够注意，于是便有了这篇文章。</p>
+<h1 id="ArrayList-踩坑"><a href="#ArrayList-踩坑" class="headerlink" title="ArrayList 踩坑"></a>ArrayList 踩坑</h1><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">List&lt;String&gt; temp = <span class="keyword">new</span> <span class="title class_">ArrayList</span>() ;</span><br><span class="line"></span><br><span class="line"><span class="comment">//获取一批数据</span></span><br><span class="line">List&lt;String&gt; all = getData();</span><br><span class="line"><span class="keyword">for</span>(String str : all) &#123;</span><br><span class="line">	temp.add(str);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>首先大家看看这段代码有什么问题嘛？</p>
+<span id="more"></span>
+
+<p>其实在大部分情况下这都是没啥问题，无非就是循环的往 <code>ArrayList</code> 中写入数据而已。</p>
+<p>但在特殊情况下，比如这里的 <code>getData()</code> 返回数据非常巨大时后续 <code>temp.add(str)</code> 就会有问题了。</p>
+<p>比如我们在 <code>review</code> 代码时发现这里返回的数据有时会高达 2000W，这时 <code>ArrayList</code> 写入的问题就凸显出来了。</p>
+<h2 id="填坑指南"><a href="#填坑指南" class="headerlink" title="填坑指南"></a>填坑指南</h2><p>大家都知道 ArrayList 是由数组实现，而数据的长度有限；需要在合适的时机对数组扩容。</p>
+<blockquote>
+<p>这里以插入到尾部为例 add(E e)。</p>
+</blockquote>
+<p><img src="https://i.loli.net/2019/07/04/5d1cdc77047aa18412.jpg"></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">ArrayList&lt;String&gt; temp = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;(<span class="number">2</span>) ;</span><br><span class="line">temp.add(<span class="string">&quot;1&quot;</span>);</span><br><span class="line">temp.add(<span class="string">&quot;2&quot;</span>);</span><br><span class="line">temp.add(<span class="string">&quot;3&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<p>当我们初始化一个长度为 2 的 <code>ArrayList</code> ，并往里边写入三条数据时 <code>ArrayList</code> 就得扩容了，也就是将之前的数据复制一份到新的数组长度为 3 的数组中。</p>
+<p><img src="https://i.loli.net/2019/07/04/5d1cdc774fbe780989.jpg"></p>
+<blockquote>
+<p>之所以是 3 ，是因为新的长度&#x3D;原有长度 * 1.5</p>
+</blockquote>
+<p>通过源码我们可以得知 <code>ArrayList</code> 的默认长度为 10.</p>
+<p><img src="https://i.loli.net/2019/07/04/5d1cdc78ce03788576.jpg"><br><img src="https://i.loli.net/2019/07/04/5d1cdc791275268933.jpg"></p>
+<p>但其实并不是在初始化的时候就创建了 <code>DEFAULT_CAPACITY = 10</code> 的数组。</p>
+<p><img src="https://i.loli.net/2019/07/04/5d1cdc7a45b6264440.jpg"></p>
+<p>而是在往里边 <code>add</code> 第一个数据的时候会扩容到 10.</p>
+<p>既然知道了默认的长度为 10 ，那说明后续一旦写入到第九个元素的时候就会扩容为 <code>10*1.5 =15</code>。<br>这一步为数组复制，也就是要重新开辟一块新的内存空间存放这 15 个数组。</p>
+<p>一旦我们频繁且数量巨大的进行写入时就会导致许多的数组复制，这个效率是极低的。</p>
+<p>但如果我们提前预知了可能会写入多少条数据时就可以提前避免这个问题。</p>
+<p>比如我们往里边写入 1000W 条数据，在初始化的时候就给定数组长度与用默认 10 的长度之间性能是差距巨大的。</p>
+<blockquote>
+<p>我用 JMH 基准测试验证如下：</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)</span></span><br><span class="line"><span class="meta">@Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CollectionsTest</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">TEN_MILLION</span> <span class="operator">=</span> <span class="number">10000000</span>;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="meta">@BenchmarkMode(Mode.AverageTime)</span></span><br><span class="line">    <span class="meta">@OutputTimeUnit(TimeUnit.MICROSECONDS)</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">arrayList</span><span class="params">()</span> &#123;</span><br><span class="line"></span><br><span class="line">        List&lt;String&gt; array = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; TEN_MILLION; i++) &#123;</span><br><span class="line">            array.add(<span class="string">&quot;123&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Benchmark</span></span><br><span class="line">    <span class="meta">@BenchmarkMode(Mode.AverageTime)</span></span><br><span class="line">    <span class="meta">@OutputTimeUnit(TimeUnit.MICROSECONDS)</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">arrayListSize</span><span class="params">()</span> &#123;</span><br><span class="line">        List&lt;String&gt; array = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;(TEN_MILLION);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; TEN_MILLION; i++) &#123;</span><br><span class="line">            array.add(<span class="string">&quot;123&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> RunnerException &#123;</span><br><span class="line">        <span class="type">Options</span> <span class="variable">opt</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OptionsBuilder</span>()</span><br><span class="line">                .include(CollectionsTest.class.getSimpleName())</span><br><span class="line">                .forks(<span class="number">1</span>)</span><br><span class="line">                .build();</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        <span class="keyword">new</span> <span class="title class_">Runner</span>(opt).run();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://i.loli.net/2019/07/04/5d1cdc7a910a851524.jpg"></p>
+<p>根据结果可以看出预设长度的效率会比用默认的效率高上很多（这里的 <code>Score</code> 指执行完函数所消耗的时间）。</p>
+<p>所以这里强烈建议大家：在有大量数据写入 <code>ArrayList</code> 时，一定要初始化指定长度。</p>
+<hr>
+<p>再一个是一定要慎用 <code>add(int index, E element)</code> 向指定位置写入数据。</p>
+<p><img src="https://i.loli.net/2019/07/04/5d1cdc7adefae63526.jpg"></p>
+<p>通过源码我们可以看出，每一次写入都会将 index 后的数据往后移动一遍，其实本质也是要复制数组；</p>
+<p>但区别于往常规的往数组尾部写入数据，它每次都会进行数组复制，效率极低。</p>
+<h1 id="LinkedList"><a href="#LinkedList" class="headerlink" title="LinkedList"></a>LinkedList</h1><p>提到 <code>ArrayList</code> 就不得不聊下 <code>LinkedList</code> 这个孪生兄弟；虽说都是 <code>List</code> 的容器，但本质实现却完全不同。</p>
+<p><img src="https://i.loli.net/2019/07/04/5d1cdc7b0c7d526575.jpg"></p>
+<p><code>LinkedList</code> 是由链表组成，每个节点又有头尾两个节点分别引用了前后两个节点；因此它也是一个双向链表。</p>
+<p>所以理论上来说它的写入非常高效，将不会有 ArrayList 中效率极低的数组复制，每次只需要移动指针即可。</p>
+<blockquote>
+<p>这里偷懒就不画图了，大家自行脑补下。</p>
+</blockquote>
+<h1 id="对比测试"><a href="#对比测试" class="headerlink" title="对比测试"></a>对比测试</h1><p>坊间一直流传：</p>
+<blockquote>
+<p>LinkedList 的写入效率高于 ArrayList，所以在写大于读的时候非常适用于 LinkedList 。</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="meta">@BenchmarkMode(Mode.AverageTime)</span></span><br><span class="line"><span class="meta">@OutputTimeUnit(TimeUnit.MICROSECONDS)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">linkedList</span><span class="params">()</span> &#123;</span><br><span class="line">    List&lt;String&gt; array = <span class="keyword">new</span> <span class="title class_">LinkedList</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; TEN_MILLION; i++) &#123;</span><br><span class="line">        array.add(<span class="string">&quot;123&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://i.loli.net/2019/07/04/5d1cdc7b3353a90285.jpg"></p>
+<p>这里测试看下结论是否符合；同样的也是对 <code>LinkedList</code> 写入 <code>1000W</code> 次数据，通过结果来看初始化数组长度的 <code>ArrayList</code> 效率明显是要高于 <code>LinkedList</code> 。</p>
+<p>但这里的前提是要提前预设 <code>ArrayList</code> 的数组长度，避免数组扩容，这样 <code>ArrayList</code> 的写入效率是非常高的，而 <code>LinkedList</code> 的虽然不需要复制内存，但却需要创建对象，变换指针等操作。</p>
+<p>而查询就不用多说了，<code>ArrayList</code> 可以支持下标随机访问，效率非常高。</p>
+<p> <code>LinkedList</code> 由于底层不是数组，不支持通过下标访问，而是需要根据查询 index 所在的位置来判断是从头还是从尾进行遍历。</p>
+<p><img src="https://i.loli.net/2019/07/04/5d1cdc9f5b7d645892.jpg"></p>
+<p>但不管是哪种都得需要移动指针来一个个遍历，特别是 <code>index</code> 靠近中间位置时将会非常慢。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>高性能应用都是从小细节一点点堆砌起来的，就如这里提到的 <code>ArrayList</code> 的坑一样，日常使用没啥大问题，一旦数据量起来所有的小问题都会成为大问题。</p>
+<p>所以再总结下：</p>
+<ul>
+<li>再使用 ArrayList 时如果能提前预测到数据量大小，比较大时一定要指定其长度。</li>
+<li>尽可能避免使用 <code>add(index,e)</code> api，会导致复制数组，降低效率。</li>
+<li>再额外提一点，我们常用的另一个 <code>Map</code> 容器 <code>HashMap</code> 也是推荐要初始化长度从而避免扩容。</li>
+</ul>
+<p>本文所有测试代码：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/basic/CollectionsTest.java">https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/basic/CollectionsTest.java</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2019/07/04/java-senior/ArrayList%20VS%20LinkedList/" title="常见的集合容器应当避免的坑">http://crossoverjie.top/2019/07/04/java-senior/ArrayList VS LinkedList/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Java/" rel="tag"><i class="fa fa-tag"></i> Java</a>
+              <a href="/tags/ArrayList/" rel="tag"><i class="fa fa-tag"></i> ArrayList</a>
+              <a href="/tags/LinkedList/" rel="tag"><i class="fa fa-tag"></i> LinkedList</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2019/06/18/troubleshoot/cpu-percent-100-02/" rel="prev" title="又一次生产 CPU 高负载排查实践">
+                  <i class="fa fa-chevron-left"></i> 又一次生产 CPU 高负载排查实践
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2019/07/05/troubleshoot/dubbo-start-slow/" rel="next" title="What？一个 Dubbo 服务启动要两个小时！">
+                  What？一个 Dubbo 服务启动要两个小时！ <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

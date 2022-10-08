@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前言在之前实现的 JSON 解析器中当时只实现了将一个 JSON 字符串转换为一个 JSONObject，并没有将其映射为一个具体的 struct；如果想要获取值就需要先做断言将其转换为 map 或者是切片再来获，会比较麻烦。 12345decode, err :&#x3D; xjson.Decode(&#96;&amp;#123;&quot;glossary&quot;:&amp;#123;&quot;title&quot;:">
+<meta property="og:type" content="article">
+<meta property="og:title" content="用面向对象的方式操作 JSON 甚至还能做四则运算 JSON 库">
+<meta property="og:url" content="http://crossoverjie.top/2022/07/04/gjson/gjson02/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言在之前实现的 JSON 解析器中当时只实现了将一个 JSON 字符串转换为一个 JSONObject，并没有将其映射为一个具体的 struct；如果想要获取值就需要先做断言将其转换为 map 或者是切片再来获，会比较麻烦。 12345decode, err :&#x3D; xjson.Decode(&#96;&amp;#123;&quot;glossary&quot;:&amp;#123;&quot;title&quot;:">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3vuj0uxlcj208u07tmxb.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3t43ocuudj20zn0u0wha.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3u0oie3saj213r0u0n0h.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3u0ruv7upj218605uaap.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3u0r6v29nj219e0nojuq.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3u0w0sb8xj217h0u042u.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3u84i945oj218c0iwgpw.jpg">
+<meta property="article:published_time" content="2022-07-04T00:13:36.000Z">
+<meta property="article:modified_time" content="2022-07-05T02:35:05.552Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="go">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3vuj0uxlcj208u07tmxb.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2022/07/04/gjson/gjson02/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2022/07/04/gjson/gjson02/","path":"2022/07/04/gjson/gjson02/","title":"用面向对象的方式操作 JSON 甚至还能做四则运算 JSON 库"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>用面向对象的方式操作 JSON 甚至还能做四则运算 JSON 库 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E7%9A%84%E6%96%B9%E5%BC%8F%E6%93%8D%E4%BD%9C-JSON"><span class="nav-number">2.</span> <span class="nav-text">面向对象的方式操作 JSON</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86"><span class="nav-number">2.1.</span> <span class="nav-text">实现原理</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AF%B9-JSON-%E5%81%9A%E5%9B%9B%E5%88%99%E8%BF%90%E7%AE%97"><span class="nav-number">3.</span> <span class="nav-text">对 JSON 做四则运算</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2022/07/04/gjson/gjson02/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="用面向对象的方式操作 JSON 甚至还能做四则运算 JSON 库 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          用面向对象的方式操作 JSON 甚至还能做四则运算 JSON 库
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2022-07-04 08:13:36" itemprop="dateCreated datePublished" datetime="2022-07-04T08:13:36+08:00">2022-07-04</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2022-07-05 10:35:05" itemprop="dateModified" datetime="2022-07-05T10:35:05+08:00">2022-07-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/xjson/" itemprop="url" rel="index"><span itemprop="name">xjson</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/xjson/compiler/" itemprop="url" rel="index"><span itemprop="name">compiler</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2022/07/04/gjson/gjson02/" class="post-meta-item leancloud_visitors" data-flag-title="用面向对象的方式操作 JSON 甚至还能做四则运算 JSON 库" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2022/07/04/gjson/gjson02/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2022/07/04/gjson/gjson02/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3vuj0uxlcj208u07tmxb.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>在之前实现的 <a href="https://crossoverjie.top/2022/06/28/xjson/xjson01/"><code>JSON</code> 解析器</a>中当时只实现了将一个 JSON 字符串转换为一个 <code>JSONObject</code>，并没有将其映射为一个具体的 <code>struct</code>；如果想要获取值就需要先做断言将其转换为 <code>map</code> 或者是切片再来获，会比较麻烦。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">decode, err := xjson.Decode(<span class="string">`&#123;&quot;glossary&quot;:&#123;&quot;title&quot;:&quot;example glossary&quot;,&quot;age&quot;:1&#125;&#125;`</span>)</span><br><span class="line">assert.Nil(t, err)</span><br><span class="line">glossary := v[<span class="string">&quot;glossary&quot;</span>].(<span class="keyword">map</span>[<span class="type">string</span>]<span class="keyword">interface</span>&#123;&#125;)</span><br><span class="line">assert.Equal(t, glossary[<span class="string">&quot;title&quot;</span>], <span class="string">&quot;example glossary&quot;</span>)</span><br><span class="line">assert.Equal(t, glossary[<span class="string">&quot;age&quot;</span>], <span class="number">1</span>)</span><br></pre></td></tr></table></figure>
+
+<p>但其实转念一想，部分场景我们甚至我们只需要拿到 <code>JSON</code> 中的某个字段的值，这样还需要先声明一个 <code>struct</code> 会略显麻烦。</p>
+<p>经过查询发现已经有了一个类似的库来解决该问题，<a target="_blank" rel="noopener" href="https://github.com/tidwall/xjson">https://github.com/tidwall/xjson</a> 并且 star 数还很多（甚至名字都是一样的😂），说明这样的需求大家还是很强烈的。</p>
+<p>于是我也打算增加类似的功能，使用方式如下：<br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3t43ocuudj20zn0u0wha.jpg"></p>
+<span id="more"></span>
+
+<blockquote>
+<p>最后还加上了一个四则运算的功能。</p>
+</blockquote>
+<h1 id="面向对象的方式操作-JSON"><a href="#面向对象的方式操作-JSON" class="headerlink" title="面向对象的方式操作 JSON"></a>面向对象的方式操作 JSON</h1><p>因为功能类似，所以我参考了 <code>tidwall</code> 的 <code>API</code> 但去掉一些我觉得暂时用不上的特性，并调整了一点语法。</p>
+<p>当前这个版本只能通过确定的 <code>key</code> 加上 <code>.</code> 点符号访问数据，如果是数组则用 <code>[index]</code> 的方式访问下标。<br><code>[]</code> 符号访问数组我觉得要更符合直觉一些。</p>
+<p>以下是一个包含多重嵌套 <code>JSON</code> 的访问示例：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">str := <span class="string">`</span></span><br><span class="line"><span class="string">&#123;</span></span><br><span class="line"><span class="string">&quot;name&quot;: &quot;bob&quot;,</span></span><br><span class="line"><span class="string">&quot;age&quot;: 20,</span></span><br><span class="line"><span class="string">&quot;skill&quot;: &#123;</span></span><br><span class="line"><span class="string">    &quot;lang&quot;: [</span></span><br><span class="line"><span class="string">        &#123;</span></span><br><span class="line"><span class="string">            &quot;go&quot;: &#123;</span></span><br><span class="line"><span class="string">                &quot;feature&quot;: [</span></span><br><span class="line"><span class="string">                    &quot;goroutine&quot;,</span></span><br><span class="line"><span class="string">                    &quot;channel&quot;,</span></span><br><span class="line"><span class="string">                    &quot;simple&quot;,</span></span><br><span class="line"><span class="string">                    true</span></span><br><span class="line"><span class="string">                ]</span></span><br><span class="line"><span class="string">            &#125;</span></span><br><span class="line"><span class="string">        &#125;</span></span><br><span class="line"><span class="string">    ]</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string">&#125;`</span></span><br><span class="line"></span><br><span class="line">name := xjson.Get(str, <span class="string">&quot;name&quot;</span>)</span><br><span class="line">assert.Equal(t, name.String(), <span class="string">&quot;bob&quot;</span>)</span><br><span class="line"></span><br><span class="line">age := xjson.Get(str, <span class="string">&quot;age&quot;</span>)</span><br><span class="line">assert.Equal(t, age.Int(), <span class="number">20</span>)</span><br><span class="line"></span><br><span class="line">assert.Equal(t, xjson.Get(str,<span class="string">&quot;skill.lang[0].go.feature[0]&quot;</span>).String(), <span class="string">&quot;goroutine&quot;</span>)</span><br><span class="line">assert.Equal(t, xjson.Get(str,<span class="string">&quot;skill.lang[0].go.feature[1]&quot;</span>).String(), <span class="string">&quot;channel&quot;</span>)</span><br><span class="line">assert.Equal(t, xjson.Get(str,<span class="string">&quot;skill.lang[0].go.feature[2]&quot;</span>).String(), <span class="string">&quot;simple&quot;</span>)</span><br><span class="line">assert.Equal(t, xjson.Get(str,<span class="string">&quot;skill.lang[0].go.feature[3]&quot;</span>).Bool(), <span class="literal">true</span>)</span><br></pre></td></tr></table></figure>
+<p>这样的语法使用个人觉得还是满符合直觉的，相信对使用者来说也比较简单。</p>
+<p>返回值参考了 <code>tidwall</code> 使用了一个 <code>Result</code> 对象，它提供了多种方法可以方便的获取各种类型的数据</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(r Result)</span></span> String() <span class="type">string</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(r Result)</span></span> Bool() <span class="type">bool</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(r Result)</span></span> Int() <span class="type">int</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(r Result)</span></span> Float() <span class="type">float64</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(r Result)</span></span> Map() <span class="keyword">map</span>[<span class="type">string</span>]<span class="keyword">interface</span>&#123;&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(r Result)</span></span> Array() *[]<span class="keyword">interface</span>&#123;&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(r Result)</span></span> Exists() <span class="type">bool</span></span><br></pre></td></tr></table></figure>
+<p>比如使用 <code>Map()/Array()</code> 这两个函数可以将 <code>JSON</code> 数据映射到 <code>map</code> 和切片中，当然前提是传入的语法返回的是一个合法 <code>JSONObject</code> 或数组。</p>
+<h2 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h2><p>在实现之前需要先定义一个基本语法，主要支持以下四种用法：</p>
+<ul>
+<li>单个 <code>key</code> 的查询：<code>Get(json,&quot;name&quot;)</code></li>
+<li>嵌套查询： <code>Get(json,&quot;obj1.obj2.obj3.name&quot;)</code></li>
+<li>数组查询：<code>Get(json,&quot;obj.array[0]&quot;)</code></li>
+<li>数组嵌套查询：<code>Get(json,&quot;obj.array[0].obj2.obj3[1].name&quot;)</code></li>
+</ul>
+<p>语法很简单，符合我们日常接触到语法规则，这样便可以访问到 <code>JSON</code> 数据中的任何一个值。</p>
+<p>其实实现过程也不复杂，我们已经在上一文中实现将 <code>JSON</code> 字符串转换为一个 <code>JSONObject</code> 了。</p>
+<p>这次只是额外再解析刚才定义的语法为 <code>token</code>，然后解析该 <code>token</code> 的同时再从生成好的 <code>JSONObject</code> 中获取数据。</p>
+<p>最后在解析完 <code>token</code> 时拿到的 <code>JSONObject</code> 数据返回即可。</p>
+<hr>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3u0oie3saj213r0u0n0h.jpg"></p>
+<p>我们以这段查询代码为例：</p>
+<p>首先第一步是对查询语法做词法分析，最终得到下图的 <code>token</code>。</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3u0ruv7upj218605uaap.jpg"></p>
+<p>在词法分析过程中也可以做简单的语法校验；比如如果包含数组查询，并不是以 <code>]</code> 符号结尾时就抛出语法错误。</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3u0r6v29nj219e0nojuq.jpg"></p>
+<p>接着我们遍历语法的 token。如下图所示：</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3u0w0sb8xj217h0u042u.jpg"></p>
+<p>每当遍历到 <code>token</code> 类型为 <code>Key</code> 时便从当前的 JSONObject 对象中获取数据，<strong>并用获取到的值替覆盖为当前的 JSONObject。</strong></p>
+<p>其中每当遇到 <code>.</code> <code>[</code> <code>]</code> 这样的 token 时便消耗掉，直到我们将 token 遍历完毕，这时将当前 <code>JSONObject</code> 返回即可。</p>
+<p>在遍历过程中当遇到非法格式时，比如 <code>obj_list[1.]</code> 便会返回一个空的 <code>JSONObject</code>。</p>
+<p>语法校验这点其实也很容易办到，因为根据我们的语法规则，<code>Array</code> 中的 <code>index</code> 后一定紧接的是一个 <code>EndArray</code>，只要不是一个 <code>EndArray</code> 便能知道语法不合法了。</p>
+<p>有兴趣的可以看下解析过程的源码：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/xjson/blob/cfbca51cc9bc0c77e6cb9c9ad3f964b2054b3826/json.go#L46">https://github.com/crossoverJie/xjson/blob/cfbca51cc9bc0c77e6cb9c9ad3f964b2054b3826/json.go#L46</a></p>
+<h1 id="对-JSON-做四则运算"><a href="#对-JSON-做四则运算" class="headerlink" title="对 JSON 做四则运算"></a>对 JSON 做四则运算</h1><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">str := `&#123;&quot;name&quot;:&quot;bob&quot;, &quot;age&quot;:10,&quot;magic&quot;:10.1, &quot;score&quot;:&#123;&quot;math&quot;:[1,2]&#125;&#125;`</span><br><span class="line">result := GetWithArithmetic(str, &quot;(age+age)*age+magic&quot;)</span><br><span class="line">assert.Equal(t, result.Float(), 210.1)</span><br><span class="line">result = GetWithArithmetic(str, &quot;(age+age)*age&quot;)</span><br><span class="line">assert.Equal(t, result.Int(), 200)</span><br><span class="line"></span><br><span class="line">result = GetWithArithmetic(str, &quot;(age+age) * age + score.math[0]&quot;)</span><br><span class="line">assert.Equal(t, result.Int(), 201)</span><br><span class="line"></span><br><span class="line">result = GetWithArithmetic(str, &quot;(age+age) * age - score.math[0]&quot;)</span><br><span class="line">assert.Equal(t, result.Int(), 199)</span><br><span class="line"></span><br><span class="line">result = GetWithArithmetic(str, &quot;score.math[1] / score.math[0]&quot;)</span><br><span class="line">assert.Equal(t, result.Int(), 2)</span><br></pre></td></tr></table></figure>
+
+<p>最后我还扩展了一下语法，可以支持对 <code>JSON</code> 数据中的整形<code>（int、float）</code>做四则运算，虽然这是一个小众需求，但做完我觉得还挺有意思的，目前在市面上我还没发现有类似功能的库，可能和小众需求有关🤣。</p>
+<p>其中核心的四则运算逻辑是由之前写的脚本解释器提供的:</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/gscript">https://github.com/crossoverJie/gscript</a></p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3u84i945oj218c0iwgpw.jpg"><br>单独提供了一个函数，传入一个四则运算表达式返回计算结果。</p>
+<blockquote>
+<p>由于上一版本还不支持 float，所以这次专门适配了一下。</p>
+</blockquote>
+<p>限于篇幅，更多关于这个四则运算的实现逻辑会在后面继续分享。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>至此算是我第一次利用编译原理的知识解决了一点特定领域问题，在大学以及工作这些年一直觉得编译原理比较高深，所以内心一直是抗拒的，但经过这段时间的学习和实践慢慢的也掌握到了一点门道。</p>
+<p>不过目前也只是冰山一角，后面的编译原理后端更是要涉及到计算机底层知识，所以依然任重而道远。</p>
+<p>已上都是题外话，针对于这个库我也会长期维护；为了能达到生产的使用要求，尽量提高了单测覆盖率，目前是98%。</p>
+<p>也欢迎大家使用，提 bug🐛。</p>
+<p>后面会继续优化，比如支持转义字符、提高性能等。</p>
+<p>感兴趣的朋友请持续关注：<br><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/xjson">https://github.com/crossoverJie/xjson</a></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2022/07/04/gjson/gjson02/" title="用面向对象的方式操作 JSON 甚至还能做四则运算 JSON 库">http://crossoverjie.top/2022/07/04/gjson/gjson02/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/go/" rel="tag"><i class="fa fa-tag"></i> go</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2022/06/28/gjson/gjson01/" rel="prev" title="几百行代码实现一个 JSON 解析器">
+                  <i class="fa fa-chevron-left"></i> 几百行代码实现一个 JSON 解析器
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2022/07/12/gjson/xjson03/" rel="next" title="XJSON 是如何实现四则运算的？">
+                  XJSON 是如何实现四则运算的？ <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

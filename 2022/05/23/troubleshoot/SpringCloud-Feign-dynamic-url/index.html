@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="背景前段时间同事碰到一个问题，需要在 SpringCloud 的 Feign 调用中使用自定义的 URL；通常情况下是没有这个需求的；毕竟都用了 SpringCloud 的了，那服务之间的调用都是走注册中心的，不会需要自定义 URL 的情况。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SpringCloud Feign 实现动态 URL">
+<meta property="og:url" content="http://crossoverjie.top/2022/05/23/troubleshoot/SpringCloud-Feign-dynamic-url/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景前段时间同事碰到一个问题，需要在 SpringCloud 的 Feign 调用中使用自定义的 URL；通常情况下是没有这个需求的；毕竟都用了 SpringCloud 的了，那服务之间的调用都是走注册中心的，不会需要自定义 URL 的情况。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hksgjbitj21hc0u0ajs.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hmgcpmg5j21aa0bsjtl.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hmzxmu68j20xg0u0n16.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hn5b81vtj211o0ds763.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hnamym3tj22sh0u0tl4.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hndgadtzj22mo0u0wou.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hnfkwg9dj21920u0jyh.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hnkav8hgj21l20rsdlb.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hnw6rwq1j225408idia.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hnzg6tcvj21r60sgjxn.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h2ho2auls1j21v20daq7r.jpg">
+<meta property="article:published_time" content="2022-05-23T00:15:36.000Z">
+<meta property="article:modified_time" content="2022-05-22T17:25:18.950Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="SpringCloud">
+<meta property="article:tag" content="Feign">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hksgjbitj21hc0u0ajs.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2022/05/23/troubleshoot/SpringCloud-Feign-dynamic-url/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2022/05/23/troubleshoot/SpringCloud-Feign-dynamic-url/","path":"2022/05/23/troubleshoot/SpringCloud-Feign-dynamic-url/","title":"SpringCloud Feign 实现动态 URL"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>SpringCloud Feign 实现动态 URL | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Debug"><span class="nav-number">2.</span> <span class="nav-text">Debug</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Feign-%E7%9A%84%E5%AE%9E%E7%8E%B0"><span class="nav-number">2.1.</span> <span class="nav-text">Feign 的实现</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2022/05/23/troubleshoot/SpringCloud-Feign-dynamic-url/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="SpringCloud Feign 实现动态 URL | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          SpringCloud Feign 实现动态 URL
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2022-05-23 08:15:36 / Modified: 01:25:18" itemprop="dateCreated datePublished" datetime="2022-05-23T08:15:36+08:00">2022-05-23</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/" itemprop="url" rel="index"><span itemprop="name">问题排查</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/Java-%E8%BF%9B%E9%98%B6/" itemprop="url" rel="index"><span itemprop="name">Java 进阶</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2022/05/23/troubleshoot/SpringCloud-Feign-dynamic-url/" class="post-meta-item leancloud_visitors" data-flag-title="SpringCloud Feign 实现动态 URL" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2022/05/23/troubleshoot/SpringCloud-Feign-dynamic-url/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2022/05/23/troubleshoot/SpringCloud-Feign-dynamic-url/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hksgjbitj21hc0u0ajs.jpg"></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前段时间同事碰到一个问题，需要在 <code>SpringCloud</code> 的 Feign 调用中使用自定义的 URL；通常情况下是没有这个需求的；毕竟都用了 <code>SpringCloud</code> 的了，那服务之间的调用都是走注册中心的，不会需要自定义 URL 的情况。</p>
+<span id="more"></span>
+
+<p>但也有特殊的，比如我们这里碰到 <code>ToB</code> 场景，需要对每个商户自定义的 <code>URL</code> 进行调用。</p>
+<p>虽说也可以使用原生的 <code>Feign</code> 甚至是自定义一个 <code>OKHTTP Client</code> 实现，但这些方案都得换一种写法；</p>
+<p>打算利用现有的 <code>SpringCloud</code> <code>OpenFeign</code> 来实现，毕竟原生的 Feign 其实是支持该功能的，而 <code>SpringCloud OpenFeign</code> 也只是在这基础上封装了一层。</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hmgcpmg5j21aa0bsjtl.jpg"></p>
+<p>只需要在接口声明处加上一个 <code>URI</code> 参数即可，这样就可以在每次调用时传递不同的 <code>URI</code> 来实现动态 <code>URL</code> 的目的。</p>
+<hr>
+<p>想法很简单，但实践起来却不是那么回事了。<br>伪代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@FeignClient(name = &quot;dynamic&quot;)</span></span><br><span class="line"><span class="keyword">interface</span> <span class="title class_">DynamicClient</span> &#123;</span><br><span class="line">	<span class="meta">@GetMapping(&quot;/&quot;)</span></span><br><span class="line">	String <span class="title function_">get</span><span class="params">(URI uri)</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">dynamicClient.get(URI.create(<span class="string">&quot;https://github.com&quot;</span>));	</span><br></pre></td></tr></table></figure>
+
+<p>执行后会抛出负载均衡的异常：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">java.lang.RuntimeException: com.netflix.client.ClientException:</span><br><span class="line">Load balancer does not have available server <span class="keyword">for</span> client: github.com</span><br></pre></td></tr></table></figure>
+
+<p>这个异常也能理解，就是找不到 github 这个服务；找不到也是合理的，毕竟也不是一个内部注册的服务。</p>
+<p>但按照 <code>Feign</code> 的官方介绍，只要接口中声明了 <code>URI</code> 这个参数就能自定义，同时我自己也用原生的 Feign 测试过确实没什么问题。</p>
+<h1 id="Debug"><a href="#Debug" class="headerlink" title="Debug"></a>Debug</h1><p>那问题只能出在 <code>SpringCloud OpenFeign</code> 的封装上了；经过同事的搜索在网上找到一篇博客解决了这个问题。</p>
+<p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/syui-terra/p/14386188.html">https://www.cnblogs.com/syui-terra/p/14386188.html</a></p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hmzxmu68j20xg0u0n16.jpg"></p>
+<p>按照文中的说法，确实只需要加上 URL 参数同时有值就可以了，但原因不明。</p>
+<p>本着打破砂锅问到底的精神，我个人也想知道 <code>OpenFeign</code> 是如何处理的，只要 url 有值就可以，这完全是个黑盒，而且在官方的注释中并没有对这种情况有特殊说明。</p>
+<p>所以我准备从源码中找到答案。</p>
+<p>既然是 url 有值就能正常运行，那一定是在运行过程中获取了这个值；</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hn5b81vtj211o0ds763.jpg"><br>但我在源码中查看 url 所使用的地方，并没有在单测之外找到哪里有所应用，说明源码中并没有直接调用 <code>url()</code> 这个函数来获取值。</p>
+<p>但 <code>org.springframework.cloud.openfeign.FeignClient</code> 这个注解总会使用吧，于是我又查询这个注解的使用情况。</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hnamym3tj22sh0u0tl4.jpg"><br>最终在这里查到了使用的痕迹。</p>
+<blockquote>
+<p>这里查阅源码时也有一些小技巧，比如如果我们直接查询时，IDEA 默认的查询范围是整个项目和所有依赖库，会有许多干扰信息。</p>
+</blockquote>
+<p>比如我这里就需要只看项目源码，单测这些都不用看；所以在查询的时候可以过滤一下，这样干扰信息就会少很多。</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hndgadtzj22mo0u0wou.jpg"></p>
+<p>左边的工具栏还有许多过滤条件，大家可以自行研究一下。</p>
+<hr>
+<p>接着从源码中进行阅读，会发现是将 <code>@FeignClient</code> 中的所有数据都写到一个 <code>Map</code> 里进行使用的。<br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hnfkwg9dj21920u0jyh.jpg"><br>最终会发现这个 url 被写入到了 <code>FeignClientFactoryBean</code> 中的 url 成员变量中了。</p>
+<p>查看哪里在使用这个 url 就知道背后的原理了。</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hnkav8hgj21l20rsdlb.jpg"></p>
+<p>在这里打个断点会发现：当 url 为空时会返回一个 <code>LoadBalance</code> 的 <code>client</code>，也就是会从注册中心获取 <code>url</code> 的客户端，而 <code>url</code> 有值时则会获取一个默认的客户端，这样就不会走负载均衡了。</p>
+<blockquote>
+<p>所以我们如果想在 OpenFeign 中使用动态 url 时就得让 @Feign 的 url 有值才行，无论是什么都可以。</p>
+</blockquote>
+<h2 id="Feign-的实现"><a href="#Feign-的实现" class="headerlink" title="Feign 的实现"></a>Feign 的实现</h2><p>既然已经看到这一步了，我也比较好奇 Feign 是如何做到只要有 URI 参数就使用指定的 URL 呢？</p>
+<blockquote>
+<p>这里也分享一个读源码的小技巧，如果我们跟着程序执行的思路去一步步 <code>debug</code> 的话会非常消耗时间，毕竟这类成熟库的代码量也不小。</p>
+</blockquote>
+<p>这里我们从官方文档中可以得知只要在接口参数中使用了 <code>java.net.URI</code> 便会走自定义的 url，所以我们反过来只要在源码中找到哪里在使用 <code>java.net.URI</code> 便能知道关键源码。</p>
+<p>毕竟使用 <code>java.net.URI</code> 的场景也不会太多。</p>
+<hr>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hnw6rwq1j225408idia.jpg"><br>所以只需要在这个依赖的地方 <code>cmd+shift+f</code> 全局搜索 <code>java.net.URI</code> 就能查到结果，果然不多，只有两处使用。</p>
+<hr>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h2hnzg6tcvj21r60sgjxn.jpg"><br>再结合使用场景猜测大概率是判断参数中是否是有 <code>URL.class</code> 这样的条件，或者是 url 对象；总之我们先用<br><code>URL</code> 这样关键字在这两个文件中搜索一下，记得勾选匹配大小写；最后会发现的确是判断了参数中是否有 <code>URL</code> 这个类，同时将这个索引位置记录了下来。</p>
+<p>想必后续会通过这个索引位置读取最终的 <code>url</code> 信息。</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h2ho2auls1j21v20daq7r.jpg"></p>
+<p>最终通过这个索引的使用地方查询到了核心源码，如果有值时就取这个 URI 中所指定的地址作为 <code>target</code>。</p>
+<p>到此为止这个问题的背后原理都已经分析完毕了。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>其实本文重点是分析了一些 <code>debug</code> 和阅读源码的一些小技巧，特别是在读关于 <code>Spring</code> 相关的代码时一定不能 debug 跟踪到细节中，因为调用链通常是很长的，稍不留神就把自己都绕晕了，只需要知道核心、关键源码是如何处理的即可。</p>
+<p>最后对于 OpenFeign 处理动态 url 的方案确实也有些疑惑，是一个典型的<code>约定大于配置</code>的场景，但问题就在于我们并不知道这个约定是 <code>@Feign</code>  的 url 得有值。</p>
+<p>所以我也提了一个 <code>PR</code> 给 <code>OpenFeign</code>，感兴趣的朋友也可以查看一下：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/spring-cloud/spring-cloud-openfeign/pull/713">https://github.com/spring-cloud/spring-cloud-openfeign/pull/713</a></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2022/05/23/troubleshoot/SpringCloud-Feign-dynamic-url/" title="SpringCloud Feign 实现动态 URL">http://crossoverjie.top/2022/05/23/troubleshoot/SpringCloud-Feign-dynamic-url/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/SpringCloud/" rel="tag"><i class="fa fa-tag"></i> SpringCloud</a>
+              <a href="/tags/Feign/" rel="tag"><i class="fa fa-tag"></i> Feign</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2022/05/06/wheel/feign-plus2/" rel="prev" title="撸了一个 Feign 增强包 V2.0 升级版">
+                  <i class="fa fa-chevron-left"></i> 撸了一个 Feign 增强包 V2.0 升级版
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2022/05/30/gscript/gscript01/" rel="next" title="几百行代码实现一个脚本解释器">
+                  几百行代码实现一个脚本解释器 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

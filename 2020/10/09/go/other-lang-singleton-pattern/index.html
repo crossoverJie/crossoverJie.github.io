@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前言前段时间在用 Python 实现业务的时候发现一个坑，准确的来说是对于 Python 门外汉容易踩的坑； 大概代码如下： 1234567891011121314class Mom(object):    name &#x3D; &amp;#x27;&amp;#x27;    sons &#x3D; []if __name__ &#x3D;&#x3D; &amp;#x27;__main__&amp;#x27;:    m1 &#x3D; Mom()    m1.name &#x3D;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="不同语言对单例模式的不同实现">
+<meta property="og:url" content="http://crossoverjie.top/2020/10/09/go/other-lang-singleton-pattern/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言前段时间在用 Python 实现业务的时候发现一个坑，准确的来说是对于 Python 门外汉容易踩的坑； 大概代码如下： 1234567891011121314class Mom(object):    name &#x3D; &amp;#x27;&amp;#x27;    sons &#x3D; []if __name__ &#x3D;&#x3D; &amp;#x27;__main__&amp;#x27;:    m1 &#x3D; Mom()    m1.name &#x3D;">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2020/10/09/MbZHxvDFeyhmAtQ.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/10/09/BkIGFx3tJjWRSiY.jpg">
+<meta property="og:image" content="https://i.loli.net/2020/10/09/kvKn5QFczBYH6j7.jpg">
+<meta property="article:published_time" content="2020-10-09T00:10:36.000Z">
+<meta property="article:modified_time" content="2020-10-08T17:47:07.241Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="Golang">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2020/10/09/MbZHxvDFeyhmAtQ.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2020/10/09/go/other-lang-singleton-pattern/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2020/10/09/go/other-lang-singleton-pattern/","path":"2020/10/09/go/other-lang-singleton-pattern/","title":"不同语言对单例模式的不同实现"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>不同语言对单例模式的不同实现 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Python-%E5%8D%95%E4%BE%8B"><span class="nav-number">2.</span> <span class="nav-text">Python 单例</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Go-%E5%8D%95%E4%BE%8B"><span class="nav-number">3.</span> <span class="nav-text">Go 单例</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2020/10/09/go/other-lang-singleton-pattern/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="不同语言对单例模式的不同实现 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          不同语言对单例模式的不同实现
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2020-10-09 08:10:36 / Modified: 01:47:07" itemprop="dateCreated datePublished" datetime="2020-10-09T08:10:36+08:00">2020-10-09</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" itemprop="url" rel="index"><span itemprop="name">设计模式</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2020/10/09/go/other-lang-singleton-pattern/" class="post-meta-item leancloud_visitors" data-flag-title="不同语言对单例模式的不同实现" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2020/10/09/go/other-lang-singleton-pattern/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2020/10/09/go/other-lang-singleton-pattern/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2020/10/09/MbZHxvDFeyhmAtQ.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前段时间在用 <code>Python</code> 实现业务的时候发现一个坑，准确的来说是对于 <code>Python</code> 门外汉容易踩的坑；</p>
+<p>大概代码如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Mom</span>(<span class="title class_ inherited__">object</span>):</span><br><span class="line">    name = <span class="string">&#x27;&#x27;</span></span><br><span class="line">    sons = []</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&#x27;__main__&#x27;</span>:</span><br><span class="line">    m1 = Mom()</span><br><span class="line">    m1.name = <span class="string">&#x27;m1&#x27;</span></span><br><span class="line">    m1.sons.append([<span class="string">&#x27;s1&#x27;</span>, <span class="string">&#x27;s2&#x27;</span>])</span><br><span class="line">    <span class="built_in">print</span> <span class="string">&#x27;&#123;&#125; sons=&#123;&#125;&#x27;</span>.<span class="built_in">format</span>(m1.name, m1.sons)</span><br><span class="line"></span><br><span class="line">    m2 = Mom()</span><br><span class="line">    m2.name = <span class="string">&#x27;m2&#x27;</span></span><br><span class="line">    m2.sons.append([<span class="string">&#x27;s3&#x27;</span>, <span class="string">&#x27;s4&#x27;</span>])</span><br><span class="line">    <span class="built_in">print</span> <span class="string">&#x27;&#123;&#125; sons=&#123;&#125;&#x27;</span>.<span class="built_in">format</span>(m2.name, m2.sons)</span><br></pre></td></tr></table></figure>
+
+<p>首先定义了一个 <code>Mom</code> 的类，它包含了一个字符串类型的 <code>name</code> 与列表类型的 <code>sons</code> 属性；</p>
+<span id="more"></span>
+
+<p>在使用时首先创建了该类的一个实例 <code>m1</code> 并往 <code>sons</code> 中写入一个列表数据；紧接着又创建了一个实例 <code>m2</code> ，也往 <code>sons</code> 中写入了另一个列表数据。</p>
+<p>如果是一个 <code>Javaer</code> 很少写 <code>Python</code> 看到这样的代码首先想到的输出应该是：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">m1 sons=[[<span class="string">&#x27;s1&#x27;</span>, <span class="string">&#x27;s2&#x27;</span>]]</span><br><span class="line">m2 sons=[[<span class="string">&#x27;s3&#x27;</span>, <span class="string">&#x27;s4&#x27;</span>]]</span><br></pre></td></tr></table></figure>
+
+<p>但其实最终的输出结果是：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">m1 sons=[[<span class="string">&#x27;s1&#x27;</span>, <span class="string">&#x27;s2&#x27;</span>]]</span><br><span class="line">m2 sons=[[<span class="string">&#x27;s1&#x27;</span>, <span class="string">&#x27;s2&#x27;</span>], [<span class="string">&#x27;s3&#x27;</span>, <span class="string">&#x27;s4&#x27;</span>]]</span><br></pre></td></tr></table></figure>
+
+<p>如果想要达到期望值需要稍微修改一下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Mom</span>(<span class="title class_ inherited__">object</span>):</span><br><span class="line">    name = <span class="string">&#x27;&#x27;</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self</span>):</span><br><span class="line">        self.sons = []</span><br></pre></td></tr></table></figure>
+
+<p>只需要修改类的定义就可以了，我相信即使没有 <code>Python</code> 相关经验对比这两个代码应该也能猜到原因：</p>
+<p>在 <code>Python</code> 中如果需要将变量作为实例变量（也就是每个我们期望的输出）时，需要将变量定义到构造函数中，通过 <code>self</code> 访问。</p>
+<p>如果只放在类中，和 <code>Java</code> 中的 <code>static</code> 静态变量效果类似；这些数据由类共享，也就能解释为什么会出现第一种情况，因为其中的 <code>sons</code> 是由 <code>Mom</code> 类共享，所以每次都会累加。</p>
+<h1 id="Python-单例"><a href="#Python-单例" class="headerlink" title="Python 单例"></a>Python 单例</h1><p>既然 <code>Python</code> 可以通过类变量达到变量在同一个类中共享的效果，那是否可以实现单例模式呢？</p>
+<p>可以利用 <code>Python</code> 的 <code>metaclass</code> 的特性，动态的控制类的创建。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Singleton</span>(<span class="title class_ inherited__">type</span>):</span><br><span class="line">    _instances = &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__call__</span>(<span class="params">cls, *args, **kwargs</span>):</span><br><span class="line">        <span class="keyword">if</span> cls <span class="keyword">not</span> <span class="keyword">in</span> cls._instances:</span><br><span class="line">            cls._instances[cls] = <span class="built_in">super</span>(Singleton, cls).__call__(*args, **kwargs)</span><br><span class="line">        <span class="keyword">return</span> cls._instances[cls]</span><br></pre></td></tr></table></figure>
+
+<p>首先创建一个 <code>Singleton</code> 的基类，然后我们在我们需要实现单例的类中将其作为 <code>metaclass</code></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">MySQLDriver</span>:</span><br><span class="line">    __metaclass__ = Singleton</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self</span>):</span><br><span class="line">        <span class="built_in">print</span> <span class="string">&#x27;MySQLDriver init.....&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>这样<code>Singleton</code> 就可以控制 <code>MySQLDriver</code> 这个类的创建了；其实在 <code>Singleton</code> 中的 <code>__call__</code> 可以很容易理解这个单例创建的过程：</p>
+<ul>
+<li>定义一个私有的类属性 <code>_instances</code> 的字典（也就是 <code>Java</code> 中的 <code>map</code>）可以做到在整个类中共享，无论创建多少个实例。</li>
+<li>当我们自定义类使用了 <code>__metaclass__ = Singleton</code> 后，便可以控制自定义类的创建了；如果已经创建了实例，那就直接从 <code>_instances</code> 取出对象返回，不然就创建一个实例并写回到 <code>_instances</code> ，有点 <code>Spring</code> 容器的感觉。</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&#x27;__main__&#x27;</span>:</span><br><span class="line">    m1 = MySQLDriver()</span><br><span class="line">    m2 = MySQLDriver()</span><br><span class="line">    m3 = MySQLDriver()</span><br><span class="line">    m4 = MySQLDriver()</span><br><span class="line">    <span class="built_in">print</span> m1</span><br><span class="line">    <span class="built_in">print</span> m2</span><br><span class="line">    <span class="built_in">print</span> m3</span><br><span class="line">    <span class="built_in">print</span> m4</span><br><span class="line"></span><br><span class="line">MySQLDriver init.....</span><br><span class="line">&lt;__main__.MySQLDriver <span class="built_in">object</span> at <span class="number">0x10d848790</span>&gt;</span><br><span class="line">&lt;__main__.MySQLDriver <span class="built_in">object</span> at <span class="number">0x10d848790</span>&gt;</span><br><span class="line">&lt;__main__.MySQLDriver <span class="built_in">object</span> at <span class="number">0x10d848790</span>&gt;</span><br><span class="line">&lt;__main__.MySQLDriver <span class="built_in">object</span> at <span class="number">0x10d848790</span>&gt;</span><br></pre></td></tr></table></figure>
+
+<p>最后我们通过实验结果可以看到单例创建成功。</p>
+<h1 id="Go-单例"><a href="#Go-单例" class="headerlink" title="Go 单例"></a>Go 单例</h1><p>由于最近团队中有部分业务开始在用 <code>go</code> ，所以也想看看在 <code>go</code> 中如何实现单例。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> MySQLDriver <span class="keyword">struct</span> &#123;</span><br><span class="line">	username <span class="type">string</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在这样一个简单的结构体（可以简单理解为 <code>Java</code> 中的 <code>class</code>）中是没法类似于 <code>Python</code> 和 <code>Java</code> 一样可以声明类共享变量的；<code>go</code> 语言中不存在 <code>static</code> 的概念。</p>
+<p>但我们可以在包中声明一个全局变量来达到同样的效果：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> <span class="string">&quot;fmt&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> MySQLDriver <span class="keyword">struct</span> &#123;</span><br><span class="line">	username <span class="type">string</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> mySQLDriver *MySQLDriver</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetDriver</span><span class="params">()</span></span> *MySQLDriver &#123;</span><br><span class="line">	<span class="keyword">if</span> mySQLDriver == <span class="literal">nil</span> &#123;</span><br><span class="line">		mySQLDriver = &amp;MySQLDriver&#123;&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> mySQLDriver</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样在使用时：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	driver := GetDriver()</span><br><span class="line">	driver.username = <span class="string">&quot;cj&quot;</span></span><br><span class="line">	fmt.Println(driver.username)</span><br><span class="line"></span><br><span class="line">	driver2 := GetDriver()</span><br><span class="line">	fmt.Println(driver2.username)</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>就不需要直接构造 <code>MySQLDriver</code>  ，而是通过<code>GetDriver()</code> 函数来获取，通过 <code>debug</code> 也能看到 <code>driver</code> 和 <code>driver1</code> 引用的是同一个内存地址。</p>
+<p><img src="https://i.loli.net/2020/10/09/BkIGFx3tJjWRSiY.jpg"></p>
+<p>这样的实现常规情况是没有什么问题的，机智的朋友一定能想到和 <code>Java</code> 一样，一旦并发访问就没那么简单了。</p>
+<p>在 <code>go</code> 中，如果有多个 <code>goroutine</code> 同时访问<code>GetDriver()</code> ，那大概率会创建多个 <code>MySQLDriver</code> 实例。</p>
+<p>这里说的没那么简单其实是相对于 <code>Java</code> 来说的，<code>go</code> 语言中提供了简单的 <code>api</code> 便可实现临界资源的访问。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> lock sync.Mutex</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetDriver</span><span class="params">()</span></span> *MySQLDriver &#123;</span><br><span class="line">	lock.Lock()</span><br><span class="line">	<span class="keyword">defer</span> lock.Unlock()</span><br><span class="line">	<span class="keyword">if</span> mySQLDriver == <span class="literal">nil</span> &#123;</span><br><span class="line">		fmt.Println(<span class="string">&quot;create instance......&quot;</span>)</span><br><span class="line">		mySQLDriver = &amp;MySQLDriver&#123;&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> mySQLDriver</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">100</span>; i++ &#123;</span><br><span class="line">		<span class="keyword">go</span> GetDriver()</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	time.Sleep(<span class="number">2000</span> * time.Millisecond)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>稍加改造上文的代码，加入了</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">lock.Lock()</span><br><span class="line"><span class="keyword">defer</span> lock.Unlock()</span><br></pre></td></tr></table></figure>
+
+<p>代码就能简单的控制临界资源的访问，即便我们开启了100个协程并发执行，<code>mySQLDriver</code> 实例也只会被初始化一次。</p>
+<ul>
+<li>这里的 <code>defer</code> 类似于 <code>Java</code> 中的 <code>finally</code> ，在方法调用前加上 <code>go</code> 关键字即可开启一个协程。</li>
+</ul>
+<p>虽说能满足并发要求了，但其实这样的实现也不够优雅；仔细想想这里</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mySQLDriver = &amp;MySQLDriver&#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>创建实例只会调用一次，但后续的每次调用都需要加锁从而带来了不必要的开销。</p>
+<p>这样的场景每个语言都是相同的，拿 <code>Java</code> 来说是不是经常看到这样的单例实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Singleton</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="title function_">Singleton</span><span class="params">()</span> &#123;&#125;</span><br><span class="line">   <span class="keyword">private</span> <span class="keyword">volatile</span> <span class="keyword">static</span> <span class="type">Singleton</span> <span class="variable">instance</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">   <span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title function_">getInstance</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (instance == <span class="literal">null</span>) &#123;     </span><br><span class="line">         <span class="keyword">synchronized</span> (Singleton.class)&#123;</span><br><span class="line">           <span class="keyword">if</span> (instance == <span class="literal">null</span>) &#123;    </span><br><span class="line">             instance = <span class="keyword">new</span> <span class="title class_">Singleton</span>();</span><br><span class="line">               &#125;</span><br><span class="line">            &#125;</span><br><span class="line">         &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这是一个典型的双重检查的单例，这里做了两次检查便可以避免后续其他线程再次访问锁。</p>
+<p>同样的对于 <code>go</code> 来说也类似：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetDriver</span><span class="params">()</span></span> *MySQLDriver &#123;</span><br><span class="line">	<span class="keyword">if</span> mySQLDriver == <span class="literal">nil</span> &#123;</span><br><span class="line">		lock.Lock()</span><br><span class="line">		<span class="keyword">defer</span> lock.Unlock()</span><br><span class="line">		<span class="keyword">if</span> mySQLDriver == <span class="literal">nil</span> &#123;</span><br><span class="line">			fmt.Println(<span class="string">&quot;create instance......&quot;</span>)</span><br><span class="line">			mySQLDriver = &amp;MySQLDriver&#123;&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> mySQLDriver</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>和 <code>Java</code> 一样，在原有基础上额外做一次判断也能达到同样的效果。</p>
+<p>但有没有觉得这样的代码非常繁琐，这一点 <code>go</code> 提供的 <code>api</code> 就非常省事了：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> once sync.Once</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetDriver</span><span class="params">()</span></span> *MySQLDriver &#123;</span><br><span class="line">	once.Do(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">		<span class="keyword">if</span> mySQLDriver == <span class="literal">nil</span> &#123;</span><br><span class="line">			fmt.Println(<span class="string">&quot;create instance......&quot;</span>)</span><br><span class="line">			mySQLDriver = &amp;MySQLDriver&#123;&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;)</span><br><span class="line">	<span class="keyword">return</span> mySQLDriver</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>本质上我们只需要不管在什么情况下  <code>MySQLDriver</code> 实例只初始化一次就能达到单例的目的，所以利用 <code>once.Do()</code> 就能让代码只执行一次。</p>
+<p><img src="https://i.loli.net/2020/10/09/kvKn5QFczBYH6j7.jpg"></p>
+<p>查看源码会发现 <code>once.Do()</code> 也是通过锁来实现，只是在加锁之前利用底层的原子操作做了一次校验，从而避免每次都要加锁，性能会更好。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>相信大家日常开发中很少会碰到需要自己实现一个单例；首先大部分情况下我们都不需要单例，即使是需要，框架通常也都有集成。</p>
+<p>类似于 <code>go</code> 这样框架较少，需要我们自己实现时其实也不需要过多考虑并发的问题；摸摸自己肚子左上方的位置想想，自己写的这个对象真的同时有几百上千的并发来创建嘛？</p>
+<p>不过通过这个对比会发现 <code>go</code> 的语法确实要比 <code>Java</code> 简洁太多，同时轻量级的协程以及简单易用的并发工具支持看起来都要比 <code>Java</code> 优雅许多；后续有机会再接着深入。</p>
+<p>参考链接：</p>
+<p><a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/6760685/creating-a-singleton-in-python">Creating a singleton in Python</a></p>
+<p><a target="_blank" rel="noopener" href="https://progolang.com/how-to-implement-singleton-pattern-in-go/">How to implement Singleton Pattern in Go</a></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2020/10/09/go/other-lang-singleton-pattern/" title="不同语言对单例模式的不同实现">http://crossoverjie.top/2020/10/09/go/other-lang-singleton-pattern/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Java/" rel="tag"><i class="fa fa-tag"></i> Java</a>
+              <a href="/tags/Python/" rel="tag"><i class="fa fa-tag"></i> Python</a>
+              <a href="/tags/Golang/" rel="tag"><i class="fa fa-tag"></i> Golang</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/08/24/elasticsearch/ElasticSearch%20VS%20MySQL/" rel="prev" title="ElasticSearch 索引 VS MySQL 索引">
+                  <i class="fa fa-chevron-left"></i> ElasticSearch 索引 VS MySQL 索引
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/12/08/go/one-hour-write-cli-app/" rel="next" title="一个小时学会用 Go 编写命令行工具">
+                  一个小时学会用 Go 编写命令行工具 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

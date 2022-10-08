@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前言最近有朋友问我这么一个面试题目：  现在有一个非常庞大的数据，假设全是 int 类型。现在我给你一个数，你需要告诉我它是否存在其中(尽量高效)。  需求其实很清晰，只是要判断一个数据是否存在即可。 但这里有一个比较重要的前提：非常庞大的数据。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="如何判断一个元素在亿级数据中是否存在？">
+<meta property="og:url" content="http://crossoverjie.top/2018/11/26/guava/guava-bloom-filter/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言最近有朋友问我这么一个面试题目：  现在有一个非常庞大的数据，假设全是 int 类型。现在我给你一个数，你需要告诉我它是否存在其中(尽量高效)。  需求其实很清晰，只是要判断一个数据是否存在即可。 但这里有一个比较重要的前提：非常庞大的数据。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c60f09a00.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c6103f765.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c61188141.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c612648cb.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c613ebab4.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c61b6299a.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c61fbb3a9.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c622018c7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c62939dfe.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c62cc9f87.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c63425e23.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c6370a2ea.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c63b199b4.jpg">
+<meta property="article:published_time" content="2018-11-26T00:19:36.000Z">
+<meta property="article:modified_time" content="2019-05-07T17:54:51.234Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Bloom Filter">
+<meta property="article:tag" content="算法">
+<meta property="article:tag" content="Hash">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1c60f09a00.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2018/11/26/guava/guava-bloom-filter/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2018/11/26/guava/guava-bloom-filter/","path":"2018/11/26/guava/guava-bloom-filter/","title":"如何判断一个元素在亿级数据中是否存在？"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>如何判断一个元素在亿级数据中是否存在？ | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%B8%B8%E8%A7%84%E5%AE%9E%E7%8E%B0"><span class="nav-number">2.</span> <span class="nav-text">常规实现</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Bloom-Filter"><span class="nav-number">3.</span> <span class="nav-text">Bloom Filter</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Bloom-Filter-%E5%8E%9F%E7%90%86"><span class="nav-number">3.1.</span> <span class="nav-text">Bloom Filter 原理</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%87%AA%E5%B7%B1%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4"><span class="nav-number">4.</span> <span class="nav-text">自己实现一个布隆过滤</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Guava-%E5%AE%9E%E7%8E%B0"><span class="nav-number">5.</span> <span class="nav-text">Guava 实现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-number">5.1.</span> <span class="nav-text">源码分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#put-%E5%86%99%E5%85%A5%E5%87%BD%E6%95%B0"><span class="nav-number">5.1.1.</span> <span class="nav-text">put 写入函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mightContain-%E6%98%AF%E5%90%A6%E5%AD%98%E5%9C%A8%E5%87%BD%E6%95%B0"><span class="nav-number">5.1.2.</span> <span class="nav-text">mightContain 是否存在函数</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2018/11/26/guava/guava-bloom-filter/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="如何判断一个元素在亿级数据中是否存在？ | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          如何判断一个元素在亿级数据中是否存在？
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-11-26 08:19:36" itemprop="dateCreated datePublished" datetime="2018-11-26T08:19:36+08:00">2018-11-26</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2019-05-08 01:54:51" itemprop="dateModified" datetime="2019-05-08T01:54:51+08:00">2019-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Guava/" itemprop="url" rel="index"><span itemprop="name">Guava</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2018/11/26/guava/guava-bloom-filter/" class="post-meta-item leancloud_visitors" data-flag-title="如何判断一个元素在亿级数据中是否存在？" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2018/11/26/guava/guava-bloom-filter/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/11/26/guava/guava-bloom-filter/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2019/05/08/5cd1c60f09a00.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近有朋友问我这么一个面试题目：</p>
+<blockquote>
+<p>现在有一个非常庞大的数据，假设全是 int 类型。现在我给你一个数，你需要告诉我它是否存在其中(尽量高效)。</p>
+</blockquote>
+<p>需求其实很清晰，只是要判断一个数据是否存在即可。</p>
+<p>但这里有一个比较重要的前提：<strong>非常庞大的数据</strong>。</p>
+<span id="more"></span>
+
+<h1 id="常规实现"><a href="#常规实现" class="headerlink" title="常规实现"></a>常规实现</h1><p>先不考虑这个条件，我们脑海中出现的第一种方案是什么？</p>
+<p>我想大多数想到的都是用 <code>HashMap</code> 来存放数据，因为它的写入查询的效率都比较高。</p>
+<p>写入和判断元素是否存在都有对应的 <code>API</code>，所以实现起来也比较简单。</p>
+<p>为此我写了一个单测，利用 <code>HashSet</code> 来存数据（底层也是 <code>HashMap</code> ）；同时为了后面的对比将堆内存写死：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-Xms64m -Xmx64m -XX:+PrintHeapAtGC -XX:+HeapDumpOnOutOfMemoryError </span><br></pre></td></tr></table></figure>
+
+<p>为了方便调试加入了 <code>GC</code> 日志的打印，以及内存溢出后 <code>Dump</code> 内存。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">hashMapTest</span><span class="params">()</span>&#123;</span><br><span class="line">    <span class="type">long</span> <span class="variable">star</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line"></span><br><span class="line">    Set&lt;Integer&gt; hashset = <span class="keyword">new</span> <span class="title class_">HashSet</span>&lt;&gt;(<span class="number">100</span>) ;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">        hashset.add(i) ;</span><br><span class="line">    &#125;</span><br><span class="line">    Assert.assertTrue(hashset.contains(<span class="number">1</span>));</span><br><span class="line">    Assert.assertTrue(hashset.contains(<span class="number">2</span>));</span><br><span class="line">    Assert.assertTrue(hashset.contains(<span class="number">3</span>));</span><br><span class="line"></span><br><span class="line">    <span class="type">long</span> <span class="variable">end</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line">    System.out.println(<span class="string">&quot;执行时间：&quot;</span> + (end - star));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>当我只写入 100 条数据时自然是没有问题的。</p>
+<p>还是在这个基础上，写入 1000W 数据试试：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c6103f765.jpg"></p>
+<p>执行后马上就内存溢出。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c61188141.jpg"></p>
+<p>可见在内存有限的情况下我们不能使用这种方式。</p>
+<p>实际情况也是如此；既然要判断一个数据是否存在于集合中，考虑的算法的效率以及准确性肯定是要把数据全部 <code>load</code> 到内存中的。</p>
+<h1 id="Bloom-Filter"><a href="#Bloom-Filter" class="headerlink" title="Bloom Filter"></a>Bloom Filter</h1><p>基于上面分析的条件，要实现这个需求最需要解决的是<code>如何将庞大的数据 load 到内存中。</code></p>
+<p>而我们是否可以换种思路，因为只是需要判断数据是否存在，也不是需要把数据查询出来，所以完全没有必要将真正的数据存放进去。</p>
+<p>伟大的科学家们已经帮我们想到了这样的需求。</p>
+<p><code>Burton Howard Bloom</code> 在 1970 年提出了一个叫做 <code>Bloom Filter</code>（中文翻译：布隆过滤）的算法。</p>
+<p>它主要就是用于解决判断一个元素是否在一个集合中，但它的优势是只需要占用很小的内存空间以及有着高效的查询效率。</p>
+<p>所以在这个场景下在合适不过了。</p>
+<h2 id="Bloom-Filter-原理"><a href="#Bloom-Filter-原理" class="headerlink" title="Bloom Filter 原理"></a>Bloom Filter 原理</h2><p>下面来分析下它的实现原理。</p>
+<blockquote>
+<p>官方的说法是：它是一个保存了很长的二级制向量，同时结合 Hash 函数实现的。</p>
+</blockquote>
+<p>听起来比较绕，但是通过一个图就比较容易理解了。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c612648cb.jpg"></p>
+<p>如图所示：</p>
+<ul>
+<li>首先需要初始化一个二进制的数组，长度设为 L（图中为 8），同时初始值全为 0 。</li>
+<li>当写入一个 <code>A1=1000</code> 的数据时，需要进行 H 次 <code>hash</code> 函数的运算（这里为 2 次）；与 HashMap 有点类似，通过算出的 <code>HashCode</code> 与 L 取模后定位到 0、2 处，将该处的值设为 1。</li>
+<li><code>A2=2000</code> 也是同理计算后将 <code>4、7</code> 位置设为 1。</li>
+<li>当有一个 <code>B1=1000</code> 需要判断是否存在时，也是做两次 Hash 运算，定位到 0、2 处，此时他们的值都为 1 ，所以认为 <code>B1=1000</code> 存在于集合中。</li>
+<li>当有一个 <code>B2=3000</code> 时，也是同理。第一次 Hash 定位到 <code>index=4</code> 时，数组中的值为 1，所以再进行第二次 Hash 运算，结果定位到 <code>index=5</code> 的值为 0，所以认为 <code>B2=3000</code> 不存在于集合中。</li>
+</ul>
+<p>整个的写入、查询的流程就是这样，汇总起来就是：</p>
+<blockquote>
+<p>对写入的数据做 H 次 hash 运算定位到数组中的位置，同时将数据改为 1 。当有数据查询时也是同样的方式定位到数组中。<br>一旦其中的有一位为 <strong>0</strong> 则认为数据<strong>肯定不存在于集合</strong>，否则数据<strong>可能存在于集合中</strong>。</p>
+</blockquote>
+<p>所以布隆过滤有以下几个特点：</p>
+<ol>
+<li>只要返回数据不存在，则肯定不存在。</li>
+<li>返回数据存在，但只能是大概率存在。</li>
+<li>同时不能清除其中的数据。</li>
+</ol>
+<p>第一点应该都能理解，重点解释下 2、3 点。</p>
+<p>为什么返回存在的数据却是可能存在呢，这其实也和 <code>HashMap</code> 类似。</p>
+<p>在有限的数组长度中存放大量的数据，即便是再完美的 Hash 算法也会有冲突，所以有可能两个完全不同的 <code>A、B</code> 两个数据最后定位到的位置是一模一样的。</p>
+<p>这时拿 B 进行查询时那自然就是误报了。</p>
+<p>删除数据也是同理，当我把 B 的数据删除时，其实也相当于是把 A 的数据删掉了，这样也会造成后续的误报。</p>
+<p>基于以上的 <code>Hash</code> 冲突的前提，所以 <code>Bloom Filter</code> 有一定的误报率，这个误报率和 <code>Hash</code> 算法的次数 H，以及数组长度 L 都是有关的。</p>
+<h1 id="自己实现一个布隆过滤"><a href="#自己实现一个布隆过滤" class="headerlink" title="自己实现一个布隆过滤"></a>自己实现一个布隆过滤</h1><p>算法其实很简单不难理解，于是利用 <code>Java</code> 实现了一个简单的雏形。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">BloomFilters</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 数组长度</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> arraySize;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 数组</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span>[] array;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">BloomFilters</span><span class="params">(<span class="type">int</span> arraySize)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.arraySize = arraySize;</span><br><span class="line">        array = <span class="keyword">new</span> <span class="title class_">int</span>[arraySize];</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 写入数据</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> key</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">add</span><span class="params">(String key)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">first</span> <span class="operator">=</span> hashcode_1(key);</span><br><span class="line">        <span class="type">int</span> <span class="variable">second</span> <span class="operator">=</span> hashcode_2(key);</span><br><span class="line">        <span class="type">int</span> <span class="variable">third</span> <span class="operator">=</span> hashcode_3(key);</span><br><span class="line"></span><br><span class="line">        array[first % arraySize] = <span class="number">1</span>;</span><br><span class="line">        array[second % arraySize] = <span class="number">1</span>;</span><br><span class="line">        array[third % arraySize] = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 判断数据是否存在</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> key</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">check</span><span class="params">(String key)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">first</span> <span class="operator">=</span> hashcode_1(key);</span><br><span class="line">        <span class="type">int</span> <span class="variable">second</span> <span class="operator">=</span> hashcode_2(key);</span><br><span class="line">        <span class="type">int</span> <span class="variable">third</span> <span class="operator">=</span> hashcode_3(key);</span><br><span class="line"></span><br><span class="line">        <span class="type">int</span> <span class="variable">firstIndex</span> <span class="operator">=</span> array[first % arraySize];</span><br><span class="line">        <span class="keyword">if</span> (firstIndex == <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="type">int</span> <span class="variable">secondIndex</span> <span class="operator">=</span> array[second % arraySize];</span><br><span class="line">        <span class="keyword">if</span> (secondIndex == <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="type">int</span> <span class="variable">thirdIndex</span> <span class="operator">=</span> array[third % arraySize];</span><br><span class="line">        <span class="keyword">if</span> (thirdIndex == <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * hash 算法1</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> key</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> <span class="title function_">hashcode_1</span><span class="params">(String key)</span> &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">hash</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">        <span class="type">int</span> i;</span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; key.length(); ++i) &#123;</span><br><span class="line">            hash = <span class="number">33</span> * hash + key.charAt(i);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> Math.abs(hash);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * hash 算法2</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> data</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> <span class="title function_">hashcode_2</span><span class="params">(String data)</span> &#123;</span><br><span class="line">        <span class="keyword">final</span> <span class="type">int</span> <span class="variable">p</span> <span class="operator">=</span> <span class="number">16777619</span>;</span><br><span class="line">        <span class="type">int</span> <span class="variable">hash</span> <span class="operator">=</span> (<span class="type">int</span>) <span class="number">2166136261L</span>;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; data.length(); i++) &#123;</span><br><span class="line">            hash = (hash ^ data.charAt(i)) * p;</span><br><span class="line">        &#125;</span><br><span class="line">        hash += hash &lt;&lt; <span class="number">13</span>;</span><br><span class="line">        hash ^= hash &gt;&gt; <span class="number">7</span>;</span><br><span class="line">        hash += hash &lt;&lt; <span class="number">3</span>;</span><br><span class="line">        hash ^= hash &gt;&gt; <span class="number">17</span>;</span><br><span class="line">        hash += hash &lt;&lt; <span class="number">5</span>;</span><br><span class="line">        <span class="keyword">return</span> Math.abs(hash);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     *  hash 算法3</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> key</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> <span class="title function_">hashcode_3</span><span class="params">(String key)</span> &#123;</span><br><span class="line">        <span class="type">int</span> hash, i;</span><br><span class="line">        <span class="keyword">for</span> (hash = <span class="number">0</span>, i = <span class="number">0</span>; i &lt; key.length(); ++i) &#123;</span><br><span class="line">            hash += key.charAt(i);</span><br><span class="line">            hash += (hash &lt;&lt; <span class="number">10</span>);</span><br><span class="line">            hash ^= (hash &gt;&gt; <span class="number">6</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        hash += (hash &lt;&lt; <span class="number">3</span>);</span><br><span class="line">        hash ^= (hash &gt;&gt; <span class="number">11</span>);</span><br><span class="line">        hash += (hash &lt;&lt; <span class="number">15</span>);</span><br><span class="line">        <span class="keyword">return</span> Math.abs(hash);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>首先初始化了一个 int 数组。</li>
+<li>写入数据的时候进行三次 <code>hash</code> 运算，同时把对应的位置置为 1。</li>
+<li>查询时同样的三次 <code>hash</code> 运算，取到对应的值，一旦值为 0 ，则认为数据不存在。</li>
+</ol>
+<p>实现逻辑其实就和上文描述的一样。</p>
+<p>下面来测试一下，同样的参数：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-Xms64m -Xmx64m -XX:+PrintHeapAtGC</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">bloomFilterTest</span><span class="params">()</span>&#123;</span><br><span class="line">    <span class="type">long</span> <span class="variable">star</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line">    <span class="type">BloomFilters</span> <span class="variable">bloomFilters</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">BloomFilters</span>(<span class="number">10000000</span>) ;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">10000000</span>; i++) &#123;</span><br><span class="line">        bloomFilters.add(i + <span class="string">&quot;&quot;</span>) ;</span><br><span class="line">    &#125;</span><br><span class="line">    Assert.assertTrue(bloomFilters.check(<span class="number">1</span>+<span class="string">&quot;&quot;</span>));</span><br><span class="line">    Assert.assertTrue(bloomFilters.check(<span class="number">2</span>+<span class="string">&quot;&quot;</span>));</span><br><span class="line">    Assert.assertTrue(bloomFilters.check(<span class="number">3</span>+<span class="string">&quot;&quot;</span>));</span><br><span class="line">    Assert.assertTrue(bloomFilters.check(<span class="number">999999</span>+<span class="string">&quot;&quot;</span>));</span><br><span class="line">    Assert.assertFalse(bloomFilters.check(<span class="number">400230340</span>+<span class="string">&quot;&quot;</span>));</span><br><span class="line">    <span class="type">long</span> <span class="variable">end</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line">    System.out.println(<span class="string">&quot;执行时间：&quot;</span> + (end - star));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>执行结果如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c613ebab4.jpg"></p>
+<p>只花了 3 秒钟就写入了 1000W 的数据同时做出来准确的判断。</p>
+<hr>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c61b6299a.jpg"></p>
+<p>当让我把数组长度缩小到了 100W 时就出现了一个误报，<code>400230340</code> 这个数明明没在集合里，却返回了存在。</p>
+<p>这也体现了 <code>Bloom Filter</code> 的误报率。</p>
+<p>我们提高数组长度以及 <code>hash</code> 计算次数可以降低误报率，但相应的 <code>CPU、内存</code>的消耗就会提高；这就需要根据业务需要自行权衡。</p>
+<h1 id="Guava-实现"><a href="#Guava-实现" class="headerlink" title="Guava 实现"></a>Guava 实现</h1><p><img src="https://i.loli.net/2019/05/08/5cd1c61fbb3a9.jpg"></p>
+<p>刚才的方式虽然实现了功能，也满足了大量数据。但其实观察 <code>GC</code> 日志非常频繁，同时老年代也使用了 90%，接近崩溃的边缘。</p>
+<p>总的来说就是内存利用率做的不好。</p>
+<p>其实 Google Guava 库中也实现了该算法，下面来看看业界权威的实现。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-Xms64m -Xmx64m -XX:+PrintHeapAtGC </span><br></pre></td></tr></table></figure>
+
+<hr>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">guavaTest</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">long</span> <span class="variable">star</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line">    BloomFilter&lt;Integer&gt; filter = BloomFilter.create(</span><br><span class="line">            Funnels.integerFunnel(),</span><br><span class="line">            <span class="number">10000000</span>,</span><br><span class="line">            <span class="number">0.01</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">10000000</span>; i++) &#123;</span><br><span class="line">        filter.put(i);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    Assert.assertTrue(filter.mightContain(<span class="number">1</span>));</span><br><span class="line">    Assert.assertTrue(filter.mightContain(<span class="number">2</span>));</span><br><span class="line">    Assert.assertTrue(filter.mightContain(<span class="number">3</span>));</span><br><span class="line">    Assert.assertFalse(filter.mightContain(<span class="number">10000000</span>));</span><br><span class="line">    <span class="type">long</span> <span class="variable">end</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line">    System.out.println(<span class="string">&quot;执行时间：&quot;</span> + (end - star));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>也是同样写入了 1000W 的数据，执行没有问题。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c622018c7.jpg"></p>
+<p>观察 GC 日志会发现没有一次 <code>fullGC</code>，同时老年代的使用率很低。和刚才的一对比这里明显的要好上很多，也可以写入更多的数据。</p>
+<h2 id="源码分析"><a href="#源码分析" class="headerlink" title="源码分析"></a>源码分析</h2><p>那就来看看 <code>Guava</code> 它是如何实现的。</p>
+<p>构造方法中有两个比较重要的参数，一个是预计存放多少数据，一个是可以接受的误报率。<br>我这里的测试 demo 分别是 1000W 以及 0.01。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c62939dfe.jpg"></p>
+<p><code>Guava</code> 会通过你预计的数量以及误报率帮你计算出你应当会使用的数组大小 <code>numBits</code> 以及需要计算几次 Hash 函数 <code>numHashFunctions</code> 。</p>
+<p>这个算法计算规则可以参考维基百科。</p>
+<h3 id="put-写入函数"><a href="#put-写入函数" class="headerlink" title="put 写入函数"></a>put 写入函数</h3><p>真正存放数据的 <code>put</code> 函数如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c62cc9f87.jpg"></p>
+<ul>
+<li>根据 <code>murmur3_128</code> 方法的到一个 128 位长度的 <code>byte[]</code>。</li>
+<li>分别取高低 8 位的到两个 <code>hash</code> 值。</li>
+<li>再根据初始化时的到的执行 <code>hash</code> 的次数进行 <code>hash</code> 运算。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bitsChanged |= bits.set((combinedHash &amp; Long.MAX_VALUE) % bitSize);</span><br></pre></td></tr></table></figure>
+
+<p>其实也是 <code>hash取模</code>拿到 <code>index</code> 后去赋值 1.</p>
+<p>重点是 <code>bits.set()</code> 方法。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c63425e23.jpg"></p>
+<p>其实 set 方法是 <code>BitArray</code> 中的一个函数，<code>BitArray</code> 就是真正存放数据的底层数据结构。</p>
+<p>利用了一个 <code>long[] data</code> 来存放数据。</p>
+<p>所以 <code>set()</code> 时候也是对这个 <code>data</code> 做处理。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c6370a2ea.jpg"></p>
+<ul>
+<li>在 <code>set</code> 之前先通过 <code>get()</code> 判断这个数据是否存在于集合中，如果已经存在则直接返回告知客户端写入失败。</li>
+<li>接下来就是通过位运算进行<code>位或赋值</code>。</li>
+<li><code>get()</code> 方法的计算逻辑和 set 类似，只要判断为 0 就直接返回存在该值。</li>
+</ul>
+<h3 id="mightContain-是否存在函数"><a href="#mightContain-是否存在函数" class="headerlink" title="mightContain 是否存在函数"></a>mightContain 是否存在函数</h3><p><img src="https://i.loli.net/2019/05/08/5cd1c63b199b4.jpg"></p>
+<p>前面几步的逻辑都是类似的，只是调用了刚才的 <code>get()</code> 方法判断元素是否存在而已。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>布隆过滤的应用还是蛮多的，比如数据库、爬虫、防缓存击穿等。</p>
+<p>特别是需要精确知道某个数据不存在时做点什么事情就非常适合布隆过滤。</p>
+<p>这段时间的研究发现算法也挺有意思的，后续应该会继续分享一些类似的内容。</p>
+<p>如果对你有帮助那就分享一下吧。</p>
+<p>本问的示例代码参考这里：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/JCSprout/blob/master/src/test/java/com/crossoverjie/algorithm/BloomFiltersTest.java">https://github.com/crossoverJie/JCSprout</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2018/11/26/guava/guava-bloom-filter/" title="如何判断一个元素在亿级数据中是否存在？">http://crossoverjie.top/2018/11/26/guava/guava-bloom-filter/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Bloom-Filter/" rel="tag"><i class="fa fa-tag"></i> Bloom Filter</a>
+              <a href="/tags/%E7%AE%97%E6%B3%95/" rel="tag"><i class="fa fa-tag"></i> 算法</a>
+              <a href="/tags/Hash/" rel="tag"><i class="fa fa-tag"></i> Hash</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/11/20/kafka/kafka-consumer/" rel="prev" title="分享一些 Kafka 消费数据的小经验">
+                  <i class="fa fa-chevron-left"></i> 分享一些 Kafka 消费数据的小经验
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/12/12/java-senior/java-memary-allocation/" rel="next" title="没错，老板让我写个 BUG！">
+                  没错，老板让我写个 BUG！ <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

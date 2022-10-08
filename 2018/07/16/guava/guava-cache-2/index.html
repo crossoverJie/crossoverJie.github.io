@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前言在上文「Guava 源码分析（Cache 原理）」中分析了 Guava Cache 的相关原理。 文末提到了回收机制、移除时间通知等内容，许多朋友也挺感兴趣，这次就这两个内容再来分析分析。  在开始之前先补习下 Java 自带的两个特性，Guava 中都有具体的应用。  Java 中的引用首先是 Java 中的引用。 在之前分享过 JVM 是根据可达性分析算法找出需要回收的对象，判断对象的存">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Guava 源码分析（Cache 原理【二阶段】）">
+<meta property="og:url" content="http://crossoverjie.top/2018/07/16/guava/guava-cache-2/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言在上文「Guava 源码分析（Cache 原理）」中分析了 Guava Cache 的相关原理。 文末提到了回收机制、移除时间通知等内容，许多朋友也挺感兴趣，这次就这两个内容再来分析分析。  在开始之前先补习下 Java 自带的两个特性，Guava 中都有具体的应用。  Java 中的引用首先是 Java 中的引用。 在之前分享过 JVM 是根据可达性分析算法找出需要回收的对象，判断对象的存">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2da38c8f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2e161dd6.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2e34ee46.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2e4ec5ff.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2e5d3a34.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2e71f98f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2e809482.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2e8e1800.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2eba7159.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2f1e162f.jpg">
+<meta property="article:published_time" content="2018-07-15T17:20:42.000Z">
+<meta property="article:modified_time" content="2019-05-07T18:49:06.038Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Cache">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1d2da38c8f.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2018/07/16/guava/guava-cache-2/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2018/07/16/guava/guava-cache-2/","path":"2018/07/16/guava/guava-cache-2/","title":"Guava 源码分析（Cache 原理【二阶段】）"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Guava 源码分析（Cache 原理【二阶段】） | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Java-%E4%B8%AD%E7%9A%84%E5%BC%95%E7%94%A8"><span class="nav-number">2.</span> <span class="nav-text">Java 中的引用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8B%E4%BB%B6%E5%9B%9E%E8%B0%83"><span class="nav-number">3.</span> <span class="nav-text">事件回调</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Guava-%E7%9A%84%E7%94%A8%E6%B3%95"><span class="nav-number">4.</span> <span class="nav-text">Guava 的用法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BC%95%E7%94%A8"><span class="nav-number">4.1.</span> <span class="nav-text">引用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9B%9E%E8%B0%83"><span class="nav-number">4.2.</span> <span class="nav-text">回调</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%B7%E5%A4%96"><span class="nav-number">6.</span> <span class="nav-text">号外</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2018/07/16/guava/guava-cache-2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Guava 源码分析（Cache 原理【二阶段】） | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Guava 源码分析（Cache 原理【二阶段】）
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-07-16 01:20:42" itemprop="dateCreated datePublished" datetime="2018-07-16T01:20:42+08:00">2018-07-16</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2019-05-08 02:49:06" itemprop="dateModified" datetime="2019-05-08T02:49:06+08:00">2019-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Guava/" itemprop="url" rel="index"><span itemprop="name">Guava</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2018/07/16/guava/guava-cache-2/" class="post-meta-item leancloud_visitors" data-flag-title="Guava 源码分析（Cache 原理【二阶段】）" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2018/07/16/guava/guava-cache-2/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/07/16/guava/guava-cache-2/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2019/05/08/5cd1d2da38c8f.jpg"></p>
+<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>在上文「<a href="https://crossoverjie.top/2018/06/13/guava/guava-cache/">Guava 源码分析（Cache 原理）</a>」中分析了 <code>Guava Cache</code> 的相关原理。</p>
+<p>文末提到了<strong>回收机制、移除时间通知</strong>等内容，许多朋友也挺感兴趣，这次就这两个内容再来分析分析。</p>
+<blockquote>
+<p>在开始之前先补习下 Java 自带的两个特性，Guava 中都有具体的应用。</p>
+</blockquote>
+<h2 id="Java-中的引用"><a href="#Java-中的引用" class="headerlink" title="Java 中的引用"></a>Java 中的引用</h2><p>首先是 Java 中的<strong>引用</strong>。</p>
+<p>在之前分享过 JVM 是根据<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/Java-Interview/blob/master/MD/GarbageCollection.md#%E5%8F%AF%E8%BE%BE%E6%80%A7%E5%88%86%E6%9E%90%E7%AE%97%E6%B3%95">可达性分析算法</a>找出需要回收的对象，判断对象的存活状态都和<code>引用</code>有关。</p>
+<p>在 JDK1.2 之前这点设计的非常简单：一个对象的状态只有<strong>引用</strong>和<strong>没被引用</strong>两种区别。</p>
+<span id="more"></span>
+
+<p>这样的划分对垃圾回收不是很友好，因为总有一些对象的状态处于这两之间。</p>
+<p>因此 1.2 之后新增了四种状态用于更细粒度的划分引用关系：</p>
+<ul>
+<li>强引用（Strong Reference）:这种对象最为常见，比如 **<code>A a = new A();</code>**这就是典型的强引用；这样的强引用关系是不能被垃圾回收的。</li>
+<li>软引用（Soft Reference）:这样的引用表明一些有用但不是必要的对象，在将发生垃圾回收之前是需要将这样的对象再次回收。</li>
+<li>弱引用（Weak Reference）:这是一种比软引用还弱的引用关系，也是存放非必须的对象。当垃圾回收时，无论当前内存是否足够，这样的对象都会被回收。</li>
+<li>虚引用（Phantom Reference）:这是一种最弱的引用关系，甚至没法通过引用来获取对象，它唯一的作用就是在被回收时可以获得通知。</li>
+</ul>
+<h2 id="事件回调"><a href="#事件回调" class="headerlink" title="事件回调"></a>事件回调</h2><p>事件回调其实是一种常见的设计模式，比如之前讲过的 <a href="https://crossoverjie.top/categories/Netty/">Netty</a> 就使用了这样的设计。</p>
+<p>这里采用一个 demo，试下如下功能：</p>
+<ul>
+<li>Caller 向 Notifier 提问。</li>
+<li>提问方式是异步，接着做其他事情。</li>
+<li>Notifier 收到问题执行计算然后回调 Caller 告知结果。</li>
+</ul>
+<p>在 Java 中利用接口来实现回调，所以需要定义一个接口：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">CallBackListener</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 回调通知函数</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> msg</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">callBackNotify</span><span class="params">(String msg)</span> ;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Caller 中调用 Notifier 执行提问，调用时将接口传递过去：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Caller</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> <span class="type">Logger</span> <span class="variable">LOGGER</span> <span class="operator">=</span> LoggerFactory.getLogger(Caller.class);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> CallBackListener callBackListener ;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> Notifier notifier ;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> String question ;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 使用</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">call</span><span class="params">()</span>&#123;</span><br><span class="line"></span><br><span class="line">        LOGGER.info(<span class="string">&quot;开始提问&quot;</span>);</span><br><span class="line"></span><br><span class="line">		<span class="comment">//新建线程，达到异步效果 </span></span><br><span class="line">        <span class="keyword">new</span> <span class="title class_">Thread</span>(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    notifier.execute(Caller.<span class="built_in">this</span>,question);</span><br><span class="line">                &#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">                    e.printStackTrace();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;).start();</span><br><span class="line"></span><br><span class="line">        LOGGER.info(<span class="string">&quot;提问完毕，我去干其他事了&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">//隐藏 getter/setter</span></span><br><span class="line">    </span><br><span class="line">&#125;    </span><br></pre></td></tr></table></figure>
+
+<p>Notifier 收到提问，执行计算（耗时操作），最后做出响应（回调接口，告诉 Caller 结果）。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Notifier</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> <span class="type">Logger</span> <span class="variable">LOGGER</span> <span class="operator">=</span> LoggerFactory.getLogger(Notifier.class);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">execute</span><span class="params">(Caller caller, String msg)</span> <span class="keyword">throws</span> InterruptedException &#123;</span><br><span class="line">        LOGGER.info(<span class="string">&quot;收到消息=【&#123;&#125;】&quot;</span>, msg);</span><br><span class="line"></span><br><span class="line">        LOGGER.info(<span class="string">&quot;等待响应中。。。。。&quot;</span>);</span><br><span class="line">        TimeUnit.SECONDS.sleep(<span class="number">2</span>);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        caller.getCallBackListener().callBackNotify(<span class="string">&quot;我在北京！&quot;</span>);</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>模拟执行：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">    <span class="type">Notifier</span> <span class="variable">notifier</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Notifier</span>() ;</span><br><span class="line"></span><br><span class="line">    <span class="type">Caller</span> <span class="variable">caller</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Caller</span>() ;</span><br><span class="line">    caller.setNotifier(notifier) ;</span><br><span class="line">    caller.setQuestion(<span class="string">&quot;你在哪儿！&quot;</span>);</span><br><span class="line">    caller.setCallBackListener(<span class="keyword">new</span> <span class="title class_">CallBackListener</span>() &#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">callBackNotify</span><span class="params">(String msg)</span> &#123;</span><br><span class="line">            LOGGER.info(<span class="string">&quot;回复=【&#123;&#125;】&quot;</span> ,msg);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line"></span><br><span class="line">    caller.call();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>最后执行结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">2018-07-15 19:52:11.105 [main] INFO  c.crossoverjie.guava.callback.Caller - 开始提问</span><br><span class="line">2018-07-15 19:52:11.118 [main] INFO  c.crossoverjie.guava.callback.Caller - 提问完毕，我去干其他事了</span><br><span class="line">2018-07-15 19:52:11.117 [Thread-0] INFO  c.c.guava.callback.Notifier - 收到消息=【你在哪儿！】</span><br><span class="line">2018-07-15 19:52:11.121 [Thread-0] INFO  c.c.guava.callback.Notifier - 等待响应中。。。。。</span><br><span class="line">2018-07-15 19:52:13.124 [Thread-0] INFO  com.crossoverjie.guava.callback.Main - 回复=【我在北京！】</span><br></pre></td></tr></table></figure>
+
+<p>这样一个模拟的异步事件回调就完成了。</p>
+<h2 id="Guava-的用法"><a href="#Guava-的用法" class="headerlink" title="Guava 的用法"></a>Guava 的用法</h2><p>Guava 就是利用了上文的两个特性来实现了<strong>引用回收</strong>及<strong>移除通知</strong>。</p>
+<h3 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h3><p>可以在初始化缓存时利用：</p>
+<ul>
+<li>CacheBuilder.weakKeys()</li>
+<li>CacheBuilder.weakValues()</li>
+<li>CacheBuilder.softValues()</li>
+</ul>
+<p>来自定义键和值的引用关系。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2e161dd6.jpg"></p>
+<p>在上文的分析中可以看出 Cache 中的 <code>ReferenceEntry</code> 是类似于 HashMap 的 Entry 存放数据的。</p>
+<p>来看看 ReferenceEntry 的定义：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">  <span class="keyword">interface</span> <span class="title class_">ReferenceEntry</span>&lt;K, V&gt; &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Returns the value reference from this entry.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    ValueReference&lt;K, V&gt; <span class="title function_">getValueReference</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Sets the value reference for this entry.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">setValueReference</span><span class="params">(ValueReference&lt;K, V&gt; valueReference)</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Returns the next entry in the chain.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@Nullable</span></span><br><span class="line">    ReferenceEntry&lt;K, V&gt; <span class="title function_">getNext</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Returns the entry&#x27;s hash.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">int</span> <span class="title function_">getHash</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Returns the key for this entry.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@Nullable</span></span><br><span class="line">    K <span class="title function_">getKey</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * Used by entries that use access order. Access entries are maintained in a doubly-linked list.</span></span><br><span class="line"><span class="comment">     * New entries are added at the tail of the list at write time; stale entries are expired from</span></span><br><span class="line"><span class="comment">     * the head of the list.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Returns the time that this entry was last accessed, in ns.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">long</span> <span class="title function_">getAccessTime</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Sets the entry access time in ns.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">setAccessTime</span><span class="params">(<span class="type">long</span> time)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>包含了很多常用的操作，如值引用、键引用、访问时间等。</p>
+<p>根据 <code>ValueReference&lt;K, V&gt; getValueReference();</code> 的实现：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2e34ee46.jpg"></p>
+<p>具有强引用和弱引用的不同实现。</p>
+<p>key 也是相同的道理：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2e4ec5ff.jpg"></p>
+<p>当使用这样的构造方式时，弱引用的 key 和 value 都会被垃圾回收。</p>
+<p>当然我们也可以显式的回收：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">/**</span><br><span class="line"> * Discards any cached value for key &#123;@code key&#125;.</span><br><span class="line"> * 单个回收</span><br><span class="line"> */</span><br><span class="line">void invalidate(Object key);</span><br><span class="line"></span><br><span class="line">/**</span><br><span class="line"> * Discards any cached values for keys &#123;@code keys&#125;.</span><br><span class="line"> *</span><br><span class="line"> * @since 11.0</span><br><span class="line"> */</span><br><span class="line">void invalidateAll(Iterable&lt;?&gt; keys);</span><br><span class="line"></span><br><span class="line">/**</span><br><span class="line"> * Discards all entries in the cache.</span><br><span class="line"> */</span><br><span class="line">void invalidateAll();</span><br></pre></td></tr></table></figure>
+
+<h3 id="回调"><a href="#回调" class="headerlink" title="回调"></a>回调</h3><p>改造了之前的例子：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">loadingCache = CacheBuilder.newBuilder()</span><br><span class="line">        .expireAfterWrite(<span class="number">2</span>, TimeUnit.SECONDS)</span><br><span class="line">        .removalListener(<span class="keyword">new</span> <span class="title class_">RemovalListener</span>&lt;Object, Object&gt;() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onRemoval</span><span class="params">(RemovalNotification&lt;Object, Object&gt; notification)</span> &#123;</span><br><span class="line">                LOGGER.info(<span class="string">&quot;删除原因=&#123;&#125;，删除 key=&#123;&#125;,删除 value=&#123;&#125;&quot;</span>,notification.getCause(),notification.getKey(),notification.getValue());</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;)</span><br><span class="line">        .build(<span class="keyword">new</span> <span class="title class_">CacheLoader</span>&lt;Integer, AtomicLong&gt;() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> AtomicLong <span class="title function_">load</span><span class="params">(Integer key)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">AtomicLong</span>(<span class="number">0</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br></pre></td></tr></table></figure>
+
+<p>执行结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">2018-07-15 20:41:07.433 [main] INFO  c.crossoverjie.guava.CacheLoaderTest - 当前缓存值=0,缓存大小=1</span><br><span class="line">2018-07-15 20:41:07.442 [main] INFO  c.crossoverjie.guava.CacheLoaderTest - 缓存的所有内容=&#123;1000=0&#125;</span><br><span class="line">2018-07-15 20:41:07.443 [main] INFO  c.crossoverjie.guava.CacheLoaderTest - job running times=10</span><br><span class="line">2018-07-15 20:41:10.461 [main] INFO  c.crossoverjie.guava.CacheLoaderTest - 删除原因=EXPIRED，删除 key=1000,删除 value=1</span><br><span class="line">2018-07-15 20:41:10.462 [main] INFO  c.crossoverjie.guava.CacheLoaderTest - 当前缓存值=0,缓存大小=1</span><br><span class="line">2018-07-15 20:41:10.462 [main] INFO  c.crossoverjie.guava.CacheLoaderTest - 缓存的所有内容=&#123;1000=0&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看出当缓存被删除的时候会回调我们自定义的函数，并告知删除原因。</p>
+<p>那么 Guava 是如何实现的呢？</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2e5d3a34.jpg"></p>
+<p>根据 LocalCache 中的 <code>getLiveValue()</code> 中判断缓存过期时，跟着这里的调用关系就会一直跟到：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2e71f98f.jpg"></p>
+<p><code>removeValueFromChain()</code> 中的：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2e809482.jpg"></p>
+<p><code>enqueueNotification()</code> 方法会将回收的缓存（包含了 key，value）以及回收原因包装成之前定义的事件接口加入到一个<strong>本地队列</strong>中。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2e8e1800.jpg"></p>
+<p>这样一看也没有回调我们初始化时候的事件啊。</p>
+<p>不过用过队列的同学应该能猜出，既然这里写入队列，那就肯定就有消费。</p>
+<p>我们回到获取缓存的地方：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2eba7159.jpg"></p>
+<p>在 finally 中执行了 <code>postReadCleanup()</code> 方法；其实在这里面就是对刚才的队列进行了消费：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2f1e162f.jpg"></p>
+<p>一直跟进来就会发现这里消费了队列，将之前包装好的移除消息调用了我们自定义的事件，这样就完成了一次事件回调。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>以上所有源码：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/Java-Interview/blob/master/src/main/java/com/crossoverjie/guava/callback/Main.java">https://github.com/crossoverJie/Java-Interview/blob/master/src/main/java/com/crossoverjie/guava/callback/Main.java</a></p>
+<p>通过分析 Guava 的源码可以让我们学习到顶级的设计及实现方式，甚至自己也能尝试编写。</p>
+<p>Guava 里还有很多强大的增强实现，值得我们再好好研究。</p>
+<h2 id="号外"><a href="#号外" class="headerlink" title="号外"></a>号外</h2><p>最近在总结一些 Java 相关的知识点，感兴趣的朋友可以一起维护。</p>
+<blockquote>
+<p>地址: <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/Java-Interview">https://github.com/crossoverJie/Java-Interview</a></p>
+</blockquote>
+<p><strong>欢迎关注公众号一起交流：</strong></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2018/07/16/guava/guava-cache-2/" title="Guava 源码分析（Cache 原理【二阶段】）">http://crossoverjie.top/2018/07/16/guava/guava-cache-2/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Cache/" rel="tag"><i class="fa fa-tag"></i> Cache</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/07/08/java-senior/JVM-Troubleshoot/" rel="prev" title="一次线上问题排查所引发的思考">
+                  <i class="fa fa-chevron-left"></i> 一次线上问题排查所引发的思考
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/07/23/java-senior/ConcurrentHashMap/" rel="next" title="HashMap? ConcurrentHashMap? 相信看完这篇没人能难住你！">
+                  HashMap? ConcurrentHashMap? 相信看完这篇没人能难住你！ <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

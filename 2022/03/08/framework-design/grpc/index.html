@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="介绍我猜测大部分长期使用 Java 的开发者应该较少会接触 gRPC，毕竟在 Java 圈子里大部分使用的还是 Dubbo&#x2F;SpringClound 这两类服务框架。 我也是近段时间有机会从零开始重构业务才接触到 gRPC 的，当时选择 gRPC 时也有几个原因：   基于云原生的思路开发部署项目，而在云原生中 gRPC 几乎已经是标准的通讯协议了。 开发语言选择了 Go，在 Go 圈子中 gR">
+<meta property="og:type" content="article">
+<meta property="og:title" content="5分钟学会 gRPC">
+<meta property="og:url" content="http://crossoverjie.top/2022/03/08/framework-design/grpc/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="介绍我猜测大部分长期使用 Java 的开发者应该较少会接触 gRPC，毕竟在 Java 圈子里大部分使用的还是 Dubbo&#x2F;SpringClound 这两类服务框架。 我也是近段时间有机会从零开始重构业务才接触到 gRPC 的，当时选择 gRPC 时也有几个原因：   基于云原生的思路开发部署项目，而在云原生中 gRPC 几乎已经是标准的通讯协议了。 开发语言选择了 Go，在 Go 圈子中 gR">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/EvoDe9JNqPLHwdF.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/XCYkMxjpUgvZE5L.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/r6w2Yvi9dkPqKEW.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/vAahTlgs54Pem7c.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/wWJQ7Rv5BnqPrjo.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/cxF2Xlj4BuWOEbz.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/jz2CwFvfR6iuTMt.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/zqTm3bgysJcMEeZ.gif">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/rkSeCNVEzJ26sMd.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/lZzfH8yq3MGwKa9.gif">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/Le2OdbBN1DGScg6.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/Lxy7dhbD8ewlpUf.gif">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/Gt2sRplIADyvTHg.jpg">
+<meta property="article:published_time" content="2022-03-08T00:12:16.000Z">
+<meta property="article:modified_time" content="2022-03-13T10:44:15.907Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="gRPC">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2022/03/13/EvoDe9JNqPLHwdF.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2022/03/08/framework-design/grpc/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2022/03/08/framework-design/grpc/","path":"2022/03/08/framework-design/grpc/","title":"5分钟学会 gRPC"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>5分钟学会 gRPC | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BB%8B%E7%BB%8D"><span class="nav-number">1.</span> <span class="nav-text">介绍</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#HTTP-x2F-2"><span class="nav-number">2.</span> <span class="nav-text">HTTP&#x2F;2</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Protocol"><span class="nav-number">3.</span> <span class="nav-text">Protocol</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%B0%83%E7%94%A8"><span class="nav-number">4.</span> <span class="nav-text">调用</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Server-stream"><span class="nav-number">4.1.</span> <span class="nav-text">Server stream</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Client-Stream"><span class="nav-number">4.2.</span> <span class="nav-text">Client Stream</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Bidirectional-Stream"><span class="nav-number">4.3.</span> <span class="nav-text">Bidirectional Stream</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%83%E6%95%B0%E6%8D%AE"><span class="nav-number">4.4.</span> <span class="nav-text">元数据</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#gRPC-gateway"><span class="nav-number">4.5.</span> <span class="nav-text">gRPC gateway</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%8D%E5%B0%84%E8%B0%83%E7%94%A8"><span class="nav-number">4.6.</span> <span class="nav-text">反射调用</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1"><span class="nav-number">5.</span> <span class="nav-text">负载均衡</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2022/03/08/framework-design/grpc/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="5分钟学会 gRPC | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          5分钟学会 gRPC
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2022-03-08 08:12:16" itemprop="dateCreated datePublished" datetime="2022-03-08T08:12:16+08:00">2022-03-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2022-03-13 18:44:15" itemprop="dateModified" datetime="2022-03-13T18:44:15+08:00">2022-03-13</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/framework/" itemprop="url" rel="index"><span itemprop="name">framework</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2022/03/08/framework-design/grpc/" class="post-meta-item leancloud_visitors" data-flag-title="5分钟学会 gRPC" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2022/03/08/framework-design/grpc/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2022/03/08/framework-design/grpc/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://s2.loli.net/2022/03/13/EvoDe9JNqPLHwdF.jpg"></p>
+<h1 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h1><p>我猜测大部分长期使用 <code>Java</code> 的开发者应该较少会接触 <code>gRPC</code>，毕竟在 <code>Java</code> 圈子里大部分使用的还是 <code>Dubbo/SpringClound</code> 这两类服务框架。</p>
+<p>我也是近段时间有机会从零开始重构业务才接触到 <code>gRPC</code> 的，当时选择 <code>gRPC</code> 时也有几个原因：</p>
+<p><img src="https://s2.loli.net/2022/03/13/XCYkMxjpUgvZE5L.jpg"></p>
+<ul>
+<li>基于云原生的思路开发部署项目，而在云原生中 <code>gRPC</code> 几乎已经是标准的通讯协议了。</li>
+<li>开发语言选择了 Go，在 Go 圈子中 <code>gRPC</code> 显然是更好的选择。</li>
+<li>公司内部有部分业务使用的是 <code>Python</code> 开发，在多语言兼容性上 <code>gRPC</code> 支持的非常好。</li>
+</ul>
+<span id="more"></span>
+
+<p>经过线上一年多的平稳运行，可以看出 <code>gRPC</code> 还是非常稳定高效的；rpc 框架中最核心的几个要点：</p>
+<ul>
+<li>序列化</li>
+<li>通信协议</li>
+<li>IDL（接口描述语言）</li>
+</ul>
+<p>这些在 <code>gRPC</code> 中分别对应的是：</p>
+<ul>
+<li>基于 <code>Protocol Buffer</code> 序列化协议，性能高效。</li>
+<li>基于 <code>HTTP/2</code> 标准协议开发，自带 <code>stream</code>、多路复用等特性；同时由于是标准协议，第三方工具的兼容性会更好（比如负载均衡、监控等）</li>
+<li>编写一份 <code>.proto</code> 接口文件，便可生成常用语言代码。</li>
+</ul>
+<h1 id="HTTP-x2F-2"><a href="#HTTP-x2F-2" class="headerlink" title="HTTP&#x2F;2"></a>HTTP&#x2F;2</h1><p>学习 <code>gRPC</code> 之前首先得知道它是通过什么协议通信的，我们日常不管是开发还是应用基本上接触到最多的还是 <code>HTTP/1.1</code> 协议。</p>
+<p><img src="https://s2.loli.net/2022/03/13/r6w2Yvi9dkPqKEW.jpg"></p>
+<p>由于 <code>HTTP/1.1</code> 是一个文本协议，对人类非常友好，相反的对机器性能就比较低。</p>
+<p>需要反复对文本进行解析，效率自然就低了；要对机器更友好就得采用二进制，<code>HTTP/2</code> 自然做到了。</p>
+<p>除此之外还有其他优点：</p>
+<ul>
+<li>多路复用：可以并行的收发消息，互不影响</li>
+<li><code>HPACK</code> 节省 <code>header</code> 空间，避免 <code>HTTP1.1</code> 对相同的 <code>header</code> 反复发送。</li>
+</ul>
+<h1 id="Protocol"><a href="#Protocol" class="headerlink" title="Protocol"></a>Protocol</h1><p><code>gRPC</code> 采用的是 <code>Protocol</code> 序列化，发布时间比 <code>gRPC</code> 早一些，所以也不仅只用于 <code>gRPC</code>，任何需要序列化 IO 操作的场景都可以使用它。</p>
+<p>它会更加的省空间、高性能；之前在开发 <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/cim/blob/master/protocol/BaseRequestProto.proto">https://github.com/crossoverJie/cim</a> 时就使用它来做数据交互。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">package order.v1;</span><br><span class="line"></span><br><span class="line">service OrderService&#123;</span><br><span class="line"></span><br><span class="line">  rpc Create(OrderApiCreate) returns (Order) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc Close(CloseApiCreate) returns (Order) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  // 服务端推送</span><br><span class="line">  rpc ServerStream(OrderApiCreate) returns (stream Order) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  // 客户端推送</span><br><span class="line">  rpc ClientStream(stream OrderApiCreate) returns (Order) &#123;&#125;</span><br><span class="line">  </span><br><span class="line">  // 双向推送</span><br><span class="line">  rpc BdStream(stream OrderApiCreate) returns (stream Order) &#123;&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">message OrderApiCreate&#123;</span><br><span class="line">  int64 order_id = 1;</span><br><span class="line">  repeated int64 user_id = 2;</span><br><span class="line">  string remark = 3;</span><br><span class="line">  repeated int32 reason_id = 4;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用起来也是非常简单的，只需要定义自己的 <code>.proto</code> 文件，便可用命令行工具生成对应语言的 SDK。</p>
+<p>具体可以参考官方文档：<br><a target="_blank" rel="noopener" href="https://grpc.io/docs/languages/go/generated-code/">https://grpc.io/docs/languages/go/generated-code/</a></p>
+<h1 id="调用"><a href="#调用" class="headerlink" title="调用"></a>调用</h1><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">protoc --go_out=. --go_opt=paths=source_relative \</span><br><span class="line">   --go-grpc_out=. --go-grpc_opt=paths=source_relative \</span><br><span class="line">   test.proto</span><br></pre></td></tr></table></figure>
+<p><img src="https://s2.loli.net/2022/03/13/vAahTlgs54Pem7c.jpg"><br>生成代码之后编写服务端就非常简单了，只需要实现生成的接口即可。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *Order)</span></span> Create(ctx context.Context, in *v1.OrderApiCreate) (*v1.Order, <span class="type">error</span>) &#123;</span><br><span class="line">	<span class="comment">// 获取 metadata</span></span><br><span class="line">	md, ok := metadata.FromIncomingContext(ctx)</span><br><span class="line">	<span class="keyword">if</span> !ok &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span>, status.Errorf(codes.DataLoss, <span class="string">&quot;failed to get metadata&quot;</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	fmt.Println(md)</span><br><span class="line">	fmt.Println(in.OrderId)</span><br><span class="line">	<span class="keyword">return</span> &amp;v1.Order&#123;</span><br><span class="line">		OrderId: in.OrderId,</span><br><span class="line">		Reason:  <span class="literal">nil</span>,</span><br><span class="line">	&#125;, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://s2.loli.net/2022/03/13/wWJQ7Rv5BnqPrjo.jpg"></p>
+<p>客户端也非常简单，只需要依赖服务端代码，创建一个 <code>connection</code> 然后就和调用本地方法一样了。</p>
+<p>这是经典的 <code>unary</code>(一元)调用，类似于 http 的请求响应模式，一个请求对应一次响应。</p>
+<p><img src="https://s2.loli.net/2022/03/13/cxF2Xlj4BuWOEbz.jpg"></p>
+<h2 id="Server-stream"><a href="#Server-stream" class="headerlink" title="Server stream"></a>Server stream</h2><p><code>gRPC</code> 除了常规的 <code>unary</code> 调用之外还支持服务端推送，在一些特定场景下还是很有用的。</p>
+<p><img src="https://s2.loli.net/2022/03/13/jz2CwFvfR6iuTMt.jpg"> </p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *Order)</span></span> ServerStream(in *v1.OrderApiCreate, rs v1.OrderService_ServerStreamServer) <span class="type">error</span> &#123;</span><br><span class="line">	<span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">5</span>; i++ &#123;</span><br><span class="line">		rs.Send(&amp;v1.Order&#123;</span><br><span class="line">			OrderId: in.OrderId,</span><br><span class="line">			Reason:  <span class="literal">nil</span>,</span><br><span class="line">		&#125;)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>服务端的推送如上所示，调用 <code>Send</code> 函数便可向客户端推送。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> &#123;</span><br><span class="line">	msg, err := rpc.RecvMsg()</span><br><span class="line">	<span class="keyword">if</span> err == io.EOF &#123;</span><br><span class="line">		marshalIndent, _ := json.MarshalIndent(msgs, <span class="string">&quot;&quot;</span>, <span class="string">&quot;\t&quot;</span>)</span><br><span class="line">		fmt.Println(msg)</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>客户端则通过一个循环判断当前接收到的数据包是否已经截止来获取服务端消息。</p>
+<p>为了能更直观的展示这个过程，优化了之前开发的一个 <code>gRPC</code> <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/ptg">客户端</a>，可以直观的调试 <code>stream</code> 调用。</p>
+<p><img src="https://s2.loli.net/2022/03/13/zqTm3bgysJcMEeZ.gif"></p>
+<blockquote>
+<p>上图便是一个服务端推送示例。</p>
+</blockquote>
+<h2 id="Client-Stream"><a href="#Client-Stream" class="headerlink" title="Client Stream"></a>Client Stream</h2><p><img src="https://s2.loli.net/2022/03/13/rkSeCNVEzJ26sMd.jpg"></p>
+<p>除了支持服务端推送之外，客户端也支持。</p>
+<blockquote>
+<p>客户端在同一个连接中一直向服务端发送数据，服务端可以并行处理消息。</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// 服务端代码</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *Order)</span></span> ClientStream(rs v1.OrderService_ClientStreamServer) <span class="type">error</span> &#123;</span><br><span class="line">	<span class="keyword">var</span> value []<span class="type">int64</span></span><br><span class="line">	<span class="keyword">for</span> &#123;</span><br><span class="line">		recv, err := rs.Recv()</span><br><span class="line">		<span class="keyword">if</span> err == io.EOF &#123;</span><br><span class="line">			rs.SendAndClose(&amp;v1.Order&#123;</span><br><span class="line">				OrderId: <span class="number">100</span>,</span><br><span class="line">				Reason:  <span class="literal">nil</span>,</span><br><span class="line">			&#125;)</span><br><span class="line">			log.Println(value)</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">		&#125;</span><br><span class="line">		value = <span class="built_in">append</span>(value, recv.OrderId)</span><br><span class="line">		log.Printf(<span class="string">&quot;ClientStream receiv msg %v&quot;</span>, recv.OrderId)</span><br><span class="line">	&#125;</span><br><span class="line">	log.Println(<span class="string">&quot;ClientStream finish&quot;</span>)</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 客户端代码</span></span><br><span class="line">	<span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">5</span>; i++ &#123;</span><br><span class="line">		messages, _ := GetMsg(data)</span><br><span class="line">		rpc.SendMsg(messages[<span class="number">0</span>])</span><br><span class="line">	&#125;</span><br><span class="line">	receive, err := rpc.CloseAndReceive()</span><br></pre></td></tr></table></figure>
+
+<p>代码与服务端推送类似，只是角色互换了。</p>
+<p><img src="https://s2.loli.net/2022/03/13/lZzfH8yq3MGwKa9.gif"></p>
+<h2 id="Bidirectional-Stream"><a href="#Bidirectional-Stream" class="headerlink" title="Bidirectional Stream"></a>Bidirectional Stream</h2><p><img src="https://s2.loli.net/2022/03/13/Le2OdbBN1DGScg6.jpg"></p>
+<p>同理，当客户端、服务端同时都在发送消息也是支持的。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 服务端</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *Order)</span></span> BdStream(rs v1.OrderService_BdStreamServer) <span class="type">error</span> &#123;</span><br><span class="line">	<span class="keyword">var</span> value []<span class="type">int64</span></span><br><span class="line">	<span class="keyword">for</span> &#123;</span><br><span class="line">		recv, err := rs.Recv()</span><br><span class="line">		<span class="keyword">if</span> err == io.EOF &#123;</span><br><span class="line">			log.Println(value)</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="built_in">panic</span>(err)</span><br><span class="line">		&#125;</span><br><span class="line">		value = <span class="built_in">append</span>(value, recv.OrderId)</span><br><span class="line">		log.Printf(<span class="string">&quot;BdStream receiv msg %v&quot;</span>, recv.OrderId)</span><br><span class="line">		rs.SendMsg(&amp;v1.Order&#123;</span><br><span class="line">			OrderId: recv.OrderId,</span><br><span class="line">			Reason:  <span class="literal">nil</span>,</span><br><span class="line">		&#125;)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 客户端</span></span><br><span class="line">	<span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">5</span>; i++ &#123;</span><br><span class="line">		messages, _ := GetMsg(data)</span><br><span class="line">		<span class="comment">// 发送消息</span></span><br><span class="line">		rpc.SendMsg(messages[<span class="number">0</span>])</span><br><span class="line">		<span class="comment">// 接收消息</span></span><br><span class="line">		receive, _ := rpc.RecvMsg()</span><br><span class="line">		marshalIndent, _ := json.MarshalIndent(receive, <span class="string">&quot;&quot;</span>, <span class="string">&quot;\t&quot;</span>)</span><br><span class="line">		fmt.Println(<span class="type">string</span>(marshalIndent))</span><br><span class="line">	&#125;</span><br><span class="line">	rpc.CloseSend()</span><br></pre></td></tr></table></figure>
+
+<p>其实就是将上诉两则合二为一。</p>
+<p><img src="https://s2.loli.net/2022/03/13/Lxy7dhbD8ewlpUf.gif"></p>
+<p>通过调用示例很容易理解。</p>
+<h2 id="元数据"><a href="#元数据" class="headerlink" title="元数据"></a>元数据</h2><p><code>gRPC</code> 也支持元数据传输，类似于 <code>HTTP</code> 中的 <code>header</code>。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 客户端写入</span></span><br><span class="line">metaStr := <span class="string">`&#123;&quot;lang&quot;:&quot;zh&quot;&#125;`</span></span><br><span class="line"><span class="keyword">var</span> m <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">string</span></span><br><span class="line">err := json.Unmarshal([]<span class="type">byte</span>(metaStr), &amp;m)</span><br><span class="line">md := metadata.New(m)</span><br><span class="line"><span class="comment">// 调用时将 ctx 传入即可</span></span><br><span class="line">ctx := metadata.NewOutgoingContext(context.Background(), md)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 服务端接收</span></span><br><span class="line">md, ok := metadata.FromIncomingContext(ctx)</span><br><span class="line"><span class="keyword">if</span> !ok &#123;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span>, status.Errorf(codes.DataLoss, <span class="string">&quot;failed to get metadata&quot;</span>)</span><br><span class="line">&#125;</span><br><span class="line">fmt.Println(md)	</span><br></pre></td></tr></table></figure>
+
+<h2 id="gRPC-gateway"><a href="#gRPC-gateway" class="headerlink" title="gRPC gateway"></a>gRPC gateway</h2><p><code>gRPC</code> 虽然功能强大使用也很简单，但对于浏览器、APP的支持还是不如 REST 应用广泛（浏览器也支持，但应用非常少）。</p>
+<p>为此社区便创建了 <a target="_blank" rel="noopener" href="https://github.com/grpc-ecosystem/grpc-gateway">https://github.com/grpc-ecosystem/grpc-gateway</a> 项目，可以将 gRPC 服务暴露为 RESTFUL API。</p>
+<p><img src="https://s2.loli.net/2022/03/13/Gt2sRplIADyvTHg.jpg"></p>
+<blockquote>
+<p>为了让测试可以习惯用 postman 进行接口测试，我们也将 gRPC 服务代理出去，更方便的进行测试。</p>
+</blockquote>
+<h2 id="反射调用"><a href="#反射调用" class="headerlink" title="反射调用"></a>反射调用</h2><p>作为一个 rpc 框架，泛化调用也是必须支持的，可以方便开发配套工具；gRPC 是通过反射支持的，通过拿到服务名称、pb 文件进行反射调用。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/jhump/protoreflect">https://github.com/jhump/protoreflect</a> 这个库封装了常见的反射操作。</p>
+<p>上图中看到的可视化 <code>stream</code> 调用也是通过这个库实现的。</p>
+<h1 id="负载均衡"><a href="#负载均衡" class="headerlink" title="负载均衡"></a>负载均衡</h1><p>由于 <code>gRPC</code> 是基于 <code>HTTP/2</code> 实现的，客户端和服务端会保持长连接；这时做负载均衡就不像是 <code>HTTP</code> 那样简单了。</p>
+<p>而我们使用 <code>gRPC</code> 想达到效果和 HTTP 是一样的，需要对请求进行负载均衡而不是连接。</p>
+<p>通常有两种做法：</p>
+<ul>
+<li>客户端负载均衡</li>
+<li>服务端负载均衡</li>
+</ul>
+<p>客户端负载均衡在 <code>rpc</code> 调用中应用广泛，比如 <code>Dubbo</code> 就是使用的客户端负载均衡。</p>
+<p><code>gRPC</code> 中也提供有相关接口，具体可以参考官方demo。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/grpc/grpc-go/blob/87eb5b7502/examples/features/load_balancing/README.md">https://github.com/grpc/grpc-go/blob/87eb5b7502/examples/features/load_balancing&#x2F;README.md</a></p>
+<p>客户端负载均衡相对来说对开发者更灵活（可以自定义适合自己的策略），但相对的也需要自己维护这块逻辑，如果有多种语言那就得维护多份。</p>
+<p>所以在云原生这个大基调下，更推荐使用服务端负载均衡。</p>
+<p>可选方案有：</p>
+<ul>
+<li>istio</li>
+<li>envoy</li>
+<li>apix</li>
+</ul>
+<p>这块我们也在研究，大概率会使用 <code>envoy/istio</code>。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>gRPC</code> 内容还是非常多的，本文只是作为一份入门资料希望能让不了解 <code>gRPC</code> 的能有一个基本认识；这在云原生时代确实是一门必备技能。</p>
+<blockquote>
+<p>对文中的 gRPC 客户端感兴趣的朋友，可以参考这里的源码：<br><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/ptg">https://github.com/crossoverJie/ptg</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2022/03/08/framework-design/grpc/" title="5分钟学会 gRPC">http://crossoverjie.top/2022/03/08/framework-design/grpc/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Go/" rel="tag"><i class="fa fa-tag"></i> Go</a>
+              <a href="/tags/gRPC/" rel="tag"><i class="fa fa-tag"></i> gRPC</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2022/02/07/translation/new-developer-friendly-features-after-java-8/" rel="prev" title="【译】Java8 之后对新开发者非常友好的特性盘点">
+                  <i class="fa fa-chevron-left"></i> 【译】Java8 之后对新开发者非常友好的特性盘点
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2022/03/18/troubleshoot/pulsar-repeat-consume/" rel="next" title="Pulsar 重复消费?">
+                  Pulsar 重复消费? <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

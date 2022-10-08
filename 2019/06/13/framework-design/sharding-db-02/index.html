@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前言本篇是上一篇《一次分表踩坑实践的探讨》，所以还没看过的朋友建议先看上文。 还是先来简单回顾下上次提到了哪些内容：  分表策略：哈希、时间归档等。 分表字段的选择。 数据迁移方案。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分表后需要注意的二三事">
+<meta property="og:url" content="http://crossoverjie.top/2019/06/13/framework-design/sharding-db-02/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言本篇是上一篇《一次分表踩坑实践的探讨》，所以还没看过的朋友建议先看上文。 还是先来简单回顾下上次提到了哪些内容：  分表策略：哈希、时间归档等。 分表字段的选择。 数据迁移方案。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/06/13/5d012e6a6fd7729354.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/13/5d0126128f1e678414.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/13/5d012612de57f13422.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/13/5d01261336daf24547.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/13/5d01261380d6599845.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/13/5d012613da28015150.jpg">
+<meta property="article:published_time" content="2019-06-13T00:10:00.000Z">
+<meta property="article:modified_time" content="2019-06-12T16:55:42.814Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="db">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2019/06/13/5d012e6a6fd7729354.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2019/06/13/framework-design/sharding-db-02/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2019/06/13/framework-design/sharding-db-02/","path":"2019/06/13/framework-design/sharding-db-02/","title":"分表后需要注意的二三事"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>分表后需要注意的二三事 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E9%97%AE%E9%A2%98%E4%BA%A7%E7%94%9F"><span class="nav-number">2.</span> <span class="nav-text">问题产生</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E5%BA%93%E8%B4%9F%E8%BD%BD%E5%8D%87%E9%AB%98"><span class="nav-number">2.1.</span> <span class="nav-text">数据库负载升高</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%BC%E5%AE%B9%E6%96%B9%E6%A1%88"><span class="nav-number">3.</span> <span class="nav-text">兼容方案</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%96%B0%E5%A2%9E"><span class="nav-number">3.1.</span> <span class="nav-text">新增</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%A0%E9%99%A4"><span class="nav-number">3.2.</span> <span class="nav-text">删除</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BF%AE%E6%94%B9"><span class="nav-number">3.3.</span> <span class="nav-text">修改</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9F%A5%E8%AF%A2"><span class="nav-number">3.4.</span> <span class="nav-text">查询</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2019/06/13/framework-design/sharding-db-02/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="分表后需要注意的二三事 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          分表后需要注意的二三事
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2019-06-13 08:10:00 / Modified: 00:55:42" itemprop="dateCreated datePublished" datetime="2019-06-13T08:10:00+08:00">2019-06-13</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%9E%B6%E6%9E%84/" itemprop="url" rel="index"><span itemprop="name">架构</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2019/06/13/framework-design/sharding-db-02/" class="post-meta-item leancloud_visitors" data-flag-title="分表后需要注意的二三事" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2019/06/13/framework-design/sharding-db-02/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2019/06/13/framework-design/sharding-db-02/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2019/06/13/5d012e6a6fd7729354.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>本篇是上一篇<a href="https://crossoverjie.top/2019/04/16/framework-design/sharding-db/">《一次分表踩坑实践的探讨》</a>，所以还没看过的朋友建议先看上文。</p>
+<p>还是先来简单回顾下上次提到了哪些内容：</p>
+<ul>
+<li>分表策略：哈希、时间归档等。</li>
+<li>分表字段的选择。</li>
+<li>数据迁移方案。</li>
+</ul>
+<span id="more"></span>
+
+<p>而本篇文章的背景是在我们上线这段时间遇到的一些问题并尝试解决的方案。</p>
+<h1 id="问题产生"><a href="#问题产生" class="headerlink" title="问题产生"></a>问题产生</h1><p>之前提到在分表应用上线前我们需要将原有表的数据迁移到新表中，这样才能保证业务不受影响。</p>
+<p><img src="https://i.loli.net/2019/06/13/5d0126128f1e678414.jpg"></p>
+<p>所以我们单独写了一个迁移应用，它负责将大表中的数据迁移到 64 张分表，而再迁移过程中产生的数据毕竟是少数，最后在上线当晚再次迁移过去即可。</p>
+<p>一切想的很美好，当这个应用上线后却发现没这么简单。</p>
+<h2 id="数据库负载升高"><a href="#数据库负载升高" class="headerlink" title="数据库负载升高"></a>数据库负载升高</h2><p>首先第一个问题是数据库自己就顶不住了，在我们上这个迁移程序之前数据库的压力本身就比较大，这个应用一上去就成了最后一根稻草。</p>
+<p>最后导致的结果是：所有连接了数据库的程序大部分的操作都出现超时，获取不到数据库连接等一系列的异常。</p>
+<p>最后没办法我们只能把这个应用放到凌晨执行，但其实后面观察发现依然不行。</p>
+<p>虽说凌晨的业务量下降，但依然有少部分的请求过来，也会出现各种数据库异常。</p>
+<p>再一个是迁移程序的效率也非常低下，按照这样是速度，我们预估了一下迁移时间，大约需要 10 几天才能把三张最大的表（3、4亿的数据）迁移到分表中。</p>
+<p>于是我们换了一个方案，将这个迁移程序在从库中运行，最后再用运维的方法将分表直接导入进主库。</p>
+<p>因为从库的压力要比主库小很多，对业务的影响很小，同时迁移的效率也要快很多。</p>
+<p>即便是这样也花了一晚上+一个白天的时间才将一张 1亿的数据迁移完成，但是业务上的压力越来越大，数据量再不断新增，这个效率依然不够。</p>
+<h1 id="兼容方案"><a href="#兼容方案" class="headerlink" title="兼容方案"></a>兼容方案</h1><p>最终没办法只有想一个不迁移数据的方案，但是新产生的数据还是往分表里写，至少保证大表的数据不再新增。</p>
+<p>但这样对于以前的数据咋办呢？总不能不让看了吧。</p>
+<p>其实对于数据的操作无非就分为<code>增删改查</code>，就这四种操作来看看如何兼容。</p>
+<h2 id="新增"><a href="#新增" class="headerlink" title="新增"></a>新增</h2><p><img src="https://i.loli.net/2019/06/13/5d012612de57f13422.jpg"></p>
+<p>新增最简单，所有的数据根据分表规则直接写入新表，这样可以保证老表的数据不再新增。</p>
+<h2 id="删除"><a href="#删除" class="headerlink" title="删除"></a>删除</h2><p>删除就要比新增稍微复杂一些，比如用户想要删除他个人产生的一条信息（比如说是订单数据），有可能这个数据在新表也可能在老表。</p>
+<p><img src="https://i.loli.net/2019/06/13/5d01261336daf24547.jpg"></p>
+<p>所以删除时优先删除新表（毕竟新产生的数据访问的频次越高），如果删除失败再从老表删除一次。</p>
+<h2 id="修改"><a href="#修改" class="headerlink" title="修改"></a>修改</h2><p><img src="https://i.loli.net/2019/06/13/5d01261380d6599845.jpg"></p>
+<p>而修改同理，同样的会不确定数据存在于哪里，所以先要修改新表，失败后再次修改老表。</p>
+<h2 id="查询"><a href="#查询" class="headerlink" title="查询"></a>查询</h2><p>查询相对就要复杂一些了，因为这些大表的数据大部分都是存放一个用户产生的多条记录（比如一个用户的订单信息）。</p>
+<p>这时在页面上通常都会有分页，并且按照时间进行排序。</p>
+<p>麻烦的地方就出在这里：既然是要分页那就有可能出现要查询一部分分表数据和原来的大表数据做组合。</p>
+<p>所以这里的查询其实分为三种情况。</p>
+<p><img src="https://i.loli.net/2019/06/13/5d012613da28015150.jpg"></p>
+<ul>
+<li>首先查询的时候要计算这个用户所在分表中的数据可以分为几页。</li>
+<li>第一步首先判断当前页是否可以在分表中全部获取，如果可以则直接从分表中取出数据返回（假设分页中总共可以查询 2 页数据，当前为第 1 页，那就全部取分表数据）。</li>
+<li>如果不可以就要判断当前页数在分表中是否取不到任何一条数据，如果是则直接取老表数据（比如现在要取第 5 页的数据，分表中一共才只有 2 页数据，所以第 5 页数据只能全部从老表中获取）。</li>
+<li>但如果分表和老表都存在一部分数据时，则需要同时取两张表然后做一个汇总再返回。</li>
+</ul>
+<p><strong>这种逻辑只适用于根据分表字段进行查询分页的前提下</strong></p>
+<hr>
+<p>我想肯定会有朋友提出这样是否会有性能问题？</p>
+<p>同时如果在计算分表分页数量时出现并发写入的情况，导致分页数量不准从而对后续的查询出现影响该怎么处理？</p>
+<p>首先第一个性能问题：</p>
+<p>其实这个要看怎么取舍，为了这样的兼容目的其实会比常规查询多出几个步骤：</p>
+<ul>
+<li>判断当前页是否可以在分表中查询。</li>
+<li>当新老表中都有数据时候需要额外多查询一张大表。</li>
+</ul>
+<p>第一个判断逻辑其实是在内存中计算，这个损耗我觉得完全可以忽略不计。</p>
+<p>至于第二步确实会有损耗，毕竟多查了一张表。</p>
+<p>但在分表之前所有的数据都是从老表中获取的，当时的业务也没有出现问题；现在多的只是查询分表而已，但分表的数据量肯定要比大表小的多，而且有索引，所以这个效率也不会慢多少。</p>
+<p>而且根据局部性原理及用户的使用习惯来看，老表中的数据很少会去查询，随着时间的推移所有的数据肯定都会从分表中获取，逐渐老表就会成为历史表。</p>
+<p>而第二个并发带来的问题我觉得影响也不大，一定要这个分页准的前提肯定得是加锁了，但为了这样一个不痒的小问题却带来性能的下降，我觉得是不划算的。</p>
+<p>而且后续我们也可以慢慢的将老表的数据迁移到新表，这样就可以完全去掉这个兼容逻辑了，所有的数据都从分表中获取。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>还是之前那句话，这里的各种操作、方法不适合所有人，毕竟脱离场景都是耍牛氓。</p>
+<p>比如分表搞的早，业务上允许一定的时间将数据迁移到分表那就不会有这次的兼容处理。</p>
+<p>甚至一开始业务规划合理、团队架构师看的长远，一来就将关键数据分表存储那根本就不会有数据迁移这个流程（大厂有经验的团队可能，小公司小作坊都得靠自己摸索）。</p>
+<p>这段期间也被数据库折腾惨了，数据库是最后一根稻草果然也不是瞎说的。</p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2019/06/13/framework-design/sharding-db-02/" title="分表后需要注意的二三事">http://crossoverjie.top/2019/06/13/framework-design/sharding-db-02/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/db/" rel="tag"><i class="fa fa-tag"></i> db</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2019/06/06/concurrent/threadpool-02/" rel="prev" title="线程池没你想的那么简单（续）">
+                  <i class="fa fa-chevron-left"></i> 线程池没你想的那么简单（续）
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2019/06/18/troubleshoot/cpu-percent-100-02/" rel="next" title="又一次生产 CPU 高负载排查实践">
+                  又一次生产 CPU 高负载排查实践 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

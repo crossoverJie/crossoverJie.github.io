@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="背景事情（事故）是这样的，突然收到报警，线上某个应用里业务逻辑没有执行，导致的结果是数据库里的某些数据没有更新。 虽然是前人写的代码，但作为 Bug maker&amp;killer 只能咬着牙上了。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一个线程罢工的诡异事件">
+<meta property="og:url" content="http://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景事情（事故）是这样的，突然收到报警，线上某个应用里业务逻辑没有执行，导致的结果是数据库里的某些数据没有更新。 虽然是前人写的代码，但作为 Bug maker&amp;killer 只能咬着牙上了。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/04/29/5cc656743cc4f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1be99551d0.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1be9a3cd7f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1be9c9d525.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bea23336f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bea2971ea.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bea331666.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bea3dd8de.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bea429f43.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1beaa83375.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1beab1d59c.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1beac3a696.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1beb4cde74.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1beb58e9f7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1beb65d907.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bebd51313.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bebe2496b.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bebf2cded.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bec02c9a8.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bec0c4ffe.jpg">
+<meta property="article:published_time" content="2019-03-12T00:15:36.000Z">
+<meta property="article:modified_time" content="2019-05-07T17:22:56.909Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Thread">
+<meta property="article:tag" content="concurrent">
+<meta property="article:tag" content="disruptor">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2019/04/29/5cc656743cc4f.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/","path":"2019/03/12/troubleshoot/thread-gone/","title":"一个线程罢工的诡异事件"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>一个线程罢工的诡异事件 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%B0%9D%E8%AF%95%E5%AE%9A%E4%BD%8D"><span class="nav-number">2.</span> <span class="nav-text">尝试定位</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#review-%E4%BB%A3%E7%A0%81"><span class="nav-number">2.1.</span> <span class="nav-text">review 代码</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9C%AC%E5%9C%B0%E6%A8%A1%E6%8B%9F"><span class="nav-number">3.</span> <span class="nav-text">本地模拟</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%A3%E5%86%B3%E9%97%AE%E9%A2%98"><span class="nav-number">3.1.</span> <span class="nav-text">解决问题</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-number">4.</span> <span class="nav-text">源码分析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BA%BF%E7%A8%8B%E5%90%8D%E5%AD%97%E7%9A%84%E5%8F%98%E5%8C%96"><span class="nav-number">4.1.</span> <span class="nav-text">线程名字的变化</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="一个线程罢工的诡异事件 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          一个线程罢工的诡异事件
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-03-12 08:15:36" itemprop="dateCreated datePublished" datetime="2019-03-12T08:15:36+08:00">2019-03-12</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2019-05-08 01:22:56" itemprop="dateModified" datetime="2019-05-08T01:22:56+08:00">2019-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/" itemprop="url" rel="index"><span itemprop="name">问题排查</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/Java-%E8%BF%9B%E9%98%B6/" itemprop="url" rel="index"><span itemprop="name">Java 进阶</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2019/03/12/troubleshoot/thread-gone/" class="post-meta-item leancloud_visitors" data-flag-title="一个线程罢工的诡异事件" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2019/03/12/troubleshoot/thread-gone/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2019/03/12/troubleshoot/thread-gone/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2019/04/29/5cc656743cc4f.jpg"></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>事情（事故）是这样的，突然收到报警，线上某个应用里业务逻辑没有执行，导致的结果是数据库里的某些数据没有更新。</p>
+<p>虽然是前人写的代码，但作为 <code>Bug maker&amp;killer</code> 只能咬着牙上了。</p>
+<span id="more"></span>
+
+<p>因为之前没有接触过出问题这块的逻辑，所以简单理了下如图：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1be99551d0.jpg"></p>
+<ol>
+<li>有一个生产线程一直源源不断的往队列写数据。</li>
+<li>消费线程也一直不停的取出数据后写入后续的业务线程池。</li>
+<li>业务线程池里的线程会对每个任务进行入库操作。</li>
+</ol>
+<p>整个过程还是比较清晰的，就是一个典型的生产者消费者模型。</p>
+<h1 id="尝试定位"><a href="#尝试定位" class="headerlink" title="尝试定位"></a>尝试定位</h1><p>接下来便是尝试定位这个问题，首先例行检查了以下几项：</p>
+<ul>
+<li>是否内存有内存溢出？</li>
+<li>应用 GC 是否有异常？</li>
+</ul>
+<p>通过日志以及监控发现以上两项都是正常的。</p>
+<p>紧接着便 dump 了线程快照查看业务线程池中的线程都在干啥。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1be9a3cd7f.jpg"></p>
+<p>结果发现所有业务线程池都处于 <code>waiting</code> 状态，队列也是空的。</p>
+<p>同时生产者使用的队列却已经满了，没有任何消费迹象。</p>
+<p>结合上面的流程图不难发现应该是消费队列的 <code>Consumer</code> 出问题了，导致上游的队列不能消费，下有的业务线程池没事可做。</p>
+<h2 id="review-代码"><a href="#review-代码" class="headerlink" title="review 代码"></a>review 代码</h2><p>于是查看了消费代码的业务逻辑，同时也发现消费线程是一个<strong>单线程</strong>。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1be9c9d525.jpg"></p>
+<p>结合之前的线程快照，我发现这个消费线程也是处于 waiting 状态，和后面的业务线程池一模一样。</p>
+<p>他做的事情基本上就是对消息解析，之后丢到后面的业务线程池中，没有发现什么特别的地方。</p>
+<blockquote>
+<p>但是由于里面的分支特别多（switch case），看着有点头疼；所以我与写这个业务代码的同学沟通后他告诉我确实也只是入口处解析了一下数据，后续所有的业务逻辑都是丢到线程池中处理的，于是我便带着这个前提去排查了（埋下了伏笔）。</p>
+</blockquote>
+<p>因为这里消费的队列其实是一个 <code>disruptor</code> 队列；它和我们常用的 <code>BlockQueue</code> 不太一样，不是由开发者自定义一个消费逻辑进行处理的；而是在初始化队列时直接丢一个线程池进去，它会在内部使用这个线程池进行消费，同时回调一个方法，在这个方法里我们写自己的消费逻辑。</p>
+<p>所以对于开发者而言，这个消费逻辑其实是一个黑盒。</p>
+<p>于是在我反复 <code>review</code> 了消费代码中的数据解析逻辑发现不太可能出现问题后，便开始疯狂怀疑是不是 <code>disruptor</code> 自身的问题导致这个消费线程罢工了。</p>
+<p>再翻了一阵 <code>disruptor</code> 的源码后依旧没发现什么问题后我咨询对 <code>disruptor</code> 较熟的@咖啡拿铁，在他的帮助下在本地模拟出来和生产一样的情况。</p>
+<h1 id="本地模拟"><a href="#本地模拟" class="headerlink" title="本地模拟"></a>本地模拟</h1><p><img src="https://i.loli.net/2019/05/08/5cd1bea23336f.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1bea2971ea.jpg"></p>
+<p>本地也是创建了一个单线程的线程池，分别执行了两个任务。</p>
+<ul>
+<li>第一个任务没啥好说的，就是简单的打印。</li>
+<li>第二个任务会对一个数进行累加，加到 10 之后就抛出一个未捕获的异常。</li>
+</ul>
+<p>接着我们来运行一下。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bea331666.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1bea3dd8de.jpg"></p>
+<p>发现当任务中抛出一个没有捕获的异常时，线程池中的线程就会处于 <code>waiting</code> 状态，同时所有的堆栈都和生产相符。</p>
+<blockquote>
+<p>细心的朋友会发现正常运行的线程名称和异常后处于 waiting 状态的线程名称是不一样的，这个后续分析。</p>
+</blockquote>
+<h2 id="解决问题"><a href="#解决问题" class="headerlink" title="解决问题"></a>解决问题</h2><p><img src="https://i.loli.net/2019/05/08/5cd1bea429f43.jpg"></p>
+<p>当加入异常捕获后又如何呢？</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1beaa83375.jpg"></p>
+<p>程序肯定会正常运行。</p>
+<blockquote>
+<p>同时会发现所有的任务都是由一个线程完成的。</p>
+</blockquote>
+<p>虽说就是加了一行代码，但我们还是要搞清楚这里面的门门道道。</p>
+<h1 id="源码分析"><a href="#源码分析" class="headerlink" title="源码分析"></a>源码分析</h1><p>于是只有直接 <code>debug</code> 线程池的源码最快了；</p>
+<hr>
+<p><img src="https://i.loli.net/2019/05/08/5cd1beab1d59c.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1beac3a696.jpg"></p>
+<p>通过刚才的异常堆栈我们进入到 <code>ThreadPoolExecutor.java:1142</code> 处。</p>
+<ul>
+<li>发现线程池已经帮我们做了异常捕获，但依然会往上抛。</li>
+<li>在 <code>finally</code> 块中会执行 <code>processWorkerExit(w, completedAbruptly)</code> 方法。</li>
+</ul>
+<p><img src="https://i.loli.net/2019/05/08/5cd1beb4cde74.jpg"></p>
+<p>看过之前<a href="https://crossoverjie.top/2018/07/29/java-senior/ThreadPool/">《如何优雅的使用和理解线程池》</a>的朋友应该还会有印象。</p>
+<p>线程池中的任务都会被包装为一个内部 <code>Worker</code> 对象执行。</p>
+<p><code>processWorkerExit</code> 可以简单的理解为是把当前运行的线程销毁（<code>workers.remove(w)</code>）、同时新增（<code>addWorker()</code>）一个 <code>Worker</code> 对象接着处理；</p>
+<blockquote>
+<p>就像是哪个零件坏掉后重新换了一个新的接着工作，但是旧零件负责的任务就没有了。</p>
+</blockquote>
+<p>接下来看看 <code>addWorker()</code> 做了什么事情：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1beb58e9f7.jpg"></p>
+<p>只看这次比较关心的部分；添加成功后会直接执行他的 <code>start()</code> 的方法。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1beb65d907.jpg"></p>
+<p>由于 <code>Worker</code> 实现了 <code>Runnable</code> 接口，所以本质上就是调用了 <code>runWorker()</code> 方法。</p>
+<hr>
+<p>在 <code>runWorker()</code> 其实就是上文 <code>ThreadPoolExecutor</code> 抛出异常时的那个方法。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bebd51313.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1bebe2496b.jpg"></p>
+<p>它会从队列里一直不停的获取待执行的任务，也就是 <code>getTask()</code>；在 <code>getTask</code> 也能看出它会一直从内置的队列取出任务。</p>
+<p>而一旦队列是空的，它就会 <code>waiting</code> 在 <code>workQueue.take()</code>，也就是我们从堆栈中发现的 1067 行代码。</p>
+<h2 id="线程名字的变化"><a href="#线程名字的变化" class="headerlink" title="线程名字的变化"></a>线程名字的变化</h2><p><img src="https://i.loli.net/2019/05/08/5cd1bebf2cded.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1bec02c9a8.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1bec0c4ffe.jpg"></p>
+<p>上文还提到了异常后的线程名称发生了改变，其实在 <code>addWorker()</code> 方法中可以看到 <code>new Worker()</code>时就会重新命名线程的名称，默认就是把后缀的计数+1。</p>
+<p>这样一切都能解释得通了，真相只有一个：</p>
+<blockquote>
+<p>在单个线程的线程池中一但抛出了未被捕获的异常时，线程池会回收当前的线程并创建一个新的 <code>Worker</code>；<br>它也会一直不断的从队列里获取任务来执行，但由于这是一个消费线程，根本没有生产者往里边丢任务，所以它会一直 waiting 在从队列里获取任务处，所以也就造成了线上的队列没有消费，业务线程池没有执行的问题。</p>
+</blockquote>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>所以之后线上的那个问题加上异常捕获之后也变得正常了，但我还是有点纳闷的是：</p>
+<blockquote>
+<p>既然后续所有的任务都是在线程池中执行的，也就是纯异步了，那即便是出现异常也不会抛到消费线程中啊。</p>
+</blockquote>
+<p>这不是把我之前储备的知识点推翻了嘛？不信邪！之后我让运维给了加上异常捕获后的线上错误日志。</p>
+<p>结果发现在上文提到的众多 <code>switch case</code> 中，最后一个竟然是直接操作的数据库，导致一个非空字段报错了🤬！！</p>
+<p>这事也给我个教训，还是得眼见为实啊。</p>
+<p>虽然这个问题改动很小解决了，但复盘整个过程还是有许多需要改进的：</p>
+<ol>
+<li>消费队列的线程名称竟然和业务线程的前缀一样，导致我光找它就花了许多时间，命名必须得调整。</li>
+<li>开发规范，防御式编程大家需要养成习惯。</li>
+<li>未知的技术栈需要谨慎，比如 <code>disruptor</code>，之前的团队应该只是看了个高性能的介绍就直接使用，并没有深究其原理；导致出现问题后对它拿不准。</li>
+</ol>
+<p>实例代码：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/thread/ThreadExceptionTest.java">https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/thread/ThreadExceptionTest.java</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/" title="一个线程罢工的诡异事件">http://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Java/" rel="tag"><i class="fa fa-tag"></i> Java</a>
+              <a href="/tags/Thread/" rel="tag"><i class="fa fa-tag"></i> Thread</a>
+              <a href="/tags/concurrent/" rel="tag"><i class="fa fa-tag"></i> concurrent</a>
+              <a href="/tags/disruptor/" rel="tag"><i class="fa fa-tag"></i> disruptor</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2019/03/01/algorithm/consistent-hash/" rel="prev" title="一致性 Hash 算法的实际应用">
+                  <i class="fa fa-chevron-left"></i> 一致性 Hash 算法的实际应用
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2019/03/21/vlog/Chinese-coder-weekends-01/" rel="next" title="VLOG-006:一个程序员的周末（上）">
+                  VLOG-006:一个程序员的周末（上） <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

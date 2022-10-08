@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="背景最近在做分布式相关的工作，由于人手不够只能我一个人来怼；看着这段时间的加班表想想就是够惨的。 不过其中也有遇到的不少有意思的事情今后再拿来分享，今天重点来讨论服务的注册与发现。 分布式带来的问题我的业务比较简单，只是需要知道现在有哪些服务实例可供使用就可以了（并不是做远程调用，只需要拿到信息即可）。 要实现这一功能最简单的方式可以在应用中配置所有的服务节点，这样每次在使用时只需要通过某种算法">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分布式(一) 搞定服务注册与发现">
+<meta property="og:url" content="http://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景最近在做分布式相关的工作，由于人手不够只能我一个人来怼；看着这段时间的加班表想想就是够惨的。 不过其中也有遇到的不少有意思的事情今后再拿来分享，今天重点来讨论服务的注册与发现。 分布式带来的问题我的业务比较简单，只是需要知道现在有哪些服务实例可供使用就可以了（并不是做远程调用，只需要拿到信息即可）。 要实现这一功能最简单的方式可以在应用中配置所有的服务节点，这样每次在使用时只需要通过某种算法">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22474b79.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22a0ab9f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22aa8afa.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22b37597.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22ba62d5.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22d1fd47.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22ed3d2f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2353b899.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d235d30ea.jpg">
+<meta property="og:image" content="https://i.loli.net//2019//05//08//5cd1dc84306df.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2b5b15fd.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2b66b2b2.jpg">
+<meta property="og:image" content="https://i.loli.net//2019//05//08//5cd1dd090d37e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4faa9cfc.jpg">
+<meta property="og:image" content="https://i.loli.net//2019//05//08//5cd1dd8cc097a.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d52ed5080.jpg">
+<meta property="article:published_time" content="2018-08-26T16:10:36.000Z">
+<meta property="article:modified_time" content="2019-05-07T19:35:27.291Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="SpringBoot">
+<meta property="article:tag" content="Zookeeper">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1d22474b79.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/","path":"2018/08/27/distributed/distributed-discovery-zk/","title":"分布式(一) 搞定服务注册与发现"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>分布式(一) 搞定服务注册与发现 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%86%E5%B8%83%E5%BC%8F%E5%B8%A6%E6%9D%A5%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-number">2.</span> <span class="nav-text">分布式带来的问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Zookeeper-%E8%83%BD%E5%81%9A%E4%BB%80%E4%B9%88"><span class="nav-number">3.</span> <span class="nav-text">Zookeeper 能做什么</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%88%E6%9E%9C%E6%BC%94%E7%A4%BA"><span class="nav-number">4.</span> <span class="nav-text">效果演示</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%96%E7%A0%81%E5%AE%9E%E7%8E%B0"><span class="nav-number">5.</span> <span class="nav-text">编码实现</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B3%A8%E5%86%8C"><span class="nav-number">5.1.</span> <span class="nav-text">注册</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%B9%E6%8D%AE%E6%9C%AC%E5%9C%B0%E7%BC%93%E5%AD%98"><span class="nav-number">5.2.</span> <span class="nav-text">根据本地缓存</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%B4%9F%E8%BD%BD"><span class="nav-number">5.3.</span> <span class="nav-text">客户端负载</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Zookeeper-%E5%85%B6%E4%BB%96%E4%BC%98%E5%8A%BF%E5%8F%8A%E9%97%AE%E9%A2%98"><span class="nav-number">6.</span> <span class="nav-text">Zookeeper 其他优势及问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="分布式(一) 搞定服务注册与发现 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          分布式(一) 搞定服务注册与发现
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-08-27 00:10:36" itemprop="dateCreated datePublished" datetime="2018-08-27T00:10:36+08:00">2018-08-27</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2019-05-08 03:35:27" itemprop="dateModified" datetime="2019-05-08T03:35:27+08:00">2019-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Distributed/" itemprop="url" rel="index"><span itemprop="name">Distributed</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2018/08/27/distributed/distributed-discovery-zk/" class="post-meta-item leancloud_visitors" data-flag-title="分布式(一) 搞定服务注册与发现" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2018/08/27/distributed/distributed-discovery-zk/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/08/27/distributed/distributed-discovery-zk/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2019/05/08/5cd1d22474b79.jpg"></p>
+<h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>最近在做分布式相关的工作，由于人手不够只能我一个人来怼；看着这段时间的加班表想想就是够惨的。</p>
+<p>不过其中也有遇到的不少有意思的事情今后再拿来分享，今天重点来讨论服务的<strong>注册与发现</strong>。</p>
+<h2 id="分布式带来的问题"><a href="#分布式带来的问题" class="headerlink" title="分布式带来的问题"></a>分布式带来的问题</h2><p>我的业务比较简单，只是需要知道现在有哪些服务实例可供使用就可以了（并不是做远程调用，只需要拿到信息即可）。</p>
+<p>要实现这一功能最简单的方式可以在应用中配置所有的服务节点，这样每次在使用时只需要通过某种算法从配置列表中选择一个就可以了。</p>
+<p>但这样会有一个非常严重的问题：</p>
+<p>由于应用需要根据应用负载情况来灵活的调整服务节点的数量，这样我的配置就不能写死。</p>
+<p>不然就会出现要么新增的节点没有访问或者是已经 down 掉的节点却有请求，这样肯定是不行的。</p>
+<p>往往要解决这类分布式问题都需要一个公共的区域来保存这些信息，比如是否可以利用 Redis？</p>
+<p>每个节点启动之后都向 Redis 注册信息，关闭时也删除数据。</p>
+<p>其实就是存放节点的 <code>ip + port</code>，然后在需要知道服务节点信息时候只需要去 Redis 中获取即可。</p>
+<span id="more"></span>
+
+<p>如下图所示：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22a0ab9f.jpg"></p>
+<p>但这样会导致每次使用时都需要频繁的去查询 Redis，为了避免这个问题我们可以在每次查询之后在本地缓存一份最新的数据。这样优先从本地获取确实可以提高效率。</p>
+<p>但同样又会出现新的问题，如果服务提供者的节点新增或者删除消费者这边根本就不知道情况。</p>
+<p>要解决这个问题最先想到的应该就是利用定时任务定期去更新服务列表。</p>
+<p>以上的方案肯定不完美，并且不优雅。主要有以下几点：</p>
+<ul>
+<li>基于定时任务会导致很多无效的更新。</li>
+<li>定时任务存在周期性，没法做到实时，这样就可能存在请求异常。</li>
+<li>如果服务被强行 kill，没法及时清除 Redis，这样这个看似可用的服务将永远不可用！</li>
+</ul>
+<p>所以我们需要一个更加靠谱的解决方案，这样的场景其实和 Dubbo 非常类似。</p>
+<p>用过的同学肯定对这张图不陌生。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22aa8afa.jpg"></p>
+<blockquote>
+<p>引用自 Dubbo <a target="_blank" rel="noopener" href="https://dubbo.incubator.apache.org/en-us/">官网</a></p>
+</blockquote>
+<p>其中有一块非常核心的内容（红框出）就是服务的注册与发现。</p>
+<p>通常来说消费者是需要知道服务提供者的网络地址(ip + port)才能发起远程调用，这块内容和我上面的需求其实非常类似。</p>
+<p>而 Dubbo 则是利用 Zookeeper 来解决问题。</p>
+<h2 id="Zookeeper-能做什么"><a href="#Zookeeper-能做什么" class="headerlink" title="Zookeeper 能做什么"></a>Zookeeper 能做什么</h2><p>在具体讨论怎么实现之前先看看 Zookeeper 的几个重要特性。</p>
+<p>Zookeeper 实现了一个类似于文件系统的树状结构：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22b37597.jpg"></p>
+<p>这些节点被称为 znode(名字叫什么不重要)，其中每个节点都可以存放一定的数据。</p>
+<p>最主要的是 znode 有四种类型：</p>
+<ul>
+<li>永久节点（除非手动删除，节点永远存在）</li>
+<li>永久有序节点（按照创建顺序会为每个节点末尾带上一个序号如：<code>root-1</code>）</li>
+<li>瞬时节点（创建客户端与 Zookeeper 保持连接时节点存在，断开时则删除并会有相应的通知）</li>
+<li>瞬时有序节点（在瞬时节点的基础上加上了顺序）</li>
+</ul>
+<p>考虑下上文使用 Redis 最大的一个问题是什么？</p>
+<p>其实就是不能实时的更新服务提供者的信息。</p>
+<p>那利用 Zookeeper 是怎么实现的？</p>
+<p>主要看第三个特性：<strong>瞬时节点</strong></p>
+<p>Zookeeper 是一个典型的观察者模式。</p>
+<ul>
+<li>由于瞬时节点的特点，我们的消费者可以订阅瞬时节点的父节点。</li>
+<li>当新增、删除节点时所有的瞬时节点也会自动更新。</li>
+<li>更新时会给订阅者发起通知告诉最新的节点信息。</li>
+</ul>
+<p>这样我们就可以实时获取服务节点的信息，同时也只需要在第一次获取列表时缓存到本地；也不需要频繁和 Zookeeper 产生交互，只用等待通知更新即可。</p>
+<p>并且不管应用什么原因节点 down 掉后也会在 Zookeeper 中删除该信息。</p>
+<h2 id="效果演示"><a href="#效果演示" class="headerlink" title="效果演示"></a>效果演示</h2><p>这样实现方式就变为这样。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22ba62d5.jpg"></p>
+<p>为此我新建了一个应用来进行演示：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/netty-action/tree/master/netty-action-zk">https://github.com/crossoverJie/netty-action/tree/master/netty-action-zk</a></p>
+<p>就是一个简单的 SpringBoot 应用，只是做了几件事情。</p>
+<ul>
+<li>应用启动时新开一个线程用于向 Zookeeper 注册服务。</li>
+<li>同时监听一个节点用于更新本地服务列表。</li>
+<li>提供一个接口用于返回一个可有的服务节点。</li>
+</ul>
+<p>我在本地启动了两个应用分别是：<code>127.0.0.1:8083,127.0.0.1:8084</code>。来看看效果图。</p>
+<p>两个应用启动完成：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22d1fd47.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22ed3d2f.jpg"></p>
+<hr>
+<p>当前 Zookeeper 的可视化树状结构：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2353b899.jpg"></p>
+<hr>
+<p>当想知道所有的服务节点信息时：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d235d30ea.jpg"></p>
+<hr>
+<p>想要获取一个可用的服务节点时：</p>
+<p><img src="https://i.loli.net//2019//05//08//5cd1dc84306df.jpg"></p>
+<p>这里只是采取了简单的轮询。</p>
+<hr>
+<p>当 down 掉一个节点时：应用会收到通知更新本地缓存。同时 Zookeeper 中的节点会自动删除。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2b5b15fd.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2b66b2b2.jpg"></p>
+<hr>
+<p>再次获取最新节点时：</p>
+<p><img src="https://i.loli.net//2019//05//08//5cd1dd090d37e.jpg"></p>
+<hr>
+<p>当节点恢复时自然也能获取到最新信息。本地缓存也会及时更新。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4faa9cfc.jpg"></p>
+<p><img src="https://i.loli.net//2019//05//08//5cd1dd8cc097a.jpg"></p>
+<h2 id="编码实现"><a href="#编码实现" class="headerlink" title="编码实现"></a>编码实现</h2><p>实现起来倒也比较简单，主要就是 ZKClient 的 api 使用。</p>
+<p>贴几段比较核心的吧。</p>
+<h3 id="注册"><a href="#注册" class="headerlink" title="注册"></a>注册</h3><blockquote>
+<p>启动注册 Zookeeper。</p>
+</blockquote>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d52ed5080.jpg"></p>
+<p>主要逻辑都在这个线程中。</p>
+<ul>
+<li>首先创建父节点。如上图的 Zookeeper 节点所示；需要先创建 <code>/route</code> 根节点，创建的时候会判断是否已经存在。</li>
+<li>接着需要判断是否需要将自己注册到 Zookeeper 中，因为有些节点只是用于服务发现，他自身是不需要承担业务功能（是我自己项目的需求）。</li>
+<li>将当前应用的所在 ip 以及端口注册上去，同时需要监听根节点 <code>/route</code> ，这样才能在其他服务上下线时候获得通知。</li>
+</ul>
+<h3 id="根据本地缓存"><a href="#根据本地缓存" class="headerlink" title="根据本地缓存"></a>根据本地缓存</h3><blockquote>
+<p>监听到服务变化</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">subscribeEvent</span><span class="params">(String path)</span> &#123;</span><br><span class="line">    zkClient.subscribeChildChanges(path, <span class="keyword">new</span> <span class="title class_">IZkChildListener</span>() &#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">handleChildChange</span><span class="params">(String parentPath, List&lt;String&gt; currentChilds)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">            logger.info(<span class="string">&quot;清除/更新本地缓存 parentPath=【&#123;&#125;】,currentChilds=【&#123;&#125;】&quot;</span>, parentPath,currentChilds.toString());</span><br><span class="line"></span><br><span class="line">            <span class="comment">//更新所有缓存/先删除 再新增</span></span><br><span class="line">            serverCache.updateCache(currentChilds) ;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到这里是更新了本地缓存，该缓存采用了 Guava 提供的 Cache，感兴趣的可以查看之前的<a href="https://crossoverjie.top/categories/Guava/">源码分析</a>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 更新所有缓存/先删除 再新增</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@param</span> currentChilds</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">updateCache</span><span class="params">(List&lt;String&gt; currentChilds)</span> &#123;</span><br><span class="line">    cache.invalidateAll();</span><br><span class="line">    <span class="keyword">for</span> (String currentChild : currentChilds) &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">key</span> <span class="operator">=</span> currentChild.split(<span class="string">&quot;-&quot;</span>)[<span class="number">1</span>];</span><br><span class="line">        addCache(key);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="客户端负载"><a href="#客户端负载" class="headerlink" title="客户端负载"></a>客户端负载</h3><blockquote>
+<p>同时在客户端提供了一个负载算法。</p>
+</blockquote>
+<p>其实就是一个轮询的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 选取服务器</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> String <span class="title function_">selectServer</span><span class="params">()</span> &#123;</span><br><span class="line">    List&lt;String&gt; all = getAll();</span><br><span class="line">    <span class="keyword">if</span> (all.size() == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;路由列表为空&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="type">Long</span> <span class="variable">position</span> <span class="operator">=</span> index.incrementAndGet() % all.size();</span><br><span class="line">    <span class="keyword">if</span> (position &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        position = <span class="number">0L</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> all.get(position.intValue());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>当然这里可以扩展出更多的如权重、随机、<a href="https://crossoverjie.top/%2F2018%2F04%2F07%2Falgorithm%2FLRU-cache%2F">LRU</a> 等算法。</p>
+<h2 id="Zookeeper-其他优势及问题"><a href="#Zookeeper-其他优势及问题" class="headerlink" title="Zookeeper 其他优势及问题"></a>Zookeeper 其他优势及问题</h2><p>Zookeeper 自然是一个很棒的分布式协调工具，利用它的特性还可以有其他作用。</p>
+<ul>
+<li>数据变更发送通知这一特性可以实现统一配置中心，再也不需要在每个服务中单独维护配置。</li>
+<li>利用瞬时有序节点还可以实现分布式锁。</li>
+</ul>
+<p>在实现注册、发现这一需求时，Zookeeper 其实并不是最优选。</p>
+<p>由于 Zookeeper 在 CAP 理论中选择了 CP（一致性、分区容错性），当 Zookeeper 集群有半数节点不可用时是不能获取到任何数据的。</p>
+<p>对于一致性来说自然没啥问题，但在注册、发现的场景下更加推荐 <code>Eureka</code>，已经在 SpringCloud 中得到验证。具体就不在本文讨论了。</p>
+<p>但鉴于我的使用场景来说 Zookeeper 已经能够胜任。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本文所有完整代码都托管在 GitHub。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/netty-action">https://github.com/crossoverJie/netty-action</a>。</p>
+<p>一个看似简单的注册、发现功能实现了，但分布式应用远远不止这些。</p>
+<p>由于网络隔离之后带来的一系列问题还需要我们用其他方式一一完善；后续会继续更新分布式相关内容，感兴趣的朋友不妨持续关注。</p>
+<p><strong>你的点赞与转发是最大的支持。</strong></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/" title="分布式(一) 搞定服务注册与发现">http://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/SpringBoot/" rel="tag"><i class="fa fa-tag"></i> SpringBoot</a>
+              <a href="/tags/Zookeeper/" rel="tag"><i class="fa fa-tag"></i> Zookeeper</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/08/21/skill/resume/" rel="prev" title="什么样的简历不会被丢进回收站">
+                  <i class="fa fa-chevron-left"></i> 什么样的简历不会被丢进回收站
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/08/29/java-senior/OOM-Disruptor/" rel="next" title="强如 Disruptor 也发生内存溢出？">
+                  强如 Disruptor 也发生内存溢出？ <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

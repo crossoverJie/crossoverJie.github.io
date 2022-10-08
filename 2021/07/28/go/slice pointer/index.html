@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前言作为一个 Go 语言新手，看到一切”诡异“的代码都会感到好奇；比如我最近看到的几个方法；伪代码如下： 1234567891011func FindA() ([]*T,error) &amp;#123;&amp;#125;func FindB() ([]T,error) &amp;#123;&amp;#125;func SaveA(data *[]T) error &amp;#123;&amp;#125;func SaveB(data *[">
+<meta property="og:type" content="article">
+<meta property="og:title" content="切片 slice 原理分析">
+<meta property="og:url" content="http://crossoverjie.top/2021/07/28/go/slice%20pointer/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言作为一个 Go 语言新手，看到一切”诡异“的代码都会感到好奇；比如我最近看到的几个方法；伪代码如下： 1234567891011func FindA() ([]*T,error) &amp;#123;&amp;#125;func FindB() ([]T,error) &amp;#123;&amp;#125;func SaveA(data *[]T) error &amp;#123;&amp;#125;func SaveB(data *[">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2021/09/05/5oSTgOQHaIL6KdY.jpg">
+<meta property="og:image" content="https://i.loli.net/2021/09/05/6odYQRwDSm4rNxa.jpg">
+<meta property="og:image" content="https://i.loli.net/2021/09/05/od62x5UpqahBQOX.jpg">
+<meta property="og:image" content="https://i.loli.net/2021/09/05/T9FQXJlChyM3sm1.jpg">
+<meta property="og:image" content="https://i.loli.net/2021/09/05/E3Yezc5GRWnoraI.jpg">
+<meta property="og:image" content="https://i.loli.net/2021/09/05/FTxiQ6HOLkaWJ4v.jpg">
+<meta property="og:image" content="https://i.loli.net/2021/09/05/ONairsIRJSX2PQH.jpg">
+<meta property="article:published_time" content="2021-07-28T00:12:16.000Z">
+<meta property="article:modified_time" content="2021-09-05T12:43:48.725Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="切片">
+<meta property="article:tag" content="数组">
+<meta property="article:tag" content="slice">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2021/09/05/5oSTgOQHaIL6KdY.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2021/07/28/go/slice%20pointer/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2021/07/28/go/slice%20pointer/","path":"2021/07/28/go/slice pointer/","title":"切片 slice 原理分析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>切片 slice 原理分析 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">66</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">161</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">152</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%A4%BA%E4%BE%8B"><span class="nav-number">2.</span> <span class="nav-text">示例</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#slice-%E5%8E%9F%E7%90%86"><span class="nav-number">3.</span> <span class="nav-text">slice 原理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%8C%E4%B8%80%E4%B8%AA%E5%BA%95%E5%B1%82%E6%95%B0%E7%BB%84"><span class="nav-number">3.1.</span> <span class="nav-text">同一个底层数组</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%80%BC%E4%BC%A0%E9%80%92%E5%B8%A6%E6%9D%A5%E7%9A%84%E8%AF%AF%E4%BC%9A"><span class="nav-number">3.2.</span> <span class="nav-text">值传递带来的误会</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%87%E7%89%87%E6%89%A9%E5%AE%B9"><span class="nav-number">3.3.</span> <span class="nav-text">切片扩容</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BC%A0%E9%80%92%E5%88%87%E7%89%87%E6%8C%87%E9%92%88"><span class="nav-number">3.4.</span> <span class="nav-text">传递切片指针</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">161</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">66</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">152</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2021/07/28/go/slice%20pointer/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="切片 slice 原理分析 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          切片 slice 原理分析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2021-07-28 08:12:16" itemprop="dateCreated datePublished" datetime="2021-07-28T08:12:16+08:00">2021-07-28</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2021-09-05 20:43:48" itemprop="dateModified" datetime="2021-09-05T20:43:48+08:00">2021-09-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Go/" itemprop="url" rel="index"><span itemprop="name">Go</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2021/07/28/go/slice%20pointer/" class="post-meta-item leancloud_visitors" data-flag-title="切片 slice 原理分析" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2021/07/28/go/slice%20pointer/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2021/07/28/go/slice pointer/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2021/09/05/5oSTgOQHaIL6KdY.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>作为一个 Go 语言新手，看到一切”诡异“的代码都会感到好奇；比如我最近看到的几个方法；伪代码如下：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">FindA</span><span class="params">()</span></span> ([]*T,<span class="type">error</span>) &#123;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">FindB</span><span class="params">()</span></span> ([]T,<span class="type">error</span>) &#123;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">SaveA</span><span class="params">(data *[]T)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">SaveB</span><span class="params">(data *[]*T)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<span id="more"></span>
+
+<p>相信大部分刚入门 <code>Go</code> 的新手看到这样的代码也是一脸懵逼，其中最让人疑惑的就是：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[]*T</span><br><span class="line">*[]T</span><br><span class="line">*[]*T</span><br></pre></td></tr></table></figure>
+<p>这样对切片的声明，先不看后面两种写法；单独看 <code>[]*T</code> 还是很好理解的：<br>该切片中存放的是所有 T 的内存地址，会比存放 T 本身来说要更省空间，同时 <code>[]*T</code> 在方法内部是可以修改 T 的值，而<code>[]T</code> 是修改不了。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestSaveSlice</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">	a := []T&#123;&#123;Name: <span class="string">&quot;1&quot;</span>&#125;, &#123;Name: <span class="string">&quot;2&quot;</span>&#125;&#125;</span><br><span class="line">	<span class="keyword">for</span> _, t2 := <span class="keyword">range</span> a &#123;</span><br><span class="line">		fmt.Println(t2)</span><br><span class="line">	&#125;</span><br><span class="line">	_ = SaveB(a)</span><br><span class="line">	<span class="keyword">for</span> _, t2 := <span class="keyword">range</span> a &#123;</span><br><span class="line">		fmt.Println(t2)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">SaveB</span><span class="params">(data []T)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">	t := data[<span class="number">0</span>]</span><br><span class="line">	t.Name = <span class="string">&quot;1233&quot;</span></span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> T <span class="keyword">struct</span> &#123;</span><br><span class="line">	Name <span class="type">string</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>比如以上例子打印的是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&#123;1&#125;</span><br><span class="line">&#123;2&#125;</span><br><span class="line">&#123;1&#125;</span><br><span class="line">&#123;2&#125;</span><br></pre></td></tr></table></figure>
+<p>只有将方法修改为</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">SaveB</span><span class="params">(data []*T)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">	t := data[<span class="number">0</span>]</span><br><span class="line">	t.Name = <span class="string">&quot;1233&quot;</span></span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>才能修改 T 的值:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&amp;&#123;1&#125;</span><br><span class="line">&amp;&#123;2&#125;</span><br><span class="line">&amp;&#123;1233&#125;</span><br><span class="line">&amp;&#123;2&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="示例"><a href="#示例" class="headerlink" title="示例"></a>示例</h1><p>下面重点来看看 <code>[]*T</code> 与 <code>*[]T</code> 的区别，这里写了两个 <code>append</code> 函数：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestAppendA</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">	x:=[]<span class="type">int</span>&#123;<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>&#125;</span><br><span class="line">	appendA(x)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;main %v\n&quot;</span>, x)</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">appendA</span><span class="params">(x []<span class="type">int</span>)</span></span> &#123;</span><br><span class="line">	x[<span class="number">0</span>]= <span class="number">100</span></span><br><span class="line">	fmt.Printf(<span class="string">&quot;appendA %v\n&quot;</span>, x)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>先看第一种，输出是结果是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">appendA [1000 2 3]</span><br><span class="line">main [1000 2 3]</span><br></pre></td></tr></table></figure>
+<p>说明在函数传递过程中，函数内部的修改能够影响到外部。</p>
+<hr>
+<p>下面我们再看一个例子：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">appendB</span><span class="params">(x []<span class="type">int</span>)</span></span> &#123;</span><br><span class="line">	x = <span class="built_in">append</span>(x, <span class="number">4</span>)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;appendA %v\n&quot;</span>, x)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>最终结果却是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">appendA [1 2 3 4]</span><br><span class="line">main [1 2 3]</span><br></pre></td></tr></table></figure>
+<p>没有影响到外部。</p>
+<p>而当我们再调整一下会发现又有所不同：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestAppendC</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">	x:=[]<span class="type">int</span>&#123;<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>&#125;</span><br><span class="line">	appendC(&amp;x)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;main %v\n&quot;</span>, x)</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">appendC</span><span class="params">(x *[]<span class="type">int</span>)</span></span> &#123;</span><br><span class="line">	*x = <span class="built_in">append</span>(*x, <span class="number">4</span>)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;appendA %v\n&quot;</span>, x)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>最终的结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">appendA &amp;[1 2 3 4]</span><br><span class="line">main [1 2 3 4]</span><br></pre></td></tr></table></figure>
+
+<p>可以发现如果传递切片的指针时，使用 <code>append</code> 函数追加数据时会影响到外部。</p>
+<h1 id="slice-原理"><a href="#slice-原理" class="headerlink" title="slice 原理"></a>slice 原理</h1><p>在分析上面三种情况之前，我们先来了解下 <code>slice</code> 的数据结构。</p>
+<p>直接查看源码会发现 slice 其实就是一个结构体，只是不能直接对外访问。</p>
+<p><img src="https://i.loli.net/2021/09/05/6odYQRwDSm4rNxa.jpg"></p>
+<blockquote>
+<p>源码地址 <code>runtime/slice.go</code></p>
+</blockquote>
+<p>其中有三个重要的属性：</p>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>array</td>
+<td>底层存放数据的数组，是一个指针。</td>
+</tr>
+<tr>
+<td>len</td>
+<td>切片长度</td>
+</tr>
+<tr>
+<td>cap</td>
+<td>切片容量 <code>cap&gt;=len</code></td>
+</tr>
+</tbody></table>
+<p>提到切片就不得不想到数组，可以这么理解：</p>
+<blockquote>
+<p>切片是对数组的抽象，而数组则是切片的底层实现。</p>
+</blockquote>
+<p>其实通过切片这个名字也不难看出，它就是从数组中切了一部分；相对于数组的固定大小，切片可以根据实际使用情况进行扩容。</p>
+<p>所以切片也可以通过对数组”切一刀”获得：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">x1:=[<span class="number">6</span>]<span class="type">int</span>&#123;<span class="number">0</span>,<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>,<span class="number">5</span>&#125;</span><br><span class="line">x2 := x[<span class="number">1</span>:<span class="number">4</span>]</span><br><span class="line">fmt.Println(<span class="built_in">len</span>(x2), <span class="built_in">cap</span>(x2))</span><br></pre></td></tr></table></figure>
+<p><img src="https://i.loli.net/2021/09/05/od62x5UpqahBQOX.jpg"></p>
+<p>其中 <code>x1</code> 的长度与容量都是6。</p>
+<p><code>x2</code> 的长度与容量则为3和5。</p>
+<ul>
+<li>x2 的长度很容易理解。</li>
+<li>容量等于5可以理解为，当前这个切片最多可以使用的长度。</li>
+</ul>
+<p>因为切片 x2 是对数组 x1 的引用，所以底层数组排除掉左边一个没有被引用的位置则是该切片最大的容量，也就是5。</p>
+<h2 id="同一个底层数组"><a href="#同一个底层数组" class="headerlink" title="同一个底层数组"></a>同一个底层数组</h2><p>以刚才的代码为例：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestAppendA</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">	x:=[]<span class="type">int</span>&#123;<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>&#125;</span><br><span class="line">	appendA(x)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;main %v\n&quot;</span>, x)</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">appendA</span><span class="params">(x []<span class="type">int</span>)</span></span> &#123;</span><br><span class="line">	x[<span class="number">0</span>]= <span class="number">100</span></span><br><span class="line">	fmt.Printf(<span class="string">&quot;appendA %v\n&quot;</span>, x)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://i.loli.net/2021/09/05/T9FQXJlChyM3sm1.jpg"></p>
+<p>在函数传递过程中，<code>main</code> 中的 x 与 <code>appendA</code> 函数中的 x 切片所引用的是同个数组。</p>
+<p>所以在函数中对 <code>x[0]=100</code>，<code>main</code>函数中也能获取到。</p>
+<p><img src="https://i.loli.net/2021/09/05/E3Yezc5GRWnoraI.jpg"></p>
+<p>本质上修改的就是同一块内存数据。</p>
+<h2 id="值传递带来的误会"><a href="#值传递带来的误会" class="headerlink" title="值传递带来的误会"></a>值传递带来的误会</h2><p>在上述例子中，在 <code>appendB</code> 中调用 <code>append</code> 函数追加数据后会发现 main 函数中并没有受到影响，这里我稍微调整了一下示例代码：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestAppendB</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">	<span class="comment">//x:=[]int&#123;1,2,3&#125;</span></span><br><span class="line">	x := <span class="built_in">make</span>([]<span class="type">int</span>, <span class="number">3</span>,<span class="number">5</span>)</span><br><span class="line">	x[<span class="number">0</span>] = <span class="number">1</span></span><br><span class="line">	x[<span class="number">1</span>] = <span class="number">2</span></span><br><span class="line">	x[<span class="number">2</span>] = <span class="number">3</span></span><br><span class="line">	appendB(x)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;main %v len=%v,cap=%v\n&quot;</span>, x,<span class="built_in">len</span>(x),<span class="built_in">cap</span>(x))</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">appendB</span><span class="params">(x []<span class="type">int</span>)</span></span> &#123;</span><br><span class="line">	x = <span class="built_in">append</span>(x, <span class="number">444</span>)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;appendB %v len=%v,cap=%v\n&quot;</span>, x,<span class="built_in">len</span>(x),<span class="built_in">cap</span>(x))</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>主要是修改了切片初始化方式，使得容量大于了长度，具体原因后续会说明。</p>
+</blockquote>
+<p>输出结果如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">appendB [1 2 3 444] len=4,cap=5</span><br><span class="line">main [1 2 3] len=3,cap=5</span><br></pre></td></tr></table></figure>
+<p><code>main</code> 函数中的数据看样子确实没有受到影响；但细心的朋友应该会注意到  <code>appendB</code> 函数中的 x 在 <code>append()</code> 之后长度 +1 变为了4。</p>
+<p>而在 <code>main</code> 函数中长度又变回了3.</p>
+<p>这个细节区别就是为什么 <code>append()</code> “看似” 没有生效的原因；至于为什么要说“看似”，再次调整了代码：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestAppendB</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">	<span class="comment">//x:=[]int&#123;1,2,3&#125;</span></span><br><span class="line">	x := <span class="built_in">make</span>([]<span class="type">int</span>, <span class="number">3</span>,<span class="number">5</span>)</span><br><span class="line">	x[<span class="number">0</span>] = <span class="number">1</span></span><br><span class="line">	x[<span class="number">1</span>] = <span class="number">2</span></span><br><span class="line">	x[<span class="number">2</span>] = <span class="number">3</span></span><br><span class="line">	appendB(x)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;main %v len=%v,cap=%v\n&quot;</span>, x,<span class="built_in">len</span>(x),<span class="built_in">cap</span>(x))</span><br><span class="line"></span><br><span class="line">	y:=x[<span class="number">0</span>:<span class="built_in">cap</span>(x)]</span><br><span class="line">	fmt.Printf(<span class="string">&quot;y %v len=%v,cap=%v\n&quot;</span>, y,<span class="built_in">len</span>(y),<span class="built_in">cap</span>(y))</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在刚才的基础之上，以 <code>append</code> 之后的 x 为基础再做了一个切片；该切片的范围为 x 所引用数组的全部数据。</p>
+<p>再来看看执行结果如何：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">appendB [1 2 3 444] len=4,cap=5</span><br><span class="line">main [1 2 3] len=3,cap=5</span><br><span class="line">y [1 2 3 444 0] len=5,cap=5</span><br></pre></td></tr></table></figure>
+<p>会神奇的发现 y 将所有数据都打印出来，在 <code>appendB</code> 函数中追加的数据其实已经写入了数组中，但为什么 <code>x</code> 本身没有获取到呢？</p>
+<p><img src="https://i.loli.net/2021/09/05/FTxiQ6HOLkaWJ4v.jpg"></p>
+<p>看图就很容易理解了：</p>
+<ul>
+<li>在<code>appendB</code>中确实是对原始数组追加了数据，同时长度也增加了。</li>
+<li>但由于是值传递，所以 <code>slice</code> 这个结构体即便是修改了长度为4，也只是对复制的那个对象修改了长度，<code>main</code> 中的长度依然为3.</li>
+<li>由于底层数组是同一个，所以基于这个底层数组重新生成了一个完整长度的切片便能看到追加的数据了。</li>
+</ul>
+<p>所以这里本质的原因是因为 <code>slice</code> 是一个结构体，传递的是值，不管方法里如何修改长度也不会影响到原有的数据（这里指的是长度和容量这两个属性）。</p>
+<h2 id="切片扩容"><a href="#切片扩容" class="headerlink" title="切片扩容"></a>切片扩容</h2><p>还有一个需要注意：</p>
+<p>刚才特意提到这里的例子稍有改变，主要是将切片的容量设置超过了数组的长度；</p>
+<p>如果不做这个特殊设置会怎么样呢？</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestAppendB</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">	x:=[]<span class="type">int</span>&#123;<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>&#125;</span><br><span class="line">	<span class="comment">//x := make([]int, 3,5)</span></span><br><span class="line">	x[<span class="number">0</span>] = <span class="number">1</span></span><br><span class="line">	x[<span class="number">1</span>] = <span class="number">2</span></span><br><span class="line">	x[<span class="number">2</span>] = <span class="number">3</span></span><br><span class="line">	appendB(x)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;main %v len=%v,cap=%v\n&quot;</span>, x,<span class="built_in">len</span>(x),<span class="built_in">cap</span>(x))</span><br><span class="line"></span><br><span class="line">	y:=x[<span class="number">0</span>:<span class="built_in">cap</span>(x)]</span><br><span class="line">	fmt.Printf(<span class="string">&quot;y %v len=%v,cap=%v\n&quot;</span>, y,<span class="built_in">len</span>(y),<span class="built_in">cap</span>(y))</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">appendB</span><span class="params">(x []<span class="type">int</span>)</span></span> &#123;</span><br><span class="line">	x = <span class="built_in">append</span>(x, <span class="number">444</span>)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;appendB %v len=%v,cap=%v\n&quot;</span>, x,<span class="built_in">len</span>(x),<span class="built_in">cap</span>(x))</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>输出结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">appendB [1 2 3 444] len=4,cap=6</span><br><span class="line">main [1 2 3] len=3,cap=3</span><br><span class="line">y [1 2 3] len=3,cap=3</span><br></pre></td></tr></table></figure>
+
+<p>这时会发现 main 函数中的 y 切片数据也没有发生变化，这是为什么呢？</p>
+<p><img src="https://i.loli.net/2021/09/05/ONairsIRJSX2PQH.jpg"></p>
+<p>这是因为初始化 x 切片时长度和容量都为3，当在 <code>appendB</code> 函数中追加数据时，会发现没有位置了。</p>
+<p>这时便会进行扩容：</p>
+<ul>
+<li>将老数据复制一份到新的数组中。</li>
+<li>追加数据。</li>
+<li>将新的数据内存地址返回给 <code>appendB</code> 中的 x .</li>
+</ul>
+<p>同样的由于是值传递，所以 <code>appendB</code> 中的切片换了底层数组对 <code>main</code> 函数中的切片没有任何影响，也就导致最终 <code>main</code> 函数的数据没有任何变化了。</p>
+<h2 id="传递切片指针"><a href="#传递切片指针" class="headerlink" title="传递切片指针"></a>传递切片指针</h2><p>有没有什么办法即便是在扩容时也能对外部产生影响呢？</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestAppendC</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">	x:=[]<span class="type">int</span>&#123;<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>&#125;</span><br><span class="line">	appendC(&amp;x)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;main %v len=%v,cap=%v\n&quot;</span>, x,<span class="built_in">len</span>(x),<span class="built_in">cap</span>(x))</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">appendC</span><span class="params">(x *[]<span class="type">int</span>)</span></span> &#123;</span><br><span class="line">	*x = <span class="built_in">append</span>(*x, <span class="number">4</span>)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;appendC %v\n&quot;</span>, x)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>输出结果为：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">appendC &amp;[1 2 3 4]</span><br><span class="line">main [1 2 3 4] len=4,cap=6</span><br></pre></td></tr></table></figure>
+
+<p>这时外部的切片就能受到影响了，其实原因也很简单；</p>
+<p>刚才也说了，因为 <code>slice</code> 本身是一个结构体，所以当我们传递指针时，就和平时自定义的 <code>struct</code> 在函数内部通过指针修改数据原理相同。</p>
+<p>最终在 <code>appendC</code> 中的 x 的指针指向了扩容后的结构体，因为传递的是 main 函数中 x 的指针，所以同样的 main 函数中的 x 也指向了该结构体。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>所以总结一下：</p>
+<ul>
+<li>切片是对数组的抽象，同时切片本身也是一个结构体。</li>
+<li>参数传递时函数内部与外部引用的是同一个数组，所以对切片的修改会影响到函数外部。</li>
+<li>如果发生扩容，情况会发生变化，同时扩容会导致数据拷贝；所以要尽量预估切片大小，避免数据拷贝。</li>
+<li>对切片或数组重新生成切片时，由于共享的是同一个底层数组，所以数据会互相影响，这点需要注意。</li>
+<li>切片也可以传递指针，但场景很少，还会带来不必要的误解；建议值传值就好，长度和容量占用不了多少内存。</li>
+</ul>
+<p>相信使用过切片会发现非常类似于  <code>Java</code>  中的 <code>ArrayList</code>，同样是基于数组实现，也会扩容发生数据拷贝；这样看来语言只是上层使用的选择，一些通用的底层实现大家都差不多。</p>
+<p>这时我们再看标题中的 <code>[]*T *[]T *[]*T</code> 就会发现这几个并没有什么联系，只是看起来很像容易唬人。</p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2021/07/28/go/slice%20pointer/" title="切片 slice 原理分析">http://crossoverjie.top/2021/07/28/go/slice pointer/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Go/" rel="tag"><i class="fa fa-tag"></i> Go</a>
+              <a href="/tags/%E5%88%87%E7%89%87/" rel="tag"><i class="fa fa-tag"></i> 切片</a>
+              <a href="/tags/%E6%95%B0%E7%BB%84/" rel="tag"><i class="fa fa-tag"></i> 数组</a>
+              <a href="/tags/slice/" rel="tag"><i class="fa fa-tag"></i> slice</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2021/07/02/go/go%20channel%20vs%20java%20BlockingQueue/" rel="prev" title="Go channel VS Java BlockingQueue">
+                  <i class="fa fa-chevron-left"></i> Go channel VS Java BlockingQueue
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2021/09/02/go/observer/" rel="next" title="观察者模式的实际应用">
+                  观察者模式的实际应用 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
