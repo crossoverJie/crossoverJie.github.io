@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="背景最近接手维护了公司的指标监控系统，之后踩到坑就没站起来过。。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从源码彻底理解 Prometheus&#x2F;VictoriaMetrics 中的 relabel_configs&#x2F;metric_relabel_configs 配置">
+<meta property="og:url" content="http://crossoverjie.top/2023/03/13/metrics/relabel_configs_%20metric_relabel_configs/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景最近接手维护了公司的指标监控系统，之后踩到坑就没站起来过。。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2023/03/11/Xxp5yNTH1ASBk3Z.png">
+<meta property="og:image" content="https://s2.loli.net/2023/03/11/UwBJ28ZafziRsQS.png">
+<meta property="og:image" content="https://s2.loli.net/2023/03/12/9oYRlCGTZaNuc5j.png">
+<meta property="og:image" content="https://s2.loli.net/2023/03/12/oRQKnf7u6j3Ulq5.png">
+<meta property="og:image" content="https://s2.loli.net/2023/03/12/xyaqKjkf85YZzeA.png">
+<meta property="og:image" content="https://s2.loli.net/2023/03/12/dWA4a3kzGPIxFEX.png">
+<meta property="og:image" content="https://s2.loli.net/2023/03/12/ZlIKFDbhLVpx8Om.png">
+<meta property="og:image" content="https://s2.loli.net/2023/03/12/2kQ9rSBsJ3IuAwm.png">
+<meta property="og:image" content="https://s2.loli.net/2023/03/12/itlzeXC8DNhpQf4.png">
+<meta property="og:image" content="https://s2.loli.net/2023/03/12/qXbwjh5e3uRds4z.png">
+<meta property="og:image" content="https://s2.loli.net/2023/03/12/SfJnMP547ltQohW.png">
+<meta property="og:image" content="https://s2.loli.net/2023/03/12/q8KAwpOsBMIEXT3.png">
+<meta property="og:image" content="https://s2.loli.net/2023/03/12/lJsntMyoCruRYi7.png">
+<meta property="article:published_time" content="2023-03-13T00:08:08.000Z">
+<meta property="article:modified_time" content="2023-03-12T10:44:16.552Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="K8s">
+<meta property="article:tag" content="Prometheus">
+<meta property="article:tag" content="VictoriaMetrics">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2023/03/11/Xxp5yNTH1ASBk3Z.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2023/03/13/metrics/relabel_configs_%20metric_relabel_configs/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2023/03/13/metrics/relabel_configs_%20metric_relabel_configs/","path":"2023/03/13/metrics/relabel_configs_ metric_relabel_configs/","title":"从源码彻底理解 Prometheus/VictoriaMetrics 中的 relabel_configs/metric_relabel_configs 配置"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>从源码彻底理解 Prometheus/VictoriaMetrics 中的 relabel_configs/metric_relabel_configs 配置 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">69</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">171</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">160</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%90%86%E8%A7%A3%E9%94%99%E8%AF%AF1"><span class="nav-number">2.</span> <span class="nav-text">理解错误1</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%90%86%E8%A7%A3%E9%94%99%E8%AF%AF2"><span class="nav-number">3.</span> <span class="nav-text">理解错误2</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%98%85%E8%AF%BB%E6%BA%90%E7%A0%81%E7%90%86%E8%A7%A3%E6%9C%AC%E8%B4%A8%E5%8E%9F%E5%9B%A0"><span class="nav-number">3.1.</span> <span class="nav-text">阅读源码理解本质原因</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#metric-relabel-configs"><span class="nav-number">3.1.1.</span> <span class="nav-text">metric_relabel_configs</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#relabel-configs"><span class="nav-number">3.1.2.</span> <span class="nav-text">relabel_configs</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">171</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">69</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">160</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2023/03/13/metrics/relabel_configs_%20metric_relabel_configs/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="从源码彻底理解 Prometheus/VictoriaMetrics 中的 relabel_configs/metric_relabel_configs 配置 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          从源码彻底理解 Prometheus/VictoriaMetrics 中的 relabel_configs/metric_relabel_configs 配置
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2023-03-13 08:08:08" itemprop="dateCreated datePublished" datetime="2023-03-13T08:08:08+08:00">2023-03-13</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-03-12 18:44:16" itemprop="dateModified" datetime="2023-03-12T18:44:16+08:00">2023-03-12</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/metrics/" itemprop="url" rel="index"><span itemprop="name">metrics</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2023/03/13/metrics/relabel_configs_%20metric_relabel_configs/" class="post-meta-item leancloud_visitors" data-flag-title="从源码彻底理解 Prometheus/VictoriaMetrics 中的 relabel_configs/metric_relabel_configs 配置" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2023/03/13/metrics/relabel_configs_%20metric_relabel_configs/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2023/03/13/metrics/relabel_configs_ metric_relabel_configs/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://s2.loli.net/2023/03/11/Xxp5yNTH1ASBk3Z.png"></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>最近接手维护了公司的指标监控系统，之后踩到坑就没站起来过。。<br><img src="https://s2.loli.net/2023/03/11/UwBJ28ZafziRsQS.png"></p>
+<span id="more"></span>
+
+<p>本次问题的起因是我们配置了一些指标的删除策略没有生效：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="bullet">-</span> <span class="attr">action:</span> <span class="string">drop_metrics</span></span><br><span class="line">  <span class="attr">regex:</span> <span class="string">&quot;^envoy_.*|^url\_\_\_\_.*|istio_request_bytes_sum&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>与这两个容易引起误解的配置<code>relabel_configs/metric_relabel_configs</code>有关。</p>
+<p>他们都是对抓取的数据进行重命名、过滤、新增、删除等操作，但应用场景却完全不同。</p>
+<blockquote>
+<p>我们使用了 VictoriaMetrics 替换了 Prometheus，VM 完全兼容 Prometheus ，所以本文也对 Prometheus 同样适用。</p>
+</blockquote>
+<h1 id="理解错误1"><a href="#理解错误1" class="headerlink" title="理解错误1"></a>理解错误1</h1><p><img src="https://s2.loli.net/2023/03/12/9oYRlCGTZaNuc5j.png" alt="image.png"><br>但这里其实是有一个错误理解的，我是通过 VM 的服务发现页面的指标响应页面查询指标的，打开之后确实能搜到需要被删除的相关指标。</p>
+<p>但其实即便是真的删除了数据这个页面也会有数据存在，删除的数据只是不会写入 VM 的时序数据库中。</p>
+<blockquote>
+<p>这一点是在后续查源码时才发现；后面我配置对了依然在这里查看数据，发现还是没有删除，这个错误理解浪费了不少时间😂。</p>
+</blockquote>
+<h1 id="理解错误2"><a href="#理解错误2" class="headerlink" title="理解错误2"></a>理解错误2</h1><p>为了解决问题，通过 <code>drop metrics</code> 这类关键字在 VM 的官方文档中查询，最终找到一篇文章。<br><a target="_blank" rel="noopener" href="https://www.robustperception.io/dropping-metrics-at-scrape-time-with-prometheus/">https://www.robustperception.io/dropping-metrics-at-scrape-time-with-prometheus/</a><br><img src="https://s2.loli.net/2023/03/12/oRQKnf7u6j3Ulq5.png"></p>
+<p>按照这里的介绍，将删除的配置加入到 <code>metric_relabel_configs</code> 配置下，经过测试确实有效。</p>
+<p>不过为啥将同样的配置：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">relabel_configs:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">action:</span> <span class="string">drop_metrics</span></span><br><span class="line">      <span class="attr">regex:</span> <span class="string">&quot;^envoy_.*|^url\_\_\_\_.*|istio_request_bytes_sum&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>加入到 <code>relabel_configs</code> 未能生效呢？</p>
+<p>估计确实容易令人误导，在文档中也找到了相关的解释：<br><a target="_blank" rel="noopener" href="https://www.robustperception.io/relabel_configs-vs-metric_relabel_configs/">https://www.robustperception.io/relabel_configs-vs-metric_relabel_configs&#x2F;</a><br><img src="https://s2.loli.net/2023/03/12/xyaqKjkf85YZzeA.png"><br>这篇文章主要是表达几个重点：</p>
+<ul>
+<li><code>relabel_configs</code> 用于配置哪个目标需要被抓取，发生在指标抓取之前。</li>
+<li><code>metric_relabel_configs</code> 发生在指标抓取之后，写入存储之前。</li>
+<li>如果其中一个没生效，就换一个（这句话很容易让人犯迷糊）</li>
+</ul>
+<p>但说实话当时我看到这里还是一脸懵，为了彻底了解两则的区别还是看源码来的直接。</p>
+<h2 id="阅读源码理解本质原因"><a href="#阅读源码理解本质原因" class="headerlink" title="阅读源码理解本质原因"></a>阅读源码理解本质原因</h2><h3 id="metric-relabel-configs"><a href="#metric-relabel-configs" class="headerlink" title="metric_relabel_configs"></a>metric_relabel_configs</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">metric_relabel_configs:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">action:</span> <span class="string">drop_metrics</span></span><br><span class="line">      <span class="attr">regex:</span> <span class="string">&quot;^envoy_.*|^url\_\_\_\_.*|istio_request_bytes_sum&quot;</span></span><br></pre></td></tr></table></figure>
+<p>首先看下<code>metric_relabel_configs</code>配置生效的原因。</p>
+<p><img src="https://s2.loli.net/2023/03/12/dWA4a3kzGPIxFEX.png"></p>
+<p><code>metric_relabel_configs</code> 配置的整体流程如上图：</p>
+<ul>
+<li>启动 VM 时加载配置到内存</li>
+<li>根据配置的抓取间隔时间(<code>scrape_interval</code>)抓取数据，拿到的每一条数据都需要通过 <code>metric_relabel_configs</code> 的应用。</li>
+<li>针对于这里的 <code>drop_metrics</code> 来说，就是判断是否需要删除掉所有的 <code>Label</code>。</li>
+<li>如果可以匹配删除，那就不会写入存储。</li>
+</ul>
+<p>其中的关键代码如下：<br><img src="https://s2.loli.net/2023/03/12/ZlIKFDbhLVpx8Om.png"></p>
+<p>这里还有一个小细节，源码里判断的 <code>action</code> 是 <code>drop</code>，而我们配置的是 <code>drop_metrics</code>，其实 <code>drop_metrics</code> 也是 drop 的一个封装而已。</p>
+<p><img src="https://s2.loli.net/2023/03/12/2kQ9rSBsJ3IuAwm.png"><br>在解析配置的时候会进行转换。</p>
+<p>与这个写法是等价的：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="bullet">-</span> <span class="attr">source_labels:</span> [ <span class="string">__name__</span> ]</span><br><span class="line">  <span class="attr">regex:</span> <span class="string">&quot;^envoy_.*|^url\_\_\_\_.*|istio_request_bytes_sum&quot;</span></span><br><span class="line">  <span class="attr">action:</span> <span class="string">drop</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="relabel-configs"><a href="#relabel-configs" class="headerlink" title="relabel_configs"></a>relabel_configs</h3><p>然后来看看 <code>relabel_configs</code> 没有按照预期生效的原因。</p>
+<p><img src="https://s2.loli.net/2023/03/12/itlzeXC8DNhpQf4.png"></p>
+<p>其实核心的应用配置就是同一份代码，只是触发点不一样。</p>
+<p><code>relabel_configs</code> 是在应用启动的时候根据我们配置的抓取目标的数据当做数据源，所以这里的 <code>action: drop</code> 删除的是抓取目标，而不是真正的抓取数据。<br><img src="https://s2.loli.net/2023/03/12/qXbwjh5e3uRds4z.png"></p>
+<p>而且它的目的是在应用启动的时候，用于生成抓取目标的任务，<strong>只会运行一次</strong>。</p>
+<p>假设我这里改写为：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">relabel_configs:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">source_labels:</span> [ <span class="string">__address__</span> ]</span><br><span class="line">      <span class="attr">regex:</span> <span class="string">&#x27;192.xx.xx.xx:443&#x27;</span></span><br><span class="line">      <span class="attr">action:</span> <span class="string">drop</span></span><br></pre></td></tr></table></figure>
+<p><img src="https://s2.loli.net/2023/03/12/SfJnMP547ltQohW.png"><br>那么我这个抓取任务就会被删除掉，而不是删除这个指标了。</p>
+<p>因此之前我在这里配置的是一些业务指标 <code>regex: &quot;^envoy_.*|^url\_\_\_\_.*|istio_request_bytes_sum&quot;</code>，在所有元数据里自然是没有任何一个可以匹配了，所以也就无事发生。</p>
+<blockquote>
+<p>元数据都是以 <code>__</code> 开头。</p>
+</blockquote>
+<hr>
+<p>其实 VM 也有提供一个 Debug 页面用于调试 <code>relabel_configs</code>，但如果知道怎么用这个调试页面其实也理解了他的运行原理😂<br><img src="https://s2.loli.net/2023/03/12/q8KAwpOsBMIEXT3.png"></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><a target="_blank" rel="noopener" href="https://www.robustperception.io/relabelling-can-discard-targets-timeseries-and-alerts/">https://www.robustperception.io/relabelling-can-discard-targets-timeseries-and-alerts/</a> </p>
+<p><img src="https://s2.loli.net/2023/03/12/lJsntMyoCruRYi7.png"><br>后面我查到这篇文章也有相关解释，理解了两者的区别后再看这里的分析会更加容易理解。</p>
+<p>总的来说：</p>
+<ul>
+<li><code>relabel_configs</code> 用于对抓取目标元数据的增删改；如果删除后连后续的抓取任务也会被取消。</li>
+<li><code>metric_relabel_configs</code> 用于对抓取到的数据增删改，对于不需要的业务指标可以在这里配置。</li>
+</ul>
+<p>也就是前文讲到的 <code>relabel_configs</code> 应用于指标抓取前，<code>metric_relabel_configs</code> 应用于指标抓取后。</p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2023/03/13/metrics/relabel_configs_%20metric_relabel_configs/" title="从源码彻底理解 Prometheus&#x2F;VictoriaMetrics 中的 relabel_configs&#x2F;metric_relabel_configs 配置">http://crossoverjie.top/2023/03/13/metrics/relabel_configs_ metric_relabel_configs/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/K8s/" rel="tag"><i class="fa fa-tag"></i> K8s</a>
+              <a href="/tags/Prometheus/" rel="tag"><i class="fa fa-tag"></i> Prometheus</a>
+              <a href="/tags/VictoriaMetrics/" rel="tag"><i class="fa fa-tag"></i> VictoriaMetrics</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2023/02/27/pulsar/pulsar-repeat-consume/" rel="prev" title="通过 Pulsar 源码彻底解决重复消费问题">
+                  <i class="fa fa-chevron-left"></i> 通过 Pulsar 源码彻底解决重复消费问题
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
