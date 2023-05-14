@@ -6,7 +6,7 @@
   <link href="http://crossoverjie.top/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2023-03-12T10:44:16.552Z</updated>
+  <updated>2023-05-14T11:33:06.680Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -15,6 +15,33 @@
   </author>
   
   <generator uri="https://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>云原生背景下如何配置 JVM 内存</title>
+    <link href="http://crossoverjie.top/2023/05/15/k8s/cloudnative-java/"/>
+    <id>http://crossoverjie.top/2023/05/15/k8s/cloudnative-java/</id>
+    <published>2023-05-15T00:08:08.000Z</published>
+    <updated>2023-05-14T11:33:06.680Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://s2.loli.net/2023/05/12/IAxSF3oZ1j8GHbi.png" alt="image.png"></p><h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前段时间业务研发反馈说是他的应用内存使用率很高，导致频繁的重启，让我排查下是怎么回事；</p><p>在这之前我也没怎么在意过这个问题，正好这次排查分析的过程做一个记录。</p><span id="more"></span><p>首先我查看了监控面板里的 Pod 监控：<br><img src="https://s2.loli.net/2023/05/14/wyYu8SI7eGprqmQ.png" alt="WeChatWorkScreenshot_ac6f8d80-bdb4-469e-af1a-b2199c9ee288.png"></p><p>发现确实是快满了，而此时去查看应用的 JVM 占用情况却只有30%左右；说明并不是应用内存满了导致 JVM 的 OOM，而是 Pod 的内存满了，导致 Pod 的内存溢出，从而被 k8s 杀掉了。</p><p>而 <code>k8s</code> 为了维持应用的副本数量就得重启一个 Pod，所以看起来就是应用运行一段时间后就被重启。</p><h1 id="容器的原理"><a href="#容器的原理" class="headerlink" title="容器的原理"></a>容器的原理</h1><p>在解决这个问题之前还是先简单了解下容器的运行原理，因为在 k8s 中所有的应用都是运行在容器中的，而容器本质上也是运行在宿主机上的一个个经常而已。</p><p>但我们使用 Docker 的时候会感觉每个容器启动的应用之间互不干扰，从文件系统、网络、CPU、内存这些都能完全隔离开来，就像两个运行在不同的服务器中的应用。</p><p>其实这一点也不是啥黑科技，Linux 早就支持 2.6.x 的版本就已经支持 namespace 隔离了，使用 <code>namespace</code> 可以将两个进程完全隔离。</p><p>仅仅将资源隔离还不够，还需要限制对资源的使用，比如 CPU、内存、磁盘、带宽这些也得做限制；这点也可以使用 <code>cgroups</code> 进行配置。</p><p>它可以限制某个进程的资源，比如宿主机是 4 核 CPU，8G 内存，为了保护其他容器，必须给这个容器配置使用上限：1核 CPU，2G内存。</p><p><img src="https://s2.loli.net/2023/05/14/dzcHK6G8VZQuFC5.png" alt="image.png"></p><p>这张图就很清晰的表示了 <code>namespace</code>  和 <code>cgroups</code> 在容器技术中的作用，简单来说就是：</p><ul><li>namespace 负责隔离</li><li>cgroups 负责限制</li></ul><p>在 k8s 中也有对应的提现：</p><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">resources:</span></span><br><span class="line">  <span class="attr">requests:</span></span><br><span class="line">    <span class="attr">memory:</span> <span class="string">1024Mi</span></span><br><span class="line">    <span class="attr">cpu:</span> <span class="number">0.1</span></span><br><span class="line">  <span class="attr">limits:</span></span><br><span class="line">    <span class="attr">memory:</span> <span class="string">1024Mi</span></span><br><span class="line">    <span class="attr">cpu:</span> <span class="number">4</span></span><br></pre></td></tr></table></figure><p>这个资源清单表示该应用至少需要为一个容器分配一个 0.1 核和 1024M 的资源，CPU 的最高上限为 4 个核心。</p><h1 id="不同的OOM"><a href="#不同的OOM" class="headerlink" title="不同的OOM"></a>不同的OOM</h1><p>回到本次的问题，可以确认是容器发生了 OOM 从而导致被 k8s 重启，这也是我们配置 limits 的作用。</p><blockquote><p>k8s 内存溢出导致容器退出会出现 exit code 137 的一个 event 日志。</p></blockquote><p>因为该应用的 JVM 内存配置和容器的配置大小是一样的，都是8GB，但 Java 应用还有一些非 JVM 管理的内存，比如堆外内存之类的，这样很容易就导致容器内存大小超过了限制的 8G 了，也就导致了容器内存溢出。</p><h1 id="云原生背景的优化"><a href="#云原生背景的优化" class="headerlink" title="云原生背景的优化"></a>云原生背景的优化</h1><p>因为这个应用本身使用的内存不多，所以建议将堆内存限制到 4GB，这样就避免了容器内存超限，从而解决了问题。</p><p>当然之后我们也会在应用配置栏里加上建议：推荐 JVM 的配置小于容器限制的 2&#x2F;3，预留一些内存。</p><p>其实本质上还是开发模式没有转变过来，以传统的 Java 应用开发模式甚至都不会去了解容器的内存大小，因为以前大家的应用都是部署在一个内存较大的虚拟机上，所以感知不到容器内存的限制。</p><p>从而误以为将两者画了等号，这一点可能在 Java 应用中尤为明显，毕竟多了一个 JVM；甚至在老版本的 JDK 中如果没有设置堆内存大小，无法感知到容器的内存限制，从而自动生成的 Xmx 大于了容器的内存大小，以致于 OOM。</p>]]></content>
+    
+    
+    <summary type="html">&lt;p&gt;&lt;img src=&quot;https://s2.loli.net/2023/05/12/IAxSF3oZ1j8GHbi.png&quot; alt=&quot;image.png&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;背景&quot;&gt;&lt;a href=&quot;#背景&quot; class=&quot;headerlink&quot; title=&quot;背景&quot;&gt;&lt;/a&gt;背景&lt;/h1&gt;&lt;p&gt;前段时间业务研发反馈说是他的应用内存使用率很高，导致频繁的重启，让我排查下是怎么回事；&lt;/p&gt;
+&lt;p&gt;在这之前我也没怎么在意过这个问题，正好这次排查分析的过程做一个记录。&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="cloudnative" scheme="http://crossoverjie.top/categories/cloudnative/"/>
+    
+    
+    <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
+    
+    <category term="K8s" scheme="http://crossoverjie.top/tags/K8s/"/>
+    
+    <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
+    
+  </entry>
   
   <entry>
     <title>从源码彻底理解 Prometheus/VictoriaMetrics 中的 relabel_configs/metric_relabel_configs 配置</title>
@@ -554,36 +581,6 @@
     
     
     <category term="IDE" scheme="http://crossoverjie.top/tags/IDE/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>XJSON 是如何实现四则运算的？</title>
-    <link href="http://crossoverjie.top/2022/07/12/gjson/xjson03/"/>
-    <id>http://crossoverjie.top/2022/07/12/gjson/xjson03/</id>
-    <published>2022-07-12T00:12:36.000Z</published>
-    <updated>2022-07-11T16:59:34.673Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h42y3ylnbuj20wi0lomz7.jpg"></p><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>在<a href="https://crossoverjie.top/2022/07/04/gjson/gjson02/">上一篇</a>中介绍了 <code>xjson</code> 的功能特性以及使用查询语法快速方便的获取 <code>JSON</code> 中的值。</p><p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h42btsa4cgj21cs0mmjuh.jpg"></p><p>同时这次也更新了一个版本，主要是两个升级：</p><ol><li>对转义字符的支持。</li><li>性能优化，大约提升了30%⬆️。</li></ol><span id="more"></span><h2 id="转义字符"><a href="#转义字符" class="headerlink" title="转义字符"></a>转义字符</h2><p>先说第一个转义字符，不管是原始 <code>JSON</code> 字符串中存在转义字符，还是查询语法中存在转义字符都已经支持，具体用法如下：</p><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">str = <span class="string">`&#123;&quot;1a.b.[]&quot;:&quot;b&quot;&#125;`</span></span><br><span class="line">get = Get(str, <span class="string">&quot;1a\\.b\\.\\[\\]&quot;</span>)</span><br><span class="line">assert.Equal(t, get.String(), <span class="string">&quot;b&quot;</span>)</span><br><span class="line"></span><br><span class="line">str = <span class="string">`&#123;&quot;.&quot;:&quot;b&quot;&#125;`</span></span><br><span class="line">get = Get(str, <span class="string">&quot;\\.&quot;</span>)</span><br><span class="line">assert.Equal(t, get.String(), <span class="string">&quot;b&quot;</span>)</span><br><span class="line"></span><br><span class="line">str = <span class="string">`&#123;&quot;a&quot;:&quot;&#123;\&quot;a\&quot;:\&quot;123\&quot;&#125;&quot;&#125;`</span></span><br><span class="line">get = Get(str, <span class="string">&quot;a&quot;</span>)</span><br><span class="line">fmt.Println(get)</span><br><span class="line">assert.Equal(t, get.String(), <span class="string">&quot;&#123;\&quot;a\&quot;:\&quot;123\&quot;&#125;&quot;</span>)</span><br><span class="line">assert.Equal(t, Get(get.String(), <span class="string">&quot;a&quot;</span>).String(), <span class="string">&quot;123&quot;</span>)</span><br><span class="line"></span><br><span class="line">str = <span class="string">`&#123;&quot;a&quot;:&quot;&#123;\&quot;a\&quot;:[1,2]&#125;&quot;&#125;`</span></span><br><span class="line">get = Get(str, <span class="string">&quot;a&quot;</span>)</span><br><span class="line">fmt.Println(get)</span><br><span class="line">assert.Equal(t, get.String(), <span class="string">&quot;&#123;\&quot;a\&quot;:[1,2]&#125;&quot;</span>)</span><br><span class="line">assert.Equal(t, Get(get.String(), <span class="string">&quot;a[0]&quot;</span>).Int(), <span class="number">1</span>)</span><br></pre></td></tr></table></figure><h2 id="性能优化"><a href="#性能优化" class="headerlink" title="性能优化"></a>性能优化</h2><p>性能也有部分优化，大约比上一版本提升了 30%。</p><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">pkg: github.com/crossoverJie/xjson/benckmark</span><br><span class="line">cpu: Intel(R) Core(TM) i7<span class="number">-9750</span>H CPU @ <span class="number">2.60</span>GHz</span><br><span class="line">BenchmarkDecode<span class="number">-12</span>           <span class="number">14968</span>     <span class="number">77130</span> ns/op   <span class="number">44959</span> B/op    <span class="number">1546</span> allocs/op</span><br><span class="line">PASS</span><br><span class="line"></span><br><span class="line">------------------------------------</span><br><span class="line">pkg: github.com/crossoverJie/xjson/benckmark</span><br><span class="line">cpu: Intel(R) Core(TM) i7<span class="number">-9750</span>H CPU @ <span class="number">2.60</span>GHz</span><br><span class="line">BenchmarkDecode<span class="number">-12</span>           <span class="number">19136</span>     <span class="number">62960</span> ns/op   <span class="number">41593</span> B/op    <span class="number">1407</span> allocs/op</span><br><span class="line">PASS</span><br></pre></td></tr></table></figure><p>但总体来说还有不少优化空间，主要是上限毕竟低，和官方库比还是有不小的差距。</p><h1 id="实现四则运算"><a href="#实现四则运算" class="headerlink" title="实现四则运算"></a>实现四则运算</h1><p>接下来聊聊四则运算是如何实现的，这本身算是一个比较有意思的 <code>feature</code>，虽然用的场景不多🙂。</p><p>先来看看是如何使用的：</p><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">json :=<span class="string">`&#123;&quot;alice&quot;:&#123;&quot;age&quot;:10&#125;,&quot;bob&quot;:&#123;&quot;age&quot;:20&#125;,&quot;tom&quot;:&#123;&quot;age&quot;:20&#125;&#125;`</span></span><br><span class="line">query := <span class="string">&quot;(alice.age+bob.age) * tom.age&quot;</span></span><br><span class="line">arithmetic := GetWithArithmetic(json, query)</span><br><span class="line">assert.Equal(t, arithmetic.Int(), <span class="number">600</span>)</span><br></pre></td></tr></table></figure><p>输入一个 <code>JSON</code> 字符串以及计算公式然后得到计算结果。</p><p>其实实现原理也比较简单，总共分为是三步:</p><ol><li>对 <code>json</code> 进行词法分析，得到一个四则运算的第一步 <code>token</code>。</li><li>基于该 <code>token</code> 流，生产出最终的四则运算表达式，比如 <code>(3+2)*5</code></li><li>调用四则运算处理器，拿到最终结果。</li></ol><hr><p>先看第一步，根据 <code>(alice.age+bob.age) * tom.age</code> 解析出 <code>token</code>：<br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h43ekglsqej21g6078jsl.jpg"></p><p>第二步，解析该 token，碰到 <code>Identifier</code> 类型时，将其解析为具体的数据。<br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h43em2y8q3j21ha0l2tcj.jpg"><br>而其他类型的 token 直接拼接字符串即可，最终生成表达式：<code>(10+20)*20</code></p><blockquote><p>这一步的核心功能是由 <code>xjson.Get(json, query)</code> 函数提供的。</p></blockquote><p>关键代码如下图所示：<br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h43epvk5t8j20u00v20ws.jpg"></p><p>最终的目的就是能够生成一个表达式，只要拿到这个四则运算表达式便能得到最终计算结果。</p><p>而最终的计算逻辑其实也挺简单，构建一个 AST 树，然后深度遍历递归求解即可，如下图所示：<br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h43eugwrduj20n80n4mxz.jpg"></p><blockquote><p>这一步的核心功能是有之前实现的脚本解释器 <a href="https://github.com/crossoverJie/gscript/blob/4897b0dd0e4110820c1e69f7a692d90640325cbd/syntax/parse.go#L10">gscipt</a> 提供的。</p></blockquote><p>感兴趣的朋友可以查看源码。</p><h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>一个 <code>JSON</code> 库的功能其实并不多，欢迎大家分享平时用 <code>JSON</code> 库的常用功能；也欢迎大家体验下这个库。</p><p>源码地址：<br><a href="https://github.com/crossoverJie/xjson">https://github.com/crossoverJie/xjson</a></p>]]></content>
-    
-    
-    <summary type="html">&lt;p&gt;&lt;img src=&quot;https://tva1.sinaimg.cn/large/e6c9d24ely1h42y3ylnbuj20wi0lomz7.jpg&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;在&lt;a href=&quot;https://crossoverjie.top/2022/07/04/gjson/gjson02/&quot;&gt;上一篇&lt;/a&gt;中介绍了 &lt;code&gt;xjson&lt;/code&gt; 的功能特性以及使用查询语法快速方便的获取 &lt;code&gt;JSON&lt;/code&gt; 中的值。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;https://tva1.sinaimg.cn/large/e6c9d24ely1h42btsa4cgj21cs0mmjuh.jpg&quot;&gt;&lt;/p&gt;
-&lt;p&gt;同时这次也更新了一个版本，主要是两个升级：&lt;/p&gt;
-&lt;ol&gt;
-&lt;li&gt;对转义字符的支持。&lt;/li&gt;
-&lt;li&gt;性能优化，大约提升了30%⬆️。&lt;/li&gt;
-&lt;/ol&gt;</summary>
-    
-    
-    
-    <category term="xjson" scheme="http://crossoverjie.top/categories/xjson/"/>
-    
-    <category term="compiler" scheme="http://crossoverjie.top/categories/xjson/compiler/"/>
-    
-    
-    <category term="go" scheme="http://crossoverjie.top/tags/go/"/>
     
   </entry>
   
