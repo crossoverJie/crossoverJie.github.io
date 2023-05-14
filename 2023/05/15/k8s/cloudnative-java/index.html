@@ -29,9 +29,10 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://s2.loli.net/2023/05/12/IAxSF3oZ1j8GHbi.png">
 <meta property="og:image" content="https://s2.loli.net/2023/05/14/wyYu8SI7eGprqmQ.png">
+<meta property="og:image" content="https://s2.loli.net/2023/05/14/Lhkjys1TEQUKV86.png">
 <meta property="og:image" content="https://s2.loli.net/2023/05/14/dzcHK6G8VZQuFC5.png">
 <meta property="article:published_time" content="2023-05-15T00:08:08.000Z">
-<meta property="article:modified_time" content="2023-05-14T11:33:06.680Z">
+<meta property="article:modified_time" content="2023-05-14T11:48:10.889Z">
 <meta property="article:author" content="crossoverJie">
 <meta property="article:tag" content="Java">
 <meta property="article:tag" content="K8s">
@@ -271,7 +272,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">Edited on</span>
-      <time title="Modified: 2023-05-14 19:33:06" itemprop="dateModified" datetime="2023-05-14T19:33:06+08:00">2023-05-14</time>
+      <time title="Modified: 2023-05-14 19:48:10" itemprop="dateModified" datetime="2023-05-14T19:48:10+08:00">2023-05-14</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -329,9 +330,11 @@
 <p>首先我查看了监控面板里的 Pod 监控：<br><img src="https://s2.loli.net/2023/05/14/wyYu8SI7eGprqmQ.png" alt="WeChatWorkScreenshot_ac6f8d80-bdb4-469e-af1a-b2199c9ee288.png"></p>
 <p>发现确实是快满了，而此时去查看应用的 JVM 占用情况却只有30%左右；说明并不是应用内存满了导致 JVM 的 OOM，而是 Pod 的内存满了，导致 Pod 的内存溢出，从而被 k8s 杀掉了。</p>
 <p>而 <code>k8s</code> 为了维持应用的副本数量就得重启一个 Pod，所以看起来就是应用运行一段时间后就被重启。</p>
+<hr>
+<p><img src="https://s2.loli.net/2023/05/14/Lhkjys1TEQUKV86.png" alt="WeChatWorkScreenshot_6213e2f8-c429-4d33-acdd-e639275dd92b.png"><br>而这个应用配置的是 JVM 8G，容器申请的内存是16G，所以 Pod 的内存占用看起来也就 50% 左右。</p>
 <h1 id="容器的原理"><a href="#容器的原理" class="headerlink" title="容器的原理"></a>容器的原理</h1><p>在解决这个问题之前还是先简单了解下容器的运行原理，因为在 k8s 中所有的应用都是运行在容器中的，而容器本质上也是运行在宿主机上的一个个经常而已。</p>
 <p>但我们使用 Docker 的时候会感觉每个容器启动的应用之间互不干扰，从文件系统、网络、CPU、内存这些都能完全隔离开来，就像两个运行在不同的服务器中的应用。</p>
-<p>其实这一点也不是啥黑科技，Linux 早就支持 2.6.x 的版本就已经支持 namespace 隔离了，使用 <code>namespace</code> 可以将两个进程完全隔离。</p>
+<p>其实这一点也不是啥黑科技，Linux 早就支持 2.6.x 的版本就已经支持 <code>namespace</code> 隔离了，使用 <code>namespace</code> 可以将两个进程完全隔离。</p>
 <p>仅仅将资源隔离还不够，还需要限制对资源的使用，比如 CPU、内存、磁盘、带宽这些也得做限制；这点也可以使用 <code>cgroups</code> 进行配置。</p>
 <p>它可以限制某个进程的资源，比如宿主机是 4 核 CPU，8G 内存，为了保护其他容器，必须给这个容器配置使用上限：1核 CPU，2G内存。</p>
 <p><img src="https://s2.loli.net/2023/05/14/dzcHK6G8VZQuFC5.png" alt="image.png"></p>
