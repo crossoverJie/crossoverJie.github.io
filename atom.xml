@@ -6,7 +6,7 @@
   <link href="http://crossoverjie.top/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2023-06-25T06:26:26.591Z</updated>
+  <updated>2023-06-19T14:44:17.838Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -15,28 +15,6 @@
   </author>
   
   <generator uri="https://hexo.io/">Hexo</generator>
-  
-  <entry>
-    <title>Grafana 变量转义处理</title>
-    <link href="http://crossoverjie.top/2023/06/25/k8s/grafana-variable/"/>
-    <id>http://crossoverjie.top/2023/06/25/k8s/grafana-variable/</id>
-    <published>2023-06-25T00:08:08.000Z</published>
-    <updated>2023-06-25T06:26:26.591Z</updated>
-    
-    <content type="html"><![CDATA[<p>Grafana 是一款强大的可视化工具，不止是用于 Prometheus 做数据源，还可以集成数据库、日志等作为数据源整体使用。</p><p>最近我在配置一个监控面板，其中的数据由 Prometheus 和 MySQL 组成；简单来说就是一个指标的查询条件是从数据库中来的。</p><span id="more"></span><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pulsar_subscription_back_log_no_delayed&#123;topic=~&quot;$topic&quot;,subscription=~&quot;$subscription&quot;&#125;</span><br></pre></td></tr></table></figure><p>其中的 topic 数据是从  MySQL 中来的，其实就是在 Grafana 声明一个变量，从数据库返回了一个列表。</p><p><img src="https://s2.loli.net/2023/06/25/OE37acurFIQjVNH.png"></p><p>因为我们的查询条件是 <code>topic=~&quot;$topic&quot;</code>是正则匹配，所以理论上应该把所有的 <code>topic</code> 关联的数据都查询出来。</p><p><img src="https://s2.loli.net/2023/06/25/WMetKBAvg24hzZk.png"></p><p>但实际情况是任何数据都查不到。</p><p>查看发出去的原始请求后才发现问题出在哪里：</p><p><img src="https://s2.loli.net/2023/06/25/AUXs9lnHoYMQjhO.png"></p><p>原来是选择所有 topic 后 grafana 会自动对参数转义，这个我查了好多资料包括咨询 ChatGPT 都没有得到解决。</p><p>经过多次测试，发现只要开启多选 grafana 就会自动转义。<br><img src="https://s2.loli.net/2023/06/25/ao51AysPEeiTQNr.png"></p><p>最后我只能想到一个不需要生成多行记录的办法：将所有数据合并成一条记录。</p><p><img src="https://s2.loli.net/2023/06/25/o7Xaf3NKD1rystn.png"></p><p>这样的话就只会生成一条数据，其中包含了所有的 topic，也就避免了被转义。</p><blockquote><p>SQL 中的 CONCAT 函数其实我也不知道怎么使用，还是 ChatGPT 告诉我的。</p></blockquote><p><img src="https://s2.loli.net/2023/06/25/InPYWyiqAL1xRfK.png"></p><p>最后便能完美的查询出数据了。</p><p>有碰到类似问题的朋友可以尝试这个方法，我估计用到这个场景的并不多，不然 ChatGPT 也不会不知道。</p>]]></content>
-    
-    
-    <summary type="html">&lt;p&gt;Grafana 是一款强大的可视化工具，不止是用于 Prometheus 做数据源，还可以集成数据库、日志等作为数据源整体使用。&lt;/p&gt;
-&lt;p&gt;最近我在配置一个监控面板，其中的数据由 Prometheus 和 MySQL 组成；简单来说就是一个指标的查询条件是从数据库中来的。&lt;/p&gt;</summary>
-    
-    
-    
-    <category term="cloudnative" scheme="http://crossoverjie.top/categories/cloudnative/"/>
-    
-    
-    <category term="Grafana" scheme="http://crossoverjie.top/tags/Grafana/"/>
-    
-  </entry>
   
   <entry>
     <title>在这个大环境下我是如何找工作的</title>
@@ -58,6 +36,28 @@
     
     <category term="Person" scheme="http://crossoverjie.top/categories/Interview/Person/"/>
     
+    
+  </entry>
+  
+  <entry>
+    <title>Grafana 变量转义处理</title>
+    <link href="http://crossoverjie.top/2023/05/20/k8s/grafana-variable/"/>
+    <id>http://crossoverjie.top/2023/05/20/k8s/grafana-variable/</id>
+    <published>2023-05-20T15:24:19.500Z</published>
+    <updated>2023-06-25T06:42:04.992Z</updated>
+    
+    <content type="html"><![CDATA[<p>Grafana 是一款强大的可视化工具，不止是用于 Prometheus 做数据源，还可以集成数据库、日志等作为数据源整体使用。</p><p>最近我在配置一个监控面板，其中的数据由 Prometheus 和 MySQL 组成；简单来说就是一个指标的查询条件是从数据库中来的。</p><span id="more"></span><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pulsar_subscription_back_log_no_delayed&#123;topic=~&quot;$topic&quot;,subscription=~&quot;$subscription&quot;&#125;</span><br></pre></td></tr></table></figure><p>其中的 topic 数据是从  MySQL 中来的，其实就是在 Grafana 声明一个变量，从数据库返回了一个列表。</p><p><img src="https://s2.loli.net/2023/06/25/OE37acurFIQjVNH.png"></p><p>因为我们的查询条件是 <code>topic=~&quot;$topic&quot;</code>是正则匹配，所以理论上应该把所有的 <code>topic</code> 关联的数据都查询出来。</p><p><img src="https://s2.loli.net/2023/06/25/WMetKBAvg24hzZk.png"></p><p>但实际情况是任何数据都查不到。</p><p>查看发出去的原始请求后才发现问题出在哪里：</p><p><img src="https://s2.loli.net/2023/06/25/AUXs9lnHoYMQjhO.png"></p><p>原来是选择所有 topic 后 grafana 会自动对参数转义，这个我查了好多资料包括咨询 ChatGPT 都没有得到解决。</p><p>经过多次测试，发现只要开启多选 grafana 就会自动转义。<br><img src="https://s2.loli.net/2023/06/25/ao51AysPEeiTQNr.png"></p><p>最后我只能想到一个不需要生成多行记录的办法：将所有数据合并成一条记录。</p><p><img src="https://s2.loli.net/2023/06/25/o7Xaf3NKD1rystn.png"></p><p>这样的话就只会生成一条数据，其中包含了所有的 topic，也就避免了被转义。</p><blockquote><p>SQL 中的 CONCAT 函数其实我也不知道怎么使用，还是 ChatGPT 告诉我的。</p></blockquote><p><img src="https://s2.loli.net/2023/06/25/InPYWyiqAL1xRfK.png"></p><p>最后便能完美的查询出数据了。</p><p>有碰到类似问题的朋友可以尝试这个方法，我估计用到这个场景的并不多，不然 ChatGPT 也不会不知道。</p>]]></content>
+    
+    
+    <summary type="html">&lt;p&gt;Grafana 是一款强大的可视化工具，不止是用于 Prometheus 做数据源，还可以集成数据库、日志等作为数据源整体使用。&lt;/p&gt;
+&lt;p&gt;最近我在配置一个监控面板，其中的数据由 Prometheus 和 MySQL 组成；简单来说就是一个指标的查询条件是从数据库中来的。&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="cloudnative" scheme="http://crossoverjie.top/categories/cloudnative/"/>
+    
+    
+    <category term="Grafana" scheme="http://crossoverjie.top/tags/Grafana/"/>
     
   </entry>
   
