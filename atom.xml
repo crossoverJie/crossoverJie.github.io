@@ -6,7 +6,7 @@
   <link href="http://crossoverjie.top/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2023-08-02T15:57:55.227Z</updated>
+  <updated>2023-08-02T16:00:12.107Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -17,11 +17,11 @@
   <generator uri="https://hexo.io/">Hexo</generator>
   
   <entry>
-    <title>从 Pulsar Client 的原理到 Metrics</title>
+    <title>从 Pulsar Client 的原理到它的监控面板</title>
     <link href="http://crossoverjie.top/2023/08/03/ob/Pulsar-Client/"/>
     <id>http://crossoverjie.top/2023/08/03/ob/Pulsar-Client/</id>
     <published>2023-08-03T03:47:52.000Z</published>
-    <updated>2023-08-02T15:57:55.227Z</updated>
+    <updated>2023-08-02T16:00:12.107Z</updated>
     
     <content type="html"><![CDATA[<p><img src="https://s2.loli.net/2023/08/02/GipDPSlbycQxqFd.png" alt="image.png"></p><p>#Blog #Pulsar </p><h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前段时间业务团队偶尔会碰到一些 Pulsar 使用的问题，比如消息阻塞不消费了、生产者消息发送缓慢等各种问题。</p><p>虽然我们有个监控页面可以根据 topic 维度查看他的发送状态，比如速率、流量、消费状态等信息。</p><span id="more"></span><p><img src="https://s2.loli.net/2023/08/02/UNZVawH4QYSu3Ko.png" alt="image.png"></p><p>但也有几个问题：</p><ul><li>无法在应用维度查看他所依赖的所有  topic 的各种状态。</li><li>监控的信息还不够，比如发送&#x2F;消费延迟、发送&#x2F;消费失败等数据。</li></ul><p>总之就是缺少一个全局的监控视角，通过这些指标可以很方便的分析出当时的运行情况。</p><p>基于这个需求经过一段时间的折腾，现在已经上线使用几个月，目前比较稳定，效果图如下：<br><img src="https://s2.loli.net/2023/08/02/byv4RDZnruSjo9h.png" alt="image.png"><br><img src="https://s2.loli.net/2023/08/02/TtufOpwHB86PFhK.png" alt="image.png"><br><img src="https://s2.loli.net/2023/08/02/d21IaNzbFQpnrkA.png" alt="image.png"></p><p>现在就可以在每个应用的监控面板里看到自己使用了哪些 topic，分别的生产消费情况如何。</p><h1 id="核心流程"><a href="#核心流程" class="headerlink" title="核心流程"></a>核心流程</h1><p>要实现这些功能就得在应用的 <code>metrics</code> 中加入相关的监控信息，但官方的 Java client 是没有暴露出这些指标的。</p><p><img src="https://s2.loli.net/2023/08/02/DlfkQo1Lmt8J7Iq.png" alt="image.png"></p><blockquote><p>但 pulsar-client-go 是自带了这些指标的</p></blockquote><p>由于 <code>SDK</code> 不支持所以只能自己想办法实现了，为此其实有两种实现方案：</p><ul><li>魔改 <code>Java client</code>，在需要监控的地方手动埋点指标。</li><li>由于我们使用了 <code>SkyWalking</code>，所以可以编写插件，以 <code>agent</code> 的方式获取数据、埋点指标。</li></ul><p>不过第一种方案有以下一些问题：</p><ul><li>需要自己维护一个代码分支，还需要定期和官方保持一致，难免会出现代码冲突。</li><li>需要推动业务方进行依赖升级，线上有着几百个应用，推动起来时间太慢。</li></ul><p>第二种方案的好处就不言而喻了：</p><ul><li>升级无感知，只需要在我们的基础镜像中加上插件即可。</li><li>Java client 的版本也更容易统一。</li></ul><h2 id="Client-原理"><a href="#Client-原理" class="headerlink" title="Client 原理"></a>Client 原理</h2><p>但其实不管是哪种方案我们都得熟悉 Java Client 的实现原理，才能知道哪些数据是我们需要重点关注的，可以帮助我们更好的定位问题。</p><p><img src="https://s2.loli.net/2023/08/02/vweWVR8fkJgrSMI.png" alt="image.png"><br><img src="https://s2.loli.net/2023/08/02/S2DNUb768rJRMLm.png" alt="image.png"><br><img src="https://s2.loli.net/2023/08/02/8Byvq4LXtACoIg5.png" alt="image.png"></p><blockquote><p>本文重点不在于此，具体代码就不仔细分析了。</p></blockquote><p>从上图可以看出，如果我们想要监控消费是否存在阻塞的情况，这几个内部队列是需要重点监控的，一旦他们出现堆积，那就会出现消费阻塞。</p><p>其实这些数据都可以通过</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">org.apache.pulsar.client.api.ProducerStats</span><br><span class="line">org.apache.pulsar.client.api.ConsumerStats</span><br></pre></td></tr></table></figure><p>这两个接口获取到生产者和消费者的大部分指标，只是这里还有一个小插曲。</p><p>那就是在获取消费者队列大小的时候，获取到的数据一直为空。</p><p>最终经过源码排查，原来是我们大量使用的 <code>messageListener</code> 在获取队列大小时有 bug，导致获取到的数据一直都为 0.</p><p>相关的 issue 和 PR 可以在这两个链接查看，问题原因和修复过程都有具体描述：<br><a href="https://github.com/apache/pulsar/issues/20076">https://github.com/apache/pulsar/issues/20076</a><br><a href="https://github.com/apache/pulsar/pull/20245">https://github.com/apache/pulsar/pull/20245</a></p><blockquote><p>但这个修复得在新版本才能使用，就导致我们现在的监控页面一直显示为空。</p></blockquote><h1 id="开发-SkyWalking-插件"><a href="#开发-SkyWalking-插件" class="headerlink" title="开发 SkyWalking 插件"></a>开发 SkyWalking 插件</h1><p>然后就是开发一个 <code>SkyWalking</code> 的插件了，其实直接使用 SW 开发插件是上手 <code>Java-Agent</code> 比较快的方式。</p><p><code>SW</code> 的 SDK 封装了许多 <code>agent</code> 原生接口，使得开发起来非常容易；当然缺点也有，就是得集成整个 <code>SW</code> 的 <code>agent</code>。</p><p>这里我简单介绍下这个插件的运行流程：<br><img src="https://s2.loli.net/2023/08/02/tW8QSqdU1yZf25A.png" alt="image.png"></p><ul><li>在创建和删除 consumer 的时候维护 consumerPool</li><li>启动一个定时任务，定期从这些 consumer 中获取指标数据。<br><img src="https://s2.loli.net/2023/08/02/ndhi3yH7CzS9FLA.png" alt="image.png"><br><img src="https://s2.loli.net/2023/08/02/WtZNTClh8Y3wj1F.png" alt="image.png"></li></ul><blockquote><p>当消费多分区 topic 时，为了能唯一标志一个 consumer，所以给每个消费者都加了一个 hashcode 的 label。</p></blockquote><p>因为我们所有的 Java 技术栈都是使用的 <code>Prometheus</code> 的包来生成 <code>metrics</code> ，所以该插件也是使用该包生成的数据。</p><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.prometheus<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>simpleclient<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">version</span>&gt;</span>0.12.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">scope</span>&gt;</span>provided<span class="tag">&lt;/<span class="name">scope</span>&gt;</span>  </span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure><p>为了兼容一些特殊 Java 应用没有该包时会启动报错，所以在初始化插件的时候需要检测当前 <code>classpath</code> 下是否存在该依赖。</p><p><img src="https://s2.loli.net/2023/08/02/IBwdhH9b1tc8aoE.png" alt="image.png"></p><p>这些功能 SW 已经封装好了，对我们来说也是开箱即用。</p><blockquote><p>其实 SW 插件自己也是支持 metrics 的，由于我们只是使用了它的 trace 功能，所以这里就没有使用它的 API。</p></blockquote><p>关于开发一个 SW 插件的流程也比较简单，可以参考官方文档或者是一些现成的插件源码。<br><a href="https://skywalking.apache.org/docs/skywalking-java/next/en/setup/service-agent/java-agent/java-plugin-development-guide/">https://skywalking.apache.org/docs/skywalking-java/next/en/setup/service-agent/java-agent/java-plugin-development-guide/</a></p><h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>有了这个监控面板后，对于 Pulsar 客户端内部的一些运行情况就不再是黑盒了，还可以基于此做一些报警，比如消费堆积、发送延迟过大等。</p><p>当然仅仅只有这个面板依然是不够的，后续我们又开发了可以通过 <code>messageId</code> 查询它的整个生命周期，包括：</p><ul><li>生产者、消费者信息</li><li>消息生产时间</li><li>推送时间</li><li>ack 时间等</li></ul><p><img src="https://s2.loli.net/2023/08/02/H7pjinzQ5EWR2tF.png" alt="image.png"></p><p>同时借助与 Pulsar-SQL 的能力，还能以列表的形式展示当前 topic 的消息列表。<br><img src="https://s2.loli.net/2023/08/02/l9uvSnqAOxfPer7.png" alt="image.png"><br>当然在实现这两个功能的同时也踩了不少坑，提了几个 PR ，后面在抽时间做具体的分享。</p>]]></content>
     
@@ -131,9 +131,9 @@
     
     <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
     
-    <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
-    
     <category term="K8s" scheme="http://crossoverjie.top/tags/K8s/"/>
+    
+    <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
     
   </entry>
   
@@ -465,11 +465,11 @@
     <category term="compiler" scheme="http://crossoverjie.top/categories/gscript/compiler/"/>
     
     
-    <category term="递归" scheme="http://crossoverjie.top/tags/%E9%80%92%E5%BD%92/"/>
-    
     <category term="go" scheme="http://crossoverjie.top/tags/go/"/>
     
     <category term="antlr" scheme="http://crossoverjie.top/tags/antlr/"/>
+    
+    <category term="递归" scheme="http://crossoverjie.top/tags/%E9%80%92%E5%BD%92/"/>
     
   </entry>
   
