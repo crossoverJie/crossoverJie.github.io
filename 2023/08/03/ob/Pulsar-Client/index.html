@@ -43,7 +43,7 @@
 <meta property="og:image" content="https://s2.loli.net/2023/08/02/H7pjinzQ5EWR2tF.png">
 <meta property="og:image" content="https://s2.loli.net/2023/08/02/l9uvSnqAOxfPer7.png">
 <meta property="article:published_time" content="2023-08-03T03:47:52.000Z">
-<meta property="article:modified_time" content="2023-08-02T15:47:37.434Z">
+<meta property="article:modified_time" content="2023-08-02T15:57:55.227Z">
 <meta property="article:author" content="crossoverJie">
 <meta property="article:tag" content="Metrics">
 <meta name="twitter:card" content="summary">
@@ -281,7 +281,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">Edited on</span>
-      <time title="Modified: 2023-08-02 23:47:37" itemprop="dateModified" datetime="2023-08-02T23:47:37+08:00">2023-08-02</time>
+      <time title="Modified: 2023-08-02 23:57:55" itemprop="dateModified" datetime="2023-08-02T23:57:55+08:00">2023-08-02</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -343,10 +343,10 @@
 <li>无法在应用维度查看他所依赖的所有  topic 的各种状态。</li>
 <li>监控的信息还不够，比如发送&#x2F;消费延迟、发送&#x2F;消费失败等数据。</li>
 </ul>
-<p>总之就是缺少一个全局的监控时间，通过这个数据可以很方便的分析出当时的数据情况。</p>
-<p>经过一段时间的折腾，现在已经上线使用几个月，目前比较稳定，效果图如下：<br><img src="https://s2.loli.net/2023/08/02/byv4RDZnruSjo9h.png" alt="image.png"><br><img src="https://s2.loli.net/2023/08/02/TtufOpwHB86PFhK.png" alt="image.png"><br><img src="https://s2.loli.net/2023/08/02/d21IaNzbFQpnrkA.png" alt="image.png"></p>
+<p>总之就是缺少一个全局的监控视角，通过这些指标可以很方便的分析出当时的运行情况。</p>
+<p>基于这个需求经过一段时间的折腾，现在已经上线使用几个月，目前比较稳定，效果图如下：<br><img src="https://s2.loli.net/2023/08/02/byv4RDZnruSjo9h.png" alt="image.png"><br><img src="https://s2.loli.net/2023/08/02/TtufOpwHB86PFhK.png" alt="image.png"><br><img src="https://s2.loli.net/2023/08/02/d21IaNzbFQpnrkA.png" alt="image.png"></p>
 <p>现在就可以在每个应用的监控面板里看到自己使用了哪些 topic，分别的生产消费情况如何。</p>
-<h1 id="核心流程"><a href="#核心流程" class="headerlink" title="核心流程"></a>核心流程</h1><p>要实现这些功能就得在应用的 metrics 中加入相关的监控信息，但官方的 Java client 是没有暴露出这些指标的。</p>
+<h1 id="核心流程"><a href="#核心流程" class="headerlink" title="核心流程"></a>核心流程</h1><p>要实现这些功能就得在应用的 <code>metrics</code> 中加入相关的监控信息，但官方的 Java client 是没有暴露出这些指标的。</p>
 <p><img src="https://s2.loli.net/2023/08/02/DlfkQo1Lmt8J7Iq.png" alt="image.png"></p>
 <blockquote>
 <p>但 pulsar-client-go 是自带了这些指标的</p>
@@ -369,7 +369,7 @@
 <h2 id="Client-原理"><a href="#Client-原理" class="headerlink" title="Client 原理"></a>Client 原理</h2><p>但其实不管是哪种方案我们都得熟悉 Java Client 的实现原理，才能知道哪些数据是我们需要重点关注的，可以帮助我们更好的定位问题。</p>
 <p><img src="https://s2.loli.net/2023/08/02/vweWVR8fkJgrSMI.png" alt="image.png"><br><img src="https://s2.loli.net/2023/08/02/S2DNUb768rJRMLm.png" alt="image.png"><br><img src="https://s2.loli.net/2023/08/02/8Byvq4LXtACoIg5.png" alt="image.png"></p>
 <blockquote>
-<p>本文重点不在于此，具体原理就不仔细分析了。</p>
+<p>本文重点不在于此，具体代码就不仔细分析了。</p>
 </blockquote>
 <p>从上图可以看出，如果我们想要监控消费是否存在阻塞的情况，这几个内部队列是需要重点监控的，一旦他们出现堆积，那就会出现消费阻塞。</p>
 <p>其实这些数据都可以通过</p>
@@ -394,7 +394,7 @@
 <p>因为我们所有的 Java 技术栈都是使用的 <code>Prometheus</code> 的包来生成 <code>metrics</code> ，所以该插件也是使用该包生成的数据。</p>
 <figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.prometheus<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>simpleclient<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">version</span>&gt;</span>0.12.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">scope</span>&gt;</span>provided<span class="tag">&lt;/<span class="name">scope</span>&gt;</span>  </span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
 
-<p>为了兼容一些特殊 Java 应用没有该包时启动报错，所以在初始化插件的时候需要检测当前 <code>classpath</code> 下是否存在该依赖。</p>
+<p>为了兼容一些特殊 Java 应用没有该包时会启动报错，所以在初始化插件的时候需要检测当前 <code>classpath</code> 下是否存在该依赖。</p>
 <p><img src="https://s2.loli.net/2023/08/02/IBwdhH9b1tc8aoE.png" alt="image.png"></p>
 <p>这些功能 SW 已经封装好了，对我们来说也是开箱即用。</p>
 <blockquote>
@@ -402,7 +402,7 @@
 </blockquote>
 <p>关于开发一个 SW 插件的流程也比较简单，可以参考官方文档或者是一些现成的插件源码。<br><a target="_blank" rel="noopener" href="https://skywalking.apache.org/docs/skywalking-java/next/en/setup/service-agent/java-agent/java-plugin-development-guide/">https://skywalking.apache.org/docs/skywalking-java/next/en/setup/service-agent/java-agent/java-plugin-development-guide/</a></p>
 <h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>有了这个监控面板后，对于 Pulsar 客户端内部的一些运行情况就不再是黑盒了，还可以基于此做一些报警，比如消费堆积、发送延迟过大等。</p>
-<p>当然仅仅只有这个面板依然是不够的，后续我们又开发了可以通过 messageId 查询它的整个生命周期，包括：</p>
+<p>当然仅仅只有这个面板依然是不够的，后续我们又开发了可以通过 <code>messageId</code> 查询它的整个生命周期，包括：</p>
 <ul>
 <li>生产者、消费者信息</li>
 <li>消息生产时间</li>
