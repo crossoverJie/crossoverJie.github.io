@@ -6,7 +6,7 @@
   <link href="http://crossoverjie.top/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2023-09-18T08:37:48.149Z</updated>
+  <updated>2023-09-18T14:50:56.560Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -15,6 +15,33 @@
   </author>
   
   <generator uri="https://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>Github的一个奇技淫巧</title>
+    <link href="http://crossoverjie.top/2023/09/18/ob/git-tips-rebase/"/>
+    <id>http://crossoverjie.top/2023/09/18/ob/git-tips-rebase/</id>
+    <published>2023-09-18T09:56:51.000Z</published>
+    <updated>2023-09-18T14:50:56.560Z</updated>
+    
+    <content type="html"><![CDATA[<p><img src="https://s2.loli.net/2023/09/18/gCjw9hZx4Y6cPSn.png" alt="Github的一个奇技淫巧.png"></p><h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前段时间给 <code>VictoriaLogs</code> 提交了一个 PR：<br><a href="https://github.com/VictoriaMetrics/VictoriaMetrics/pull/4934">https://github.com/VictoriaMetrics/VictoriaMetrics/pull/4934</a></p><p>本来一切都很顺利，只等合并了，但在临门一脚的时候社区维护人员问我可否给 <code>git</code> <code>commit</code> 加上签名。</p><blockquote><p>于是我就默默的调试到了凌晨四点😭</p></blockquote><p><img src="https://s2.loli.net/2023/09/18/VXhjU9ypuKP1ZWg.png" alt="image.png"></p><span id="more"></span><p>以前我也没怎么注意过这个选项，经过 <code>Google</code> 后发现 <code>Idea</code> 在提交的时候可以自行设置。</p><p><img src="https://s2.loli.net/2023/09/18/QdTetRSNG5c3KVr.png" alt="image.png"><br>当我勾选了这个提交新的代码后，依然被告知没有正确的签名，这时我才发现理解错误了。</p><h1 id="为-GitHub-的提交签名"><a href="#为-GitHub-的提交签名" class="headerlink" title="为 GitHub 的提交签名"></a>为 GitHub 的提交签名</h1><p>结合这位社区大佬给的文档，他所需要的是每次提交的代码都是有签名的，类似于这样：<br><img src="https://s2.loli.net/2023/09/18/26vgVMZmNrPCkqo.png" alt="image.png"></p><p>如果我们想要 <code>GitHub</code> 现实 <code>Verified</code> 这个标签，那就需要对 <code>commit</code> 或者是打的 <code>tag</code> 进行签名。</p><p>而签名的方式有三种：<code>GPG</code>, <code>SSH</code>, <code>S/MIME</code>，这里我以 GPG 签名为例，整体流程如下：</p><p><img src="https://s2.loli.net/2023/09/18/HwDIlL94c51Uz3e.png" alt="image.png"></p><p>先在<a href="https://www.gnupg.org/download/">https://www.gnupg.org/download/</a>这里下载安装 GPG 的命令行程序。</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">gpg --full-generate-key</span><br></pre></td></tr></table></figure><p>使用这个命令生成 key，之后会根据提示录入一些信息，包含你的 ID 和邮箱，建议都和 GitHub 的 ID 邮箱保持一致即可，然后一路回车完事。</p><p>之后可以使用这个命令查看刚才创建的 Key：</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">gpg --list-secret-keys --keyid-format=long</span><br><span class="line">------------------------------------</span><br><span class="line">sec   4096R/3AA5C34371567BD2 2016-03-10 [expires: 2017-03-10]</span><br><span class="line">uid                          Hubot &lt;hubot@example.com&gt;</span><br><span class="line">ssb   4096R/4BB6D45482678BE3 2016-03-10</span><br></pre></td></tr></table></figure><p>我们需要将 <code>3AA5C34371567BD2</code> 这个 Key 的 ID 字符串复制，之后执行：</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">gpg --armor --export 3AA5C34371567BD2</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">Prints the GPG key ID, <span class="keyword">in</span> ASCII armor format</span></span><br></pre></td></tr></table></figure><p>此时会打印出公钥，我们将</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">-----BEGIN PGP PUBLIC KEY BLOCK-----</span><br><span class="line">-----END PGP PUBLIC KEY BLOCK-----</span><br></pre></td></tr></table></figure><p>这些数据复制到 GitHub 的个人设置页面：<br><img src="https://s2.loli.net/2023/09/18/zvMgJcqAnRQjYxG.png" alt="image.png"></p><p>此时还没完，如果我们直接提交代码的也不会有 <code>Verified</code> 的标签。</p><p><img src="https://s2.loli.net/2023/09/18/eST5f1Vad4x8Ou7.png" alt="image.png"></p><p>我们还需要打开 git 的 config 设置：</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">git config commit.gpgsign true</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">全局打开</span></span><br><span class="line">git config --global commit.gpgsign true</span><br><span class="line">git commit -S -m &quot;YOUR_COMMIT_MESSAGE&quot;</span><br><span class="line">git push</span><br></pre></td></tr></table></figure><p>这样提交的 Commit 就会打上验证的标签了。<br><img src="https://s2.loli.net/2023/09/18/HKcvrfMozC9YEnx.png" alt="image.png"></p><blockquote><p>-S 的效果和在 idea 中选中 Sign-off 的效果一样。</p></blockquote><p>官方文档也有详细的步骤：<br><a href="https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification">https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification</a></p><h1 id="Squash-合并提交"><a href="#Squash-合并提交" class="headerlink" title="Squash 合并提交"></a>Squash 合并提交</h1><p>不过在我这个 <code>PR</code> 的背景下还有一个步骤没有完成，就是我之前提交的 <code>Commit</code> 都没要验证，我需要将他们都合并为一个验证的 Commit 然后在强制推送上去，这样整个 <code>git log</code> 看起来才足够简洁。</p><p>最终效果如下，只有一个 Commit 存在。<br><img src="https://s2.loli.net/2023/09/18/1OzjkDwhdWuJS8n.png"></p><p>这时候就得需要 git rebase 出马了。</p><p><img src="https://s2.loli.net/2023/09/18/vaOPw3gQTtVSoxC.png" alt="image.png"><br>以刚才测试的这两个提交为例，我需要将他们合并为一个提交。</p><p>我们先使用这个命令：</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">git rebase -i HEAD~N</span><br><span class="line">git rebase -i HEAD~2</span><br></pre></td></tr></table></figure><p>N 就是我们需要合并几个提交，在我这里就是 2.</p><p><img src="https://s2.loli.net/2023/09/18/PN6nUE3BVu48TWF.png" alt="image.png"><br>我们需要将除了第一个 commit 之外的都修改为 s，也就是下面注释里的 <code>squash</code> 的简写（压缩的意思）。</p><p>这是一个 vim 的交互编辑模式，编辑完成之后保存退出。</p><blockquote><p>不会还有程序员不知道如何保存 vim 退出吧🐕。</p></blockquote><p>保存后又会弹出一个编辑页面，让我们填写这次压缩之后的提交记录，默认会帮我生成好，当然你也可以全部删掉后重写。</p><p><img src="https://s2.loli.net/2023/09/18/YCx5ablcrBmsdiD.png" alt="image.png"></p><p>我这里就直接使用它生成好的就可以了，依然还是保存退出。</p><p>最后再强行推送到我所在的分支即可：</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git push origin test-rebase -f</span><br></pre></td></tr></table></figure><p>在这个分支的提交页面也只会看到刚才强行推送的记录了，刚才的两个提交已经合并为这一个了。</p><p><img src="https://s2.loli.net/2023/09/18/ULO3kxgSYErPqle.png" alt="image.png"></p><h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>借着这个机会也了解了 <code>rebase</code> 的骚操作挺多的，不过我平时用的最多的还是 <code>merge</code>，这个倒没有好坏之分，只要同组的开发者都达成一致即可。</p><p>#Blog #Github #Git</p>]]></content>
+    
+    
+    <summary type="html">&lt;p&gt;&lt;img src=&quot;https://s2.loli.net/2023/09/18/gCjw9hZx4Y6cPSn.png&quot; alt=&quot;Github的一个奇技淫巧.png&quot;&gt;&lt;/p&gt;
+&lt;h1 id=&quot;背景&quot;&gt;&lt;a href=&quot;#背景&quot; class=&quot;headerlink&quot; title=&quot;背景&quot;&gt;&lt;/a&gt;背景&lt;/h1&gt;&lt;p&gt;前段时间给 &lt;code&gt;VictoriaLogs&lt;/code&gt; 提交了一个 PR：&lt;br&gt;&lt;a href=&quot;https://github.com/VictoriaMetrics/VictoriaMetrics/pull/4934&quot;&gt;https://github.com/VictoriaMetrics/VictoriaMetrics/pull/4934&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;本来一切都很顺利，只等合并了，但在临门一脚的时候社区维护人员问我可否给 &lt;code&gt;git&lt;/code&gt; &lt;code&gt;commit&lt;/code&gt; 加上签名。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;于是我就默默的调试到了凌晨四点😭&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;img src=&quot;https://s2.loli.net/2023/09/18/VXhjU9ypuKP1ZWg.png&quot; alt=&quot;image.png&quot;&gt;&lt;/p&gt;</summary>
+    
+    
+    
+    <category term="git" scheme="http://crossoverjie.top/categories/git/"/>
+    
+    
+    <category term="rebase" scheme="http://crossoverjie.top/tags/rebase/"/>
+    
+  </entry>
   
   <entry>
     <title>k8s入门到实战-使用Ingress</title>
@@ -328,9 +355,9 @@
     
     <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
     
-    <category term="K8s" scheme="http://crossoverjie.top/tags/K8s/"/>
-    
     <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
+    
+    <category term="K8s" scheme="http://crossoverjie.top/tags/K8s/"/>
     
   </entry>
   
@@ -485,34 +512,6 @@
     
     <category term="annual-summary" scheme="http://crossoverjie.top/categories/annual-summary/"/>
     
-    
-  </entry>
-  
-  <entry>
-    <title>Pulsar压测及优化</title>
-    <link href="http://crossoverjie.top/2023/01/16/pulsar/pulsar-perf-test/"/>
-    <id>http://crossoverjie.top/2023/01/16/pulsar/pulsar-perf-test/</id>
-    <published>2023-01-16T00:12:26.000Z</published>
-    <updated>2023-01-15T09:56:04.199Z</updated>
-    
-    <content type="html"><![CDATA[<p><img src="https://s2.loli.net/2023/01/12/tpk3aXFYZ9BPJb8.jpg"></p><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>这段时间在做 MQ（Pulsar）相关的治理工作，其中一个部分内容关于消息队列的升级，比如：</p><ul><li>一键创建一个测试集群。</li><li>运行一批测试用例，覆盖我们线上使用到的功能，并输出测试报告。</li><li>模拟压测，输出测试结果。</li></ul><p>本质目的就是想直到新版本升级过程中和升级后对现有业务是否存在影响。</p><span id="more"></span><p>一键创建集群和执行测试用例比较简单，利用了 <code>helm</code> 和 <code>k8s client</code> 的 SDK 把整个流程串起来即可。</p><h1 id="压测"><a href="#压测" class="headerlink" title="压测"></a>压测</h1><p>其实稍微麻烦一点的是压测，<code>Pulsar</code> 官方本身是有提供一个压测工具；只是功能相对比较单一，只能对某批 topic 极限压测，最后输出测试报告。<br>最后参考了官方的压测流程，加入了一些实时监控数据，方便分析整个压测过程中性能的变化。</p><h2 id="客户端-timeout"><a href="#客户端-timeout" class="headerlink" title="客户端 timeout"></a>客户端 timeout</h2><p>随着压测过程中的压力增大，比如压测时间和线程数的提高，客户端会抛出发送消息 timeout 异常。</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">org.apache.pulsar.client.api.PulsarClientException$TimeoutException: </span><br><span class="line">The producer pulsar-test-<span class="number">212</span>-<span class="number">20</span> can not send message to the topic persistent:<span class="comment">//my-tenant/my-ns/perf-topic-0 within given timeout : createdAt 82.964 seconds ago, firstSentAt 8.348 seconds ago, lastSentAt 8.348 seconds ago, retryCount 1</span></span><br></pre></td></tr></table></figure><p>而这个异常在生产业务环境的高峰期偶尔也出现过，这会导致业务数据的丢失；所以正好这次被我复现出来后想着分析下产生的原因以及解决办法。</p><h2 id="源码分析客户端"><a href="#源码分析客户端" class="headerlink" title="源码分析客户端"></a>源码分析客户端</h2><p>既然是客户端抛出的异常所以就先看从异常点开始看起，其实整个过程和产生的原因并不复杂，如下图：</p><p><img src="https://s2.loli.net/2023/01/15/UvNGXC3iz9DjT5k.png"></p><p>客户端流程：</p><ol><li>客户端 producer 发送消息时先将消息发往本地的一个 pending 队列。</li><li>待 broker 处理完（写入 bookkeeper) 返回 ACK 时删除该 pending 队列头的消息。</li><li>后台启动一个定时任务，定期扫描队列头（头部的消息是最后写入的）的消息是否已经过期（过期时间可配置，默认30s)。</li><li>如果已经过期（头部消息过期，说明所有消息都已过期）则遍历队列内的消息依次抛出 <code>PulsarClientException$TimeoutException</code> 异常，最后清空该队列。</li></ol><p>服务端 broker 流程：</p><ol><li>收到消息后调用 bookkeeper API 写入消息。</li><li>写入消息时同时写入回调函数。</li><li>写入成功后执行回调函数，这时会记录一条消息的写入延迟，并通知客户端 ACK。</li><li>通过 broker metric 指标 <code>pulsar_broker_publish_latency</code> 可以获取写入延迟。</li></ol><p>从以上流程可以看出，如果客户端不做兜底措施则在第四步会出现消息丢失，这类本质上不算是 broker 丢消息，而是客户端认为当时 broker 的处理能力达到上限，考虑到消息的实时性从而丢弃了还未发送的消息。</p><h1 id="性能分析"><a href="#性能分析" class="headerlink" title="性能分析"></a>性能分析</h1><p>通过上述分析，特别是 broker 的写入流程得知，整个写入的主要操作便是写入 bookkeeper，所以 bookkeeper 的写入性能便关系到整个集群的写入性能。</p><p>极端情况下，假设不考虑网络的损耗，如果 <code>bookkeeper</code> 的写入延迟是 0ms，那整个集群的写入性能几乎就是无上限；所以我们重点看看在压测过程中 <code>bookkeeper</code> 的各项指标。</p><h2 id="CPU"><a href="#CPU" class="headerlink" title="CPU"></a>CPU</h2><p>首先是 CPU：<br><img src="https://s2.loli.net/2023/01/15/Et5urHVQ2xhP6Ja.png"></p><p>从图中可以看到压测过程中 CPU 是有明显增高的，所以我们需要找到压测过程中 bookkeeper 的 CPU 大部分损耗在哪里？</p><p>这里不得不吹一波阿里的 arthas 工具，可以非常方便的帮我们生成火焰图。</p><p><img src="https://s2.loli.net/2023/01/15/QCUTiXjcYeHG3LV.png"></p><p>分析火焰图最简单的一个方法便是查看顶部最宽的函数是哪个，它大概率就是性能的瓶颈。</p><p>在这个图中的顶部并没有明显很宽的函数，大家都差不多，所以并没有明显损耗 CPU 的函数。</p><p>此时在借助云厂商的监控得知并没有得到 CPU 的上限（limit 限制为 8核）。<br><img src="https://s2.loli.net/2023/01/15/8HAkq9ijQNdcFJX.png"></p><hr><p>使用 arthas 过程中也有个小坑，在 k8s 环境中有可能应用启动后没有成功在磁盘写入 pid ，导致查询不到 Java 进程。</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ java -jar arthas-boot.jar</span><br><span class="line">[INFO] arthas-boot version: <span class="number">3.6</span><span class="number">.7</span></span><br><span class="line">[INFO] Can not find java process. Try to pass &lt;pid&gt; in command line.</span><br><span class="line">Please select an available pid.</span><br></pre></td></tr></table></figure><p>此时可以直接 <code>ps</code> 拿到进程 <code>ID</code>，然后在启动的时候直接传入 <code>pid</code> 即可。</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ java -jar arthas-boot.jar <span class="number">1</span></span><br></pre></td></tr></table></figure><p>通常情况下这个 <code>pid</code> 是 1。</p><h2 id="磁盘"><a href="#磁盘" class="headerlink" title="磁盘"></a>磁盘</h2><p>既然 CPU 没有问题，那就再看看磁盘是不是瓶颈；</p><p><img src="https://s2.loli.net/2023/01/15/PmMFyefXx23gDwC.png"></p><p>可以看到压测时的 IO 等待时间明显是比日常请求高许多，为了最终确认是否是磁盘的问题，再将磁盘类型换为 SSD 进行测试。</p><p><img src="https://s2.loli.net/2023/01/15/pqnFjJH3zbRkxIV.png"><br>果然即便是压测，SSD磁盘的 IO 也比普通硬盘的正常请求期间延迟更低。</p><p>既然磁盘 IO 延迟降低了，根据前文的分析理论上整个集群的性能应该会有明显的上升，因此对比了升级前后的消息 TPS 写入指标：</p><p><img src="https://s2.loli.net/2023/01/15/xofeW98vVnUzskY.png"></p><p>升级后每秒的写入速率由 40k 涨到 80k 左右，几乎是翻了一倍（果然用钱是最快解决问题的方式）；</p><blockquote><p>但即便是这样，极限压测后依然会出现客户端 timeout，这是因为无论怎么提高服务端的处理性能，依然没法做到没有延迟的写入，各个环节都会有损耗。</p></blockquote><h1 id="升级过程中的-timeout"><a href="#升级过程中的-timeout" class="headerlink" title="升级过程中的 timeout"></a>升级过程中的 timeout</h1><p>还有一个关键的步骤必须要覆盖：模拟生产现场有着大量的生产者和消费者接入收发消息时进行集群升级，对客户端业务的影响。</p><p>根据官方推荐的升级步骤，流程如下：</p><ul><li>Upgrade Zookeeper.</li><li>Disable autorecovery.</li><li>Upgrade Bookkeeper.</li><li>Upgrade Broker.</li><li>Upgrade Proxy.</li><li>Enable autorecovery.</li></ul><p>其中最关键的是升级 Broker 和 Proxy，因为这两个是客户端直接交互的组件。</p><p>本质上升级的过程就是优雅停机，然后使用新版本的 docker 启动；所以客户端一定会感知到 Broker 下线后进行重连，如果能快速自动重连那对客户端几乎没有影响。</p><p><img src="https://s2.loli.net/2023/01/15/1WjaiXs24dTwZ3S.png"><br>在我的测试过程中，2000左右的 producer 以 1k 的发送速率进行消息发送，在 30min 内完成所有组件升级，整个过程客户端会自动快速重连，并不会出现异常以及消息丢失。</p><p>而一旦发送频率增加时，在重启 Broker 的过程中便会出现上文提到的 timeout 异常；初步看起来是在默认的 30s 时间内没有重连成功，导致积压的消息已经超时。</p><p>经过分析源码发现关键的步骤如下：<br><img src="https://s2.loli.net/2023/01/15/V3lZeALxF7vhYHf.png"></p><p>客户端在与 Broker 的长连接状态断开后会自动重连，而重连到具体哪台 Broker 节点是由 <code>LookUpService</code> 处理的，它会根据使用的 topic 获取到它的元数据。</p><blockquote><p>理论上这个过程如果足够快，对客户端就会越无感。</p></blockquote><p>在元数据中包含有该 topic 所属的 bundle 所绑定的  Broker 的具体 IP+端口，这样才能重新连接然后发送消息。</p><blockquote><p>bundle 是一批 topic 的抽象，用来将一批 topic 与 Broker 绑定。</p></blockquote><p>而在一个 Broker 停机的时会自动卸载它所有的 bundle，并由负载均衡器自动划分到在线的 Broker 中，交由他们处理。</p><p>这里会有两种情况降低 LookUpSerive 获取元数据的速度：</p><p>因为所有的 Broker 都是 stateful 有状态节点，所以升级时是从新的节点开始升级，假设是<code>broker-5</code>，假设升级的那个节点的 bundle 切好被转移 <code>broker-4</code>中，客户端此时便会自动重连到 4 这个Broker 中。</p><p>此时客户端正在讲堆积的消息进行重发，而下一个升级的节点正好是 4，那客户端又得等待 bundle 成功 unload 到新的节点，如果恰好是 3 的话那又得套娃了，这样整个消息的重发流程就会被拉长，直到超过等待时间便会超时。</p><p>还有一种情况是 bundle 的数量比较多，导致上面讲到的 unload 时更新元数据到 zookeeper 的时间也会增加。</p><blockquote><p>所以我在考虑 Broker 在升级过程中时，是否可以将 unload 的 bundle 优先与 <code>Broker-0</code>进行绑定，最后全部升级成功后再做一次负载均衡，尽量减少客户端重连的机会。</p></blockquote><h1 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h1><p>如果我们想要解决这个 timeout 的异常，也有以下几个方案：</p><ol><li>将 bookkeeper 的磁盘换为写入时延更低的 SSD，提高单节点性能。</li><li>增加 bookkeeper 节点，不过由于 bookkeeper 是有状态的，水平扩容起来比较麻烦，而且一旦扩容再想缩容也比较困难。</li><li>增加客户端写入的超时时间，这个可以配置。</li><li>客户端做好兜底措施，捕获异常、记录日志、或者入库都可以，后续进行消息重发。</li><li>为 bookkeeper 的写入延迟增加报警。</li><li>Spring 官方刚出炉的 Pulsar-starter 已经内置了 producer 相关的 metrics，客户端也可以对这个进行监控报警。</li></ol><p>以上最好实现的就是第四步了，效果好成本低，推荐还没有实现的都尽快 <code>try catch</code> 起来。</p><p>整个测试流程耗费了我一两周的时间，也是第一次全方位的对一款中间件进行测试，其中也学到了不少东西；不管是源码还是架构都对 <code>Pulsar</code> 有了更深入的理解。</p>]]></content>
-    
-    
-    <summary type="html">&lt;p&gt;&lt;img src=&quot;https://s2.loli.net/2023/01/12/tpk3aXFYZ9BPJb8.jpg&quot;&gt;&lt;/p&gt;
-&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;这段时间在做 MQ（Pulsar）相关的治理工作，其中一个部分内容关于消息队列的升级，比如：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;一键创建一个测试集群。&lt;/li&gt;
-&lt;li&gt;运行一批测试用例，覆盖我们线上使用到的功能，并输出测试报告。&lt;/li&gt;
-&lt;li&gt;模拟压测，输出测试结果。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;本质目的就是想直到新版本升级过程中和升级后对现有业务是否存在影响。&lt;/p&gt;</summary>
-    
-    
-    
-    <category term="Pulsar" scheme="http://crossoverjie.top/categories/Pulsar/"/>
-    
-    
-    <category term="消息队列" scheme="http://crossoverjie.top/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/"/>
     
   </entry>
   

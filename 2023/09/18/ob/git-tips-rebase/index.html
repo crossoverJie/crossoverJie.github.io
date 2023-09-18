@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="背景前段时间给 VictoriaLogs 提交了一个 PR：https:&#x2F;&#x2F;github.com&#x2F;VictoriaMetrics&#x2F;VictoriaMetrics&#x2F;pull&#x2F;4934 本来一切都很顺利，只等合并了，但在临门一脚的时候社区维护人员问我可否给 git commit 加上签名。  于是我就默默的调试到了凌晨四点😭">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Github的一个奇技淫巧">
+<meta property="og:url" content="http://crossoverjie.top/2023/09/18/ob/git-tips-rebase/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景前段时间给 VictoriaLogs 提交了一个 PR：https:&#x2F;&#x2F;github.com&#x2F;VictoriaMetrics&#x2F;VictoriaMetrics&#x2F;pull&#x2F;4934 本来一切都很顺利，只等合并了，但在临门一脚的时候社区维护人员问我可否给 git commit 加上签名。  于是我就默默的调试到了凌晨四点😭">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2023/09/18/gCjw9hZx4Y6cPSn.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/18/VXhjU9ypuKP1ZWg.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/18/QdTetRSNG5c3KVr.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/18/26vgVMZmNrPCkqo.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/18/HwDIlL94c51Uz3e.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/18/zvMgJcqAnRQjYxG.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/18/eST5f1Vad4x8Ou7.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/18/HKcvrfMozC9YEnx.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/18/1OzjkDwhdWuJS8n.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/18/vaOPw3gQTtVSoxC.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/18/PN6nUE3BVu48TWF.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/18/YCx5ablcrBmsdiD.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/18/ULO3kxgSYErPqle.png">
+<meta property="article:published_time" content="2023-09-18T09:56:51.000Z">
+<meta property="article:modified_time" content="2023-09-18T14:50:56.560Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="rebase">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2023/09/18/gCjw9hZx4Y6cPSn.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2023/09/18/ob/git-tips-rebase/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2023/09/18/ob/git-tips-rebase/","path":"2023/09/18/ob/git-tips-rebase/","title":"Github的一个奇技淫巧"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Github的一个奇技淫巧 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">75</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">185</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">168</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%BA-GitHub-%E7%9A%84%E6%8F%90%E4%BA%A4%E7%AD%BE%E5%90%8D"><span class="nav-number">2.</span> <span class="nav-text">为 GitHub 的提交签名</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Squash-%E5%90%88%E5%B9%B6%E6%8F%90%E4%BA%A4"><span class="nav-number">3.</span> <span class="nav-text">Squash 合并提交</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">185</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">75</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">168</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2023/09/18/ob/git-tips-rebase/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Github的一个奇技淫巧 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Github的一个奇技淫巧
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2023-09-18 17:56:51 / Modified: 22:50:56" itemprop="dateCreated datePublished" datetime="2023-09-18T17:56:51+08:00">2023-09-18</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/git/" itemprop="url" rel="index"><span itemprop="name">git</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2023/09/18/ob/git-tips-rebase/" class="post-meta-item leancloud_visitors" data-flag-title="Github的一个奇技淫巧" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2023/09/18/ob/git-tips-rebase/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2023/09/18/ob/git-tips-rebase/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://s2.loli.net/2023/09/18/gCjw9hZx4Y6cPSn.png" alt="Github的一个奇技淫巧.png"></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前段时间给 <code>VictoriaLogs</code> 提交了一个 PR：<br><a target="_blank" rel="noopener" href="https://github.com/VictoriaMetrics/VictoriaMetrics/pull/4934">https://github.com/VictoriaMetrics/VictoriaMetrics/pull/4934</a></p>
+<p>本来一切都很顺利，只等合并了，但在临门一脚的时候社区维护人员问我可否给 <code>git</code> <code>commit</code> 加上签名。</p>
+<blockquote>
+<p>于是我就默默的调试到了凌晨四点😭</p>
+</blockquote>
+<p><img src="https://s2.loli.net/2023/09/18/VXhjU9ypuKP1ZWg.png" alt="image.png"></p>
+<span id="more"></span>
+<p>以前我也没怎么注意过这个选项，经过 <code>Google</code> 后发现 <code>Idea</code> 在提交的时候可以自行设置。</p>
+<p><img src="https://s2.loli.net/2023/09/18/QdTetRSNG5c3KVr.png" alt="image.png"><br>当我勾选了这个提交新的代码后，依然被告知没有正确的签名，这时我才发现理解错误了。</p>
+<h1 id="为-GitHub-的提交签名"><a href="#为-GitHub-的提交签名" class="headerlink" title="为 GitHub 的提交签名"></a>为 GitHub 的提交签名</h1><p>结合这位社区大佬给的文档，他所需要的是每次提交的代码都是有签名的，类似于这样：<br><img src="https://s2.loli.net/2023/09/18/26vgVMZmNrPCkqo.png" alt="image.png"></p>
+<p>如果我们想要 <code>GitHub</code> 现实 <code>Verified</code> 这个标签，那就需要对 <code>commit</code> 或者是打的 <code>tag</code> 进行签名。</p>
+<p>而签名的方式有三种：<code>GPG</code>, <code>SSH</code>, <code>S/MIME</code>，这里我以 GPG 签名为例，整体流程如下：</p>
+<p><img src="https://s2.loli.net/2023/09/18/HwDIlL94c51Uz3e.png" alt="image.png"></p>
+<p>先在<a target="_blank" rel="noopener" href="https://www.gnupg.org/download/">https://www.gnupg.org/download/</a>这里下载安装 GPG 的命令行程序。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">gpg --full-generate-key</span><br></pre></td></tr></table></figure>
+
+<p>使用这个命令生成 key，之后会根据提示录入一些信息，包含你的 ID 和邮箱，建议都和 GitHub 的 ID 邮箱保持一致即可，然后一路回车完事。</p>
+<p>之后可以使用这个命令查看刚才创建的 Key：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">gpg --list-secret-keys --keyid-format=long</span><br><span class="line">------------------------------------</span><br><span class="line">sec   4096R/3AA5C34371567BD2 2016-03-10 [expires: 2017-03-10]</span><br><span class="line">uid                          Hubot &lt;hubot@example.com&gt;</span><br><span class="line">ssb   4096R/4BB6D45482678BE3 2016-03-10</span><br></pre></td></tr></table></figure>
+
+<p>我们需要将 <code>3AA5C34371567BD2</code> 这个 Key 的 ID 字符串复制，之后执行：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">gpg --armor --export 3AA5C34371567BD2</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">Prints the GPG key ID, <span class="keyword">in</span> ASCII armor format</span></span><br></pre></td></tr></table></figure>
+
+<p>此时会打印出公钥，我们将</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">-----BEGIN PGP PUBLIC KEY BLOCK-----</span><br><span class="line">-----END PGP PUBLIC KEY BLOCK-----</span><br></pre></td></tr></table></figure>
+<p>这些数据复制到 GitHub 的个人设置页面：<br><img src="https://s2.loli.net/2023/09/18/zvMgJcqAnRQjYxG.png" alt="image.png"></p>
+<p>此时还没完，如果我们直接提交代码的也不会有 <code>Verified</code> 的标签。</p>
+<p><img src="https://s2.loli.net/2023/09/18/eST5f1Vad4x8Ou7.png" alt="image.png"></p>
+<p>我们还需要打开 git 的 config 设置：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">git config commit.gpgsign true</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">全局打开</span></span><br><span class="line">git config --global commit.gpgsign true</span><br><span class="line">git commit -S -m &quot;YOUR_COMMIT_MESSAGE&quot;</span><br><span class="line">git push</span><br></pre></td></tr></table></figure>
+
+<p>这样提交的 Commit 就会打上验证的标签了。<br><img src="https://s2.loli.net/2023/09/18/HKcvrfMozC9YEnx.png" alt="image.png"></p>
+<blockquote>
+<p>-S 的效果和在 idea 中选中 Sign-off 的效果一样。</p>
+</blockquote>
+<p>官方文档也有详细的步骤：<br><a target="_blank" rel="noopener" href="https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification">https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification</a></p>
+<h1 id="Squash-合并提交"><a href="#Squash-合并提交" class="headerlink" title="Squash 合并提交"></a>Squash 合并提交</h1><p>不过在我这个 <code>PR</code> 的背景下还有一个步骤没有完成，就是我之前提交的 <code>Commit</code> 都没要验证，我需要将他们都合并为一个验证的 Commit 然后在强制推送上去，这样整个 <code>git log</code> 看起来才足够简洁。</p>
+<p>最终效果如下，只有一个 Commit 存在。<br><img src="https://s2.loli.net/2023/09/18/1OzjkDwhdWuJS8n.png"></p>
+<p>这时候就得需要 git rebase 出马了。</p>
+<p><img src="https://s2.loli.net/2023/09/18/vaOPw3gQTtVSoxC.png" alt="image.png"><br>以刚才测试的这两个提交为例，我需要将他们合并为一个提交。</p>
+<p>我们先使用这个命令：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">git rebase -i HEAD~N</span><br><span class="line">git rebase -i HEAD~2</span><br></pre></td></tr></table></figure>
+<p>N 就是我们需要合并几个提交，在我这里就是 2.</p>
+<p><img src="https://s2.loli.net/2023/09/18/PN6nUE3BVu48TWF.png" alt="image.png"><br>我们需要将除了第一个 commit 之外的都修改为 s，也就是下面注释里的 <code>squash</code> 的简写（压缩的意思）。</p>
+<p>这是一个 vim 的交互编辑模式，编辑完成之后保存退出。</p>
+<blockquote>
+<p>不会还有程序员不知道如何保存 vim 退出吧🐕。</p>
+</blockquote>
+<p>保存后又会弹出一个编辑页面，让我们填写这次压缩之后的提交记录，默认会帮我生成好，当然你也可以全部删掉后重写。</p>
+<p><img src="https://s2.loli.net/2023/09/18/YCx5ablcrBmsdiD.png" alt="image.png"></p>
+<p>我这里就直接使用它生成好的就可以了，依然还是保存退出。</p>
+<p>最后再强行推送到我所在的分支即可：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git push origin test-rebase -f</span><br></pre></td></tr></table></figure>
+
+<p>在这个分支的提交页面也只会看到刚才强行推送的记录了，刚才的两个提交已经合并为这一个了。</p>
+<p><img src="https://s2.loli.net/2023/09/18/ULO3kxgSYErPqle.png" alt="image.png"></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>借着这个机会也了解了 <code>rebase</code> 的骚操作挺多的，不过我平时用的最多的还是 <code>merge</code>，这个倒没有好坏之分，只要同组的开发者都达成一致即可。</p>
+<p>#Blog #Github #Git</p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2023/09/18/ob/git-tips-rebase/" title="Github的一个奇技淫巧">http://crossoverjie.top/2023/09/18/ob/git-tips-rebase/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/rebase/" rel="tag"><i class="fa fa-tag"></i> rebase</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2023/09/15/ob/k8s-Ingress/" rel="prev" title="k8s入门到实战-使用Ingress">
+                  <i class="fa fa-chevron-left"></i> k8s入门到实战-使用Ingress
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
