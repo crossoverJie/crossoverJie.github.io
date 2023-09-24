@@ -28,16 +28,16 @@
 <meta property="og:site_name" content="crossoverJie&#39;s Blog">
 <meta property="og:description" content="前言最近实现某个业务时，需要读取数据然后再异步处理；在 Go 中实现起来自然就比较简单，伪代码如下： 12345678910list :&#x3D; []*Demo&amp;#123;&amp;#123;&quot;a&quot;&amp;#125;, &amp;#123;&quot;b&quot;&amp;#125;&amp;#125;for _, v :&#x3D; range list &amp;#123;	go func() &amp;#123;		fmt.Printl">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="https://tva1.sinaimg.cn/large/008i3skNly1gxrpg1tweyj30rs0rsgnj.jpg">
-<meta property="og:image" content="https://tva1.sinaimg.cn/large/008i3skNly1gxsr5d5qlhj30mh07x74n.jpg">
+<meta property="og:image" content="https://s2.loli.net/2023/09/24/gohfjR5CtU9Qvr6.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/24/ortJYa4fk3QCz18.png">
 <meta property="og:image" content="https://tva1.sinaimg.cn/large/008i3skNly1gxstzwhykqj311f0u0q71.jpg">
 <meta property="article:published_time" content="2021-12-28T00:12:16.000Z">
-<meta property="article:modified_time" content="2021-12-27T16:29:10.039Z">
+<meta property="article:modified_time" content="2023-09-24T10:10:25.689Z">
 <meta property="article:author" content="crossoverJie">
 <meta property="article:tag" content="for">
 <meta property="article:tag" content="goroutine">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://tva1.sinaimg.cn/large/008i3skNly1gxrpg1tweyj30rs0rsgnj.jpg">
+<meta name="twitter:image" content="https://s2.loli.net/2023/09/24/gohfjR5CtU9Qvr6.png">
 
 
 <link rel="canonical" href="http://crossoverjie.top/2021/12/28/go/for-mistake/">
@@ -263,9 +263,15 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">Posted on</span>
-      
 
-      <time title="Created: 2021-12-28 08:12:16 / Modified: 00:29:10" itemprop="dateCreated datePublished" datetime="2021-12-28T08:12:16+08:00">2021-12-28</time>
+      <time title="Created: 2021-12-28 08:12:16" itemprop="dateCreated datePublished" datetime="2021-12-28T08:12:16+08:00">2021-12-28</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-09-24 18:10:25" itemprop="dateModified" datetime="2023-09-24T18:10:25+08:00">2023-09-24</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -315,7 +321,7 @@
     
     
     <div class="post-body" itemprop="articleBody">
-        <p><img src="https://tva1.sinaimg.cn/large/008i3skNly1gxrpg1tweyj30rs0rsgnj.jpg"></p>
+        <p><img src="https://s2.loli.net/2023/09/24/gohfjR5CtU9Qvr6.png"></p>
 <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近实现某个业务时，需要读取数据然后再异步处理；在 Go 中实现起来自然就比较简单，伪代码如下：</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">list := []*Demo&#123;&#123;<span class="string">&quot;a&quot;</span>&#125;, &#123;<span class="string">&quot;b&quot;</span>&#125;&#125;</span><br><span class="line"><span class="keyword">for</span> _, v := <span class="keyword">range</span> list &#123;</span><br><span class="line">	<span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">		fmt.Println(<span class="string">&quot;name=&quot;</span>+v.Name)</span><br><span class="line">	&#125;()</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> Demo <span class="keyword">struct</span> &#123;</span><br><span class="line">	Name <span class="type">string</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
@@ -358,7 +364,7 @@
 
 <p>也简单，同样的使用临时变量即可。</p>
 <p>通过官方源码可以得知，<code>for range</code> 只是语法糖，本质上也是 for 循环；因为每次都是对同一个对象遍历赋值，所以便会出现这样的“乌龙”。</p>
-<p><img src="https://tva1.sinaimg.cn/large/008i3skNly1gxsr5d5qlhj30mh07x74n.jpg"></p>
+<p><img src="https://s2.loli.net/2023/09/24/ortJYa4fk3QCz18.png"></p>
 <h1 id="defer-的坑"><a href="#defer-的坑" class="headerlink" title="defer 的坑"></a>defer 的坑</h1><p><code>for</code> 循环 + <code>defer</code> 也是组合坑（虽然不推荐这么用），还是先来看个例子：</p>
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// demo1</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	a := []<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>&#125;</span><br><span class="line">	<span class="keyword">for</span> _, v := <span class="keyword">range</span> a &#123;</span><br><span class="line">		<span class="keyword">defer</span> fmt.Println(v)</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// demo2</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	a := []<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>&#125;</span><br><span class="line">	<span class="keyword">for</span> _, v := <span class="keyword">range</span> a &#123;</span><br><span class="line">		<span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">			fmt.Println(v)</span><br><span class="line">		&#125;()</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
