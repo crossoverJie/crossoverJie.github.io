@@ -6,7 +6,7 @@
   <link href="http://crossoverjie.top/atom.xml" rel="self"/>
   
   <link href="http://crossoverjie.top/"/>
-  <updated>2023-09-24T11:42:28.648Z</updated>
+  <updated>2023-09-24T11:45:54.302Z</updated>
   <id>http://crossoverjie.top/</id>
   
   <author>
@@ -17,11 +17,11 @@
   <generator uri="https://hexo.io/">Hexo</generator>
   
   <entry>
-    <title>Go 语言史诗级更新-循环修复</title>
+    <title>Go 语言史诗级更新-循环Bug修复</title>
     <link href="http://crossoverjie.top/2023/09/24/ob/go-loop-fix/"/>
     <id>http://crossoverjie.top/2023/09/24/ob/go-loop-fix/</id>
     <published>2023-09-24T10:05:25.000Z</published>
-    <updated>2023-09-24T11:42:28.648Z</updated>
+    <updated>2023-09-24T11:45:54.302Z</updated>
     
     <content type="html"><![CDATA[<p><img src="https://s2.loli.net/2023/09/24/rU7IujkPWX1TRQM.png"></p><h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前两天 <code>Golang</code> 的官方博客更新了一篇文章：<a href="https://go.dev/blog/loopvar-preview">Fixing For Loops in Go 1.22</a></p><p>看这个标题的就是修复了 Go 循环的 bug，这真的是史诗级的更新；我身边接触到的大部分 Go 开发者都犯过这样的错误，包括我自己，所以前两年我也写过类似的博客：<br><a href="https://crossoverjie.top/2021/12/28/go/for-mistake/">简单的 for 循环也会踩的坑</a></p><span id="more"></span><p>先来简单回顾下使用使用 for 循环会碰到的问题：</p><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">list := []*Demo&#123;&#123;<span class="string">&quot;a&quot;</span>&#125;, &#123;<span class="string">&quot;b&quot;</span>&#125;&#125;  </span><br><span class="line"><span class="keyword">for</span> _, v := <span class="keyword">range</span> list &#123;  </span><br><span class="line"><span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;  </span><br><span class="line">fmt.Println(<span class="string">&quot;name=&quot;</span>+v.Name)  </span><br><span class="line">&#125;()  </span><br><span class="line">&#125;  </span><br><span class="line">  </span><br><span class="line"><span class="keyword">type</span> Demo <span class="keyword">struct</span> &#123;  </span><br><span class="line">Name <span class="type">string</span>  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>预期的结果应该是打印 <code>a,b</code>，但实际打印的却是<code>b,b</code>。</p><p><img src="https://s2.loli.net/2023/09/24/I98GMk5efvNUDbT.png" alt="image.png"></p><p><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1619047">Let’s Encrypt: CAA Rechecking bug</a><br>类似的问题连 <code>mozilla</code> 团队也没能幸免，所以也确实是一个非常常见的问题，这样的写法符合大部分的开发者的直觉，毕竟其他语言这么使用也没有问题。</p><p>当然在现阶段要解决也很简单，要么就是在使用之前先复制一次，或者使用闭包传参：</p><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 复制</span></span><br><span class="line"> list := []*Demo&#123;&#123;<span class="string">&quot;a&quot;</span>&#125;, &#123;<span class="string">&quot;b&quot;</span>&#125;&#125;  </span><br><span class="line"> <span class="keyword">for</span> _, v := <span class="keyword">range</span> list &#123;  </span><br><span class="line">  temp:=v  </span><br><span class="line">  <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;  </span><br><span class="line">   fmt.Println(<span class="string">&quot;name=&quot;</span>+temp.Name)  </span><br><span class="line">  &#125;()  </span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 闭包</span></span><br><span class="line"> list := []*Demo&#123;&#123;<span class="string">&quot;a&quot;</span>&#125;, &#123;<span class="string">&quot;b&quot;</span>&#125;&#125;  </span><br><span class="line"> <span class="keyword">for</span> _, v := <span class="keyword">range</span> list &#123;  </span><br><span class="line">  <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">(temp *Demo)</span></span> &#123;  </span><br><span class="line">   fmt.Println(<span class="string">&quot;name=&quot;</span>+temp.Name)  </span><br><span class="line">  &#125;(v)  </span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure><p>还好官方也意识到了这个问题：<br><img src="https://s2.loli.net/2023/09/24/6NTZSijCofypK54.png" alt="image.png"><br>所以在 1.22 中我们可以不用再写这个 <code>    v:=v</code>这个多余的复制语句了，也不会出现上面的问题。</p><p>我们在 1.21 中可以使用环境变量预览这个特性:</p><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">❯ GOEXPERIMENT=loopvar <span class="keyword">go</span> test</span><br><span class="line">name=b</span><br><span class="line">name=a</span><br></pre></td></tr></table></figure><p>在 1.22 发布后建议大家都可以升级了，将这种恶心的 bug 扼杀在摇篮里。</p><p>1.22 后带来了一个好消息是今后少了一道面试题，坏消息是又新增了一个 1.22 版本带来了哪些变化的面试题😂</p><p>更多详情可以参看官方播客：<a href="https://go.dev/blog/loopvar-preview">https://go.dev/blog/loopvar-preview</a></p>]]></content>
     
@@ -382,9 +382,9 @@
     
     <category term="Java" scheme="http://crossoverjie.top/tags/Java/"/>
     
-    <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
-    
     <category term="K8s" scheme="http://crossoverjie.top/tags/K8s/"/>
+    
+    <category term="JVM" scheme="http://crossoverjie.top/tags/JVM/"/>
     
   </entry>
   
