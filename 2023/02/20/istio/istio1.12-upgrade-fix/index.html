@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="背景前段时间我们将 istio 版本升级到 1.12 后导致现有的应用监控有部分数据丢失（页面上显示不出来）。  一个是应用基础信息丢失。 再一个是应用 JVM 数据丢失。 接口维度的监控数据丢失。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Istio 升级后踩的坑">
+<meta property="og:url" content="http://crossoverjie.top/2023/02/20/istio/istio1.12-upgrade-fix/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景前段时间我们将 istio 版本升级到 1.12 后导致现有的应用监控有部分数据丢失（页面上显示不出来）。  一个是应用基础信息丢失。 再一个是应用 JVM 数据丢失。 接口维度的监控数据丢失。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2023/02/19/FwgABGdDrhR4a3j.png">
+<meta property="og:image" content="https://s2.loli.net/2023/02/19/6eSAIF1Jcjhrp4x.png">
+<meta property="og:image" content="https://s2.loli.net/2023/02/19/Lyr4cSxVmutjJU6.png">
+<meta property="og:image" content="https://s2.loli.net/2023/02/19/aPzD9t7L1mGqiJR.png">
+<meta property="og:image" content="https://s2.loli.net/2023/02/19/B7a6sH9CYznVGUI.png">
+<meta property="og:image" content="https://s2.loli.net/2023/02/19/Hhj6LutlvUsycES.png">
+<meta property="og:image" content="https://s2.loli.net/2023/02/19/LjOewSXl5IVPv6q.png">
+<meta property="og:image" content="https://s2.loli.net/2023/02/19/R7v8rG6f2XixlBU.png">
+<meta property="og:image" content="https://s2.loli.net/2023/02/19/tERXzV3TI1oe7bJ.png">
+<meta property="og:image" content="https://s2.loli.net/2023/02/19/bN4LiwQZm7rJHXW.png">
+<meta property="og:image" content="https://s2.loli.net/2023/02/19/M3uevVscNk5XOTd.png">
+<meta property="og:image" content="https://s2.loli.net/2023/02/19/sbkrBdRwULSo9Yg.png">
+<meta property="og:image" content="https://s2.loli.net/2023/02/19/rLqd3lUTgOK9RbS.png">
+<meta property="article:published_time" content="2023-02-20T00:08:08.000Z">
+<meta property="article:modified_time" content="2023-02-19T13:42:29.744Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="K8s">
+<meta property="article:tag" content="云原生">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2023/02/19/FwgABGdDrhR4a3j.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2023/02/20/istio/istio1.12-upgrade-fix/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2023/02/20/istio/istio1.12-upgrade-fix/","path":"2023/02/20/istio/istio1.12-upgrade-fix/","title":"Istio 升级后踩的坑"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Istio 升级后踩的坑 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">75</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">186</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">170</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BF%AE%E5%A4%8D"><span class="nav-number">1.1.</span> <span class="nav-text">修复</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9F%BA%E7%A1%80%E4%BF%A1%E6%81%AF"><span class="nav-number">1.1.1.</span> <span class="nav-text">基础信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#JVM-%E7%9B%91%E6%8E%A7"><span class="nav-number">1.1.2.</span> <span class="nav-text">JVM 监控</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8E%A5%E5%8F%A3%E7%BB%B4%E5%BA%A6"><span class="nav-number">1.1.3.</span> <span class="nav-text">接口维度</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#EnvoyFilter%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-number">1.2.</span> <span class="nav-text">EnvoyFilter的问题</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-Telemetry-API"><span class="nav-number">2.</span> <span class="nav-text">使用 Telemetry API</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A3%81%E5%89%AA%E6%8C%87%E6%A0%87"><span class="nav-number">2.1.</span> <span class="nav-text">裁剪指标</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">186</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">75</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">170</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2023/02/20/istio/istio1.12-upgrade-fix/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Istio 升级后踩的坑 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Istio 升级后踩的坑
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2023-02-20 08:08:08" itemprop="dateCreated datePublished" datetime="2023-02-20T08:08:08+08:00">2023-02-20</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-02-19 21:42:29" itemprop="dateModified" datetime="2023-02-19T21:42:29+08:00">2023-02-19</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Istio/" itemprop="url" rel="index"><span itemprop="name">Istio</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2023/02/20/istio/istio1.12-upgrade-fix/" class="post-meta-item leancloud_visitors" data-flag-title="Istio 升级后踩的坑" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2023/02/20/istio/istio1.12-upgrade-fix/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2023/02/20/istio/istio1.12-upgrade-fix/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://s2.loli.net/2023/02/19/FwgABGdDrhR4a3j.png"></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前段时间我们将 istio 版本升级到 1.12 后导致现有的应用监控有部分数据丢失（页面上显示不出来）。</p>
+<ul>
+<li>一个是应用基础信息丢失。</li>
+<li>再一个是应用 JVM 数据丢失。</li>
+<li>接口维度的监控数据丢失。</li>
+</ul>
+<span id="more"></span>
+<p><img src="https://s2.loli.net/2023/02/19/6eSAIF1Jcjhrp4x.png"></p>
+<hr>
+<p><img src="https://s2.loli.net/2023/02/19/Lyr4cSxVmutjJU6.png"></p>
+<hr>
+<p><img src="https://s2.loli.net/2023/02/19/aPzD9t7L1mGqiJR.png"></p>
+<hr>
+<h2 id="修复"><a href="#修复" class="headerlink" title="修复"></a>修复</h2><h3 id="基础信息"><a href="#基础信息" class="headerlink" title="基础信息"></a>基础信息</h3><p>首先是第一个基础信息丢失的问题，页面上其实显示的是我们的一个聚合指标<code>istio_requests_total:source:rate1m</code>。</p>
+<blockquote>
+<p>聚合后可以将多个指标合并为一个，减少系统压力</p>
+</blockquote>
+<p>具体可以参考 Istio 的最佳实践 <a target="_blank" rel="noopener" href="https://istio.io/latest/docs/ops/best-practices/observability/#workload-level-aggregation-via-recording-rules">Observability Best Practices</a> 有详细说明。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">groups:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">interval:</span> <span class="string">30s</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">istio.service.source.istio_requests_total</span></span><br><span class="line">      <span class="attr">rules:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">expr:</span> <span class="string">|</span></span><br><span class="line"><span class="string">            sum(irate(istio_requests_total&#123;reporter=&quot;source&quot;&#125;[1m]))</span></span><br><span class="line"><span class="string">            by (</span></span><br><span class="line"><span class="string">              destination_app,</span></span><br><span class="line"><span class="string">              source_workload_namespace,</span></span><br><span class="line"><span class="string">              response_code,</span></span><br><span class="line"><span class="string">              source_app</span></span><br><span class="line"><span class="string">            )</span></span><br><span class="line"><span class="string"></span>          <span class="attr">record:</span> <span class="string">istio_requests_total:source:rate1m</span></span><br></pre></td></tr></table></figure>
+
+<p>本质上是通过以上四个维度进行统计 <code>istio_requests_total</code>；但在升级之后查看原始数据发现丢失了 <code>destination_app, source_app</code> 这两个 tag。</p>
+<p>至于为啥丢失，查了许久，最后在升级后的资源文件 <code>stats-filter-1.12.yaml</code> 中找到了答案:<br><img src="https://s2.loli.net/2023/02/19/B7a6sH9CYznVGUI.png"><br>升级后新增了 <code>tags_to_remove</code> 标记，将我们所需要的两个 tag 直接删掉了。</p>
+<p>后续在当前 namespace 下重新建一个 <code>EnvoyFilter</code> 资源覆盖掉默认的便能恢复这两个 tag，修复后监控页面也显示正常了。</p>
+<blockquote>
+<p>EnvoyFilter 是实时生效的，并不需要重建应用 Pod。</p>
+</blockquote>
+<h3 id="JVM-监控"><a href="#JVM-监控" class="headerlink" title="JVM 监控"></a>JVM 监控</h3><p><code>JVM</code> 数据丢失的这个应用，直接进入 <code>Pod</code> 查看暴露出的 <code>metric</code>，发现数据都有，一切正常。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">jvm_memory_pool_bytes_used&#123;pool=&quot;Code Cache&quot;,&#125; 1.32126784E8</span><br><span class="line">jvm_memory_pool_bytes_used&#123;pool=&quot;Metaspace&quot;,&#125; 2.74250552E8</span><br><span class="line">jvm_memory_pool_bytes_used&#123;pool=&quot;Compressed Class Space&quot;,&#125; 3.1766024E7</span><br><span class="line">jvm_memory_pool_bytes_used&#123;pool=&quot;G1 Eden Space&quot;,&#125; 1.409286144E9</span><br><span class="line">jvm_memory_pool_bytes_used&#123;pool=&quot;G1 Survivor Space&quot;,&#125; 2.01326592E8</span><br><span class="line">jvm_memory_pool_bytes_used&#123;pool=&quot;G1 Old Gen&quot;,&#125; 2.583691248E9</span><br></pre></td></tr></table></figure>
+
+<p>说明不是数据源的问题，那就可能是数据采集节点的问题了。</p>
+<p>进入<code>VictoriaMetrics</code> 的 <code>target</code> 页面发现应用确实已经下线，原来是采集的端口不通导致的。</p>
+<blockquote>
+<p>我们使用 VictoriaMetrics 代替了 Prometheus。</p>
+</blockquote>
+<p><img src="https://s2.loli.net/2023/02/19/Hhj6LutlvUsycES.png"></p>
+<p>而这个端口 15020 之前并未使用，我们使用的是另外一个自定义端口和端点来采集数据。</p>
+<p>经过查阅发现 15020 是 istio 默认的端口：<br><img src="https://s2.loli.net/2023/02/19/LjOewSXl5IVPv6q.png"></p>
+<p>原来在默认情况下 Istio 会为所有的数据面 Pod 加上：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">    <span class="attr">prometheus.io/path:</span> <span class="string">/stats/prometheus</span></span><br><span class="line">    <span class="attr">prometheus.io/port:</span> <span class="string">&quot;15020&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>这个注解用于采集数据，由于我们是自定义的端点，所以需要修改默认行为：<br><img src="https://s2.loli.net/2023/02/19/R7v8rG6f2XixlBU.png"></p>
+<p>在控制面将 <code>--set meshConfig.enablePrometheusMerge=false</code> 设置为 false，其实官方文档已经说明，如果不是使用的标准 <code>prometheus.io</code> 注解，需要将这个设置为 false。</p>
+<blockquote>
+<p>修改后需要重建应用 Pod 方能生效。</p>
+</blockquote>
+<p>有了 url 这个 tag 后，接口监控页也恢复了正常。</p>
+<h3 id="接口维度"><a href="#接口维度" class="headerlink" title="接口维度"></a>接口维度</h3><p>接口维度的数据丢失和基本数据丢失的原因类似，本质上也是原始数据中缺少了 url 这个 tag，因为我们所聚合的指标使用了 url：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="bullet">-</span> <span class="attr">interval:</span> <span class="string">30s</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">istio.service.source.url.istio_requests_total</span></span><br><span class="line">  <span class="attr">rules:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">expr:</span> <span class="string">|</span></span><br><span class="line"><span class="string">        sum(irate(istio_requests_total&#123;reporter=&quot;source&quot;&#125;[1m]))</span></span><br><span class="line"><span class="string">        by (</span></span><br><span class="line"><span class="string">          destination_app,</span></span><br><span class="line"><span class="string">          source_workload_namespace,</span></span><br><span class="line"><span class="string">          response_code,</span></span><br><span class="line"><span class="string">          source_app,</span></span><br><span class="line"><span class="string">          url</span></span><br><span class="line"><span class="string">        )</span></span><br></pre></td></tr></table></figure>
+<p>最终参考了 <a target="_blank" rel="noopener" href="https://istio.io/latest/docs/reference/config/proxy_extensions/stats/#MetricConfig">MetricConfig</a> 自定义了 URL 的tag.</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line"><span class="attr">&quot;dimensions&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;url&quot;</span><span class="punctuation">:</span> <span class="string">&quot;request.url_path&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br></pre></td></tr></table></figure>
+<p><img src="https://s2.loli.net/2023/02/19/tERXzV3TI1oe7bJ.png"><br>但这也有个大前提，当我们 tag 的指标没有在默认 tag 列表中时，需要在 Deployment 或者是 Istio 控制面中全局加入我们自定义的 tag 声明。</p>
+<p>比如这里新增了 url 的 tag，那么就需要在控制面中加入：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">meshConfig:</span></span><br><span class="line">  <span class="attr">defaultConfig:</span></span><br><span class="line">    <span class="attr">extraStatTags:</span></span><br><span class="line">     <span class="bullet">-</span> <span class="string">url</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>修改了控制面后需要重新构建 Pod 后才会生效。</p>
+</blockquote>
+<h2 id="EnvoyFilter的问题"><a href="#EnvoyFilter的问题" class="headerlink" title="EnvoyFilter的问题"></a>EnvoyFilter的问题</h2><p>查看<a target="_blank" rel="noopener" href="https://istio.io/latest/docs/reference/config/proxy_extensions/stats/#MetricConfig">MetricConfig</a>的配置后发现是可以直接去掉指标以及去掉指标中的 tag ，这个很有用，能够大大减低指标采集系统 <code>VictoriaMetrics</code> 的系统负载。</p>
+<p>于是参考了官方的示例，去掉了一些 tag，同时还去掉了指标：<code>istio_request_messages_total</code>。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">      <span class="attr">&quot;tags_to_remove&quot;:</span> [</span><br><span class="line">        <span class="string">&quot;source_principal&quot;</span>,</span><br><span class="line">        <span class="string">&quot;source_version&quot;</span>,</span><br><span class="line">        <span class="string">&quot;destination_principal&quot;</span>,</span><br><span class="line">        <span class="string">&quot;destination_version&quot;</span>,</span><br><span class="line">        <span class="string">&quot;source_workload&quot;</span>,</span><br><span class="line">        <span class="string">&quot;source_cluster&quot;</span>,</span><br><span class="line">      ]</span><br><span class="line">&#125;<span class="string">,</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="attr">&quot;name&quot;:</span> <span class="string">&quot;istio_request_messages_total&quot;</span>,</span><br><span class="line">	<span class="attr">&quot;drop&quot;:</span> <span class="literal">true</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>但并没有生效，于是换成了在 <code>v1.12</code> 中新增的 <code>Telemetry API</code>。</p>
+<h1 id="使用-Telemetry-API"><a href="#使用-Telemetry-API" class="headerlink" title="使用 Telemetry API"></a>使用 Telemetry API</h1><p><img src="https://s2.loli.net/2023/02/19/bN4LiwQZm7rJHXW.png"></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">telemetry.istio.io/v1alpha1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Telemetry</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">mesh-istio-test</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">istio-test</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="comment"># no selector specified, applies to all workloads</span></span><br><span class="line">  <span class="attr">metrics:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">overrides:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">match:</span></span><br><span class="line">            <span class="attr">metric:</span> <span class="string">GRPC_REQUEST_MESSAGES</span></span><br><span class="line">            <span class="attr">mode:</span> <span class="string">CLIENT_AND_SERVER</span></span><br><span class="line">          <span class="attr">disabled:</span> <span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+
+<p>但是参考了官方文档后发现依然不能生效，<code>GRPC_REQUEST_MESSAGES</code> 所对应的 <code>istio_request_messages_total</code> 指标依然存在。</p>
+<p>接着在我领导查看 <code>Istio</code> 源码以及相关 <a target="_blank" rel="noopener" href="https://github.com/istio/istio/issues/37645">issue</a> 后发现 <code>Telemetry API</code> 和 <code>EnvoyFilter</code> 是不能同时存在的，也就是说会优先使用 <code>EnvoyFilter</code>；这也就是为什么我之前配置没有生效的原因。<br><img src="https://s2.loli.net/2023/02/19/M3uevVscNk5XOTd.png"></p>
+<blockquote>
+<p>后初始化 EnvoyFilter</p>
+</blockquote>
+<p><img src="https://s2.loli.net/2023/02/19/sbkrBdRwULSo9Yg.png"><br>正如这个 issue 中所说，需要删掉现在所有的 EnvoyFilter；删除后果然就生效了。</p>
+<p>新的 <code>Telemetry API</code> 不但语义更加清晰，功能也一样没少，借助他我们依然可以自定义、删除指标、tag 等。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">telemetry.istio.io/v1alpha1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Telemetry</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">mesh-istio-telemetry-test</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">test</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">metrics:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">overrides:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">match:</span></span><br><span class="line">            <span class="attr">metric:</span> <span class="string">GRPC_RESPONSE_MESSAGES</span></span><br><span class="line">            <span class="attr">mode:</span> <span class="string">CLIENT_AND_SERVER</span></span><br><span class="line">          <span class="attr">disabled:</span> <span class="literal">true</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">tagOverrides:</span></span><br><span class="line">            <span class="attr">url:</span></span><br><span class="line">              <span class="attr">value:</span> <span class="string">&quot;request.url_path&quot;</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">match:</span></span><br><span class="line">            <span class="attr">metric:</span> <span class="string">ALL_METRICS</span></span><br><span class="line">          <span class="attr">tagOverrides:</span></span><br><span class="line">            <span class="attr">source_workload:</span></span><br><span class="line">              <span class="attr">operation:</span> <span class="string">REMOVE</span></span><br></pre></td></tr></table></figure>
+
+<p>比如以上配置便可以删除掉 <code>GRPC_RESPONSE_MESSAGES</code> 指标，新增一个 url 的指标，同时在所有指标中删除了 <code>source_workload</code> 这个 tag。</p>
+<p>借助于这一个声明文件便能满足我们多个需求。</p>
+<h2 id="裁剪指标"><a href="#裁剪指标" class="headerlink" title="裁剪指标"></a>裁剪指标</h2><p>后续根据我们实际需求借助于 <code>Telemetry API</code> 裁剪掉了许多指标和 tag，使得指标系统负载下降了一半左右。<br><img src="https://s2.loli.net/2023/02/19/rLqd3lUTgOK9RbS.png"><br>效果相当明显。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本次定位修复 <code>Istio</code> 升级后带来的指标系统问题收获巨大，之前对 Istio 一直只停留在理论阶段，只知道他可以实现传统微服务中对接口粒度的控制，完美弥补了 <code>k8s</code> 只有服务层级的粗粒度控制；</p>
+<p>这两周下来对一个现代云原生监控系统也有了系统的认识，从 <code>App-&gt;Pod-&gt;sidecar-&gt;VictoriaMetrics(Prometheus)-&gt;Grafana</code> 这一套流程中每个环节都可能会出错；</p>
+<p>所以学无止境吧，幸好借助公司业务场景后续还有更多机会参与实践。</p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2023/02/20/istio/istio1.12-upgrade-fix/" title="Istio 升级后踩的坑">http://crossoverjie.top/2023/02/20/istio/istio1.12-upgrade-fix/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/K8s/" rel="tag"><i class="fa fa-tag"></i> K8s</a>
+              <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag"><i class="fa fa-tag"></i> 云原生</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2023/02/07/pulsar/pulsar-load-banance/" rel="prev" title="Pulsar负载均衡原理及优化">
+                  <i class="fa fa-chevron-left"></i> Pulsar负载均衡原理及优化
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2023/02/23/pulsar/pulsar-interrupted/" rel="next" title="一个诡异的 Pulsar InterruptedException 异常">
+                  一个诡异的 Pulsar InterruptedException 异常 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

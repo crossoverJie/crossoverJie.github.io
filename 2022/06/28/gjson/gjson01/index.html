@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="前言之前在写 gscript时我就在想有没有利用编译原理实现一个更实际工具？毕竟真写一个语言的难度不低，并且也很难真的应用起来。 一次无意间看到有人提起 JSON 解析器，这类工具充斥着我们的日常开发，运用非常广泛。 以前我也有思考过它是如何实现的，过程中一旦和编译原理扯上关系就不由自主的劝退了；但经过这段时间的实践我发现实现一个 JSON 解析器似乎也不困难，只是运用到了编译原理前端的部分知识">
+<meta property="og:type" content="article">
+<meta property="og:title" content="几百行代码实现一个 JSON 解析器">
+<meta property="og:url" content="http://crossoverjie.top/2022/06/28/gjson/gjson01/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言之前在写 gscript时我就在想有没有利用编译原理实现一个更实际工具？毕竟真写一个语言的难度不低，并且也很难真的应用起来。 一次无意间看到有人提起 JSON 解析器，这类工具充斥着我们的日常开发，运用非常广泛。 以前我也有思考过它是如何实现的，过程中一旦和编译原理扯上关系就不由自主的劝退了；但经过这段时间的实践我发现实现一个 JSON 解析器似乎也不困难，只是运用到了编译原理前端的部分知识">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3m5tef1rzj218a0u07ju.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3mz1xo687j20iw0evt9f.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n83xkv82j21360i0t9r.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n866cfqfj20u01jyjxt.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n86kgy9qj20u012kadx.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n8dt7d1aj211w0tigpa.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n8fk2xsbj20u010hgp2.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n8u1brbbj216u0rsgp1.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n9ilzooqj20u00u442z.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n9j1iex0j21bc09q0uj.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n9pwpspuj21hg09q76e.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n9vzwepij20u01ecwgy.jpg">
+<meta property="article:published_time" content="2022-06-28T00:13:36.000Z">
+<meta property="article:modified_time" content="2022-07-04T08:56:40.229Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="go">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h3m5tef1rzj218a0u07ju.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2022/06/28/gjson/gjson01/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2022/06/28/gjson/gjson01/","path":"2022/06/28/gjson/gjson01/","title":"几百行代码实现一个 JSON 解析器"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>几百行代码实现一个 JSON 解析器 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">75</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">186</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">170</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">实现原理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AF%8D%E6%B3%95%E5%88%86%E6%9E%90"><span class="nav-number">2.1.</span> <span class="nav-text">词法分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8F%90%E5%89%8D%E6%A3%80%E6%9F%A5"><span class="nav-number">2.1.1.</span> <span class="nav-text">提前检查</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%94%9F%E6%88%90-JSONObject-%E6%A0%91"><span class="nav-number">2.2.</span> <span class="nav-text">生成 JSONObject 树</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">186</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">75</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">170</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2022/06/28/gjson/gjson01/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="几百行代码实现一个 JSON 解析器 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          几百行代码实现一个 JSON 解析器
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2022-06-28 08:13:36" itemprop="dateCreated datePublished" datetime="2022-06-28T08:13:36+08:00">2022-06-28</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2022-07-04 16:56:40" itemprop="dateModified" datetime="2022-07-04T16:56:40+08:00">2022-07-04</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/xjson/" itemprop="url" rel="index"><span itemprop="name">xjson</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/xjson/compiler/" itemprop="url" rel="index"><span itemprop="name">compiler</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2022/06/28/gjson/gjson01/" class="post-meta-item leancloud_visitors" data-flag-title="几百行代码实现一个 JSON 解析器" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2022/06/28/gjson/gjson01/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2022/06/28/gjson/gjson01/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3m5tef1rzj218a0u07ju.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>之前在写 <a href="https://crossoverjie.top/2022/05/30/gscript/gscript01/">gscript</a>时我就在想有没有利用编译原理实现一个更实际工具？毕竟真写一个语言的难度不低，并且也很难真的应用起来。</p>
+<p>一次无意间看到有人提起 <code>JSON</code> 解析器，这类工具充斥着我们的日常开发，运用非常广泛。</p>
+<p>以前我也有思考过它是如何实现的，过程中一旦和编译原理扯上关系就不由自主的劝退了；但经过这段时间的实践我发现实现一个 <code>JSON</code> 解析器似乎也不困难，只是运用到了编译原理前端的部分知识就完全足够了。</p>
+<p>得益于 <code>JSON</code> 的轻量级，同时语法也很简单，所以核心代码大概只用了 800 行便实现了一个语法完善的 <code>JSON</code> 解析器。</p>
+<span id="more"></span>
+
+<p>首先还是来看看效果：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> <span class="string">&quot;github.com/crossoverJie/xjson&quot;</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestJson</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">	str := <span class="string">`&#123;</span></span><br><span class="line"><span class="string">   &quot;glossary&quot;: &#123;</span></span><br><span class="line"><span class="string">       &quot;title&quot;: &quot;example glossary&quot;,</span></span><br><span class="line"><span class="string">		&quot;age&quot;:1,</span></span><br><span class="line"><span class="string">		&quot;long&quot;:99.99,</span></span><br><span class="line"><span class="string">		&quot;GlossDiv&quot;: &#123;</span></span><br><span class="line"><span class="string">           &quot;title&quot;: &quot;S&quot;,</span></span><br><span class="line"><span class="string">			&quot;GlossList&quot;: &#123;</span></span><br><span class="line"><span class="string">               &quot;GlossEntry&quot;: &#123;</span></span><br><span class="line"><span class="string">                   &quot;ID&quot;: &quot;SGML&quot;,</span></span><br><span class="line"><span class="string">					&quot;SortAs&quot;: &quot;SGML&quot;,</span></span><br><span class="line"><span class="string">					&quot;GlossTerm&quot;: &quot;Standard Generalized Markup Language&quot;,</span></span><br><span class="line"><span class="string">					&quot;Acronym&quot;: &quot;SGML&quot;,</span></span><br><span class="line"><span class="string">					&quot;Abbrev&quot;: &quot;ISO 8879:1986&quot;,</span></span><br><span class="line"><span class="string">					&quot;GlossDef&quot;: &#123;</span></span><br><span class="line"><span class="string">                       &quot;para&quot;: &quot;A meta-markup language, used to create markup languages such as DocBook.&quot;,</span></span><br><span class="line"><span class="string">						&quot;GlossSeeAlso&quot;: [&quot;GML&quot;, &quot;XML&quot;, true, null]</span></span><br><span class="line"><span class="string">                   &#125;,</span></span><br><span class="line"><span class="string">					&quot;GlossSee&quot;: &quot;markup&quot;</span></span><br><span class="line"><span class="string">               &#125;</span></span><br><span class="line"><span class="string">           &#125;</span></span><br><span class="line"><span class="string">       &#125;</span></span><br><span class="line"><span class="string">   &#125;</span></span><br><span class="line"><span class="string">&#125;`</span></span><br><span class="line">	decode, err := xjson.Decode(str)</span><br><span class="line">	assert.Nil(t, err)</span><br><span class="line">	fmt.Println(decode)</span><br><span class="line">	v := decode.(<span class="keyword">map</span>[<span class="type">string</span>]<span class="keyword">interface</span>&#123;&#125;)</span><br><span class="line">	glossary := v[<span class="string">&quot;glossary&quot;</span>].(<span class="keyword">map</span>[<span class="type">string</span>]<span class="keyword">interface</span>&#123;&#125;)</span><br><span class="line">	assert.Equal(t, glossary[<span class="string">&quot;title&quot;</span>], <span class="string">&quot;example glossary&quot;</span>)</span><br><span class="line">	assert.Equal(t, glossary[<span class="string">&quot;age&quot;</span>], <span class="number">1</span>)</span><br><span class="line">	assert.Equal(t, glossary[<span class="string">&quot;long&quot;</span>], <span class="number">99.99</span>)</span><br><span class="line">	glossDiv := glossary[<span class="string">&quot;GlossDiv&quot;</span>].(<span class="keyword">map</span>[<span class="type">string</span>]<span class="keyword">interface</span>&#123;&#125;)</span><br><span class="line">	assert.Equal(t, glossDiv[<span class="string">&quot;title&quot;</span>], <span class="string">&quot;S&quot;</span>)</span><br><span class="line">	glossList := glossDiv[<span class="string">&quot;GlossList&quot;</span>].(<span class="keyword">map</span>[<span class="type">string</span>]<span class="keyword">interface</span>&#123;&#125;)</span><br><span class="line">	glossEntry := glossList[<span class="string">&quot;GlossEntry&quot;</span>].(<span class="keyword">map</span>[<span class="type">string</span>]<span class="keyword">interface</span>&#123;&#125;)</span><br><span class="line">	assert.Equal(t, glossEntry[<span class="string">&quot;ID&quot;</span>], <span class="string">&quot;SGML&quot;</span>)</span><br><span class="line">	assert.Equal(t, glossEntry[<span class="string">&quot;SortAs&quot;</span>], <span class="string">&quot;SGML&quot;</span>)</span><br><span class="line">	assert.Equal(t, glossEntry[<span class="string">&quot;GlossTerm&quot;</span>], <span class="string">&quot;Standard Generalized Markup Language&quot;</span>)</span><br><span class="line">	assert.Equal(t, glossEntry[<span class="string">&quot;Acronym&quot;</span>], <span class="string">&quot;SGML&quot;</span>)</span><br><span class="line">	assert.Equal(t, glossEntry[<span class="string">&quot;Abbrev&quot;</span>], <span class="string">&quot;ISO 8879:1986&quot;</span>)</span><br><span class="line">	glossDef := glossEntry[<span class="string">&quot;GlossDef&quot;</span>].(<span class="keyword">map</span>[<span class="type">string</span>]<span class="keyword">interface</span>&#123;&#125;)</span><br><span class="line">	assert.Equal(t, glossDef[<span class="string">&quot;para&quot;</span>], <span class="string">&quot;A meta-markup language, used to create markup languages such as DocBook.&quot;</span>)</span><br><span class="line">	glossSeeAlso := glossDef[<span class="string">&quot;GlossSeeAlso&quot;</span>].(*[]<span class="keyword">interface</span>&#123;&#125;)</span><br><span class="line">	assert.Equal(t, (*glossSeeAlso)[<span class="number">0</span>], <span class="string">&quot;GML&quot;</span>)</span><br><span class="line">	assert.Equal(t, (*glossSeeAlso)[<span class="number">1</span>], <span class="string">&quot;XML&quot;</span>)</span><br><span class="line">	assert.Equal(t, (*glossSeeAlso)[<span class="number">2</span>], <span class="literal">true</span>)</span><br><span class="line">	assert.Equal(t, (*glossSeeAlso)[<span class="number">3</span>], <span class="string">&quot;&quot;</span>)</span><br><span class="line">	assert.Equal(t, glossEntry[<span class="string">&quot;GlossSee&quot;</span>], <span class="string">&quot;markup&quot;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从这个用例中可以看到支持字符串、布尔值、浮点、整形、数组以及各种嵌套关系。                                                                                      </p>
+<h1 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h1><p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3mz1xo687j20iw0evt9f.jpg"></p>
+<p>这里简要说明一下实现原理，本质上就是两步：</p>
+<ol>
+<li><strong>词法解析</strong>：根据原始输入的 <code>JSON</code> 字符串解析出 token，也就是类似于 <code>&quot;&#123;&quot; &quot;obj&quot; &quot;age&quot; &quot;1&quot; &quot;[&quot; &quot;]&quot;</code> 这样的标识符，只是要给这类标识符分类。</li>
+<li>根据生成的一组 <code>token</code> 集合，以流的方式进行读取，最终可以生成图中的树状结构，也就是一个 <code>JSONObject</code> 。</li>
+</ol>
+<p>下面来重点看看这两个步骤具体做了哪些事情。</p>
+<h2 id="词法分析"><a href="#词法分析" class="headerlink" title="词法分析"></a>词法分析</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">BeginObject  &#123;</span><br><span class="line">String  &quot;name&quot;</span><br><span class="line">SepColon  :</span><br><span class="line">String  &quot;cj&quot;</span><br><span class="line">SepComma  ,</span><br><span class="line">String  &quot;object&quot;</span><br><span class="line">SepColon  :</span><br><span class="line">BeginObject  &#123;</span><br><span class="line">String  &quot;age&quot;</span><br><span class="line">SepColon  :</span><br><span class="line">Number  10</span><br><span class="line">SepComma  ,</span><br><span class="line">String  &quot;sex&quot;</span><br><span class="line">SepColon  :</span><br><span class="line">String  &quot;girl&quot;</span><br><span class="line">EndObject  &#125;</span><br><span class="line">SepComma  ,</span><br><span class="line">String  &quot;list&quot;</span><br><span class="line">SepColon  :</span><br><span class="line">BeginArray  [</span><br></pre></td></tr></table></figure>
+
+<p>其实词法解析就是构建一个有限自动机的过程（<code>DFA</code>)，目的是可以生成这样的集合（token）,只是我们需要将这些 token进行分类以便后续做语法分析的时候进行处理。</p>
+<p>比如 <code>&quot;&#123;&quot;</code> 这样的左花括号就是一个 <code>BeginObject</code> 代表一个对象声明的开始，而 <code>&quot;&#125;&quot;</code> 则是 <code>EndObject</code> 代表一个对象的结束。</p>
+<p>其中 <code>&quot;name&quot;</code> 这样的就被认为是 <code>String</code> 字符串，以此类推 <code>&quot;[&quot;</code> 代表 <code>BeginArray</code></p>
+<p>这里我一共定义以下几种 token 类型：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Token <span class="type">string</span></span><br><span class="line"><span class="keyword">const</span> (</span><br><span class="line">	Init        Token = <span class="string">&quot;Init&quot;</span></span><br><span class="line">	BeginObject       = <span class="string">&quot;BeginObject&quot;</span></span><br><span class="line">	EndObject         = <span class="string">&quot;EndObject&quot;</span></span><br><span class="line">	BeginArray        = <span class="string">&quot;BeginArray&quot;</span></span><br><span class="line">	EndArray          = <span class="string">&quot;EndArray&quot;</span></span><br><span class="line">	Null              = <span class="string">&quot;Null&quot;</span></span><br><span class="line">	Null1             = <span class="string">&quot;Null1&quot;</span></span><br><span class="line">	Null2             = <span class="string">&quot;Null2&quot;</span></span><br><span class="line">	Null3             = <span class="string">&quot;Null3&quot;</span></span><br><span class="line">	Number            = <span class="string">&quot;Number&quot;</span></span><br><span class="line">	Float             = <span class="string">&quot;Float&quot;</span></span><br><span class="line">	BeginString       = <span class="string">&quot;BeginString&quot;</span></span><br><span class="line">	EndString         = <span class="string">&quot;EndString&quot;</span></span><br><span class="line">	String            = <span class="string">&quot;String&quot;</span></span><br><span class="line">	True              = <span class="string">&quot;True&quot;</span></span><br><span class="line">	True1             = <span class="string">&quot;True1&quot;</span></span><br><span class="line">	True2             = <span class="string">&quot;True2&quot;</span></span><br><span class="line">	True3             = <span class="string">&quot;True3&quot;</span></span><br><span class="line">	False             = <span class="string">&quot;False&quot;</span></span><br><span class="line">	False1            = <span class="string">&quot;False1&quot;</span></span><br><span class="line">	False2            = <span class="string">&quot;False2&quot;</span></span><br><span class="line">	False3            = <span class="string">&quot;False3&quot;</span></span><br><span class="line">	False4            = <span class="string">&quot;False4&quot;</span></span><br><span class="line">	<span class="comment">// SepColon :</span></span><br><span class="line">	SepColon = <span class="string">&quot;SepColon&quot;</span></span><br><span class="line">	<span class="comment">// SepComma ,</span></span><br><span class="line">	SepComma = <span class="string">&quot;SepComma&quot;</span></span><br><span class="line">	EndJson  = <span class="string">&quot;EndJson&quot;</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>其中可以看到  true&#x2F;false&#x2F;null 会有多个类型，这点先忽略，后续会解释。</p>
+</blockquote>
+<p>以这段 <code>JSON</code> 为例：<code>&#123;&quot;age&quot;:1&#125;</code>，它的状态扭转如下图：<br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n83xkv82j21360i0t9r.jpg"></p>
+<p>总的来说就是依次遍历字符串，然后更新一个全局状态，根据该状态的值进行不同的操作。</p>
+<p>部分代码如下：<br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n866cfqfj20u01jyjxt.jpg"><br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n86kgy9qj20u012kadx.jpg"></p>
+<p>感兴趣的朋友可以跑跑单例 debug 一下就很容易理解：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/xjson/blob/main/token_test.go">https://github.com/crossoverJie/xjson/blob/main/token_test.go</a></p>
+<p>以这段 JSON 为例：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestInitStatus</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">	str := <span class="string">`&#123;&quot;name&quot;:&quot;cj&quot;, &quot;age&quot;:10&#125;`</span></span><br><span class="line">	tokenize, err := Tokenize(str)</span><br><span class="line">	assert.Nil(t, err)</span><br><span class="line">	<span class="keyword">for</span> _, tokenType := <span class="keyword">range</span> tokenize &#123;</span><br><span class="line">		fmt.Printf(<span class="string">&quot;%s  %s\n&quot;</span>, tokenType.T, tokenType.Value)</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>最终生成的 <code>token</code> 集合如下：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">BeginObject  &#123;</span><br><span class="line">String  &quot;name&quot;</span><br><span class="line">SepColon  :</span><br><span class="line">String  &quot;cj&quot;</span><br><span class="line">SepComma  ,</span><br><span class="line">String  &quot;age&quot;</span><br><span class="line">SepColon  :</span><br><span class="line">Number  10</span><br><span class="line">EndObject  &#125;</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="提前检查"><a href="#提前检查" class="headerlink" title="提前检查"></a>提前检查</h3><p>由于 <code>JSON</code> 的语法简单，一些规则甚至在词法规则中就能校验。</p>
+<p>举个例子：<br><code>JSON</code> 中允许 <code>null</code> 值，当我们字符串中存在 <code>nu  nul</code> 这类不匹配 <code>null</code> 的值时，就可以提前抛出异常。<br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n8dt7d1aj211w0tigpa.jpg"><br>比如当检测到第一个字符串为 n 时，那后续的必须为 <code>u-&gt;l-&gt;l</code> 不然就抛出异常。</p>
+<p>浮点数同理，当一个数值中存在多个 . 点时，依然需要抛出异常。<br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n8fk2xsbj20u010hgp2.jpg"></p>
+<p>这也是前文提到 <code>true/false/null</code> 这些类型需要有多个中间状态的原因。</p>
+<h2 id="生成-JSONObject-树"><a href="#生成-JSONObject-树" class="headerlink" title="生成 JSONObject 树"></a>生成 JSONObject 树</h2><p>在讨论生成 <code>JSONObject</code> 树之前我们先来看这么一个问题，给定一个括号集合，判断是否合法。</p>
+<ul>
+<li><code>[&lt;()&gt;]</code> 这样是合法的。</li>
+<li><code>[&lt;()&gt;)</code> 而这样是不合法的。</li>
+</ul>
+<p>如何实现呢？其实也很简单，只需要利用栈就能完成，如下图所示：<br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n8u1brbbj216u0rsgp1.jpg"><br>利用栈的特性，依次遍历数据，遇到是左边的符号就入栈，当遇到是右符号时就与栈顶数据匹配，能匹配上就出栈。</p>
+<p>当匹配不上时则说明格式错误，数据遍历完毕后如果栈为空时说明数据合法。</p>
+<p>其实仔细观察 <code>JSON</code> 的语法也是类似的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    &quot;name&quot;: &quot;cj&quot;,</span><br><span class="line">    &quot;object&quot;: &#123;</span><br><span class="line">        &quot;age&quot;: 10,</span><br><span class="line">        &quot;sex&quot;: &quot;girl&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    &quot;list&quot;: [</span><br><span class="line">        &#123;</span><br><span class="line">            &quot;1&quot;: &quot;a&quot;</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">            &quot;2&quot;: &quot;b&quot;</span><br><span class="line">        &#125;</span><br><span class="line">    ]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>BeginObject:&#123;</code> 与 <code>EndObject:&#125;</code> 一定是成对出现的，中间如论怎么嵌套也是成对的。<br>而对于 <code>&quot;age&quot;:10</code> 这样的数据，: 冒号后也得有数据进行匹配，不然就是非法格式。</p>
+<p>所以基于刚才的括号匹配原理，我们也能用类似的方法来解析 <code>token</code> 集合。</p>
+<p>我们也需要创建一个栈，当遇到 <code>BeginObject</code> 时就入栈一个 Map，当遇到一个 <code>String</code> 键时也将该值入栈。</p>
+<p>当遇到 <code>value</code> 时，就将出栈一个 <code>key</code>,同时将数据写入当前栈顶的 <code>map</code> 中。</p>
+<p>当然在遍历 <code>token</code> 的过程中也需要一个全局状态，所以这里也是一个<strong>有限状态机</strong>。</p>
+<hr>
+<p>举个例子：当我们遍历到 <code>Token</code> 类型为 <code>String</code>，值为 <code>&quot;name&quot;</code> 时，预期下一个 <code>token</code> 应当是 :冒号；</p>
+<p>所以我们得将当前的 status 记录为 <code>StatusColon</code>，一旦后续解析到 token 为 <code>SepColon</code> 时，就需要判断当前的 status 是否为 <code>StatusColon</code> ，如果不是则说明语法错误，就可以抛出异常。<br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n9ilzooqj20u00u442z.jpg"><br><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n9j1iex0j21bc09q0uj.jpg"></p>
+<p>同时值得注意的是这里的 <code>status</code> 其实是一个<code>集合</code>，因为下一个状态可能是多种情况。</p>
+<p><code>&#123;&quot;e&quot;:[1,[2,3],&#123;&quot;d&quot;:&#123;&quot;f&quot;:&quot;f&quot;&#125;&#125;]&#125;</code><br>比如当我们解析到一个 <code>SepColon</code> 冒号时，后续的状态可能是 <code>value</code> 或 <code>BeginObject &#123;</code> 或 <code>BeginArray [</code></p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n9pwpspuj21hg09q76e.jpg"><br>因此这里就得把这三种情况都考虑到，其他的以此类推。</p>
+<p>具体解析过程可以参考源码：<br><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/xjson/blob/main/parse.go">https://github.com/crossoverJie/xjson/blob/main/parse.go</a></p>
+<hr>
+<p>虽然是借助一个栈结构就能将 <code>JSON</code> 解析完毕，不知道大家发现一个问题没有：<br>这样非常容易遗漏规则，比如刚才提到的一个冒号后面就有三种情况，而一个 <code>BeginArray</code> 后甚至有四种情况（<code>StatusArrayValue, StatusBeginArray, StatusBeginObject, StatusEndArray</code>）</p>
+<p>这样的代码读起来也不是很直观，同时容易遗漏语法，只能出现问题再进行修复。</p>
+<p>既然提到了问题那自然也有相应的解决方案，其实就是语法分析中常见的递归下降算法。</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h3n9vzwepij20u01ecwgy.jpg"><br>我们只需要根据 <code>JSON</code> 的文法定义，递归的写出算法即可，这样代码阅读起来非常清晰，同时也不会遗漏规则。</p>
+<p>完整的 <code>JSON</code> 语法查看这里：<br><a target="_blank" rel="noopener" href="https://github.com/antlr/grammars-v4/blob/master/json/JSON.g4">https://github.com/antlr/grammars-v4/blob/master/json/JSON.g4</a></p>
+<p>我也预计将下个版本改为递归下降算法来实现。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>当目前为止其实只是实现了一个非常基础的 <code>JSON</code> 解析，也没有做性能优化，和官方的 <code>JSON</code> 包对比性能差的不是一星半点。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz</span><br><span class="line">BenchmarkJsonDecode-12            372298             15506 ns/op             512 B/op         12 allocs/op</span><br><span class="line">BenchmarkDecode-12                141482             43516 ns/op           30589 B/op        962 allocs/op</span><br><span class="line">PASS</span><br></pre></td></tr></table></figure>
+
+<p>同时还有一些基础功能没有实现，比如将解析后的 <code>JSONObject</code> 可以反射生成自定义的 <code>Struct</code>，以及我最终想实现的支持 <code>JSON</code> 的四则运算：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">xjson.Get(<span class="string">&quot;glossary.age+long*(a.b+a.c)&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+<p>目前我貌似没有发现有类似的库实现了这个功能，后面真的完成后应该会很有意思，感兴趣的朋友请持续关注。</p>
+<p>源码：<br><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/xjson">https://github.com/crossoverJie/xjson</a></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2022/06/28/gjson/gjson01/" title="几百行代码实现一个 JSON 解析器">http://crossoverjie.top/2022/06/28/gjson/gjson01/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/go/" rel="tag"><i class="fa fa-tag"></i> go</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2022/05/30/gscript/gscript01/" rel="prev" title="几百行代码实现一个脚本解释器">
+                  <i class="fa fa-chevron-left"></i> 几百行代码实现一个脚本解释器
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2022/07/04/gjson/gjson02/" rel="next" title="用面向对象的方式操作 JSON 甚至还能做四则运算 JSON 库">
+                  用面向对象的方式操作 JSON 甚至还能做四则运算 JSON 库 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

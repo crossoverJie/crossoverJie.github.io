@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="背景前两章中我们将应用部署到了 k8s 中，同时不同的服务之间也可以通过 service 进行调用，现在还有一个步骤就是将我们的应用暴露到公网，并提供域名的访问。 这一步类似于我们以前配置 Nginx 和绑定域名，提供这个能力的服务在 k8s 中成为 Ingress。 通过这个描述其实也能看出 Ingress 是偏运维的工作，但也不妨碍我们作为研发去了解这部分的内容；了解整个系统是如何运转的也是">
+<meta property="og:type" content="article">
+<meta property="og:title" content="k8s入门到实战-使用Ingress">
+<meta property="og:url" content="http://crossoverjie.top/2023/09/15/ob/k8s-Ingress/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景前两章中我们将应用部署到了 k8s 中，同时不同的服务之间也可以通过 service 进行调用，现在还有一个步骤就是将我们的应用暴露到公网，并提供域名的访问。 这一步类似于我们以前配置 Nginx 和绑定域名，提供这个能力的服务在 k8s 中成为 Ingress。 通过这个描述其实也能看出 Ingress 是偏运维的工作，但也不妨碍我们作为研发去了解这部分的内容；了解整个系统是如何运转的也是">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2023/09/14/Pe7DWCIS2UMKHQ8.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/14/i1ebXQNUjxPkLEZ.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/14/3IsRe2QWcmjTY41.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/14/uTNDACSWdPp7BVt.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/14/pgZzVb1L4aQTMwn.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/14/9JTfp6GP24VmzAK.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/14/Bu67SlMLak1hirc.png">
+<meta property="article:published_time" content="2023-09-15T09:13:37.000Z">
+<meta property="article:modified_time" content="2023-09-24T11:31:04.693Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Ingress">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2023/09/14/Pe7DWCIS2UMKHQ8.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2023/09/15/ob/k8s-Ingress/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2023/09/15/ob/k8s-Ingress/","path":"2023/09/15/ob/k8s-Ingress/","title":"k8s入门到实战-使用Ingress"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>k8s入门到实战-使用Ingress | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">75</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">186</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">170</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-Ingress-%E6%8E%A7%E5%88%B6%E5%99%A8"><span class="nav-number">2.</span> <span class="nav-text">安装 Ingress 控制器</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA-Ingress"><span class="nav-number">3.</span> <span class="nav-text">创建 Ingress</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%B5%8B%E8%AF%95"><span class="nav-number">4.</span> <span class="nav-text">测试</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%AE%BF%E9%97%AE%E5%8E%9F%E7%90%86"><span class="nav-number">5.</span> <span class="nav-text">访问原理</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">186</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">75</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">170</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2023/09/15/ob/k8s-Ingress/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="k8s入门到实战-使用Ingress | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          k8s入门到实战-使用Ingress
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2023-09-15 17:13:37" itemprop="dateCreated datePublished" datetime="2023-09-15T17:13:37+08:00">2023-09-15</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-09-24 19:31:04" itemprop="dateModified" datetime="2023-09-24T19:31:04+08:00">2023-09-24</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/k8s/" itemprop="url" rel="index"><span itemprop="name">k8s</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2023/09/15/ob/k8s-Ingress/" class="post-meta-item leancloud_visitors" data-flag-title="k8s入门到实战-使用Ingress" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2023/09/15/ob/k8s-Ingress/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2023/09/15/ob/k8s-Ingress/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://s2.loli.net/2023/09/14/Pe7DWCIS2UMKHQ8.png" alt="ingress.png"></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前两章中我们将应用<a href="https://crossoverjie.top/2023/08/31/ob/k8s-0-start/">部署</a>到了 k8s 中，同时不同的服务之间也可以通过 <a href="https://crossoverjie.top/2023/09/05/ob/k8s-service/">service</a> 进行调用，现在还有一个步骤就是将我们的应用暴露到公网，并提供域名的访问。</p>
+<p>这一步类似于我们以前配置 Nginx 和绑定域名，提供这个能力的服务在 k8s 中成为 Ingress。</p>
+<p>通过这个描述其实也能看出 Ingress 是偏运维的工作，但也不妨碍我们作为研发去了解这部分的内容；了解整个系统是如何运转的也是研发应该掌握的技能。</p>
+<span id="more"></span>
+<h1 id="安装-Ingress-控制器"><a href="#安装-Ingress-控制器" class="headerlink" title="安装 Ingress 控制器"></a>安装 Ingress 控制器</h1><p>在正式使用 Ingress 之前需要给 k8s 安装一个 Ingress 控制器，我们这里安装官方提供的 Ingress-nginx 控制器。</p>
+<p>当然还有社区或者企业提供的各种控制器：<br><img src="https://s2.loli.net/2023/09/14/i1ebXQNUjxPkLEZ.png" alt="image.png"></p>
+<p>有两种安装方式: helm 或者是直接 apply 一个资源文件。</p>
+<p>关于 <code>helm</code> 我们会在后面的章节单独讲解。</p>
+<p>这里就直接使用资源文件安装即可，我已经上传到 GitHub 可以在这里访问：<br><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/k8s-combat/blob/main/deployment/ingress-nginx.yaml">https://github.com/crossoverJie/k8s-combat/blob/main/deployment/ingress-nginx.yaml</a></p>
+<p>其实这个文件也是直接从官方提供的复制过来的，也可以直接使用这个路径进行安装：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">kubectl</span> <span class="string">apply</span> <span class="string">-f</span> <span class="string">https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>yaml 文件的内容是一样的。</p>
+</blockquote>
+<p>不过要注意安装之后可能容器状态一直处于 Pending 状态，查看容器的事件时会发现镜像拉取失败。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">k describe pod ingress-nginx-controller-7cdfb9988c-lbcst -n ingress-nginx</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>describe 是一个用于查看 k8s 对象详细信息的命令。</p>
+</blockquote>
+<p>在刚才那份 yaml 文件中可以看到有几个镜像需要拉取，我们可以先在本地手动拉取镜像：<br><img src="https://s2.loli.net/2023/09/14/3IsRe2QWcmjTY41.png" alt="image.png"></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker pull registry.k8s.io/ingress-nginx/controller:v1.8.2</span><br></pre></td></tr></table></figure>
+
+<p>如果依然无法拉取，可以尝试配置几个国内镜像源镜像拉取：</p>
+<p><img src="https://s2.loli.net/2023/09/14/uTNDACSWdPp7BVt.png" alt="image.png"></p>
+<blockquote>
+<p>我这里使用的 docker-desktop 自带的 k8s，推荐读者朋友也使用这个工具。</p>
+</blockquote>
+<h1 id="创建-Ingress"><a href="#创建-Ingress" class="headerlink" title="创建 Ingress"></a>创建 Ingress</h1><p>使用刚才的 yaml 安装成功之后会在 <code>ingress-nginx</code> 命名空间下创建一个 Pod，通过 get 命令查看状态为 Running 即为安装成功。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">k get pod -n ingress-nginx</span></span><br><span class="line">NAME                            READY   STATUS    RESTARTS      AGE</span><br><span class="line">ingress-nginx-controller-7cdf   1/1     Running   2 (35h ago)   3d</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>Namespace 也是 k8s 内置的一个对象，可以简单理解为对资源进行分组管理，我们通常可以使用它来区分各个不同的环境，比如 dev&#x2F;test&#x2F;prod 等，不同命名空间下的资源不会互相干扰，且相互独立。</p>
+</blockquote>
+<p>之后便可以创建 Ingress 资源了：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">networking.k8s.io/v1</span>  </span><br><span class="line"><span class="attr">kind:</span> <span class="string">Ingress</span>  </span><br><span class="line"><span class="attr">metadata:</span>  </span><br><span class="line">  <span class="attr">name:</span> <span class="string">k8s-combat-ingress</span>  </span><br><span class="line"><span class="attr">spec:</span>  </span><br><span class="line">  <span class="attr">ingressClassName:</span> <span class="string">nginx</span>  </span><br><span class="line">  <span class="attr">rules:</span>  </span><br><span class="line">    <span class="bullet">-</span> <span class="attr">host:</span> <span class="string">www.service1.io</span>  </span><br><span class="line">      <span class="attr">http:</span>  </span><br><span class="line">        <span class="attr">paths:</span>  </span><br><span class="line">          <span class="bullet">-</span> <span class="attr">backend:</span>  </span><br><span class="line">              <span class="attr">service:</span>  </span><br><span class="line">                <span class="attr">name:</span> <span class="string">k8s-combat-service</span>  </span><br><span class="line">                <span class="attr">port:</span>  </span><br><span class="line">                  <span class="attr">number:</span> <span class="number">8081</span>  </span><br><span class="line">            <span class="attr">path:</span> <span class="string">/</span>  </span><br><span class="line">            <span class="attr">pathType:</span> <span class="string">Prefix</span>  </span><br><span class="line">    <span class="bullet">-</span> <span class="attr">host:</span> <span class="string">www.service2.io</span>  </span><br><span class="line">      <span class="attr">http:</span>  </span><br><span class="line">        <span class="attr">paths:</span>  </span><br><span class="line">          <span class="bullet">-</span> <span class="attr">backend:</span>  </span><br><span class="line">              <span class="attr">service:</span>  </span><br><span class="line">                <span class="attr">name:</span> <span class="string">k8s-combat-service-2</span>  </span><br><span class="line">                <span class="attr">port:</span>  </span><br><span class="line">                  <span class="attr">number:</span> <span class="number">8081</span>  </span><br><span class="line">            <span class="attr">path:</span> <span class="string">/</span>  </span><br><span class="line">            <span class="attr">pathType:</span> <span class="string">Prefix</span></span><br></pre></td></tr></table></figure>
+
+<p>看这个内容也很容易理解，创建了一个 <code>Ingress</code> 的对象，其中的重点就是这里的规则是如何定义的。</p>
+<blockquote>
+<p>在 k8s 中今后还会接触到各种不同的 Kind</p>
+</blockquote>
+<p>这里的 <code>ingressClassName: nginx</code>   也是在刚开始安装的控制器里定义的名字，由这个资源定义。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">networking.k8s.io/v1</span>  </span><br><span class="line"><span class="attr">kind:</span> <span class="string">IngressClass</span>  </span><br><span class="line"><span class="attr">metadata:</span>  </span><br><span class="line">  <span class="attr">labels:</span>  </span><br><span class="line">    <span class="attr">app.kubernetes.io/component:</span> <span class="string">controller</span>  </span><br><span class="line">    <span class="attr">app.kubernetes.io/instance:</span> <span class="string">ingress-nginx</span>  </span><br><span class="line">    <span class="attr">app.kubernetes.io/name:</span> <span class="string">ingress-nginx</span>  </span><br><span class="line">    <span class="attr">app.kubernetes.io/part-of:</span> <span class="string">ingress-nginx</span>  </span><br><span class="line">    <span class="attr">app.kubernetes.io/version:</span> <span class="number">1.8</span><span class="number">.2</span>  </span><br><span class="line">  <span class="attr">name:</span> <span class="string">nginx</span></span><br></pre></td></tr></table></figure>
+
+<p>咱们这个规则很简单，就是将两个不同的域名路由到两个不同的 service。</p>
+<blockquote>
+<p>这里为了方便测试又创建了一个 <code>k8s-combat-service-2</code> 的 service，和 <code>k8s-combat-service</code> 是一样的，只是改了个名字而已。</p>
+</blockquote>
+<h1 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h1><p>也是为了方便测试，我在应用镜像中新增了一个接口，用于返回当前 Pod 的 hostname。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">http.HandleFunc(<span class="string">&quot;/&quot;</span>, <span class="function"><span class="keyword">func</span><span class="params">(w http.ResponseWriter, r *http.Request)</span></span> &#123;  </span><br><span class="line">   name, _ := os.Hostname()  </span><br><span class="line">   fmt.Fprint(w, name)  </span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+
+
+<p>由于我实际并没有 <code>www.service1.io/www.service2.io</code> 这两个域名，所以只能在本地配置 host 进行模拟。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">10.0.0.37 www.service1.io</span><br><span class="line">10.0.0.37 www.service2.io</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>我测试所使用的 k8s 部署在我家里一台限制的 Mac 上，所以这里的 IP 它的地址。</p>
+</blockquote>
+<p>当我们反复请求两次这个接口，会拿到两个不同的 hostname，也就是将我们的请求轮训负载到了这两个 service 所代理的两个 Pod 中。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">❯ curl http://www.service1.io/</span><br><span class="line"><span class="meta prompt_">k8s-combat-service-79c5579587-b6nlj%</span><span class="language-bash"></span></span><br><span class="line"><span class="language-bash">❯ curl http://www.service1.io/</span></span><br><span class="line"><span class="meta prompt_">k8s-combat-service-79c5579587-bk7nw%</span><span class="language-bash"></span></span><br><span class="line"><span class="language-bash">❯ curl http://www.service2.io/</span></span><br><span class="line"><span class="meta prompt_">k8s-combat-service-2-7bbf56b4d9-dkj9b%</span><span class="language-bash"></span></span><br><span class="line"><span class="language-bash">❯ curl http://www.service2.io/</span></span><br><span class="line">k8s-combat-service-2-7bbf56b4d9-t5l4g</span><br></pre></td></tr></table></figure>
+
+<p>我们也可以直接使用 describe 查看我们的 ingress 定义以及路由规则：<br><img src="https://s2.loli.net/2023/09/14/pgZzVb1L4aQTMwn.png" alt="image.png"></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">k describe ingress k8s-combat-ingress</span></span><br><span class="line">Name:             k8s-combat-ingress</span><br><span class="line">Labels:           &lt;none&gt;</span><br><span class="line">Namespace:        default</span><br><span class="line">Address:          localhost</span><br><span class="line">Ingress Class:    nginx</span><br><span class="line">Default backend:  &lt;default&gt;</span><br><span class="line">Rules:</span><br><span class="line">  Host             Path  Backends</span><br><span class="line">  ----             ----  --------</span><br><span class="line">  www.service1.io</span><br><span class="line">                   /   k8s-combat-service:8081 (10.1.0.65:8081,10.1.0.67:8081)</span><br><span class="line">  www.service2.io</span><br><span class="line">                   /   k8s-combat-service-2:8081 (10.1.0.63:8081,10.1.0.64:8081)</span><br><span class="line">Annotations:       &lt;none&gt;</span><br><span class="line">Events:            &lt;none&gt;</span><br></pre></td></tr></table></figure>
+
+<p>如果我们手动新增一个域名解析：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">10.0.0.37 www.service3.io</span><br><span class="line">❯ curl http://www.service3.io/</span><br><span class="line">&lt;html&gt;</span><br><span class="line">&lt;head&gt;&lt;title&gt;404 Not Found&lt;/title&gt;&lt;/head&gt;</span><br><span class="line">&lt;body&gt;</span><br><span class="line">&lt;center&gt;&lt;h1&gt;404 Not Found&lt;/h1&gt;&lt;/center&gt;</span><br><span class="line">&lt;hr&gt;&lt;center&gt;nginx&lt;/center&gt;</span><br><span class="line">&lt;/body&gt;</span><br><span class="line">&lt;/html&gt;</span><br></pre></td></tr></table></figure>
+<p>会直接 404，这是因为没有找到这个域名的规则。</p>
+<h1 id="访问原理"><a href="#访问原理" class="headerlink" title="访问原理"></a>访问原理</h1><p><img src="https://s2.loli.net/2023/09/14/9JTfp6GP24VmzAK.png" alt="image.png"><br>整个的请求路径如上图所示，其实我们的 Ingress 本质上也是一个 service（所以它也可以启动多个副本来进行负载），只是他的类型是 <code>LoadBalancer</code>，通常这种类型的 service 会由云厂商绑定一个外部 IP，这样就可以通过这个外部 IP 访问 Ingress 了。</p>
+<blockquote>
+<p>而我们应用的 service 是 ClusterIP，只能在应用内部访问</p>
+</blockquote>
+<p><img src="https://s2.loli.net/2023/09/14/Bu67SlMLak1hirc.png" alt="image.png"></p>
+<p>通过 service 的信息也可以看到，我们 ingress 的 service 绑定的外部 IP 是 <code>localhost</code>（本地的原因）</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>Ingress 通常是充当网关的作用，后续我们在使用 Istio 时，也可以使用 Istio 所提供的控制器来替换掉 Ingress-nginx，可以更方便的管理内外网流量。</p>
+<p>本文的所有源码在这里可以访问：<br><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/k8s-combat">https://github.com/crossoverJie/k8s-combat</a></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2023/09/15/ob/k8s-Ingress/" title="k8s入门到实战-使用Ingress">http://crossoverjie.top/2023/09/15/ob/k8s-Ingress/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Ingress/" rel="tag"><i class="fa fa-tag"></i> Ingress</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2023/09/12/ob/Golang-interview-01/" rel="prev" title="Golang 基础面试题 01">
+                  <i class="fa fa-chevron-left"></i> Golang 基础面试题 01
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2023/09/18/ob/git-tips-rebase/" rel="next" title="Github commit 签名+合并 Commit">
+                  Github commit 签名+合并 Commit <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

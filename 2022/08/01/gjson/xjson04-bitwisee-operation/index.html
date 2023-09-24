@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="前言最近在持续优化之前编写的 JSON 解析库 xjson，主要是两个方面的优化。 第一个是支持将一个 JSONObject 对象输出为 JSON 字符串。 这点在上个版本中只是利用自带的 Print 函数打印数据： 12345678func TestJson4(t *testing.T)  &amp;#123;	str :&#x3D; &#96;&amp;#123;&quot;people&quot;:&amp;#123;&quot;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="用位运算为你的程序加速">
+<meta property="og:url" content="http://crossoverjie.top/2022/08/01/gjson/xjson04-bitwisee-operation/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言最近在持续优化之前编写的 JSON 解析库 xjson，主要是两个方面的优化。 第一个是支持将一个 JSONObject 对象输出为 JSON 字符串。 这点在上个版本中只是利用自带的 Print 函数打印数据： 12345678func TestJson4(t *testing.T)  &amp;#123;	str :&#x3D; &#96;&amp;#123;&quot;people&quot;:&amp;#123;&quot;">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h4p37zeb9aj20xc0go0tv.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h4p3ihijjgj20ne05s0sw.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h4q0yqg8u1j20u00zl0vy.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h4q29pojhdj223g0u0gsv.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h4q2ysk89kj22s409omyd.jpg">
+<meta property="og:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h4q45v8q2dj22va0msaf2.jpg">
+<meta property="article:published_time" content="2022-08-01T00:14:36.000Z">
+<meta property="article:modified_time" content="2022-07-31T07:12:35.226Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="go">
+<meta property="article:tag" content="Bitwise operation">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://tva1.sinaimg.cn/large/e6c9d24ely1h4p37zeb9aj20xc0go0tv.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2022/08/01/gjson/xjson04-bitwisee-operation/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2022/08/01/gjson/xjson04-bitwisee-operation/","path":"2022/08/01/gjson/xjson04-bitwisee-operation/","title":"用位运算为你的程序加速"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>用位运算为你的程序加速 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">75</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">186</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">170</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%94%A8%E4%BD%8D%E8%BF%90%E7%AE%97%E4%BC%98%E5%8C%96"><span class="nav-number">2.</span> <span class="nav-text">用位运算优化</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%B6%E4%BB%96%E5%A5%87%E6%B7%AB%E5%B7%A7%E6%8A%80"><span class="nav-number">3.</span> <span class="nav-text">其他奇淫巧技</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">186</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">75</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">170</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2022/08/01/gjson/xjson04-bitwisee-operation/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="用位运算为你的程序加速 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          用位运算为你的程序加速
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2022-08-01 08:14:36" itemprop="dateCreated datePublished" datetime="2022-08-01T08:14:36+08:00">2022-08-01</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2022-07-31 15:12:35" itemprop="dateModified" datetime="2022-07-31T15:12:35+08:00">2022-07-31</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/xjson/" itemprop="url" rel="index"><span itemprop="name">xjson</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/xjson/compiler/" itemprop="url" rel="index"><span itemprop="name">compiler</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2022/08/01/gjson/xjson04-bitwisee-operation/" class="post-meta-item leancloud_visitors" data-flag-title="用位运算为你的程序加速" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2022/08/01/gjson/xjson04-bitwisee-operation/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2022/08/01/gjson/xjson04-bitwisee-operation/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h4p37zeb9aj20xc0go0tv.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近在持续优化之前编写的 <code>JSON</code> 解析库 <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/xjson">xjson</a>，主要是两个方面的优化。</p>
+<p>第一个是支持将一个 <code>JSONObject</code> 对象输出为 <code>JSON</code> 字符串。</p>
+<p>这点在上个版本中只是利用自带的 <code>Print</code> 函数打印数据：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestJson4</span><span class="params">(t *testing.T)</span></span>  &#123;</span><br><span class="line">	str := <span class="string">`&#123;&quot;people&quot;:&#123;&quot;name&quot;:&#123;&quot;first&quot;:&quot;bob&quot;&#125;&#125;&#125;`</span></span><br><span class="line">	first := xjson.Get(str, <span class="string">&quot;people.name.first&quot;</span>)</span><br><span class="line">	assert.Equal(t, first.String(), <span class="string">&quot;bob&quot;</span>)</span><br><span class="line">	get := xjson.Get(str, <span class="string">&quot;people&quot;</span>)</span><br><span class="line">	fmt.Println(get.String())</span><br><span class="line">	<span class="comment">//assert.Equal(t, get.String(),`&#123;&quot;name&quot;:&#123;&quot;first&quot;:&quot;bob&quot;&#125;&#125;`)</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Output:</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">map[name:map[first:bob]]</span><br></pre></td></tr></table></figure>
+
+<span id="more"></span>
+
+<p>本次优化之后便能直接输出 JSON 字符串了：</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h4p3ihijjgj20ne05s0sw.jpg"></p>
+<p>实现过程也很简单，只需要递归遍历 object 中的数据，然后拼接字符串即可，核心代码如下：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(r Result)</span></span> String() <span class="type">string</span> &#123;</span><br><span class="line">	<span class="keyword">switch</span> r.Token &#123;</span><br><span class="line">	<span class="keyword">case</span> String:</span><br><span class="line">		<span class="keyword">return</span> fmt.Sprint(r.object)</span><br><span class="line">	<span class="keyword">case</span> Bool:</span><br><span class="line">		<span class="keyword">return</span> fmt.Sprint(r.object)</span><br><span class="line">	<span class="keyword">case</span> Number:</span><br><span class="line">		i, _ := strconv.Atoi(fmt.Sprint(r.object))</span><br><span class="line">		<span class="keyword">return</span> fmt.Sprintf(<span class="string">&quot;%d&quot;</span>, i)</span><br><span class="line">	<span class="keyword">case</span> Float:</span><br><span class="line">		i, _ := strconv.ParseFloat(fmt.Sprint(r.object), <span class="number">64</span>)</span><br><span class="line">		<span class="keyword">return</span> fmt.Sprintf(<span class="string">&quot;%f&quot;</span>, i)</span><br><span class="line">	<span class="keyword">case</span> JSONObject:</span><br><span class="line">		<span class="keyword">return</span> object2JSONString(r.object)</span><br><span class="line">	<span class="keyword">case</span> ArrayObject:</span><br><span class="line">		<span class="keyword">return</span> object2JSONString(r.Array())</span><br><span class="line">	<span class="keyword">default</span>:</span><br><span class="line">		<span class="keyword">return</span> <span class="string">&quot;&quot;</span></span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h4q0yqg8u1j20u00zl0vy.jpg"></p>
+<h1 id="用位运算优化"><a href="#用位运算优化" class="headerlink" title="用位运算优化"></a>用位运算优化</h1><p>第二个优化主要是提高了性能，查询一个复杂 JSON 数据的时候性能提高了大约 ⏫16%.</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">优化前</span></span><br><span class="line">BenchmarkDecode-12         90013             66905 ns/op           42512 B/op       1446 allocs/op</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">优化后</span></span><br><span class="line">BenchmarkDecode-12        104746             59766 ns/op           37749 B/op       1141 allocs/op</span><br></pre></td></tr></table></figure>
+
+
+<p>这里截取了一些重点改动的部分：</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h4q29pojhdj223g0u0gsv.jpg"></p>
+<p>在 JSON 解析过程中会有一个有限状态机状态迁移的过程，而迁移的时候可能会出现多个状态。</p>
+<p>比如当前解析到的 token 值为 <code>&#123;</code>，那它接下来的 token 可能会为 <code>ObjectKey:&quot;name&quot;</code>,也可能会是 <code>BeginObject:&#123;</code>,当然也可能会是 <code>EndObject:&#125;</code>，<br>所以在优化之前我是将状态全部存放在一个集合中的，在解析过程中如果发现状态不满足预期的列表时则会抛出语法异常的错误。</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h4q2ysk89kj22s409omyd.jpg"></p>
+<p>所以优化之前是遍历这个集合来进行判断的，这样的时间复杂度为 <code>O(N)</code>,但当我们换成位运算就不一样了，时间复杂度直接就变为<code>O(1)</code>了，同时还节省了一个切片的存储空间。</p>
+<p>我们简单来分析下这个位运算为什么会达到判断一个数据是否在一个集合中同样的效果。</p>
+<p>首先以这两个状态为例：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">StatusObjectKey   status = <span class="number">0x0002</span></span><br><span class="line">StatusColon       status = <span class="number">0x0004</span></span><br></pre></td></tr></table></figure>
+
+<p>他们分别对应的二进制数据为：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">StatusObjectKey   status = <span class="number">0x0002</span> <span class="comment">//0010</span></span><br><span class="line">StatusColon       status = <span class="number">0x0004</span> <span class="comment">//0100</span></span><br></pre></td></tr></table></figure>
+
+<p>当我们对这两个数据求 <code>|</code> 运算得到的数据是 <code>0110</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">A:<span class="number">0010</span></span><br><span class="line">B:<span class="number">0100</span></span><br><span class="line"></span><br><span class="line">C:<span class="number">0110</span></span><br></pre></td></tr></table></figure>
+
+<p>这时候如何我们如果用这两个原始数据与 <code>C:0110</code> 做 <code>&amp;</code> 运算时就会还原为刚才的两个数据。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// input:</span></span><br><span class="line">A:<span class="number">0010</span></span><br><span class="line">C:<span class="number">0110</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// output:</span></span><br><span class="line">A:<span class="number">0010</span></span><br><span class="line"></span><br><span class="line">----------</span><br><span class="line"><span class="comment">// input:</span></span><br><span class="line">B:<span class="number">0100</span></span><br><span class="line">C:<span class="number">0110</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// output:</span></span><br><span class="line">B:<span class="number">0100</span></span><br></pre></td></tr></table></figure>
+
+
+<p>但我们换一个 D 与 C 求 <code>&amp;</code> 时：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">D: <span class="number">1000</span> <span class="comment">// 0x0008 对应的二进制为 1000</span></span><br><span class="line">C: <span class="number">0110</span></span><br><span class="line">D<span class="string">&#x27;:0000</span></span><br></pre></td></tr></table></figure>
+<p>将会得到一个 0 值，只要得出的数据大于 0 我们就能判断一个数据是否在给定的集合中了。</p>
+<blockquote>
+<p>当然这里有一个前提条件就是，我们输入的数据高位永远都是是 1 才行，也就是2的幂。</p>
+</blockquote>
+<p>同样的优化在解析查询语法时也有使用：</p>
+<p><img src="https://tva1.sinaimg.cn/large/e6c9d24ely1h4q45v8q2dj22va0msaf2.jpg"></p>
+<h1 id="其他奇淫巧技"><a href="#其他奇淫巧技" class="headerlink" title="其他奇淫巧技"></a>其他奇淫巧技</h1><p>当然位运算还有一些其他技巧，比如判断奇偶数：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 偶数</span></span><br><span class="line">a &amp; <span class="number">1</span> == <span class="number">0</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 奇数</span></span><br><span class="line">a &amp; <span class="number">1</span> == <span class="number">1</span></span><br></pre></td></tr></table></figure>
+
+<p>乘法和除法，右移1一位是除以2，左移一位是乘以2.</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">x := <span class="number">2</span></span><br><span class="line">fmt.Println(x&gt;&gt;<span class="number">1</span>) <span class="comment">//1</span></span><br><span class="line">fmt.Println(x&lt;&lt;<span class="number">1</span>) <span class="comment">//4</span></span><br></pre></td></tr></table></figure>
+
+
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>位运算在带来程序性能提升的同时也降低代码可读性，所以我们得按需选择是否使用；</p>
+<p>再一些底层库、框架代码对性能有极致追求的场景推荐使用，但在业务代码中对数据做加减乘除就没必要用位运算了，只会让后续的维护者一脸懵逼。</p>
+<p>相关代码：<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/xjson">https://github.com/crossoverJie/xjson</a></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2022/08/01/gjson/xjson04-bitwisee-operation/" title="用位运算为你的程序加速">http://crossoverjie.top/2022/08/01/gjson/xjson04-bitwisee-operation/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/go/" rel="tag"><i class="fa fa-tag"></i> go</a>
+              <a href="/tags/Bitwise-operation/" rel="tag"><i class="fa fa-tag"></i> Bitwise operation</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2022/07/28/translation/hidden-gems-goland/" rel="prev" title="【译】Goland 中的隐藏宝石">
+                  <i class="fa fa-chevron-left"></i> 【译】Goland 中的隐藏宝石
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2022/08/08/gscript/gscript02-antlr-statement/" rel="next" title="用 Antlr 重构脚本解释器">
+                  用 Antlr 重构脚本解释器 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

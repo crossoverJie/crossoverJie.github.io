@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="前言大家新年快乐！ 新的一年第一篇技术文章希望开个好头，所以元旦三天我也没怎么闲着，希望给大家带来一篇比较感兴趣的干货内容。 老读者应该还记得我在去年国庆节前分享过一篇《设计一个百万级的消息推送系统》；虽然我在文中有贴一些伪代码，依然有些朋友希望能直接分享一些可以运行的源码；这么久了是时候把坑填上了。  本文较长，高能预警；带好瓜子板凳。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="为自己搭建一个分布式 IM(即时通讯) 系统">
+<meta property="og:url" content="http://crossoverjie.top/2019/01/02/netty/cim01-started/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言大家新年快乐！ 新的一年第一篇技术文章希望开个好头，所以元旦三天我也没怎么闲着，希望给大家带来一篇比较感兴趣的干货内容。 老读者应该还记得我在去年国庆节前分享过一篇《设计一个百万级的消息推送系统》；虽然我在文中有贴一些伪代码，依然有些朋友希望能直接分享一些可以运行的源码；这么久了是时候把坑填上了。  本文较长，高能预警；带好瓜子板凳。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d44c450a3.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d44f7d731.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d450bc89e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d452461aa.jpg">
+<meta property="og:image" content="https://i.loli.net//2019//05//08//5cd1d9e788004.jpg">
+<meta property="og:image" content="https://i.loli.net//2019//05//08//5cd1da2f943c5.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d45a156f1.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d45b982b3.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d45e52ec0.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d46019aa9.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d462666f6.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d463e6401.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d46549848.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4690d364.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d46b2f41e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d46e99d71.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d476665ff.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d479a88a4.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d47d84f95.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d47f8d14e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d482bed42.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d48746c86.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d491ca18f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d494cd7b8.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4965f2d4.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d497d0c5e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d49a7324f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d49d80933.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4a6cb618.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4a96d129.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4adabe52.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4b0e45a5.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4b261364.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4b3cb598.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4f69c577.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4c2d3e73.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4c5cf651.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4c71c667.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4c84d0e2.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4d0bfa7c.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4d476d56.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4d76b21b.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4da37851.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4dbdbe1b.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4e11fc29.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4e3939e7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4e548d0d.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4e98f743.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4f69c577.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4f937820.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4fc115ec.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4feb1f12.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d500549c1.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d503006a2.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d505b390e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d50760f85.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d50e16d1c.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d51115075.jpg">
+<meta property="article:published_time" content="2019-01-01T16:01:14.000Z">
+<meta property="article:modified_time" content="2023-09-19T12:08:13.668Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Redis">
+<meta property="article:tag" content="Zookeeper">
+<meta property="article:tag" content="推送">
+<meta property="article:tag" content="IM">
+<meta property="article:tag" content="IOT">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1d44c450a3.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2019/01/02/netty/cim01-started/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2019/01/02/netty/cim01-started/","path":"2019/01/02/netty/cim01-started/","title":"为自己搭建一个分布式 IM(即时通讯) 系统"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>为自己搭建一个分布式 IM(即时通讯) 系统 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">75</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">186</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">170</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%BC%94%E7%A4%BA"><span class="nav-number">2.</span> <span class="nav-text">演示</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1"><span class="nav-number">3.</span> <span class="nav-text">架构设计</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#cim-server"><span class="nav-number">3.1.</span> <span class="nav-text">cim-server</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#cim-forward-route"><span class="nav-number">3.2.</span> <span class="nav-text">cim-forward-route</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#cim-client"><span class="nav-number">3.3.</span> <span class="nav-text">cim-client</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%B5%81%E7%A8%8B%E5%9B%BE"><span class="nav-number">4.</span> <span class="nav-text">流程图</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%AF%A6%E7%BB%86%E8%AE%BE%E8%AE%A1"><span class="nav-number">5.</span> <span class="nav-text">详细设计</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#IM-%E6%9C%8D%E5%8A%A1%E7%AB%AF"><span class="nav-number">5.1.</span> <span class="nav-text">IM 服务端</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B3%A8%E5%86%8C%E5%8F%91%E7%8E%B0"><span class="nav-number">5.2.</span> <span class="nav-text">注册发现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%99%BB%E5%BD%95"><span class="nav-number">5.3.</span> <span class="nav-text">登录</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%A6%BB%E7%BA%BF"><span class="nav-number">5.4.</span> <span class="nav-text">离线</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IM-%E8%B7%AF%E7%94%B1"><span class="nav-number">5.5.</span> <span class="nav-text">IM 路由</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B3%A8%E5%86%8C%E6%8E%A5%E5%8F%A3"><span class="nav-number">5.5.1.</span> <span class="nav-text">注册接口</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%99%BB%E5%BD%95%E6%8E%A5%E5%8F%A3"><span class="nav-number">5.5.2.</span> <span class="nav-text">登录接口</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BE%A4%E8%81%8A%E6%8E%A5%E5%8F%A3"><span class="nav-number">5.5.3.</span> <span class="nav-text">群聊接口</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9C%A8%E7%BA%BF%E7%94%A8%E6%88%B7%E6%8E%A5%E5%8F%A3"><span class="nav-number">5.5.4.</span> <span class="nav-text">在线用户接口</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%A7%81%E8%81%8A%E6%8E%A5%E5%8F%A3"><span class="nav-number">5.5.5.</span> <span class="nav-text">私聊接口</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%8B%E7%BA%BF%E6%8E%A5%E5%8F%A3"><span class="nav-number">5.5.6.</span> <span class="nav-text">下线接口</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IM-%E5%AE%A2%E6%88%B7%E7%AB%AF"><span class="nav-number">5.6.</span> <span class="nav-text">IM 客户端</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%99%BB%E5%BD%95-1"><span class="nav-number">5.6.1.</span> <span class="nav-text">登录</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E5%8D%8F%E8%AE%AE"><span class="nav-number">5.6.2.</span> <span class="nav-text">自定义协议</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BF%83%E8%B7%B3"><span class="nav-number">5.6.3.</span> <span class="nav-text">心跳</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%86%85%E7%BD%AE%E5%91%BD%E4%BB%A4"><span class="nav-number">5.6.4.</span> <span class="nav-text">内置命令</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BE%A4%E8%81%8A"><span class="nav-number">5.6.5.</span> <span class="nav-text">群聊</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%A7%81%E8%81%8A"><span class="nav-number">5.6.6.</span> <span class="nav-text">私聊</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B6%88%E6%81%AF%E5%9B%9E%E8%B0%83"><span class="nav-number">5.6.7.</span> <span class="nav-text">消息回调</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E7%95%8C%E9%9D%A2"><span class="nav-number">5.6.8.</span> <span class="nav-text">自定义界面</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">186</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">75</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">170</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2019/01/02/netty/cim01-started/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="为自己搭建一个分布式 IM(即时通讯) 系统 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          为自己搭建一个分布式 IM(即时通讯) 系统
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-01-02 00:01:14" itemprop="dateCreated datePublished" datetime="2019-01-02T00:01:14+08:00">2019-01-02</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-09-19 20:08:13" itemprop="dateModified" datetime="2023-09-19T20:08:13+08:00">2023-09-19</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Netty/" itemprop="url" rel="index"><span itemprop="name">Netty</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Netty/cim/" itemprop="url" rel="index"><span itemprop="name">cim</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2019/01/02/netty/cim01-started/" class="post-meta-item leancloud_visitors" data-flag-title="为自己搭建一个分布式 IM(即时通讯) 系统" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2019/01/02/netty/cim01-started/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2019/01/02/netty/cim01-started/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2019/05/08/5cd1d44c450a3.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>大家新年快乐！</p>
+<p>新的一年第一篇技术文章希望开个好头，所以元旦三天我也没怎么闲着，希望给大家带来一篇比较感兴趣的干货内容。</p>
+<p>老读者应该还记得我在去年国庆节前分享过一篇<a href="https://crossoverjie.top/2018/09/25/netty/million-sms-push/">《设计一个百万级的消息推送系统》</a>；虽然我在文中有贴一些伪代码，依然有些朋友希望能直接分享一些可以运行的源码；这么久了是时候把坑填上了。</p>
+<blockquote>
+<p>本文较长，高能预警；带好瓜子板凳。</p>
+</blockquote>
+<span id="more"></span>
+
+<p><img src="https://i.loli.net/2019/05/08/5cd1d44f7d731.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d450bc89e.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d452461aa.jpg"></p>
+<p>于是在之前的基础上我完善了一些内容，先来看看这个项目的介绍吧：</p>
+<p><code>CIM(CROSS-IM)</code> 一款面向开发者的 <code>IM(即时通讯)</code>系统；同时提供了一些组件帮助开发者构建一款属于自己可水平扩展的 <code>IM</code> 。</p>
+<p>借助 <code>CIM</code> 你可以实现以下需求：</p>
+<ul>
+<li><code>IM</code> 即时通讯系统。</li>
+<li>适用于 <code>APP</code> 的消息推送中间件。</li>
+<li><code>IOT</code> 海量连接场景中的消息透传中间件。</li>
+</ul>
+<p>完整源码托管在 GitHub : <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/cim">https://github.com/crossoverJie/cim</a></p>
+<h1 id="演示"><a href="#演示" class="headerlink" title="演示"></a>演示</h1><p>本次主要涉及到 IM 即时通讯，所以特地录了两段视频演示（群聊、私聊）。</p>
+<blockquote>
+<p>点击下方链接可以查看视频版 Demo。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th align="center">YouTube</th>
+<th align="center">Bilibili</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><a target="_blank" rel="noopener" href="https://youtu.be/_9a4lIkQ5_o">群聊</a> <a target="_blank" rel="noopener" href="https://youtu.be/kfEfQFPLBTQ">私聊</a></td>
+<td align="center"><a target="_blank" rel="noopener" href="https://www.bilibili.com/video/av39405501">群聊</a> <a target="_blank" rel="noopener" href="https://www.bilibili.com/video/av39405821">私聊</a></td>
+</tr>
+<tr>
+<td align="center"><img src="https://i.loli.net//2019//05//08//5cd1d9e788004.jpg"  height="295px" /></td>
+<td align="center"><img src="https://i.loli.net//2019//05//08//5cd1da2f943c5.jpg" height="295px" /></td>
+</tr>
+</tbody></table>
+<p>也在公网部署了一套演示环境，想要试一试的可以联系我加入内测群获取账号一起尬聊😋。</p>
+<h1 id="架构设计"><a href="#架构设计" class="headerlink" title="架构设计"></a>架构设计</h1><p>下面来看看具体的架构设计。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d45a156f1.jpg"></p>
+<ul>
+<li><code>CIM</code> 中的各个组件均采用 <code>SpringBoot</code> 构建。</li>
+<li>采用 <code>Netty + Google Protocol Buffer</code> 构建底层通信。</li>
+<li><code>Redis</code> 存放各个客户端的路由信息、账号信息、在线状态等。</li>
+<li><code>Zookeeper</code> 用于 <code>IM-server</code> 服务的注册与发现。</li>
+</ul>
+<p>整体主要由以下模块组成：</p>
+<h2 id="cim-server"><a href="#cim-server" class="headerlink" title="cim-server"></a>cim-server</h2><p><code>IM</code> 服务端；用于接收 <code>client</code> 连接、消息透传、消息推送等功能。</p>
+<p><strong>支持集群部署。</strong></p>
+<h2 id="cim-forward-route"><a href="#cim-forward-route" class="headerlink" title="cim-forward-route"></a>cim-forward-route</h2><p>消息路由服务器；用于处理消息路由、消息转发、用户登录、用户下线以及一些运营工具（获取在线用户数等）。</p>
+<h2 id="cim-client"><a href="#cim-client" class="headerlink" title="cim-client"></a>cim-client</h2><p><code>IM</code> 客户端；给用户使用的消息终端，一个命令即可启动并向其他人发起通讯（群聊、私聊）；同时内置了一些常用命令方便使用。</p>
+<h1 id="流程图"><a href="#流程图" class="headerlink" title="流程图"></a>流程图</h1><p>整体的流程也比较简单，流程图如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d45b982b3.jpg"></p>
+<ul>
+<li>客户端向 <code>route</code> 发起登录。</li>
+<li>登录成功从 <code>Zookeeper</code> 中选择可用 <code>IM-server</code> 返回给客户端，并保存登录、路由信息到 <code>Redis</code>。</li>
+<li>客户端向 <code>IM-server</code> 发起长连接，成功后保持心跳。</li>
+<li>客户端下线时通过 <code>route</code> 清除状态信息。</li>
+</ul>
+<p>所以当我们自己部署时需要以下步骤：</p>
+<ul>
+<li>搭建基础中间件 <code>Redis、Zookeeper</code>。</li>
+<li>部署 <code>cim-server</code>，这是真正的 IM 服务器，为了满足性能需求所以支持水平扩展，只需要注册到同一个 <code>Zookeeper</code> 即可。</li>
+<li>部署 <code>cim-forward-route</code>，这是路由服务器，所有的消息都需要经过它。由于它是无状态的，所以也可以利用 <code>Nginx</code> 代理提高可用性。</li>
+<li><code>cim-client</code> 真正面向用户的客户端；启动之后会自动连接 IM 服务器便可以在控制台收发消息了。</li>
+</ul>
+<p>更多使用介绍可以参考<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/cim#%E5%BF%AB%E9%80%9F%E5%90%AF%E5%8A%A8">快速启动</a>。</p>
+<h1 id="详细设计"><a href="#详细设计" class="headerlink" title="详细设计"></a>详细设计</h1><p>接下来重点看看具体的实现，比如群聊、私聊消息如何流转；IM 服务端负载均衡；服务如何注册发现等等。</p>
+<h2 id="IM-服务端"><a href="#IM-服务端" class="headerlink" title="IM 服务端"></a>IM 服务端</h2><p>先来看看服务端；主要是实现客户端上下线、消息下发等功能。</p>
+<p>首先是服务启动：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d45e52ec0.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d46019aa9.jpg"></p>
+<p>由于是在 <code>SpringBoot</code> 中搭建的，所以在应用启动时需要启动 <code>Netty</code> 服务。</p>
+<p>从 <code>pipline</code> 中可以看出使用了 <code>Protobuf</code> 的编解码（具体报文在客户端中分析）。</p>
+<h2 id="注册发现"><a href="#注册发现" class="headerlink" title="注册发现"></a>注册发现</h2><p>需要满足 <code>IM</code> 服务端的水平扩展需求，所以 <code>cim-server</code> 是需要将自身数据发布到注册中心的。</p>
+<p>这里参考之前分享的<a href="https://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/">《搞定服务注册与发现》</a>有具体介绍。</p>
+<p>所以在应用启动成功后需要将自身数据注册到 <code>Zookeeper</code> 中。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d462666f6.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d463e6401.jpg"></p>
+<p>最主要的目的就是将当前应用的 <code>ip + cim-server-port+ http-port</code> 注册上去。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d46549848.jpg"></p>
+<p>上图是我在演示环境中注册的两个 <code>cim-server</code> 实例（由于在一台服务器，所以只是端口不同）。</p>
+<p>这样在客户端（监听这个 <code>Zookeeper</code> 节点）就能实时的知道目前可用的服务信息。</p>
+<h2 id="登录"><a href="#登录" class="headerlink" title="登录"></a>登录</h2><p>当客户端请求 <code>cim-forward-route</code> 中的登录接口（详见下文）做完业务验证（就相当于日常登录其他网站一样）之后，客户端会向服务端发起一个长连接，如之前的流程所示：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4690d364.jpg"></p>
+<p>这时客户端会发送一个特殊报文，表明当前是登录信息。</p>
+<p>服务端收到后就需要将该客户端的 <code>userID</code> 和当前 <code>Channel</code> 通道关系保存起来。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d46b2f41e.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d46e99d71.jpg"></p>
+<p>同时也缓存了用户的信息，也就是 <code>userID</code> 和 用户名。</p>
+<h2 id="离线"><a href="#离线" class="headerlink" title="离线"></a>离线</h2><p>当客户端断线后也需要将刚才缓存的信息清除掉。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d476665ff.jpg"></p>
+<p>同时也需要调用 <code>route</code> 接口清除相关信息（具体接口看下文）。</p>
+<h2 id="IM-路由"><a href="#IM-路由" class="headerlink" title="IM 路由"></a>IM 路由</h2><p><img src="https://i.loli.net/2019/05/08/5cd1d479a88a4.jpg"></p>
+<p>从架构图中可以看出，路由层是非常重要的一环；它提供了一系列的 <code>HTTP</code> 服务承接了客户端和服务端。</p>
+<p>目前主要是以下几个接口。</p>
+<h3 id="注册接口"><a href="#注册接口" class="headerlink" title="注册接口"></a>注册接口</h3><p><img src="https://i.loli.net/2019/05/08/5cd1d47d84f95.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d47f8d14e.jpg"></p>
+<p>由于每一个客户端都是需要登录才能使用的，所以第一步自然是注册。</p>
+<p>这里就设计的比较简单，直接利用 <code>Redis</code> 来存储用户信息；用户信息也只有 <code>ID</code> 和 <code>userName</code> 而已。</p>
+<p>只是为了方便查询在 <code>Redis</code> 中的 <code>KV</code> 又反过来存储了一份 <code>VK</code>，这样 <code>ID</code> 和 <code>userName</code> 都必须唯一。</p>
+<h3 id="登录接口"><a href="#登录接口" class="headerlink" title="登录接口"></a>登录接口</h3><p>这里的登录和 <code>cim-server</code> 中的登录不一样，具有业务性质，</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d482bed42.jpg"></p>
+<ul>
+<li>登录成功之后需要判断是否是重复登录（一个用户只能运行一个客户端）。</li>
+<li>登录成功后需要从 <code>Zookeeper</code> 中获取服务列表（<code>cim-server</code>）并根据某种算法选择一台服务返回给客户端。</li>
+<li>登录成功之后还需要保存路由信息，也就是当前用户分配的服务实例保存到 <code>Redis</code> 中。</li>
+</ul>
+<p>为了实现只能一个用户登录，使用了 <code>Redis</code> 中的 <code>set</code> 来保存登录信息；利用 <code>userID</code> 作为 <code>key</code> ，重复的登录就会写入失败。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d48746c86.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d491ca18f.jpg"></p>
+<blockquote>
+<p>类似于 Java 中的 HashSet，只能去重保存。</p>
+</blockquote>
+<p>获取一台可用的路由实例也比较简单：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d494cd7b8.jpg"></p>
+<ul>
+<li>先从 <code>Zookeeper</code> 获取所有的服务实例做一个内部缓存。</li>
+<li>轮询选择一台服务器（目前只有这一种算法，后续会新增）。</li>
+</ul>
+<p>当然要获取 <code>Zookeeper</code> 中的服务实例前自然是需要监听 <code>cim-server</code> 之前注册上去的那个节点。</p>
+<p>具体代码如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4965f2d4.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d497d0c5e.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d49a7324f.jpg"></p>
+<p>也是在应用启动之后监听 <code>Zookeeper</code> 中的路由节点，一旦发生变化就会更新内部缓存。</p>
+<blockquote>
+<p>这里使用的是 Guava 的 cache，它基于 <code>ConcurrentHashMap</code>，所以可以保证<code>清除、新增缓存</code>的原子性。</p>
+</blockquote>
+<h3 id="群聊接口"><a href="#群聊接口" class="headerlink" title="群聊接口"></a>群聊接口</h3><p>这是一个真正发消息的接口，实现的效果就是其中一个客户端发消息，其余所有客户端都能收到！</p>
+<p>流程肯定是客户端发送一条消息到服务端，服务端收到后在上文介绍的 <code>SessionSocketHolder</code> 中遍历所有 <code>Channel</code>（通道）然后下发消息即可。</p>
+<p>服务端是单机倒也可以，但现在是集群设计。所以所有的客户端会根据之前的轮询算法分配到不同的 <code>cim-server</code> 实例中。</p>
+<p>因此就需要路由层来发挥作用了。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d49d80933.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d4a6cb618.jpg"></p>
+<p>路由接口收到消息后首先遍历出所有的客户端和服务实例的关系。</p>
+<p>路由关系在 <code>Redis</code> 中的存放如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4a96d129.jpg"></p>
+<p>由于 <code>Redis</code> 单线程的特质，当数据量大时；一旦使用 keys 匹配所有 <code>cim-route:*</code> 数据，会导致 Redis 不能处理其他请求。</p>
+<p>所以这里改为使用 scan 命令来遍历所有的 <code>cim-route:*</code>。</p>
+<hr>
+<p>接着会挨个调用每个客户端所在的服务端的 <code>HTTP</code> 接口用于推送消息。</p>
+<p>在 <code>cim-server</code> 中的实现如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4adabe52.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d4b0e45a5.jpg"></p>
+<p><code>cim-server</code> 收到消息后会在内部缓存中查询该 userID 的通道，接着只需要发消息即可。</p>
+<h3 id="在线用户接口"><a href="#在线用户接口" class="headerlink" title="在线用户接口"></a>在线用户接口</h3><p>这是一个辅助接口，可以查询出当前在线用户信息。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4b261364.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d4b3cb598.jpg"></p>
+<p>实现也很简单，也就是查询之前保存 ”用户登录状态的那个去重 <code>set</code> “即可。</p>
+<h3 id="私聊接口"><a href="#私聊接口" class="headerlink" title="私聊接口"></a>私聊接口</h3><p>之所以说获取在线用户是一个辅助接口，其实就是用于辅助私聊使用的。</p>
+<p>一般我们使用私聊的前提肯定得知道当前哪些用户在线，接着你才会知道你要和谁进行私聊。</p>
+<p>类似于这样：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4f69c577.jpg"></p>
+<p>在我们这个场景中，私聊的前提就是需要获得在线用户的 <code>userID</code>。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4c2d3e73.jpg"></p>
+<p>所以私聊接口在收到消息后需要查询到接收者所在的 <code>cim-server</code> 实例信息，后续的步骤就和群聊一致了。调用接收者所在实例的 <code>HTTP</code> 接口下发信息。</p>
+<p>只是群聊是遍历所有的在线用户，私聊只发送一个的区别。</p>
+<h3 id="下线接口"><a href="#下线接口" class="headerlink" title="下线接口"></a>下线接口</h3><p>一旦客户端下线，我们就需要将之前存放在 <code>Redis</code> 中的一些信息删除掉（路由信息、登录状态）。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4c5cf651.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d4c71c667.jpg"></p>
+<h2 id="IM-客户端"><a href="#IM-客户端" class="headerlink" title="IM 客户端"></a>IM 客户端</h2><p>客户端中的一些逻辑其实在上文已经谈到一些了。</p>
+<h3 id="登录-1"><a href="#登录-1" class="headerlink" title="登录"></a>登录</h3><p>第一步也就是登录，需要在启动时调用 <code>route</code> 的登录接口，获得 <code>cim-server</code> 信息再创建连接。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4c84d0e2.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4d0bfa7c.jpg" alt="image-20190102001525565"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4d476d56.jpg"></p>
+<p>登录过程中 <code>route</code> 接口会判断是否为重复登录，重复登录则会直接退出程序。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4d76b21b.jpg"></p>
+<p>接下来是利用 <code>route</code> 接口返回的 <code>cim-server</code> 实例信息（<code>ip+port</code>）创建连接。</p>
+<p>最后一步就是发送一个登录标志的信息到服务端，让它保持客户端和 <code>Channel</code> 的关系。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4da37851.jpg"></p>
+<h3 id="自定义协议"><a href="#自定义协议" class="headerlink" title="自定义协议"></a>自定义协议</h3><p>上文提到的一些<code>登录报文、真正的消息报文</code>这些其实都是在我们自定义协议中可以区别出来的。</p>
+<p>由于是使用 <code>Google Protocol Buffer</code> 编解码，所以先看看原始格式。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4dbdbe1b.jpg"></p>
+<p>其实这个协议中目前一共就三个字段：</p>
+<ul>
+<li><code>requestId</code> 可以理解为 <code>userId</code>。</li>
+<li><code>reqMsg</code> 就是真正的消息。</li>
+<li><code>type</code> 也就是上文提到的消息类别。</li>
+</ul>
+<p>目前主要是三种类型，分别对应不同的业务：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4e11fc29.jpg"></p>
+<h3 id="心跳"><a href="#心跳" class="headerlink" title="心跳"></a>心跳</h3><p>为了保持客户端和服务端的连接，每隔一段时间没有发送消息都需要自动的发送心跳。</p>
+<p>目前的策略是每隔一分钟就是发送一个心跳包到服务端：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4e3939e7.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d4e548d0d.jpg"></p>
+<p>这样服务端每隔一分钟没有收到业务消息时就会收到 <code>ping</code> 的心跳包：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4e98f743.jpg"></p>
+<h3 id="内置命令"><a href="#内置命令" class="headerlink" title="内置命令"></a>内置命令</h3><p>客户端也内置了一些基本命令来方便使用。</p>
+<table>
+<thead>
+<tr>
+<th>命令</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>:q</code></td>
+<td>退出客户端</td>
+</tr>
+<tr>
+<td><code>:olu</code></td>
+<td>获取所有在线用户信息</td>
+</tr>
+<tr>
+<td><code>:all</code></td>
+<td>获取所有命令</td>
+</tr>
+<tr>
+<td><code>:</code></td>
+<td>更多命令正在开发中。。</td>
+</tr>
+</tbody></table>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4f69c577.jpg"></p>
+<p>比如输入 <code>:q</code> 就会退出客户端，同时会关闭一些系统资源。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4f937820.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d4fc115ec.jpg"></p>
+<p>当输入 <code>:olu</code>(<code>onlineUser</code> 的简写)就会去调用 <code>route</code> 的获取所有在线用户接口。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4feb1f12.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d500549c1.jpg"></p>
+<h3 id="群聊"><a href="#群聊" class="headerlink" title="群聊"></a>群聊</h3><p>群聊的使用非常简单，只需要在控制台输入消息回车即可。</p>
+<p>这时会去调用 <code>route</code> 的群聊接口。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d503006a2.jpg"></p>
+<h3 id="私聊"><a href="#私聊" class="headerlink" title="私聊"></a>私聊</h3><p>私聊也是同理，但前提是需要触发关键字；使用 <code>userId;;消息内容</code> 这样的格式才会给某个用户发送消息，所以一般都需要先使用 <code>:olu</code> 命令获取所以在线用户才方便使用。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d505b390e.jpg"></p>
+<h3 id="消息回调"><a href="#消息回调" class="headerlink" title="消息回调"></a>消息回调</h3><p>为了满足一些定制需求，比如消息需要保存之类的。</p>
+<p>所以在客户端收到消息之后会回调一个接口，在这个接口中可以自定义实现。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d50760f85.jpg"><br><img src="https://i.loli.net/2019/05/08/5cd1d50e16d1c.jpg"></p>
+<p>因此先创建了一个 <code>caller</code> 的 <code>bean</code>，这个 <code>bean</code> 中包含了一个 <code>CustomMsgHandleListener</code> 接口，需要自行处理只需要实现此接口即可。</p>
+<h3 id="自定义界面"><a href="#自定义界面" class="headerlink" title="自定义界面"></a>自定义界面</h3><p>由于我自己不怎么会写界面，但保不准有其他大牛会写。所以客户端中的群聊、私聊、获取在线用户、消息回调等业务(以及之后的业务)都是以接口形式提供。</p>
+<p>也方便后面做页面集成，只需要调这些接口就行了；具体实现不用怎么关心。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>cim</code> 目前只是第一版，BUG 多，功能少（只拉了几个群友做了测试）；不过后续还会接着完善，至少这一版会给那些没有相关经验的朋友带来一些思路。</p>
+<p>后续计划：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d51115075.jpg"></p>
+<p>完整源码：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/cim">https://github.com/crossoverJie/cim</a></p>
+<p>如果这篇对你有所帮助还请不吝转发。</p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2019/01/02/netty/cim01-started/" title="为自己搭建一个分布式 IM(即时通讯) 系统">http://crossoverjie.top/2019/01/02/netty/cim01-started/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Redis/" rel="tag"><i class="fa fa-tag"></i> Redis</a>
+              <a href="/tags/Zookeeper/" rel="tag"><i class="fa fa-tag"></i> Zookeeper</a>
+              <a href="/tags/%E6%8E%A8%E9%80%81/" rel="tag"><i class="fa fa-tag"></i> 推送</a>
+              <a href="/tags/IM/" rel="tag"><i class="fa fa-tag"></i> IM</a>
+              <a href="/tags/IOT/" rel="tag"><i class="fa fa-tag"></i> IOT</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/12/30/annual-summary/2018/" rel="prev" title="2018 年度复盘">
+                  <i class="fa fa-chevron-left"></i> 2018 年度复盘
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2019/01/14/netty/cim02-v1.0.1/" rel="next" title="为自己搭建一个分布式 IM 系统二【从查找算法聊起】">
+                  为自己搭建一个分布式 IM 系统二【从查找算法聊起】 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="前言标题没有看错，真的是让我写个 bug！ 刚接到这个需求时我内心没有丝毫波澜，甚至还有点激动。这可是我特长啊；终于可以光明正大的写 bug 了🙄。 先来看看具体是要干啥吧，其实主要就是要让一些负载很低的服务器额外消耗一些内存、CPU 等资源（至于背景就不多说了），让它的负载可以提高一些。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="没错，老板让我写个 BUG！">
+<meta property="og:url" content="http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言标题没有看错，真的是让我写个 bug！ 刚接到这个需求时我内心没有丝毫波澜，甚至还有点激动。这可是我特长啊；终于可以光明正大的写 bug 了🙄。 先来看看具体是要干啥吧，其实主要就是要让一些负载很低的服务器额外消耗一些内存、CPU 等资源（至于背景就不多说了），让它的负载可以提高一些。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c38cba7ec.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3c278c42.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c39bc036e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c39f7851e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3a9d62ef.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3b066f78.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3b2edd01.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3b7b078d.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3bad06b4.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3c278c42.jpg">
+<meta property="og:image" content="https://camo.githubusercontent.com/dc705fafcecd5df825706c0599a5993a1d8e4351/68747470733a2f2f75706c6f61642e77696b696d656469612e6f72672f77696b6970656469612f636f6d6d6f6e732f342f34612f416e696d6174696f6e5f6f665f7468655f4e616976655f4d61726b5f616e645f53776565705f476172626167655f436f6c6c6563746f725f416c676f726974686d2e676966">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3c5ab0af.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3c730526.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3ca2e8ae.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3cd20694.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3ceaf475.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3cfecdb7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3d7b8325.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3d9acf62.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3e0ac17a.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3e398b1b.jpg">
+<meta property="article:published_time" content="2018-12-12T00:01:36.000Z">
+<meta property="article:modified_time" content="2019-05-07T17:44:51.864Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="JVM">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1c38cba7ec.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/","path":"2018/12/12/java-senior/java-memary-allocation/","title":"没错，老板让我写个 BUG！"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>没错，老板让我写个 BUG！ | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">75</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">186</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">170</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#JVM-%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D%E5%9B%9E%E9%A1%BE"><span class="nav-number">2.</span> <span class="nav-text">JVM 内存分配回顾</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BC%98%E5%85%88%E5%9C%A8-Eden-%E5%8C%BA%E5%88%86%E9%85%8D%E5%AF%B9%E8%B1%A1"><span class="nav-number">2.1.</span> <span class="nav-text">优先在 Eden 区分配对象</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A4%A7%E5%AF%B9%E8%B1%A1%E7%9B%B4%E6%8E%A5%E8%BF%9B%E5%85%A5%E8%80%81%E5%B9%B4%E4%BB%A3"><span class="nav-number">2.2.</span> <span class="nav-text">大对象直接进入老年代</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Linux-%E5%86%85%E5%AD%98%E6%9F%A5%E7%9C%8B"><span class="nav-number">3.</span> <span class="nav-text">Linux 内存查看</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">186</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">75</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">170</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="没错，老板让我写个 BUG！ | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          没错，老板让我写个 BUG！
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-12-12 08:01:36" itemprop="dateCreated datePublished" datetime="2018-12-12T08:01:36+08:00">2018-12-12</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2019-05-08 01:44:51" itemprop="dateModified" datetime="2019-05-08T01:44:51+08:00">2019-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Java-%E8%BF%9B%E9%98%B6/" itemprop="url" rel="index"><span itemprop="name">Java 进阶</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2018/12/12/java-senior/java-memary-allocation/" class="post-meta-item leancloud_visitors" data-flag-title="没错，老板让我写个 BUG！" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2018/12/12/java-senior/java-memary-allocation/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/12/12/java-senior/java-memary-allocation/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2019/05/08/5cd1c38cba7ec.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>标题没有看错，真的是让我写个 <code>bug</code>！</p>
+<p>刚接到这个需求时我内心没有丝毫波澜，甚至还有点激动。这可是我特长啊；终于可以光明正大的写 <code>bug</code> 了🙄。</p>
+<p>先来看看具体是要干啥吧，其实主要就是要让一些负载很低的服务器额外消耗一些内存、CPU 等资源（至于背景就不多说了），让它的负载可以提高一些。</p>
+<span id="more"></span>
+<h1 id="JVM-内存分配回顾"><a href="#JVM-内存分配回顾" class="headerlink" title="JVM 内存分配回顾"></a>JVM 内存分配回顾</h1><p>于是我刷刷一把梭的就把代码写好了，大概如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3c278c42.jpg"></p>
+<p>写完之后我就在想一个问题，代码中的 <code>mem</code> 对象在方法执行完之后会不会被立即回收呢？我想肯定会有一部分人认为就是在方法执行完之后回收。</p>
+<p>我也正儿八经的去调研了下，问了一些朋友；果不其然确实有一部分认为是在方法执行完毕之后回收。</p>
+<p>那事实情况如何呢？我做了一个试验。</p>
+<p>我用以下的启动参数将刚才这个应用启动起来。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">java -Djava.rmi.server.hostname=<span class="number">10.</span>xx.xx.xx </span><br><span class="line">-Djava.security.policy=jstatd.all.policy </span><br><span class="line">-Dcom.sun.management.jmxremote.authenticate=<span class="literal">false</span> </span><br><span class="line">-Dcom.sun.management.jmxremote.ssl=<span class="literal">false</span> </span><br><span class="line">-Dcom.sun.management.jmxremote.port=<span class="number">8888</span>  </span><br><span class="line">-Xms4g -Xmx4g  -jar bug-<span class="number">0.0</span><span class="number">.1</span>-SNAPSHOT.jar</span><br></pre></td></tr></table></figure>
+
+<p>这样我就可以通过 JMX 端口远程连接到这个应用观察内存、GC 情况了。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c39bc036e.jpg"></p>
+<hr>
+<p>如果是方法执行完毕就回收 <code>mem</code> 对象，当我分配 <code>250M</code> 内存时；内存就会有一个明显的曲线，同时 GC 也会执行。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c39f7851e.jpg"></p>
+<hr>
+<p>这时观察内存曲线。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3a9d62ef.jpg"></p>
+<p>会发现确实有明显的涨幅，但是之后并没有立即回收，而是一直保持在这个水位。同时左边的 GC 也没有任何的反应。</p>
+<p>用 <code>jstat</code> 查看内存布局也是同样的情况。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3b066f78.jpg"></p>
+<p>不管是 <code>YGC,FGC</code> 都没有，只是 Eden 区的使用占比有所增加，毕竟分配了 250M 内存嘛。</p>
+<p>那怎样才会回收呢？</p>
+<p>我再次分配了两个 250M 之后观察内存曲线。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3b2edd01.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3b7b078d.jpg"></p>
+<p>发现第三个 250M 的时候 <code>Eden</code> 区达到了 <code>98.83%</code> 于是再次分配时就需要回收 <code>Eden</code> 区产生了 <code>YGC</code>。</p>
+<p>同时内存曲线也得到了下降。</p>
+<p>整个的换算过程如图：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3bad06b4.jpg"></p>
+<p>由于初始化的堆内存为 <code>4G</code>，所以算出来的 <code>Eden</code> 区大概为 <code>1092M</code> 内存。</p>
+<p>加上应用启动 <code>Spring</code> 之类消耗的大约 <code>20%</code> 内存，所以分配 3 次 250M 内存就会导致 <code>YGC</code>。</p>
+<p>再来回顾下刚才的问题：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3c278c42.jpg"></p>
+<p><code>mem</code> 对象既然在方法执行完毕后不会回收，那什么时候回收呢。</p>
+<p>其实只要记住一点即可：<strong>对象都需要垃圾回收器发生 <code>GC</code> 时才能回收；不管这个对象是局部变量还是全局变量。</strong></p>
+<p>通过刚才的实验也发现了，当 <code>Eden</code> 区空间不足产生 <code>YGC</code> 时才会回收掉我们创建的 <code>mem</code> 对象。</p>
+<p>但这里其实还有一个隐藏条件：那就是这个对象是<strong>局部变量</strong>。如果该对象是全局变量那依然不能被回收。</p>
+<p>也就是我们常说的<strong>对象不可达</strong>，这样不可达的对象在 <code>GC</code> 发生时就会被认为是需要回收的对象从而进行回收。</p>
+<p>在多考虑下，为什么有些人会认为方法执行完毕后局部变量会被回收呢？</p>
+<p>我想这应当是记混了，其实方法执行完毕后回收的是<code>栈帧</code>。</p>
+<p>它最直接的结果就是导致 <code>mem</code> 这个对象没有被引用了。但没有引用并不代表会被马上回收，也就是上面说到的需要产生 <code>GC</code> 才会回收。</p>
+<p>所以使用的是上面提到的对象不可达所采用的<strong>可达性分析算法</strong>来表明哪些对象需要被回收。</p>
+<p>当对象没有被引用后也就认为不可达了。</p>
+<p>这里有一张动图比较清晰：</p>
+<p><img src="https://camo.githubusercontent.com/dc705fafcecd5df825706c0599a5993a1d8e4351/68747470733a2f2f75706c6f61642e77696b696d656469612e6f72672f77696b6970656469612f636f6d6d6f6e732f342f34612f416e696d6174696f6e5f6f665f7468655f4e616976655f4d61726b5f616e645f53776565705f476172626167655f436f6c6c6563746f725f416c676f726974686d2e676966"></p>
+<p>当方法执行完之后其中的 <code>mem</code> 对象就相当于图中的 <code>Object 5</code>，所以在 <code>GC</code> 时候就会回收掉。</p>
+<h2 id="优先在-Eden-区分配对象"><a href="#优先在-Eden-区分配对象" class="headerlink" title="优先在 Eden 区分配对象"></a>优先在 Eden 区分配对象</h2><p>其实从上面的例子中可以看出对象是优先分配在新生代中 Eden 区的，但有个前提就是对象不能太大。</p>
+<p>以前也写过相关的内容：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3c5ab0af.jpg"></p>
+<h2 id="大对象直接进入老年代"><a href="#大对象直接进入老年代" class="headerlink" title="大对象直接进入老年代"></a>大对象直接进入老年代</h2><p>而大对象则是直接分配到老年代中（至于多大算大，可以通过参数配置）。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3c730526.jpg"></p>
+<hr>
+<p>当我直接分配 1000M 内存时，由于 Eden 区不能直接装下，所以改为分配在老年代中。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3ca2e8ae.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3cd20694.jpg"></p>
+<p>可以看到 <code>Eden</code> 区几乎没有变动，但是老年代却涨了 37% ，根据之前计算的老年代内存 <code>2730M</code> 算出来也差不多是 <code>1000M</code> 的内存。</p>
+<h1 id="Linux-内存查看"><a href="#Linux-内存查看" class="headerlink" title="Linux 内存查看"></a>Linux 内存查看</h1><p>回到这次我需要完成的需求：增加服务器内存和 CPU 的消耗。</p>
+<p>CPU 还好，本身就有一定的使用，同时每创建一个对象也会消耗一些 CPU。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3ceaf475.jpg"></p>
+<p>主要是内存,先来看下没启动这个应用之前的内存情况。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3cfecdb7.jpg"></p>
+<p>大概只使用了 3G 的内存。</p>
+<p>启动应用之后大概只消耗了 600M 左右的内存。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3d7b8325.jpg"></p>
+<p>为了满足需求我需要分配一些内存，但这里有点需要讲究。</p>
+<p>不能一直分配内存，这样会导致 CPU 负载太高了，同时内存也会由于 GC 回收导致占用也不是特别多。</p>
+<p>所以我需要少量的分配，让大多数对象在新生代中，为了不被回收需要保持在百分之八九十。</p>
+<p>同时也需要分配一些大对象到老年代中，也要保持老年代的使用在百分之八九十。</p>
+<p>这样才能最大限度的利用这 4G 的堆内存。</p>
+<p>于是我做了以下操作：</p>
+<ul>
+<li>先分配一些小对象在新生代中（800M）保持新生代在90%</li>
+<li>接着又分配了<code>老年代内 *（100%-已使用的28%）；也就是 2730*60%=1638M</code> 让老年代也在 90% 左右。</li>
+</ul>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3d9acf62.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3e0ac17a.jpg"></p>
+<p>效果如上。</p>
+<p>最主要的是一次 <code>GC</code> 都没有发生这样也就达到了我的目的。</p>
+<p>最终内存消耗了 3.5G 左右。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3e398b1b.jpg"></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>虽说这次的需求是比较奇葩，但想要精确的控制 <code>JVM</code> 的内存分配还是没那么容易。</p>
+<p>需要对它的内存布局，回收都要有一定的了解，写这个 Bug 的过程确实也加深了印象，如果对你有所帮助请不要吝啬你的点赞与分享。</p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/" title="没错，老板让我写个 BUG！">http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Java/" rel="tag"><i class="fa fa-tag"></i> Java</a>
+              <a href="/tags/JVM/" rel="tag"><i class="fa fa-tag"></i> JVM</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/11/26/guava/guava-bloom-filter/" rel="prev" title="如何判断一个元素在亿级数据中是否存在？">
+                  <i class="fa fa-chevron-left"></i> 如何判断一个元素在亿级数据中是否存在？
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/12/17/troubleshoot/cpu-percent-100/" rel="next" title="一次生产 CPU 100% 排查优化实践">
+                  一次生产 CPU 100% 排查优化实践 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

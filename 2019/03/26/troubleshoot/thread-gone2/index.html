@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="背景上周分享了一篇《一个线程罢工的诡异事件》，最近也在公司内部分享了这个案例。 无独有偶，在内部分享的时候也有小伙伴问了之前分享时所提出的一类问题：">
+<meta property="og:type" content="article">
+<meta property="og:title" content="线程池中你不容错过的一些细节">
+<meta property="og:url" content="http://crossoverjie.top/2019/03/26/troubleshoot/thread-gone2/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景上周分享了一篇《一个线程罢工的诡异事件》，最近也在公司内部分享了这个案例。 无独有偶，在内部分享的时候也有小伙伴问了之前分享时所提出的一类问题：">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/04/29/5cc655fb0f18c.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bec753b00.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bec8136a7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bec8ca8f7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bec980288.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bec9eea43.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bed130c18.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bed1e2402.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bed23cd35.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1bed2bd074.jpg">
+<meta property="article:published_time" content="2019-03-26T00:15:36.000Z">
+<meta property="article:modified_time" content="2019-05-07T17:23:14.863Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Thread">
+<meta property="article:tag" content="concurrent">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2019/04/29/5cc655fb0f18c.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2019/03/26/troubleshoot/thread-gone2/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2019/03/26/troubleshoot/thread-gone2/","path":"2019/03/26/troubleshoot/thread-gone2/","title":"线程池中你不容错过的一些细节"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>线程池中你不容错过的一些细节 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">75</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">186</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">170</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%BA%BF%E7%A8%8B%E6%B1%A0%E7%9A%84%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">线程池的工作原理</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%B7%B1%E5%85%A5%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">深入分析</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%86%8D%E6%AC%A1%E8%A7%A3%E9%87%8A%E4%B9%8B%E5%89%8D%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-number">4.</span> <span class="nav-text">再次解释之前的问题</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E6%98%AF-run-%E8%80%8C%E4%B8%8D%E6%98%AF-start"><span class="nav-number">5.</span> <span class="nav-text">为什是 run() 而不是 start()</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">186</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">75</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">170</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2019/03/26/troubleshoot/thread-gone2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="线程池中你不容错过的一些细节 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          线程池中你不容错过的一些细节
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-03-26 08:15:36" itemprop="dateCreated datePublished" datetime="2019-03-26T08:15:36+08:00">2019-03-26</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2019-05-08 01:23:14" itemprop="dateModified" datetime="2019-05-08T01:23:14+08:00">2019-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/" itemprop="url" rel="index"><span itemprop="name">问题排查</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/Java-%E8%BF%9B%E9%98%B6/" itemprop="url" rel="index"><span itemprop="name">Java 进阶</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2019/03/26/troubleshoot/thread-gone2/" class="post-meta-item leancloud_visitors" data-flag-title="线程池中你不容错过的一些细节" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2019/03/26/troubleshoot/thread-gone2/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2019/03/26/troubleshoot/thread-gone2/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2019/04/29/5cc655fb0f18c.jpg"></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>上周分享了一篇<a href="https://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/">《一个线程罢工的诡异事件》</a>，最近也在公司内部分享了这个案例。</p>
+<p>无独有偶，在内部分享的时候也有小伙伴问了之前分享时所提出的一类问题：</p>
+<span id="more"></span>
+
+<p><img src="https://i.loli.net/2019/05/08/5cd1bec753b00.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bec8136a7.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bec8ca8f7.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bec980288.jpg"></p>
+<p>这其实是一类共性问题，我认为主要还是两个原因：</p>
+<ul>
+<li>我自己确实也没讲清楚，之前画的那张图还需要再完善，有些误导。</li>
+<li>第二还是大家对线程池的理解不够深刻，比如今天要探讨的内容。</li>
+</ul>
+<h1 id="线程池的工作原理"><a href="#线程池的工作原理" class="headerlink" title="线程池的工作原理"></a>线程池的工作原理</h1><p>首先还是来复习下线程池的基本原理。</p>
+<p>我认为线程池它就是一个<strong>调度任务</strong>的工具。</p>
+<p>众所周知在初始化线程池会给定线程池的大小，假设现在我们有 1000 个线程任务需要运行，而线程池的大小为 10<del>20，在真正运行任务的过程中他肯定不会创建这1000个线程同时运行，而是充分利用线程池里这 10</del>20 个线程来调度这1000个任务。</p>
+<p>而这里的 10~20 个线程最后会由线程池封装为 <code>ThreadPoolExecutor.Worker</code> 对象，而这个 <code>Worker</code> 是实现了 Runnable 接口的，所以他自己本身就是一个线程。</p>
+<h1 id="深入分析"><a href="#深入分析" class="headerlink" title="深入分析"></a>深入分析</h1><p><img src="https://i.loli.net/2019/05/08/5cd1bec9eea43.jpg"></p>
+<p>这里我们来做一个模拟，创建了一个核心线程、最大线程数、阻塞队列都为2的线程池。</p>
+<p>这里假设线程池已经完成了预热，也就是线程池内部已经创建好了两个线程 <code>Worker</code>。</p>
+<p>当我们往一个线程池丢一个任务会发生什么事呢？</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bed130c18.jpg"></p>
+<ul>
+<li>第一步是生产者，也就是任务提供者他执行了一个 execute() 方法，本质上就是往这个内部队列里放了一个任务。</li>
+<li>之前已经创建好了的 Worker 线程会执行一个 <code>while</code> 循环 —&gt; 不停的从这个<code>内部队列</code>里获取任务。(这一步是竞争的关系，都会抢着从队列里获取任务，由这个队列内部实现了线程安全。)</li>
+<li>获取得到一个任务后，其实也就是拿到了一个 <code>Runnable</code> 对象(也就是 <code>execute(Runnable task)</code> 这里所提交的任务)，接着执行这个 <code>Runnable</code> 的 **run() 方法，而不是 start()**，这点需要注意后文分析原因。</li>
+</ul>
+<p>结合源码来看：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bed1e2402.jpg"></p>
+<p>从图中其实就对应了刚才提到的二三两步：</p>
+<ul>
+<li><code>while</code> 循环，从 <code>getTask()</code> 方法中一直不停的获取任务。</li>
+<li>拿到任务后，执行它的 run() 方法。</li>
+</ul>
+<p>这样一个线程就调度完毕，然后再次进入循环从队列里取任务并不断的进行调度。</p>
+<h1 id="再次解释之前的问题"><a href="#再次解释之前的问题" class="headerlink" title="再次解释之前的问题"></a>再次解释之前的问题</h1><p>接下来回顾一下我们上一篇文章所提到的，导致一个线程没有运行的根本原因是：</p>
+<blockquote>
+<p>在单个线程的线程池中一但抛出了未被捕获的异常时，线程池会回收当前的线程并创建一个新的 <code>Worker</code>；<br>它也会一直不断的从队列里获取任务来执行，但由于这是一个消费线程，<strong>根本没有生产者往里边丢任务</strong>，所以它会一直 waiting 在从队列里获取任务处，所以也就造成了线上的队列没有消费，业务线程池没有执行的问题。</p>
+</blockquote>
+<p>结合之前的那张图来看：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bed23cd35.jpg"></p>
+<p>这里大家问的最多的一个点是，为什么会没有是<code>根本没有生产者往里边丢任务</code>，图中不是明明画的有一个 <code>product</code> 嘛？</p>
+<p>这里确实是有些不太清楚，再次强调一次：</p>
+<p><strong>图中的 product 是往内部队列里写消息的生产者，并不是往这个 Consumer 所在的线程池中写任务的生产者。</strong></p>
+<p>因为即便 <code>Consumer</code> 是一个单线程的线程池，它依然具有一个常规线程池所具备的所有条件：</p>
+<ul>
+<li>Worker 调度线程，也就是线程池运行的线程；虽然只有一个。</li>
+<li>内部的阻塞队列；虽然长度只有1。</li>
+</ul>
+<p>再次结合图来看：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1bed2bd074.jpg"></p>
+<p>所以之前提到的【没有生产者往里边丢任务】是指右图放大后的那一块，也就是内部队列并没有其他线程往里边丢任务执行 <code>execute()</code> 方法。</p>
+<p>而一旦发生未捕获的异常后，<code>Worker1</code> 被回收，顺带的它所调度的线程 <code>task1</code>（这个task1 也就是在执行一个 while 循环消费左图中的那个队列） 也会被回收掉。</p>
+<p>新创建的 <code>Worker2</code> 会取代 <code>Worker1</code> 继续执行 <code>while</code> 循环从内部队列里获取任务，但此时这个队列就一直会是空的，所以也就是处于 <code>Waiting</code> 状态。</p>
+<blockquote>
+<p>我觉得这波解释应该还是讲清楚了，欢迎还没搞明白的朋友留言讨论。</p>
+</blockquote>
+<h1 id="为什是-run-而不是-start"><a href="#为什是-run-而不是-start" class="headerlink" title="为什是 run() 而不是 start()"></a>为什是 run() 而不是 start()</h1><p>问题搞清楚后来想想为什么线程池在调度的时候执行的是 <code>Runnable</code> 的 <code>run()</code> 方法，而不是 <code>start()</code> 方法呢？</p>
+<p>我相信大部分没有看过源码的同学心中第一个印象就应该是执行的 <code>start()</code> 方法；</p>
+<p>因为不管是学校老师，还是网上大牛讲的都是只有执行了<code> start()</code> 方法后操作系统才会给我们创建一个独立的线程来运行，而 <code>run()</code> 方法只是一个普通的方法调用。</p>
+<p>而在线程池这个场景中却恰好就是要利用它<strong>只是一个普通方法调用</strong>。</p>
+<p>回到我在文初中所提到的：我认为线程池它就是一个<strong>调度任务</strong>的工具。</p>
+<p>假设这里是调用的 <code>Runnable</code> 的 <code>start</code> 方法，那会发生什么事情。</p>
+<p>如果我们往一个核心、最大线程数为 2 的线程池里丢了 1000 个任务，<strong>那么它会额外的创建 1000 个线程，同时每个任务都是异步执行的，一下子就执行完毕了</strong>。</p>
+<p>从而没法做到由这两个 <code>Worker</code> 线程来调度这 1000 个任务，而只有当做一个同步阻塞的 <code>run()</code> 方法调用时才能满足这个要求。</p>
+<blockquote>
+<p>这事也让我发现一个奇特的现象：就是网上几乎没人讲过为什么在线程池里是 run 而不是 start，不知道是大家都觉得这是基操还是没人仔细考虑过。</p>
+</blockquote>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>针对之前线上事故的总结上次已经写得差不多了，感兴趣的可以翻回去看看。</p>
+<p>这次呢可能更多是我自己的总结，比如写一篇技术博客时如果大部分人对某一个知识点讨论的比较热烈时，那一定是作者要么讲错了，要么没讲清楚。</p>
+<p>这点确实是要把自己作为一个读者的角度来看，不然很容易出现之前的一些误解。</p>
+<p>在这之外呢，我觉得对于线程池把这两篇都看完同时也理解后对于大家理解线程池，利用线程池完成工作也是有很大好处的。</p>
+<p>如果有在面试中加分的记得回来点赞、分享啊。</p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2019/03/26/troubleshoot/thread-gone2/" title="线程池中你不容错过的一些细节">http://crossoverjie.top/2019/03/26/troubleshoot/thread-gone2/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Java/" rel="tag"><i class="fa fa-tag"></i> Java</a>
+              <a href="/tags/Thread/" rel="tag"><i class="fa fa-tag"></i> Thread</a>
+              <a href="/tags/concurrent/" rel="tag"><i class="fa fa-tag"></i> concurrent</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2019/03/21/vlog/Chinese-coder-weekends-01/" rel="prev" title="VLOG-006:一个程序员的周末（上）">
+                  <i class="fa fa-chevron-left"></i> VLOG-006:一个程序员的周末（上）
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2019/03/30/vlog/Chinese-coder-weekends-02/" rel="next" title="VLOG-007:一个程序员的周末（中）">
+                  VLOG-007:一个程序员的周末（中） <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

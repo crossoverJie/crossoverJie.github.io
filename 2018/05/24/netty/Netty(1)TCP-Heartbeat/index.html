@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="前言Netty 是一个高性能的 NIO 网络框架，本文基于 SpringBoot 以常见的心跳机制来认识 Netty。 最终能达到的效果：  客户端每隔 N 秒检测是否需要发送心跳。 服务端也每隔 N 秒检测是否需要发送心跳。 服务端可以主动 push 消息到客户端。 基于 SpringBoot 监控，可以查看实时连接以及各种应用信息。  效果如下：">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Netty(一) SpringBoot 整合长连接心跳机制">
+<meta property="og:url" content="http://crossoverjie.top/2018/05/24/netty/Netty(1)TCP-Heartbeat/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言Netty 是一个高性能的 NIO 网络框架，本文基于 SpringBoot 以常见的心跳机制来认识 Netty。 最终能达到的效果：  客户端每隔 N 秒检测是否需要发送心跳。 服务端也每隔 N 秒检测是否需要发送心跳。 服务端可以主动 push 消息到客户端。 基于 SpringBoot 监控，可以查看实时连接以及各种应用信息。  效果如下：">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2018/05/25/5b0774828db53.jpeg">
+<meta property="og:image" content="https://crossoverjie.top/uploads/netty-Heartbeat.gif">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d54648799.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d54fe2535.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d555538b7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d569ca76a.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d56d1fd2d.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d6e3140db.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d6e7c835b.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d6ed19d78.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d6f026a21.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d6f5911b1.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d6fa3cec7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d6fd37fb9.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d7009a4ef.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d704eb0a6.jpg">
+<meta property="article:published_time" content="2018-05-23T17:02:54.000Z">
+<meta property="article:modified_time" content="2019-05-07T19:06:29.221Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="SpringBoot">
+<meta property="article:tag" content="TCP">
+<meta property="article:tag" content="Heartbeat">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2018/05/25/5b0774828db53.jpeg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2018/05/24/netty/Netty(1)TCP-Heartbeat/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2018/05/24/netty/Netty(1)TCP-Heartbeat/","path":"2018/05/24/netty/Netty(1)TCP-Heartbeat/","title":"Netty(一) SpringBoot 整合长连接心跳机制"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Netty(一) SpringBoot 整合长连接心跳机制 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">75</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">186</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">170</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#IdleStateHandler"><span class="nav-number">2.</span> <span class="nav-text">IdleStateHandler</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%BF%83%E8%B7%B3"><span class="nav-number">2.1.</span> <span class="nav-text">客户端心跳</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%BF%83%E8%B7%B3"><span class="nav-number">2.2.</span> <span class="nav-text">服务端心跳</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E5%8D%8F%E8%AE%AE"><span class="nav-number">2.3.</span> <span class="nav-text">自定义协议</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86"><span class="nav-number">2.4.</span> <span class="nav-text">实现原理</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#SpringBoot-%E7%9B%91%E6%8E%A7"><span class="nav-number">3.</span> <span class="nav-text">SpringBoot 监控</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#actuator-%E7%9B%91%E6%8E%A7"><span class="nav-number">3.1.</span> <span class="nav-text">actuator 监控</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E7%AB%AF%E7%82%B9"><span class="nav-number">3.2.</span> <span class="nav-text">自定义端点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B4%E5%90%88-SBA"><span class="nav-number">3.3.</span> <span class="nav-text">整合 SBA</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E7%9B%91%E6%8E%A7%E6%95%B0%E6%8D%AE"><span class="nav-number">3.3.1.</span> <span class="nav-text">自定义监控数据</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%B7%E5%A4%96"><span class="nav-number">5.</span> <span class="nav-text">号外</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">186</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">75</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">170</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2018/05/24/netty/Netty(1)TCP-Heartbeat/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Netty(一) SpringBoot 整合长连接心跳机制 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Netty(一) SpringBoot 整合长连接心跳机制
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-05-24 01:02:54" itemprop="dateCreated datePublished" datetime="2018-05-24T01:02:54+08:00">2018-05-24</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2019-05-08 03:06:29" itemprop="dateModified" datetime="2019-05-08T03:06:29+08:00">2019-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Netty/" itemprop="url" rel="index"><span itemprop="name">Netty</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2018/05/24/netty/Netty(1)TCP-Heartbeat/" class="post-meta-item leancloud_visitors" data-flag-title="Netty(一) SpringBoot 整合长连接心跳机制" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2018/05/24/netty/Netty(1)TCP-Heartbeat/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/05/24/netty/Netty(1)TCP-Heartbeat/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2018/05/25/5b0774828db53.jpeg" alt="photo-1522204657746-fccce0824cfd.jpeg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>Netty 是一个高性能的 NIO 网络框架，本文基于 SpringBoot 以常见的心跳机制来认识 Netty。</p>
+<p>最终能达到的效果：</p>
+<ul>
+<li>客户端每隔 N 秒检测是否需要发送心跳。</li>
+<li>服务端也每隔 N 秒检测是否需要发送心跳。</li>
+<li>服务端可以主动 push 消息到客户端。</li>
+<li>基于 SpringBoot 监控，可以查看实时连接以及各种应用信息。</li>
+</ul>
+<p>效果如下：</p>
+<p><img src="https://crossoverjie.top/uploads/netty-Heartbeat.gif" alt="show"></p>
+<span id="more"></span>
+
+<h1 id="IdleStateHandler"><a href="#IdleStateHandler" class="headerlink" title="IdleStateHandler"></a>IdleStateHandler</h1><p>Netty 可以使用 IdleStateHandler 来实现连接管理，当连接空闲时间太长（没有发送、接收消息）时则会触发一个事件，我们便可在该事件中实现心跳机制。</p>
+<h2 id="客户端心跳"><a href="#客户端心跳" class="headerlink" title="客户端心跳"></a>客户端心跳</h2><p>当客户端空闲了 N 秒没有给服务端发送消息时会自动发送一个心跳来维持连接。</p>
+<p>核心代码代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">EchoClientHandle</span> <span class="keyword">extends</span> <span class="title class_">SimpleChannelInboundHandler</span>&lt;ByteBuf&gt; &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> <span class="type">Logger</span> <span class="variable">LOGGER</span> <span class="operator">=</span> LoggerFactory.getLogger(EchoClientHandle.class);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">userEventTriggered</span><span class="params">(ChannelHandlerContext ctx, Object evt)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (evt <span class="keyword">instanceof</span> IdleStateEvent)&#123;</span><br><span class="line">            <span class="type">IdleStateEvent</span> <span class="variable">idleStateEvent</span> <span class="operator">=</span> (IdleStateEvent) evt ;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (idleStateEvent.state() == IdleState.WRITER_IDLE)&#123;</span><br><span class="line">                LOGGER.info(<span class="string">&quot;已经 10 秒没有发送信息！&quot;</span>);</span><br><span class="line">                <span class="comment">//向服务端发送消息</span></span><br><span class="line">                <span class="type">CustomProtocol</span> <span class="variable">heartBeat</span> <span class="operator">=</span> SpringBeanFactory.getBean(<span class="string">&quot;heartBeat&quot;</span>, CustomProtocol.class);</span><br><span class="line">                ctx.writeAndFlush(heartBeat).addListener(ChannelFutureListener.CLOSE_ON_FAILURE) ;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">super</span>.userEventTriggered(ctx, evt);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">channelRead0</span><span class="params">(ChannelHandlerContext channelHandlerContext, ByteBuf in)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">//从服务端收到消息时被调用</span></span><br><span class="line">        LOGGER.info(<span class="string">&quot;客户端收到消息=&#123;&#125;&quot;</span>,in.toString(CharsetUtil.UTF_8)) ;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">&#125;    </span><br></pre></td></tr></table></figure>
+
+<p>实现非常简单，只需要在事件回调中发送一个消息即可。</p>
+<p>由于整合了 SpringBoot ，所以发送的心跳信息是一个单例的 Bean。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HeartBeatConfig</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Value(&quot;$&#123;channel.id&#125;&quot;)</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">long</span> id ;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="meta">@Bean(value = &quot;heartBeat&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> CustomProtocol <span class="title function_">heartBeat</span><span class="params">()</span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">CustomProtocol</span>(id,<span class="string">&quot;ping&quot;</span>) ;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里涉及到了自定义协议的内容，请继续查看下文。</p>
+<p>当然少不了启动引导：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HeartbeatClient</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> <span class="type">Logger</span> <span class="variable">LOGGER</span> <span class="operator">=</span> LoggerFactory.getLogger(HeartbeatClient.class);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="type">EventLoopGroup</span> <span class="variable">group</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">NioEventLoopGroup</span>();</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="meta">@Value(&quot;$&#123;netty.server.port&#125;&quot;)</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> nettyPort;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Value(&quot;$&#123;netty.server.host&#125;&quot;)</span></span><br><span class="line">    <span class="keyword">private</span> String host;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> SocketChannel channel;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@PostConstruct</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">start</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException &#123;</span><br><span class="line">        <span class="type">Bootstrap</span> <span class="variable">bootstrap</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Bootstrap</span>();</span><br><span class="line">        bootstrap.group(group)</span><br><span class="line">                .channel(NioSocketChannel.class)</span><br><span class="line">                .handler(<span class="keyword">new</span> <span class="title class_">CustomerHandleInitializer</span>())</span><br><span class="line">        ;</span><br><span class="line"></span><br><span class="line">        <span class="type">ChannelFuture</span> <span class="variable">future</span> <span class="operator">=</span> bootstrap.connect(host, nettyPort).sync();</span><br><span class="line">        <span class="keyword">if</span> (future.isSuccess()) &#123;</span><br><span class="line">            LOGGER.info(<span class="string">&quot;启动 Netty 成功&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        channel = (SocketChannel) future.channel();</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CustomerHandleInitializer</span> <span class="keyword">extends</span> <span class="title class_">ChannelInitializer</span>&lt;Channel&gt; &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">initChannel</span><span class="params">(Channel ch)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        ch.pipeline()</span><br><span class="line">                <span class="comment">//10 秒没发送消息 将IdleStateHandler 添加到 ChannelPipeline 中</span></span><br><span class="line">                .addLast(<span class="keyword">new</span> <span class="title class_">IdleStateHandler</span>(<span class="number">0</span>, <span class="number">10</span>, <span class="number">0</span>))</span><br><span class="line">                .addLast(<span class="keyword">new</span> <span class="title class_">HeartbeatEncode</span>())</span><br><span class="line">                .addLast(<span class="keyword">new</span> <span class="title class_">EchoClientHandle</span>())</span><br><span class="line">        ;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;    </span><br></pre></td></tr></table></figure>
+
+<p>所以当应用启动每隔 10 秒会检测是否发送过消息，不然就会发送心跳信息。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d54648799.jpg"></p>
+<h2 id="服务端心跳"><a href="#服务端心跳" class="headerlink" title="服务端心跳"></a>服务端心跳</h2><p>服务器端的心跳其实也是类似，也需要在 ChannelPipeline 中添加一个 IdleStateHandler 。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HeartBeatSimpleHandle</span> <span class="keyword">extends</span> <span class="title class_">SimpleChannelInboundHandler</span>&lt;CustomProtocol&gt; &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> <span class="type">Logger</span> <span class="variable">LOGGER</span> <span class="operator">=</span> LoggerFactory.getLogger(HeartBeatSimpleHandle.class);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">ByteBuf</span> <span class="variable">HEART_BEAT</span> <span class="operator">=</span>  Unpooled.unreleasableBuffer(Unpooled.copiedBuffer(<span class="keyword">new</span> <span class="title class_">CustomProtocol</span>(<span class="number">123456L</span>,<span class="string">&quot;pong&quot;</span>).toString(),CharsetUtil.UTF_8));</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 取消绑定</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> ctx</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@throws</span> Exception</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">channelInactive</span><span class="params">(ChannelHandlerContext ctx)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line"></span><br><span class="line">        NettySocketHolder.remove((NioSocketChannel) ctx.channel());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">userEventTriggered</span><span class="params">(ChannelHandlerContext ctx, Object evt)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (evt <span class="keyword">instanceof</span> IdleStateEvent)&#123;</span><br><span class="line">            <span class="type">IdleStateEvent</span> <span class="variable">idleStateEvent</span> <span class="operator">=</span> (IdleStateEvent) evt ;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (idleStateEvent.state() == IdleState.READER_IDLE)&#123;</span><br><span class="line">                LOGGER.info(<span class="string">&quot;已经5秒没有收到信息！&quot;</span>);</span><br><span class="line">                <span class="comment">//向客户端发送消息</span></span><br><span class="line">                ctx.writeAndFlush(HEART_BEAT).addListener(ChannelFutureListener.CLOSE_ON_FAILURE) ;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">super</span>.userEventTriggered(ctx, evt);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">channelRead0</span><span class="params">(ChannelHandlerContext ctx, CustomProtocol customProtocol)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        LOGGER.info(<span class="string">&quot;收到customProtocol=&#123;&#125;&quot;</span>, customProtocol);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//保存客户端与 Channel 之间的关系</span></span><br><span class="line">        NettySocketHolder.put(customProtocol.getId(),(NioSocketChannel)ctx.channel()) ;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>这里有点需要注意</strong>：</p>
+<p>当有多个客户端连上来时，服务端需要区分开，不然响应消息就会发生混乱。</p>
+<p>所以每当有个连接上来的时候，我们都将当前的 Channel 与连上的客户端 ID 进行关联（<strong>因此每个连上的客户端 ID 都必须唯一</strong>）。</p>
+<p>这里采用了一个 Map 来保存这个关系，并且在断开连接时自动取消这个关联。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">NettySocketHolder</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Map&lt;Long, NioSocketChannel&gt; MAP = <span class="keyword">new</span> <span class="title class_">ConcurrentHashMap</span>&lt;&gt;(<span class="number">16</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">put</span><span class="params">(Long id, NioSocketChannel socketChannel)</span> &#123;</span><br><span class="line">        MAP.put(id, socketChannel);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> NioSocketChannel <span class="title function_">get</span><span class="params">(Long id)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> MAP.get(id);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Map&lt;Long, NioSocketChannel&gt; <span class="title function_">getMAP</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> MAP;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">remove</span><span class="params">(NioSocketChannel nioSocketChannel)</span> &#123;</span><br><span class="line">        MAP.entrySet().stream().filter(entry -&gt; entry.getValue() == nioSocketChannel).forEach(entry -&gt; MAP.remove(entry.getKey()));</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>启动引导程序：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line">Component</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HeartBeatServer</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> <span class="type">Logger</span> <span class="variable">LOGGER</span> <span class="operator">=</span> LoggerFactory.getLogger(HeartBeatServer.class);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="type">EventLoopGroup</span> <span class="variable">boss</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">NioEventLoopGroup</span>();</span><br><span class="line">    <span class="keyword">private</span> <span class="type">EventLoopGroup</span> <span class="variable">work</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">NioEventLoopGroup</span>();</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="meta">@Value(&quot;$&#123;netty.server.port&#125;&quot;)</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> nettyPort;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 启动 Netty</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     * <span class="doctag">@throws</span> InterruptedException</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@PostConstruct</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">start</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException &#123;</span><br><span class="line"></span><br><span class="line">        <span class="type">ServerBootstrap</span> <span class="variable">bootstrap</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ServerBootstrap</span>()</span><br><span class="line">                .group(boss, work)</span><br><span class="line">                .channel(NioServerSocketChannel.class)</span><br><span class="line">                .localAddress(<span class="keyword">new</span> <span class="title class_">InetSocketAddress</span>(nettyPort))</span><br><span class="line">                <span class="comment">//保持长连接</span></span><br><span class="line">                .childOption(ChannelOption.SO_KEEPALIVE, <span class="literal">true</span>)</span><br><span class="line">                .childHandler(<span class="keyword">new</span> <span class="title class_">HeartbeatInitializer</span>());</span><br><span class="line"></span><br><span class="line">        <span class="type">ChannelFuture</span> <span class="variable">future</span> <span class="operator">=</span> bootstrap.bind().sync();</span><br><span class="line">        <span class="keyword">if</span> (future.isSuccess()) &#123;</span><br><span class="line">            LOGGER.info(<span class="string">&quot;启动 Netty 成功&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 销毁</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@PreDestroy</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">destroy</span><span class="params">()</span> &#123;</span><br><span class="line">        boss.shutdownGracefully().syncUninterruptibly();</span><br><span class="line">        work.shutdownGracefully().syncUninterruptibly();</span><br><span class="line">        LOGGER.info(<span class="string">&quot;关闭 Netty 成功&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;    </span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HeartbeatInitializer</span> <span class="keyword">extends</span> <span class="title class_">ChannelInitializer</span>&lt;Channel&gt; &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">initChannel</span><span class="params">(Channel ch)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        ch.pipeline()</span><br><span class="line">                <span class="comment">//五秒没有收到消息 将IdleStateHandler 添加到 ChannelPipeline 中</span></span><br><span class="line">                .addLast(<span class="keyword">new</span> <span class="title class_">IdleStateHandler</span>(<span class="number">5</span>, <span class="number">0</span>, <span class="number">0</span>))</span><br><span class="line">                .addLast(<span class="keyword">new</span> <span class="title class_">HeartbeatDecoder</span>())</span><br><span class="line">                .addLast(<span class="keyword">new</span> <span class="title class_">HeartBeatSimpleHandle</span>());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>也是同样将IdleStateHandler 添加到 ChannelPipeline 中，也会有一个定时任务，每5秒校验一次是否有收到消息，否则就主动发送一次请求。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d54fe2535.jpg"></p>
+<p>因为测试是有两个客户端连上所以有两个日志。</p>
+<h2 id="自定义协议"><a href="#自定义协议" class="headerlink" title="自定义协议"></a>自定义协议</h2><p>上文其实都看到了：服务端与客户端采用的是自定义的 POJO 进行通讯的。</p>
+<p>所以需要在客户端进行编码，服务端进行解码，也都只需要各自实现一个编解码器即可。</p>
+<p>CustomProtocol：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CustomProtocol</span> <span class="keyword">implements</span> <span class="title class_">Serializable</span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">long</span> <span class="variable">serialVersionUID</span> <span class="operator">=</span> <span class="number">4671171056588401542L</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">long</span> id ;</span><br><span class="line">    <span class="keyword">private</span> String content ;</span><br><span class="line">    <span class="comment">//省略 getter/setter</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>客户端的编码器：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HeartbeatEncode</span> <span class="keyword">extends</span> <span class="title class_">MessageToByteEncoder</span>&lt;CustomProtocol&gt; &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">encode</span><span class="params">(ChannelHandlerContext ctx, CustomProtocol msg, ByteBuf out)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line"></span><br><span class="line">        out.writeLong(msg.getId()) ;</span><br><span class="line">        out.writeBytes(msg.getContent().getBytes()) ;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>也就是说消息的前八个字节为 header，剩余的全是 content。</p>
+<p>服务端的解码器：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HeartbeatDecoder</span> <span class="keyword">extends</span> <span class="title class_">ByteToMessageDecoder</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">decode</span><span class="params">(ChannelHandlerContext ctx, ByteBuf in, List&lt;Object&gt; out)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line"></span><br><span class="line">        <span class="type">long</span> <span class="variable">id</span> <span class="operator">=</span> in.readLong() ;</span><br><span class="line">        <span class="type">byte</span>[] bytes = <span class="keyword">new</span> <span class="title class_">byte</span>[in.readableBytes()] ;</span><br><span class="line">        in.readBytes(bytes) ;</span><br><span class="line">        <span class="type">String</span> <span class="variable">content</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">String</span>(bytes) ;</span><br><span class="line"></span><br><span class="line">        <span class="type">CustomProtocol</span> <span class="variable">customProtocol</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">CustomProtocol</span>() ;</span><br><span class="line">        customProtocol.setId(id);</span><br><span class="line">        customProtocol.setContent(content) ;</span><br><span class="line">        out.add(customProtocol) ;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>只需要按照刚才的规则进行解码即可。</p>
+<h2 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h2><p>其实联想到 IdleStateHandler 的功能，自然也能想到它实现的原理：</p>
+<blockquote>
+<p>应该会存在一个定时任务的线程去处理这些消息。</p>
+</blockquote>
+<p>来看看它的源码：</p>
+<p>首先是构造函数:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">public IdleStateHandler(</span><br><span class="line">        int readerIdleTimeSeconds,</span><br><span class="line">        int writerIdleTimeSeconds,</span><br><span class="line">        int allIdleTimeSeconds) &#123;</span><br><span class="line"></span><br><span class="line">    this(readerIdleTimeSeconds, writerIdleTimeSeconds, allIdleTimeSeconds,</span><br><span class="line">         TimeUnit.SECONDS);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>其实就是初始化了几个数据：</p>
+<ul>
+<li>readerIdleTimeSeconds：一段时间内没有数据读取</li>
+<li>writerIdleTimeSeconds：一段时间内没有数据发送</li>
+<li>allIdleTimeSeconds：以上两种满足其中一个即可</li>
+</ul>
+<p>因为 IdleStateHandler 也是一种 ChannelHandler，所以会在 <code>channelActive</code> 中初始化任务：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">channelActive</span><span class="params">(ChannelHandlerContext ctx)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    <span class="comment">// This method will be invoked only if this handler was added</span></span><br><span class="line">    <span class="comment">// before channelActive() event is fired.  If a user adds this handler</span></span><br><span class="line">    <span class="comment">// after the channelActive() event, initialize() will be called by beforeAdd().</span></span><br><span class="line">    initialize(ctx);</span><br><span class="line">    <span class="built_in">super</span>.channelActive(ctx);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">initialize</span><span class="params">(ChannelHandlerContext ctx)</span> &#123;</span><br><span class="line">    <span class="comment">// Avoid the case where destroy() is called before scheduling timeouts.</span></span><br><span class="line">    <span class="comment">// See: https://github.com/netty/netty/issues/143</span></span><br><span class="line">    <span class="keyword">switch</span> (state) &#123;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">1</span>:</span><br><span class="line">    <span class="keyword">case</span> <span class="number">2</span>:</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    state = <span class="number">1</span>;</span><br><span class="line">    initOutputChanged(ctx);</span><br><span class="line"></span><br><span class="line">    lastReadTime = lastWriteTime = ticksInNanos();</span><br><span class="line">    <span class="keyword">if</span> (readerIdleTimeNanos &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        readerIdleTimeout = schedule(ctx, <span class="keyword">new</span> <span class="title class_">ReaderIdleTimeoutTask</span>(ctx),</span><br><span class="line">                readerIdleTimeNanos, TimeUnit.NANOSECONDS);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (writerIdleTimeNanos &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        writerIdleTimeout = schedule(ctx, <span class="keyword">new</span> <span class="title class_">WriterIdleTimeoutTask</span>(ctx),</span><br><span class="line">                writerIdleTimeNanos, TimeUnit.NANOSECONDS);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (allIdleTimeNanos &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        allIdleTimeout = schedule(ctx, <span class="keyword">new</span> <span class="title class_">AllIdleTimeoutTask</span>(ctx),</span><br><span class="line">                allIdleTimeNanos, TimeUnit.NANOSECONDS);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;    </span><br></pre></td></tr></table></figure>
+
+<p>也就是会按照我们给定的时间初始化出定时任务。</p>
+<p>接着在任务真正执行时进行判断：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">ReaderIdleTimeoutTask</span> <span class="keyword">extends</span> <span class="title class_">AbstractIdleTask</span> &#123;</span><br><span class="line"></span><br><span class="line">    ReaderIdleTimeoutTask(ChannelHandlerContext ctx) &#123;</span><br><span class="line">        <span class="built_in">super</span>(ctx);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">(ChannelHandlerContext ctx)</span> &#123;</span><br><span class="line">        <span class="type">long</span> <span class="variable">nextDelay</span> <span class="operator">=</span> readerIdleTimeNanos;</span><br><span class="line">        <span class="keyword">if</span> (!reading) &#123;</span><br><span class="line">            nextDelay -= ticksInNanos() - lastReadTime;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (nextDelay &lt;= <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="comment">// Reader is idle - set a new timeout and notify the callback.</span></span><br><span class="line">            readerIdleTimeout = schedule(ctx, <span class="built_in">this</span>, readerIdleTimeNanos, TimeUnit.NANOSECONDS);</span><br><span class="line"></span><br><span class="line">            <span class="type">boolean</span> <span class="variable">first</span> <span class="operator">=</span> firstReaderIdleEvent;</span><br><span class="line">            firstReaderIdleEvent = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                <span class="type">IdleStateEvent</span> <span class="variable">event</span> <span class="operator">=</span> newIdleStateEvent(IdleState.READER_IDLE, first);</span><br><span class="line">                channelIdle(ctx, event);</span><br><span class="line">            &#125; <span class="keyword">catch</span> (Throwable t) &#123;</span><br><span class="line">                ctx.fireExceptionCaught(t);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">// Read occurred before the timeout - set a new timeout with shorter delay.</span></span><br><span class="line">            readerIdleTimeout = schedule(ctx, <span class="built_in">this</span>, nextDelay, TimeUnit.NANOSECONDS);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果满足条件则会生成一个 IdleStateEvent 事件。</p>
+<h1 id="SpringBoot-监控"><a href="#SpringBoot-监控" class="headerlink" title="SpringBoot 监控"></a>SpringBoot 监控</h1><p>由于整合了 SpringBoot 之后不但可以利用 Spring 帮我们管理对象，也可以利用它来做应用监控。</p>
+<h2 id="actuator-监控"><a href="#actuator-监控" class="headerlink" title="actuator 监控"></a>actuator 监控</h2><p>当我们为引入了:</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.boot<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-starter-actuator<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>就开启了 SpringBoot 的 actuator 监控功能，他可以暴露出很多监控端点供我们使用。</p>
+<p>如一些应用中的一些统计数据：<br><img src="https://i.loli.net/2019/05/08/5cd1d555538b7.jpg"></p>
+<p>存在的 Beans：<br><img src="https://i.loli.net/2019/05/08/5cd1d569ca76a.jpg"></p>
+<p>更多信息请查看：<a target="_blank" rel="noopener" href="https://docs.spring.io/spring-boot/docs/current/reference/html/production-ready-endpoints.html">https://docs.spring.io/spring-boot/docs/current/reference/html/production-ready-endpoints.html</a></p>
+<p>但是如果我想监控现在我的服务端有多少客户端连上来了，分别的 ID 是多少？</p>
+<p>其实就是实时查看我内部定义的那个关联关系的 Map。</p>
+<p>这就需要暴露自定义端点了。</p>
+<h2 id="自定义端点"><a href="#自定义端点" class="headerlink" title="自定义端点"></a>自定义端点</h2><p>暴露的方式也很简单：</p>
+<p>继承 AbstractEndpoint 并复写其中的 invoke 函数：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CustomEndpoint</span> <span class="keyword">extends</span> <span class="title class_">AbstractEndpoint</span>&lt;Map&lt;Long,NioSocketChannel&gt;&gt; &#123;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 监控端点的 访问地址</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> id</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">CustomEndpoint</span><span class="params">(String id)</span> &#123;</span><br><span class="line">        <span class="comment">//false 表示不是敏感端点</span></span><br><span class="line">        <span class="built_in">super</span>(id, <span class="literal">false</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Map&lt;Long, NioSocketChannel&gt; <span class="title function_">invoke</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> NettySocketHolder.getMAP();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>其实就是返回了 Map 中的数据。</p>
+<p>再配置一个该类型的 Bean 即可：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">EndPointConfig</span> &#123;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="meta">@Value(&quot;$&#123;monitor.channel.map.key&#125;&quot;)</span></span><br><span class="line">    <span class="keyword">private</span> String channelMap;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> CustomEndpoint <span class="title function_">buildEndPoint</span><span class="params">()</span>&#123;</span><br><span class="line">        <span class="type">CustomEndpoint</span> <span class="variable">customEndpoint</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">CustomEndpoint</span>(channelMap) ;</span><br><span class="line">        <span class="keyword">return</span> customEndpoint ;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样我们就可以通过配置文件中的 <code>monitor.channel.map.key</code> 来访问了：</p>
+<p>一个客户端连接时：<br><img src="https://i.loli.net/2019/05/08/5cd1d56d1fd2d.jpg"></p>
+<p>两个客户端连接时：<br><img src="https://i.loli.net/2019/05/08/5cd1d6e3140db.jpg"></p>
+<h2 id="整合-SBA"><a href="#整合-SBA" class="headerlink" title="整合 SBA"></a>整合 SBA</h2><p>这样其实监控功能已经可以满足了，但能不能展示的更美观、并且多个应用也可以方便查看呢？</p>
+<p>有这样的开源工具帮我们做到了：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/codecentric/spring-boot-admin">https://github.com/codecentric/spring-boot-admin</a></p>
+<p>简单来说我们可以利用该工具将 actuator 暴露出来的接口可视化并聚合的展示在页面中：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d6e7c835b.jpg"></p>
+<p>接入也很简单，首先需要引入依赖：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>de.codecentric<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-admin-starter-client<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span>        </span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>并在配置文件中加入：</p>
+<figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 关闭健康检查权限</span></span><br><span class="line"><span class="attr">management.security.enabled</span>=<span class="string">false</span></span><br><span class="line"><span class="comment"># SpringAdmin 地址</span></span><br><span class="line"><span class="attr">spring.boot.admin.url</span>=<span class="string">http://127.0.0.1:8888</span></span><br></pre></td></tr></table></figure>
+
+<p>在启动应用之前先讲 SpringBootAdmin 部署好：</p>
+<p>这个应用就是一个纯粹的 SpringBoot ，只需要在主函数上加入 <code>@EnableAdminServer</code> 注解。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@SpringBootApplication</span></span><br><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="meta">@EnableAutoConfiguration</span></span><br><span class="line"><span class="meta">@EnableAdminServer</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">AdminApplication</span> &#123;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">		SpringApplication.run(AdminApplication.class, args);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>引入：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">groupId</span>&gt;</span>de.codecentric<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-admin-starter-server<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">version</span>&gt;</span>1.5.7<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">groupId</span>&gt;</span>de.codecentric<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-admin-server-ui<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">version</span>&gt;</span>1.5.6<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>之后直接启动就行了。</p>
+<p>这样我们在 SpringBootAdmin 的页面中就可以查看很多应用信息了。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d6ed19d78.jpg"></p>
+<p>更多内容请参考官方指南：</p>
+<p><a target="_blank" rel="noopener" href="http://codecentric.github.io/spring-boot-admin/1.5.6/">http://codecentric.github.io/spring-boot-admin/1.5.6/</a></p>
+<h3 id="自定义监控数据"><a href="#自定义监控数据" class="headerlink" title="自定义监控数据"></a>自定义监控数据</h3><p>其实我们完全可以借助 actuator 以及这个可视化页面帮我们监控一些简单的度量信息。</p>
+<p>比如我在客户端和服务端中写了两个 Rest 接口用于向对方发送消息。</p>
+<p>只是想要记录分别发送了多少次：</p>
+<p>客户端：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Controller</span></span><br><span class="line"><span class="meta">@RequestMapping(&quot;/&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">IndexController</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 统计 service</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> CounterService counterService;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> HeartbeatClient heartbeatClient ;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 向服务端发消息</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> sendMsgReqVO</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@ApiOperation(&quot;客户端发送消息&quot;)</span></span><br><span class="line">    <span class="meta">@RequestMapping(&quot;sendMsg&quot;)</span></span><br><span class="line">    <span class="meta">@ResponseBody</span></span><br><span class="line">    <span class="keyword">public</span> BaseResponse&lt;SendMsgResVO&gt; <span class="title function_">sendMsg</span><span class="params">(<span class="meta">@RequestBody</span> SendMsgReqVO sendMsgReqVO)</span>&#123;</span><br><span class="line">        BaseResponse&lt;SendMsgResVO&gt; res = <span class="keyword">new</span> <span class="title class_">BaseResponse</span>();</span><br><span class="line">        heartbeatClient.sendMsg(<span class="keyword">new</span> <span class="title class_">CustomProtocol</span>(sendMsgReqVO.getId(),sendMsgReqVO.getMsg())) ;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 利用 actuator 来自增</span></span><br><span class="line">        counterService.increment(Constants.COUNTER_CLIENT_PUSH_COUNT);</span><br><span class="line"></span><br><span class="line">        <span class="type">SendMsgResVO</span> <span class="variable">sendMsgResVO</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SendMsgResVO</span>() ;</span><br><span class="line">        sendMsgResVO.setMsg(<span class="string">&quot;OK&quot;</span>) ;</span><br><span class="line">        res.setCode(StatusEnum.SUCCESS.getCode()) ;</span><br><span class="line">        res.setMessage(StatusEnum.SUCCESS.getMessage()) ;</span><br><span class="line">        res.setDataBody(sendMsgResVO) ;</span><br><span class="line">        <span class="keyword">return</span> res ;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>只要我们引入了 actuator 的包，那就可以直接注入 counterService ，利用它来帮我们记录数据。</p>
+<p>当我们调用该接口时：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d6f026a21.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d6f5911b1.jpg"></p>
+<p>在监控页面中可以查询刚才的调用情况：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d6fa3cec7.jpg"></p>
+<p>服务端主动 push 消息也是类似，只是需要在发送时候根据客户端的 ID 查询到具体的 Channel 发送：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d6fd37fb9.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d7009a4ef.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d704eb0a6.jpg"></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>以上就是一个简单 Netty 心跳示例，并演示了 SpringBoot 的监控，之后会继续更新 Netty 相关内容，欢迎关注及指正。</p>
+<p>本文所有代码：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/netty-action">https://github.com/crossoverJie/netty-action</a></p>
+<h1 id="号外"><a href="#号外" class="headerlink" title="号外"></a>号外</h1><p>最近在总结一些 Java 相关的知识点，感兴趣的朋友可以一起维护。</p>
+<blockquote>
+<p>地址: <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/Java-Interview">https://github.com/crossoverJie/Java-Interview</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2018/05/24/netty/Netty(1)TCP-Heartbeat/" title="Netty(一) SpringBoot 整合长连接心跳机制">http://crossoverjie.top/2018/05/24/netty/Netty(1)TCP-Heartbeat/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/SpringBoot/" rel="tag"><i class="fa fa-tag"></i> SpringBoot</a>
+              <a href="/tags/TCP/" rel="tag"><i class="fa fa-tag"></i> TCP</a>
+              <a href="/tags/Heartbeat/" rel="tag"><i class="fa fa-tag"></i> Heartbeat</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/05/15/skill/1Kstar/" rel="prev" title="1K star+ 的项目是如何炼成的？">
+                  <i class="fa fa-chevron-left"></i> 1K star+ 的项目是如何炼成的？
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/06/06/exam/2018-06-07-The-university-entrance-exam/" rel="next" title="记于 2018 年高考！">
+                  记于 2018 年高考！ <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

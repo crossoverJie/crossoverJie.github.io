@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="前言前段时间写过一篇《线程池没你想的那么简单》，和大家一起撸了一个基本的线程池，具备：  线程池基本调度功能。 线程池自动扩容缩容。 队列缓存线程。 关闭线程池。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="线程池没你想的那么简单（续）">
+<meta property="og:url" content="http://crossoverjie.top/2019/06/06/concurrent/threadpool-02/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言前段时间写过一篇《线程池没你想的那么简单》，和大家一起撸了一个基本的线程池，具备：  线程池基本调度功能。 线程池自动扩容缩容。 队列缓存线程。 关闭线程池。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf7fff98dd9f45508.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf7fffa58a8081569.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf7fffb21f8d45495.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf7fffbe663629607.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf7fffc8161b82626.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf7fffd0634612268.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf7fffd755d053986.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf7fffe1162589733.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf7ffff5b48143266.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf7ffffe7dac41090.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf80005766ef25838.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf80006c916e52248.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf8000749e6c64762.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf800079d51a22414.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf8000823ad870419.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf8000872d1f43610.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/06/06/5cf80008d46e642627.jpg">
+<meta property="article:published_time" content="2019-06-06T00:10:00.000Z">
+<meta property="article:modified_time" content="2019-06-05T18:02:36.680Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="concurrent">
+<meta property="article:tag" content="ThreadPool">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2019/06/06/5cf7fff98dd9f45508.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2019/06/06/concurrent/threadpool-02/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2019/06/06/concurrent/threadpool-02/","path":"2019/06/06/concurrent/threadpool-02/","title":"线程池没你想的那么简单（续）"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>线程池没你想的那么简单（续） | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">75</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">186</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">170</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BB%BB%E5%8A%A1%E5%AE%8C%E6%88%90%E5%90%8E%E7%9A%84%E9%80%9A%E7%9F%A5"><span class="nav-number">2.</span> <span class="nav-text">任务完成后的通知</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#JDK-%E7%9A%84%E5%AE%9E%E7%8E%B0"><span class="nav-number">2.1.</span> <span class="nav-text">JDK 的实现</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%B8%A6%E6%9C%89%E8%BF%94%E5%9B%9E%E5%80%BC%E7%9A%84%E7%BA%BF%E7%A8%8B"><span class="nav-number">3.</span> <span class="nav-text">带有返回值的线程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86"><span class="nav-number">3.1.</span> <span class="nav-text">实现原理</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86"><span class="nav-number">4.</span> <span class="nav-text">异常处理</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">186</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">75</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">170</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2019/06/06/concurrent/threadpool-02/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="线程池没你想的那么简单（续） | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          线程池没你想的那么简单（续）
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2019-06-06 08:10:00 / Modified: 02:02:36" itemprop="dateCreated datePublished" datetime="2019-06-06T08:10:00+08:00">2019-06-06</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E5%B9%B6%E5%8F%91/" itemprop="url" rel="index"><span itemprop="name">并发</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2019/06/06/concurrent/threadpool-02/" class="post-meta-item leancloud_visitors" data-flag-title="线程池没你想的那么简单（续）" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2019/06/06/concurrent/threadpool-02/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2019/06/06/concurrent/threadpool-02/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2019/06/06/5cf7fff98dd9f45508.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前段时间写过一篇<a href="https://crossoverjie.top/2019/05/20/concurrent/threadpool-01/">《线程池没你想的那么简单》</a>，和大家一起撸了一个基本的线程池，具备：</p>
+<ul>
+<li>线程池基本调度功能。</li>
+<li>线程池自动扩容缩容。</li>
+<li>队列缓存线程。</li>
+<li>关闭线程池。</li>
+</ul>
+<span id="more"></span>
+
+<p>这些功能，最后也留下了三个待实现的 <code>features</code> 。</p>
+<ul>
+<li>执行带有返回值的线程。</li>
+<li>异常处理怎么办？</li>
+<li>所有任务执行完怎么通知我？</li>
+</ul>
+<p>这次就实现这三个特性来看看 <code>j.u.c</code> 中的线程池是如何实现这些需求的。</p>
+<blockquote>
+<p>再看本文之前，强烈建议先查看上文<a href="https://crossoverjie.top/2019/05/20/concurrent/threadpool-01/">《线程池没你想的那么简单》</a></p>
+</blockquote>
+<h1 id="任务完成后的通知"><a href="#任务完成后的通知" class="headerlink" title="任务完成后的通知"></a>任务完成后的通知</h1><p>大家在用线程池的时候或多或少都会有这样的需求：</p>
+<p>线程池中的任务执行完毕后再通知主线程做其他事情，比如一批任务都执行完毕后再执行下一波任务等等。</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffa58a8081569.jpg"></p>
+<p>以我们之前的代码为例：</p>
+<blockquote>
+<p>总共往线程池中提交了 13 个任务，直到他们都执行完毕后再打印 “任务执行完毕” 这个日志。</p>
+</blockquote>
+<p>执行结果如下：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffb21f8d45495.jpg"></p>
+<p>为了简单的达到这个效果，我们可以在初始化线程池的时候传入一个接口的实现，这个接口就是用于任务完成之后的回调。</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffbe663629607.jpg"></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Notify</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 回调</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">notifyListen</span><span class="params">()</span> ;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>以上就是线程池的构造函数以及接口的定义。</p>
+<p>所以想要实现这个功能的关键是在何时回调这个接口？</p>
+<p>仔细想想其实也简单：只要我们记录提交到线程池中的任务及完成的数量，他们两者的差为 0 时就认为线程池中的任务已执行完毕；这时便可回调这个接口。</p>
+<p>所以在往线程池中写入任务时我们需要记录任务数量：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffc8161b82626.jpg"></p>
+<p>为了并发安全的考虑，这里的计数器采用了原子的 <code>AtomicInteger</code> 。</p>
+<hr>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffd0634612268.jpg"></p>
+<p>而在任务执行完毕后就将计数器 -1 ，一旦为 0 时则任务任务全部执行完毕；这时便可回调我们自定义的接口完成通知。</p>
+<hr>
+<h2 id="JDK-的实现"><a href="#JDK-的实现" class="headerlink" title="JDK 的实现"></a>JDK 的实现</h2><p>这样的需求在 jdk 中的 <code>ThreadPoolExecutor</code> 中也有相关的 <code>API</code> ，只是用法不太一样，但本质原理都大同小异。</p>
+<p>我们使用 <code>ThreadPoolExecutor</code> 的常规关闭流程如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">executorService.shutdown();</span><br><span class="line"><span class="keyword">while</span> (!executorService.awaitTermination(<span class="number">100</span>, TimeUnit.MILLISECONDS)) &#123;</span><br><span class="line">    logger.info(<span class="string">&quot;thread running&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>线程提交完毕后执行 <code>shutdown()</code> 关闭线程池，接着循环调用 <code>awaitTermination()</code> 方法，一旦任务全部执行完毕后则会返回 <code>true</code> 从而退出循环。</p>
+<p>这两个方法的目的和原理如下：</p>
+<ul>
+<li>执行 <code>shutdown()</code> 后会将线程池的状态置为关闭状态，这时将会停止接收新的任务同时会等待队列中的任务全部执行完毕后才真正关闭线程池。</li>
+<li><code>awaitTermination</code> 会阻塞直到线程池所有任务执行完毕或者超时时间已到。</li>
+</ul>
+<p>为什么要两个 <code>api</code> 结合一起使用呢？</p>
+<p>主要还在最终的目的是：所有线程执行完毕后再做某件事情，也就是在线程执行完毕之前其实主线程是需要<strong>被阻塞</strong>的。</p>
+<p><code>shutdown()</code> 执行后并不会阻塞，会立即返回，所有才需要后续用循环不停的调用 <code>awaitTermination()</code>，因为这个 api 才会阻塞线程。</p>
+<p>其实我们查看源码会发现，<code>ThreadPoolExecutor</code> 中的阻塞依然也是等待通知机制的运用，只不过用的是 <code>LockSupport</code> 的 <code>API</code> 而已。</p>
+<h1 id="带有返回值的线程"><a href="#带有返回值的线程" class="headerlink" title="带有返回值的线程"></a>带有返回值的线程</h1><p>接下来是带有返回值的线程，这个需求也非常常见；比如需要线程异步计算某些数据然后得到结果最终汇总使用。</p>
+<p>先来看看如何使用（和 jdk 的类似）：</p>
+<p>首先任务是不能实现 <code>Runnable</code> 接口了，毕竟他的 <code>run()</code> 函数是没有返回值的；所以我们改实现一个 <code>Callable</code> 的接口：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffd755d053986.jpg"></p>
+<p>这个接口有一个返回值。</p>
+<p>同时在提交任务时也稍作改动：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7fffe1162589733.jpg"></p>
+<p>首先是执行任务的函数由 <code>execute()</code> 换为了 <code>submit()</code>，同时他会返回一个返回值 <code>Future</code>，通过它便可拿到线程执行的结果。</p>
+<p>最后通过第二步将所有执行结果打印出来：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7ffff5b48143266.jpg"></p>
+<h2 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h2><p>再看具体实现之前先来思考下这样的功能如何实现？</p>
+<ul>
+<li>首先受限于 <code>jdk</code> 的线程 <code>api</code> 的规范，要执行一个线程不管是实现接口还是继承类，最终都是执行的 <code>run()</code> 函数。</li>
+<li>所以我们想要一个线程有返回值无非只能是在执行 <code>run()</code> 函数时去调用一个有返回值的方法，再将这个返回值存放起来用于后续使用。</li>
+</ul>
+<p>比如我们这里新建了一个 <code>Callable&lt;T&gt;</code> 的接口：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Callable</span>&lt;T&gt; &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 执行任务</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span> 执行结果</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    T <span class="title function_">call</span><span class="params">()</span> ;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>它的 <code>call</code> 函数就是刚才提到的有返回值的方法，所以我们应当在线程的 run() 函数中去调用它。</p>
+<p>接着还会有一个 <code>Future</code> 的接口，他的主要作用是获取线程的返回值，也就是 <code>再将这个返回值存放起来用于后续使用</code> 这里提到的<strong>后续使用</strong>。</p>
+<p>既然有了接口那自然就得有它的实现 <code>FutureTask</code>，它实现了 <code>Future</code> 接口用于后续获取返回值。</p>
+<p>同时实现了 <code>Runnable</code> 接口会把自己变为一个线程。</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf7ffffe7dac41090.jpg"></p>
+<p>所以在它的 <code>run()</code> 函数中会调用刚才提到的具有返回值的 <code>call()</code> 函数。</p>
+<hr>
+<p>再次结合 <code>submit()</code> 提交任务和 <code>get()</code> 获取返回值的源码来看会更加理解这其中的门道。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 有返回值</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@param</span> callable</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@param</span> &lt;T&gt;</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> &lt;T&gt; Future&lt;T&gt; <span class="title function_">submit</span><span class="params">(Callable&lt;T&gt; callable)</span> &#123;</span><br><span class="line">    FutureTask&lt;T&gt; future = <span class="keyword">new</span> <span class="title class_">FutureTask</span>(callable);</span><br><span class="line">    execute(future);</span><br><span class="line">    <span class="keyword">return</span> future;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>submit()</code> 非常简单，将我们丢进来的 <code>Callable</code> 对象转换为一个 <code>FutureTask</code> 对象，然后再调用之前的 <code>execute()</code> 来丢进线程池（后续的流程就和一个普通的线程进入线程池的流程一样）。</p>
+<blockquote>
+<p>FutureTask 本身也是线程，所以可以直接使用 <code>execute()</code> 函数。</p>
+</blockquote>
+<hr>
+<p>而 <code>future.get()</code> 函数中 <code>future</code> 对象由于在 <code>submit()</code> 中返回的真正对象是 <code>FutureTask</code>，所以我们直接看其中的源码就好。</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf80005766ef25838.jpg"></p>
+<p>由于 <code>get()</code> 在线程没有返回之前是一个阻塞函数，最终也是通过 <code>notify.wait()</code> 使线程进入阻塞状态来实现的。</p>
+<p>而使其从 <code>wait()</code> 中返回的条件必然是在线程执行完毕拿到返回值的时候才进行唤醒。</p>
+<p>也就是图中的第二部分；一旦线程执行完毕（<code>callable.call()</code>）就会唤醒 <code>notify</code> 对象，这样 <code>get</code> 方法也就能返回了。</p>
+<hr>
+<p>同样的道理，<code>ThreadPoolExecutor</code> 中的原理也是类似，只不过它考虑的细节更多所以看起来很复杂，但精简代码后核心也就是这些。</p>
+<p>甚至最终使用的 api 看起来都是类似的：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf80006c916e52248.jpg"></p>
+<h1 id="异常处理"><a href="#异常处理" class="headerlink" title="异常处理"></a>异常处理</h1><p>最后一个是一些新手使用线程池很容易踩坑的一个地方：那就是异常处理。</p>
+<p>比如类似于这样的场景：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf8000749e6c64762.jpg"></p>
+<p>创建了只有<strong>一个线程</strong>的线程池，这个线程只做一件事，就是一直不停的 while 循环。</p>
+<p>但是循环的过程中不小心抛出了一个异常，巧的是这个异常又没有被捕获。你觉得后续会发生什么事情呢？</p>
+<p>是线程继续运行？还是线程池会退出？</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf800079d51a22414.jpg"></p>
+<p>通过现象来看其实哪种都不是，线程既没有继续运行同时线程池也没有退出，会一直卡在这里。</p>
+<p>当我们 <code>dump</code> 线程快照会发现：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf8000823ad870419.jpg"></p>
+<p>这时线程池中还有一个线程在运行，通过线程名称会发现这是新创建的一个线程（之前是<code>Thread-0</code>，现在是 <code>Thread-1</code>）。</p>
+<p>它的线程状态为 <code>WAITING</code> ，通过堆栈发现是卡在了 <code>CustomThreadPool.java:272</code> 处。</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf8000872d1f43610.jpg"></p>
+<p>就是卡在了从队列里获取任务的地方，由于此时的任务队列是空的，所以他会一直阻塞在这里。</p>
+<p><strong>看到这里，之前关注的朋友有没有似曾相识的感觉。</strong></p>
+<p>没错，我之前写过两篇：</p>
+<ul>
+<li><a href="https://crossoverjie.top/2019/03/12/troubleshoot/thread-gone/">一个线程罢工的诡异事件</a></li>
+<li><a href="https://crossoverjie.top/2019/03/26/troubleshoot/thread-gone2/">线程池中你不容错过的一些细节</a></li>
+</ul>
+<p>线程池相关的问题，当时的讨论也非常<code>“激烈”</code>，其实最终的原因和这里是一模一样的。</p>
+<p>所以就这次简版的代码来看看其中的问题：</p>
+<p><img src="https://i.loli.net/2019/06/06/5cf80008d46e642627.jpg"></p>
+<p>现在又简化了一版代码我觉得之前还有疑问的朋友这次应该会更加明白。</p>
+<p>其实在线程池内部会对线程的运行捕获异常，但它并不会处理，只是用于标记是否执行成功；</p>
+<p>一旦执行失败则会回收掉当前异常的线程，然后重新创建一个新的 <code>Worker</code> 线程继续从<strong>队列里取任务然后执行</strong>。</p>
+<p>所以最终才会卡在<code>从队列中取任务</code>处。</p>
+<p>其实 <code>ThreadPoolExecutor</code> 的异常处理也是类似的，具体的源码就不多分析了，在上面两篇文章中已经说过几次。</p>
+<p><strong>所以我们在使用线程池时，其中的任务一定要做好异常处理。</strong></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这一波下来我觉得线程池搞清楚没啥问题了，总的来看它内部运用了非常多的多线程解决方案，比如：</p>
+<ul>
+<li><code>ReentrantLock</code> 重入锁来保证线程写入的并发安全。</li>
+<li>利用等待通知机制来实现线程间通信（线程执行结果、等待线程池执行完毕等）。</li>
+</ul>
+<p>最后也学会了：</p>
+<ul>
+<li>标准的线程池关闭流程。</li>
+<li>如何使用有返回值的线程。</li>
+<li>线程异常捕获的重要性。</li>
+</ul>
+<p>最后本文所有源码（结合其中的测试代码使用）：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/concurrent/CustomThreadPool.java">https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/concurrent/CustomThreadPool.java</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2019/06/06/concurrent/threadpool-02/" title="线程池没你想的那么简单（续）">http://crossoverjie.top/2019/06/06/concurrent/threadpool-02/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/concurrent/" rel="tag"><i class="fa fa-tag"></i> concurrent</a>
+              <a href="/tags/ThreadPool/" rel="tag"><i class="fa fa-tag"></i> ThreadPool</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2019/05/24/skill/first-blog/" rel="prev" title="年轻人的第一篇博客">
+                  <i class="fa fa-chevron-left"></i> 年轻人的第一篇博客
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2019/06/13/framework-design/sharding-db-02/" rel="next" title="分表后需要注意的二三事">
+                  分表后需要注意的二三事 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="前言记得前段时间我们生产上的一个网关出现了故障。 这个网关逻辑非常简单，就是接收客户端的请求然后解析报文最后发送短信。 但这个请求并不是常见的 HTTP ，而是利用 Netty 自定义的协议。  有个前提是：网关是需要读取一段完整的报文才能进行后面的逻辑。  问题是有天突然发现网关解析报文出错，查看了客户端的发送日志也没发现问题，最后通过日志发现收到了许多不完整的报文，有些还多了。 于是想会不会">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Netty(三) 什么是 TCP 拆、粘包？如何解决？">
+<meta property="og:url" content="http://crossoverjie.top/2018/08/03/netty/Netty(3)TCP-Sticky/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言记得前段时间我们生产上的一个网关出现了故障。 这个网关逻辑非常简单，就是接收客户端的请求然后解析报文最后发送短信。 但这个请求并不是常见的 HTTP ，而是利用 Netty 自定义的协议。  有个前提是：网关是需要读取一段完整的报文才能进行后面的逻辑。  问题是有天突然发现网关解析报文出错，查看了客户端的发送日志也没发现问题，最后通过日志发现收到了许多不完整的报文，有些还多了。 于是想会不会">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d26cc6ea5.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d26dcc48d.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d26e3e083.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d26ea061e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d26f1dcce.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2700caaf.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d276b04f8.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d278852a8.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d27c66730.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2807657f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d281120d5.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2820a66f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d28328230.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2840564c.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d284ab76f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d287b83cd.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d28e427ab.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d29a34961.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2a1158f4.jpg">
+<meta property="article:published_time" content="2018-08-02T16:01:14.000Z">
+<meta property="article:modified_time" content="2019-05-07T18:47:45.274Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="拆包">
+<meta property="article:tag" content="粘包">
+<meta property="article:tag" content="protobuf">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1d26cc6ea5.jpg">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2018/08/03/netty/Netty(3)TCP-Sticky/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2018/08/03/netty/Netty(3)TCP-Sticky/","path":"2018/08/03/netty/Netty(3)TCP-Sticky/","title":"Netty(三) 什么是 TCP 拆、粘包？如何解决？"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Netty(三) 什么是 TCP 拆、粘包？如何解决？ | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">75</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">186</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">170</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TCP-%E5%8D%8F%E8%AE%AE"><span class="nav-number">1.1.</span> <span class="nav-text">TCP 协议</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%97%E7%AC%A6%E4%B8%B2%E6%8B%86%E3%80%81%E7%B2%98%E5%8C%85"><span class="nav-number">2.</span> <span class="nav-text">字符串拆、粘包</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%A9%E7%94%A8-LineBasedFrameDecoder-%E8%A7%A3%E5%86%B3%E9%97%AE%E9%A2%98"><span class="nav-number">2.1.</span> <span class="nav-text">利用 LineBasedFrameDecoder 解决问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#LineBasedFrameDecoder-%E7%9A%84%E5%8E%9F%E7%90%86"><span class="nav-number">2.2.</span> <span class="nav-text">LineBasedFrameDecoder 的原理</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%AB%98%E6%95%88%E7%9A%84%E7%BC%96%E7%A0%81%E6%96%B9%E5%BC%8F-Google-Protocol"><span class="nav-number">3.</span> <span class="nav-text">高效的编码方式 Google Protocol</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85"><span class="nav-number">3.1.</span> <span class="nav-text">安装</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9A%E4%B9%89%E8%87%AA%E5%B7%B1%E7%9A%84%E5%8D%8F%E8%AE%AE%E6%A0%BC%E5%BC%8F"><span class="nav-number">3.2.</span> <span class="nav-text">定义自己的协议格式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BB%93%E5%90%88-Netty"><span class="nav-number">3.3.</span> <span class="nav-text">结合 Netty</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Protocol-%E6%8B%86%E3%80%81%E7%B2%98%E5%8C%85"><span class="nav-number">3.4.</span> <span class="nav-text">Protocol 拆、粘包</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%B7%E5%A4%96"><span class="nav-number">5.</span> <span class="nav-text">号外</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">186</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">75</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">170</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2018/08/03/netty/Netty(3)TCP-Sticky/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Netty(三) 什么是 TCP 拆、粘包？如何解决？ | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Netty(三) 什么是 TCP 拆、粘包？如何解决？
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-08-03 00:01:14" itemprop="dateCreated datePublished" datetime="2018-08-03T00:01:14+08:00">2018-08-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2019-05-08 02:47:45" itemprop="dateModified" datetime="2019-05-08T02:47:45+08:00">2019-05-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Netty/" itemprop="url" rel="index"><span itemprop="name">Netty</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2018/08/03/netty/Netty(3)TCP-Sticky/" class="post-meta-item leancloud_visitors" data-flag-title="Netty(三) 什么是 TCP 拆、粘包？如何解决？" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2018/08/03/netty/Netty(3)TCP-Sticky/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/08/03/netty/Netty(3)TCP-Sticky/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://i.loli.net/2019/05/08/5cd1d26cc6ea5.jpg"></p>
+<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>记得前段时间我们生产上的一个网关出现了故障。</p>
+<p>这个网关逻辑非常简单，就是接收客户端的请求然后解析报文最后发送短信。</p>
+<p>但这个请求并不是常见的 HTTP ，而是利用 Netty 自定义的协议。</p>
+<blockquote>
+<p>有个前提是：网关是需要读取一段完整的报文才能进行后面的逻辑。</p>
+</blockquote>
+<p>问题是有天突然发现网关解析报文出错，查看了客户端的发送日志也没发现问题，最后通过日志发现收到了许多<strong>不完整的报文</strong>，有些还多了。</p>
+<p>于是想会不会是 TCP 拆、粘包带来的问题，最后利用 Netty 自带的拆包工具解决了该问题。</p>
+<p>这便有了此文。</p>
+<span id="more"></span>
+
+<h3 id="TCP-协议"><a href="#TCP-协议" class="headerlink" title="TCP 协议"></a>TCP 协议</h3><p>问题虽然解决了，但还是得想想原因，为啥会这样？打破砂锅问到底才是一个靠谱的程序员。</p>
+<p>这就得从 TCP 这个协议说起了。</p>
+<p>TCP 是一个面向字节流的协议，它是性质是流式的，所以它并没有分段。就像水流一样，你没法知道什么时候开始，什么时候结束。</p>
+<p>所以他会根据当前的套接字缓冲区的情况进行拆包或是粘包。</p>
+<p>下图展示了一个 TCP 协议传输的过程：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d26dcc48d.jpg"></p>
+<p>发送端的字节流都会先传入缓冲区，再通过网络传入到接收端的缓冲区中，最终由接收端获取。</p>
+<p>当我们发送两个完整包到接收端的时候：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d26e3e083.jpg"></p>
+<p>正常情况会接收到两个完整的报文。</p>
+<hr>
+<p>但也有以下的情况：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d26ea061e.jpg"></p>
+<p>接收到的是一个报文，它是由发送的两个报文组成的，这样对于应用程序来说就很难处理了（这样称为粘包）。</p>
+<hr>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d26f1dcce.jpg"></p>
+<p>还有可能出现上面这样的虽然收到了两个包，但是里面的内容却是互相包含，对于应用来说依然无法解析（拆包）。</p>
+<p>对于这样的问题只能通过上层的应用来解决，常见的方式有：</p>
+<ul>
+<li>在报文末尾增加换行符表明一条完整的消息，这样在接收端可以根据这个换行符来判断消息是否完整。</li>
+<li>将消息分为消息头、消息体。可以在消息头中声明消息的长度，根据这个长度来获取报文（比如 808 协议）。</li>
+<li>规定好报文长度，不足的空位补齐，取的时候按照长度截取即可。</li>
+</ul>
+<p>以上的这些方式我们在 Netty 的 pipline 中里加入对应的解码器都可以手动实现。</p>
+<p>但其实 Netty 已经帮我们做好了，完全可以开箱即用。</p>
+<p>比如：</p>
+<ul>
+<li><code>LineBasedFrameDecoder</code> 可以基于换行符解决。</li>
+<li><code>DelimiterBasedFrameDecoder </code>可基于分隔符解决。</li>
+<li><code>FixedLengthFrameDecoder </code>可指定长度解决。</li>
+</ul>
+<h2 id="字符串拆、粘包"><a href="#字符串拆、粘包" class="headerlink" title="字符串拆、粘包"></a>字符串拆、粘包</h2><p>下面来模拟一下最简单的字符串传输。</p>
+<p>还是在之前的</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/netty-action">https://github.com/crossoverJie/netty-action</a></p>
+<p>进行演示。</p>
+<p>在 Netty 客户端中加了一个入口可以循环发送 100 条字符串报文到接收端：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 向服务端发消息 字符串</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@param</span> stringReqVO</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">@ApiOperation(&quot;客户端发送消息，字符串&quot;)</span></span><br><span class="line"><span class="meta">@RequestMapping(value = &quot;sendStringMsg&quot;, method = RequestMethod.POST)</span></span><br><span class="line"><span class="meta">@ResponseBody</span></span><br><span class="line"><span class="keyword">public</span> BaseResponse&lt;NULLBody&gt; <span class="title function_">sendStringMsg</span><span class="params">(<span class="meta">@RequestBody</span> StringReqVO stringReqVO)</span>&#123;</span><br><span class="line">    BaseResponse&lt;NULLBody&gt; res = <span class="keyword">new</span> <span class="title class_">BaseResponse</span>();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">        heartbeatClient.sendStringMsg(stringReqVO.getMsg()) ;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 利用 actuator 来自增</span></span><br><span class="line">    counterService.increment(Constants.COUNTER_CLIENT_PUSH_COUNT);</span><br><span class="line"></span><br><span class="line">    <span class="type">SendMsgResVO</span> <span class="variable">sendMsgResVO</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SendMsgResVO</span>() ;</span><br><span class="line">    sendMsgResVO.setMsg(<span class="string">&quot;OK&quot;</span>) ;</span><br><span class="line">    res.setCode(StatusEnum.SUCCESS.getCode()) ;</span><br><span class="line">    res.setMessage(StatusEnum.SUCCESS.getMessage()) ;</span><br><span class="line">    <span class="keyword">return</span> res ;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 发送消息字符串</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@param</span> msg</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">sendStringMsg</span><span class="params">(String msg)</span> &#123;</span><br><span class="line">    <span class="type">ByteBuf</span> <span class="variable">message</span> <span class="operator">=</span> Unpooled.buffer(msg.getBytes().length) ;</span><br><span class="line">    message.writeBytes(msg.getBytes()) ;</span><br><span class="line">    <span class="type">ChannelFuture</span> <span class="variable">future</span> <span class="operator">=</span> channel.writeAndFlush(message);</span><br><span class="line">    future.addListener((ChannelFutureListener) channelFuture -&gt;</span><br><span class="line">            LOGGER.info(<span class="string">&quot;客户端手动发消息成功=&#123;&#125;&quot;</span>, msg));</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>服务端直接打印即可：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">channelRead0</span><span class="params">(ChannelHandlerContext ctx, String msg)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    LOGGER.info(<span class="string">&quot;收到msg=&#123;&#125;&quot;</span>, msg);</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>顺便提一下，这里加的有一个字符串的解码器：<code>.addLast(new StringDecoder())</code> 其实就是把消息解析为字符串。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">decode</span><span class="params">(ChannelHandlerContext ctx, ByteBuf msg, List&lt;Object&gt; out)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    out.add(msg.toString(charset));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>在 Swagger 中调用了客户端的接口用于给服务端发送了 100 次消息：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2700caaf.jpg"></p>
+<p>正常情况下接收端应该打印 100 次 <code>hello</code> 才对，但是查看日志会发现：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d276b04f8.jpg"></p>
+<p>收到的内容有完整的、多的、少的、拼接的；这也就对应了上面提到的拆包、粘包。</p>
+<p>该怎么解决呢？这便可采用之前提到的 <code>LineBasedFrameDecoder</code> 利用换行符解决。</p>
+<h3 id="利用-LineBasedFrameDecoder-解决问题"><a href="#利用-LineBasedFrameDecoder-解决问题" class="headerlink" title="利用 LineBasedFrameDecoder 解决问题"></a>利用 LineBasedFrameDecoder 解决问题</h3><p><code>LineBasedFrameDecoder</code> 解码器使用非常简单，只需要在 pipline 链条上添加即可。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//字符串解析,换行防拆包</span></span><br><span class="line">.addLast(<span class="keyword">new</span> <span class="title class_">LineBasedFrameDecoder</span>(<span class="number">1024</span>))</span><br><span class="line">.addLast(<span class="keyword">new</span> <span class="title class_">StringDecoder</span>())</span><br></pre></td></tr></table></figure>
+
+<p>构造函数中传入了 1024 是指报的长度最大不超过这个值，具体可以看下文的源码分析。</p>
+<p>然后我们再进行一次测试看看结果：</p>
+<blockquote>
+<p>注意，由于 LineBasedFrameDecoder 解码器是通过换行符来判断的，所以在发送时，一条完整的消息需要加上 <code>\n</code>。</p>
+</blockquote>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d278852a8.jpg"></p>
+<p>最终的结果：<br><img src="https://i.loli.net/2019/05/08/5cd1d27c66730.jpg"></p>
+<p>仔细观察日志，发现确实没有一条被拆、粘包。</p>
+<h3 id="LineBasedFrameDecoder-的原理"><a href="#LineBasedFrameDecoder-的原理" class="headerlink" title="LineBasedFrameDecoder 的原理"></a>LineBasedFrameDecoder 的原理</h3><p>目的达到了，来看看它的实现原理：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2807657f.jpg"></p>
+<ol>
+<li>第一步主要就是 <code>findEndOfLine</code> 方法去找到当前报文中是否存在分隔符，存在就会返回分隔符所在的位置。</li>
+<li>判断是否需要丢弃，默认为 false ，第一次走这个逻辑（下文会判断是否需要改为 true）。</li>
+<li>如果报文中存在换行符，就会将数据截取到那个位置。</li>
+<li>如果不存在换行符（有可能是拆包、粘包），就看当前报文的长度是否大于预设的长度。大于则需要缓存这个报文长度，并将 discarding 设为 true。</li>
+<li>如果是需要丢弃时，判断是否找到了换行符，存在则需要丢弃掉之前记录的长度然后截取数据。</li>
+<li>如果没有找到换行符，则将之前缓存的报文长度进行累加，用于下次抛弃。</li>
+</ol>
+<p>从这个逻辑中可以看出就是寻找报文中是否包含换行符，并进行相应的截取。</p>
+<p>由于是通过缓冲区读取的，所以即使这次没有换行符的数据，只要下一次的报文存在换行符，上一轮的数据也不会丢。</p>
+<h2 id="高效的编码方式-Google-Protocol"><a href="#高效的编码方式-Google-Protocol" class="headerlink" title="高效的编码方式 Google Protocol"></a>高效的编码方式 Google Protocol</h2><p>上面提到的其实就是在解码中进行操作，我们也可以自定义自己的拆、粘包工具。</p>
+<p>编解码的主要目的就是为了可以编码成字节流用于在网络中传输、持久化存储。</p>
+<p>Java 中也可以实现 Serializable 接口来实现序列化，但由于它性能等原因在一些 RPC 调用中用的很少。</p>
+<p>而 <code>Google Protocol</code> 则是一个高效的序列化框架，下面来演示在 Netty 中如何使用。</p>
+<h3 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h3><p>首先第一步自然是安装：</p>
+<p>在<a target="_blank" rel="noopener" href="https://github.com/google/protobuf/releases/tag/v3.6.1">官网</a>下载对应的包。</p>
+<p>本地配置环境变量：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d281120d5.jpg"></p>
+<p>当执行 <code>protoc --version</code> 出现以下结果表明安装成功：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2820a66f.jpg"></p>
+<h3 id="定义自己的协议格式"><a href="#定义自己的协议格式" class="headerlink" title="定义自己的协议格式"></a>定义自己的协议格式</h3><p>接着是需要按照官方要求的语法定义自己的协议格式。</p>
+<p>比如我这里需要定义一个输入输出的报文格式：</p>
+<p>BaseRequestProto.proto:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">syntax = <span class="string">&quot;proto2&quot;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">package</span> protocol;</span><br><span class="line"></span><br><span class="line"><span class="type">option</span> <span class="variable">java_package</span> <span class="operator">=</span> <span class="string">&quot;com.crossoverjie.netty.action.protocol&quot;</span>;</span><br><span class="line"><span class="type">option</span> <span class="variable">java_outer_classname</span> <span class="operator">=</span> <span class="string">&quot;BaseRequestProto&quot;</span>;</span><br><span class="line"></span><br><span class="line">message RequestProtocol &#123;</span><br><span class="line">  required <span class="type">int32</span> <span class="variable">requestId</span> <span class="operator">=</span> <span class="number">2</span>;</span><br><span class="line">  required <span class="type">string</span> <span class="variable">reqMsg</span> <span class="operator">=</span> <span class="number">1</span>;</span><br><span class="line">  </span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>BaseResponseProto.proto:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">syntax = <span class="string">&quot;proto2&quot;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">package</span> protocol;</span><br><span class="line"></span><br><span class="line"><span class="type">option</span> <span class="variable">java_package</span> <span class="operator">=</span> <span class="string">&quot;com.crossoverjie.netty.action.protocol&quot;</span>;</span><br><span class="line"><span class="type">option</span> <span class="variable">java_outer_classname</span> <span class="operator">=</span> <span class="string">&quot;BaseResponseProto&quot;</span>;</span><br><span class="line"></span><br><span class="line">message ResponseProtocol &#123;</span><br><span class="line">  required <span class="type">int32</span> <span class="variable">responseId</span> <span class="operator">=</span> <span class="number">2</span>;</span><br><span class="line">  required <span class="type">string</span> <span class="variable">resMsg</span> <span class="operator">=</span> <span class="number">1</span>;</span><br><span class="line">  </span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>再通过</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">protoc --java_out=/dev BaseRequestProto.proto BaseResponseProto.proto</span><br></pre></td></tr></table></figure>
+
+<p>protoc 命令将刚才定义的协议格式转换为 Java 代码，并生成在 <code>/dev</code> 目录。</p>
+<p>只需要将生成的代码拷贝到我们的项目中，同时引入依赖：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.google.protobuf<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>protobuf-java<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">version</span>&gt;</span>3.4.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>利用 Protocol 的编解码也非常简单：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ProtocolUtil</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> InvalidProtocolBufferException &#123;</span><br><span class="line">        BaseRequestProto.<span class="type">RequestProtocol</span> <span class="variable">protocol</span> <span class="operator">=</span> BaseRequestProto.RequestProtocol.newBuilder()</span><br><span class="line">                .setRequestId(<span class="number">123</span>)</span><br><span class="line">                .setReqMsg(<span class="string">&quot;你好啊&quot;</span>)</span><br><span class="line">                .build();</span><br><span class="line"></span><br><span class="line">        <span class="type">byte</span>[] encode = encode(protocol);</span><br><span class="line"></span><br><span class="line">        BaseRequestProto.<span class="type">RequestProtocol</span> <span class="variable">parseFrom</span> <span class="operator">=</span> decode(encode);</span><br><span class="line"></span><br><span class="line">        System.out.println(protocol.toString());</span><br><span class="line">        System.out.println(protocol.toString().equals(parseFrom.toString()));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 编码</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> protocol</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="type">byte</span>[] encode(BaseRequestProto.RequestProtocol protocol)&#123;</span><br><span class="line">        <span class="keyword">return</span> protocol.toByteArray() ;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 解码</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> bytes</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     * <span class="doctag">@throws</span> InvalidProtocolBufferException</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> BaseRequestProto.RequestProtocol <span class="title function_">decode</span><span class="params">(<span class="type">byte</span>[] bytes)</span> <span class="keyword">throws</span> InvalidProtocolBufferException &#123;</span><br><span class="line">        <span class="keyword">return</span> BaseRequestProto.RequestProtocol.parseFrom(bytes);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>利用 <code>BaseRequestProto</code> 来做一个演示，先编码再解码最后比较最终的结果是否相同。答案肯定是一致的。</p>
+<p>利用 protoc 命令生成的 Java 文件里已经帮我们把编解码全部都封装好了，只需要简单调用就行了。</p>
+<p>可以看出 Protocol 创建对象使用的是构建者模式，对使用者来说清晰易读，更多关于构建器的内容可以参考<a href="https://crossoverjie.top/2018/04/28/sbc/sbc7-Distributed-Limit/#Builder-%E6%9E%84%E5%BB%BA%E5%99%A8">这里</a>。</p>
+<p>更多关于 <code>Google Protocol</code> 内容请查看<a target="_blank" rel="noopener" href="https://developers.google.com/protocol-buffers/docs/javatutorial">官方开发文档</a>。</p>
+<h3 id="结合-Netty"><a href="#结合-Netty" class="headerlink" title="结合 Netty"></a>结合 Netty</h3><p>Netty 已经自带了对 Google protobuf 的编解码器，也是只需要在 pipline 中添加即可。</p>
+<p>server 端：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// google Protobuf 编解码</span></span><br><span class="line">.addLast(<span class="keyword">new</span> <span class="title class_">ProtobufDecoder</span>(BaseRequestProto.RequestProtocol.getDefaultInstance()))</span><br><span class="line">.addLast(<span class="keyword">new</span> <span class="title class_">ProtobufEncoder</span>())</span><br></pre></td></tr></table></figure>
+
+
+
+<p>客户端：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// google Protobuf 编解码</span></span><br><span class="line"></span><br><span class="line">.addLast(<span class="keyword">new</span> <span class="title class_">ProtobufDecoder</span>(BaseResponseProto.ResponseProtocol.getDefaultInstance()))</span><br><span class="line"></span><br><span class="line">.addLast(<span class="keyword">new</span> <span class="title class_">ProtobufEncoder</span>())</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>稍微注意的是，在构建 ProtobufDecoder 时需要显式指定解码器需要解码成什么类型。</p>
+</blockquote>
+<p>我这里服务端接收的是 BaseRequestProto，客户端收到的是服务端响应的 BaseResponseProto 所以就设置了对应的实例。</p>
+<p>同样的提供了一个接口向服务端发送消息，当服务端收到了一个特殊指令时也会向客户端返回内容：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">channelRead0</span><span class="params">(ChannelHandlerContext ctx, BaseRequestProto.RequestProtocol msg)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    LOGGER.info(<span class="string">&quot;收到msg=&#123;&#125;&quot;</span>, msg.getReqMsg());</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="number">999</span> == msg.getRequestId())&#123;</span><br><span class="line">        BaseResponseProto.<span class="type">ResponseProtocol</span> <span class="variable">responseProtocol</span> <span class="operator">=</span> BaseResponseProto.ResponseProtocol.newBuilder()</span><br><span class="line">                .setResponseId(<span class="number">1000</span>)</span><br><span class="line">                .setResMsg(<span class="string">&quot;服务端响应&quot;</span>)</span><br><span class="line">                .build();</span><br><span class="line">        ctx.writeAndFlush(responseProtocol) ;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 swagger 中调用相关接口：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d28328230.jpg"></p>
+<p>在日志可以看到服务端收到了消息，同时客户端也收到了返回：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2840564c.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d284ab76f.jpg"></p>
+<p>虽说 Netty 封装了 Google Protobuf 相关的编解码工具，其实查看它的编码工具就会发现也是利用上文提到的 api 实现的。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d287b83cd.jpg"></p>
+<h3 id="Protocol-拆、粘包"><a href="#Protocol-拆、粘包" class="headerlink" title="Protocol 拆、粘包"></a>Protocol 拆、粘包</h3><p>Google Protocol 的使用确实非常简单，但还是有值的注意的地方，比如它依然会有拆、粘包问题。</p>
+<p>不妨模拟一下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d28e427ab.jpg"></p>
+<p>连续发送 100 次消息看服务端收到的怎么样：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d29a34961.jpg"></p>
+<p>会发现服务端在解码的时候报错，其实就是被拆、粘包了。</p>
+<p>这点 Netty 自然也考虑到了，所以已经提供了相关的工具。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//拆包解码</span></span><br><span class="line">.addLast(<span class="keyword">new</span> <span class="title class_">ProtobufVarint32FrameDecoder</span>())</span><br><span class="line">.addLast(<span class="keyword">new</span> <span class="title class_">ProtobufVarint32LengthFieldPrepender</span>())</span><br></pre></td></tr></table></figure>
+
+<p>只需要在服务端和客户端加上这两个编解码工具即可，再来发送一百次试试。</p>
+<p>查看日志发现没有出现一次异常，100 条信息全部都接收到了。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2a1158f4.jpg"></p>
+<p>这个编解码工具可以简单理解为是在消息体中加了一个 32 位长度的整形字段，用于表明当前消息长度。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>网络这块同样是计算机的基础，由于近期在做相关的工作所以接触的比较多，也算是给大学补课了。</p>
+<p>后面会接着更新 Netty 相关的内容，最后会产出一个高性能的 HTTP 以及 RPC 框架，敬请期待。</p>
+<p>上文相关的代码：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/netty-action">https://github.com/crossoverJie/netty-action</a></p>
+<h2 id="号外"><a href="#号外" class="headerlink" title="号外"></a>号外</h2><p>最近在总结一些 Java 相关的知识点，感兴趣的朋友可以一起维护。</p>
+<blockquote>
+<p>地址: <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/Java-Interview">https://github.com/crossoverJie/Java-Interview</a></p>
+</blockquote>
+<p><strong>欢迎关注公众号一起交流：</strong></p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2018/08/03/netty/Netty(3)TCP-Sticky/" title="Netty(三) 什么是 TCP 拆、粘包？如何解决？">http://crossoverjie.top/2018/08/03/netty/Netty(3)TCP-Sticky/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/%E6%8B%86%E5%8C%85/" rel="tag"><i class="fa fa-tag"></i> 拆包</a>
+              <a href="/tags/%E7%B2%98%E5%8C%85/" rel="tag"><i class="fa fa-tag"></i> 粘包</a>
+              <a href="/tags/protobuf/" rel="tag"><i class="fa fa-tag"></i> protobuf</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/07/29/java-senior/ThreadPool/" rel="prev" title="如何优雅的使用和理解线程池">
+                  <i class="fa fa-chevron-left"></i> 如何优雅的使用和理解线程池
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/08/12/personal/how-to-be-developer/" rel="next" title="如何成为一位「不那么差」的程序员">
+                  如何成为一位「不那么差」的程序员 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>

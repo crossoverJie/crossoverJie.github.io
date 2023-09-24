@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="背景最近这这段时间更新了一些 k8s 相关的博客和视频，也收到了一些反馈；大概分为这几类：  公司已经经历过服务化改造了，但还未接触过云原生。 公司部分应用进行了云原生改造，但大部分工作是由基础架构和运维部门推动的，自己只是作为开发并不了解其中的细节，甚至 k8s 也接触不到。 还处于比较传统的以虚拟机部署的传统运维为主。  其中以第二种占大多数，虽然公司进行了云原生改造，但似乎和纯业务研发同学">
+<meta property="og:type" content="article">
+<meta property="og:title" content="k8s 入门到实战--部署应用到 k8s">
+<meta property="og:url" content="http://crossoverjie.top/2023/08/31/ob/k8s-0-start/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景最近这这段时间更新了一些 k8s 相关的博客和视频，也收到了一些反馈；大概分为这几类：  公司已经经历过服务化改造了，但还未接触过云原生。 公司部分应用进行了云原生改造，但大部分工作是由基础架构和运维部门推动的，自己只是作为开发并不了解其中的细节，甚至 k8s 也接触不到。 还处于比较传统的以虚拟机部署的传统运维为主。  其中以第二种占大多数，虽然公司进行了云原生改造，但似乎和纯业务研发同学">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2023/09/04/ymUpcXZrxfNsT91.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/02/BtYcF6jp8u3nzJs.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/04/hrOUSVsmP2KkNlC.png">
+<meta property="article:published_time" content="2023-08-31T14:42:32.000Z">
+<meta property="article:modified_time" content="2023-09-15T18:42:21.018Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Go">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2023/09/04/ymUpcXZrxfNsT91.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2023/08/31/ob/k8s-0-start/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2023/08/31/ob/k8s-0-start/","path":"2023/08/31/ob/k8s-0-start/","title":"k8s 入门到实战--部署应用到 k8s"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>k8s 入门到实战--部署应用到 k8s | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">75</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">186</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">170</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%AE%A1%E5%88%92"><span class="nav-number">2.</span> <span class="nav-text">计划</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%A5%E9%97%A8"><span class="nav-number">2.1.</span> <span class="nav-text">入门</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BF%9B%E9%98%B6"><span class="nav-number">2.2.</span> <span class="nav-text">进阶</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BF%90%E7%BB%B4%E4%BD%A0%E7%9A%84%E5%BA%94%E7%94%A8"><span class="nav-number">2.3.</span> <span class="nav-text">运维你的应用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#k8s-%E9%83%A8%E7%BD%B2%E5%B8%B8%E8%A7%81%E4%B8%AD%E9%97%B4%E4%BB%B6"><span class="nav-number">2.4.</span> <span class="nav-text">k8s 部署常见中间件</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E9%83%A8%E7%BD%B2%E5%BA%94%E7%94%A8%E5%88%B0-k8s"><span class="nav-number">3.</span> <span class="nav-text">部署应用到 k8s</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%96%E5%86%99%E5%BA%94%E7%94%A8"><span class="nav-number">3.1.</span> <span class="nav-text">编写应用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Dockerfile"><span class="nav-number">3.2.</span> <span class="nav-text">Dockerfile</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%96%E5%86%99-deployment"><span class="nav-number">3.3.</span> <span class="nav-text">编写 deployment</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%83%A8%E7%BD%B2%E5%BA%94%E7%94%A8"><span class="nav-number">3.4.</span> <span class="nav-text">部署应用</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">186</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">75</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">170</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2023/08/31/ob/k8s-0-start/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="k8s 入门到实战--部署应用到 k8s | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          k8s 入门到实战--部署应用到 k8s
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2023-08-31 22:42:32" itemprop="dateCreated datePublished" datetime="2023-08-31T22:42:32+08:00">2023-08-31</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-09-16 02:42:21" itemprop="dateModified" datetime="2023-09-16T02:42:21+08:00">2023-09-16</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/k8s/" itemprop="url" rel="index"><span itemprop="name">k8s</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2023/08/31/ob/k8s-0-start/" class="post-meta-item leancloud_visitors" data-flag-title="k8s 入门到实战--部署应用到 k8s" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2023/08/31/ob/k8s-0-start/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2023/08/31/ob/k8s-0-start/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://s2.loli.net/2023/09/04/ymUpcXZrxfNsT91.png" alt="k8s 入门到实战 01.png"></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>最近这这段时间更新了一些 k8s 相关的博客和视频，也收到了一些反馈；大概分为这几类：</p>
+<ul>
+<li>公司已经经历过服务化改造了，但还未接触过云原生。</li>
+<li>公司部分应用进行了云原生改造，但大部分工作是由基础架构和运维部门推动的，自己只是作为开发并不了解其中的细节，甚至 k8s 也接触不到。</li>
+<li>还处于比较传统的以虚拟机部署的传统运维为主。</li>
+</ul>
+<p>其中以第二种占大多数，虽然公司进行了云原生改造，但似乎和纯业务研发同学来说没有太大关系，自己工作也没有什么变化。</p>
+<p>恰好我之前正好从业务研发的角度转换到了基础架构部门，两个角色我都接触过，也帮助过一些业务研发了解公司的云原生架构；</p>
+<p>为此所以我想系统性的带大家以<strong>研发</strong>的角度对 k8s 进行实践。</p>
+<p>因为 k8s 部分功能其实是偏运维的，对研发来说优先级并不太高；<br>所以我不太会涉及一些 k8s 运维的知识点，比如安装、组件等模块；主要以我们日常开发会使用到的组件讲起。</p>
+<span id="more"></span>
+
+<h1 id="计划"><a href="#计划" class="headerlink" title="计划"></a>计划</h1><h2 id="入门"><a href="#入门" class="headerlink" title="入门"></a>入门</h2><ul>
+<li>部署应用到 k8s</li>
+<li>跨服务调用</li>
+<li>集群外部访问</li>
+</ul>
+<h2 id="进阶"><a href="#进阶" class="headerlink" title="进阶"></a>进阶</h2><ul>
+<li>如何使用配置</li>
+<li>服务网格实战</li>
+</ul>
+<h2 id="运维你的应用"><a href="#运维你的应用" class="headerlink" title="运维你的应用"></a>运维你的应用</h2><ul>
+<li>应用探针</li>
+<li>滚动更新与回滚</li>
+<li>优雅采集日志</li>
+<li>应用可观测性<ul>
+<li>指标可视化</li>
+</ul>
+</li>
+</ul>
+<h2 id="k8s-部署常见中间件"><a href="#k8s-部署常见中间件" class="headerlink" title="k8s 部署常见中间件"></a>k8s 部署常见中间件</h2><ul>
+<li>helm 一键部署</li>
+<li>编写 Operator 自动化应用生命周期</li>
+</ul>
+<p><img src="https://s2.loli.net/2023/09/02/BtYcF6jp8u3nzJs.png" alt="image.png"><br>这里我整理了一下目录，每个章节都有博客+视频配合观看，大家可以按照喜好选择。</p>
+<p>因为还涉及到了视频，所以只能争取一周两更，在两个月内全部更新完毕。</p>
+<p>根据我自己的经验，以上内容都掌握的话对 k8s 的掌握会更进一步。</p>
+<h1 id="部署应用到-k8s"><a href="#部署应用到-k8s" class="headerlink" title="部署应用到 k8s"></a>部署应用到 k8s</h1><p>首先从第一章【部署应用到 k8s】开始，我会用 Go 写一个简单的 Web 应用，然后打包为一个 Docker 镜像，之后部署到 k8s 中，并完成其中的接口调用。</p>
+<h2 id="编写应用"><a href="#编写应用" class="headerlink" title="编写应用"></a>编写应用</h2><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;  </span><br><span class="line">   http.HandleFunc(<span class="string">&quot;/ping&quot;</span>, <span class="function"><span class="keyword">func</span><span class="params">(w http.ResponseWriter, r *http.Request)</span></span> &#123;  </span><br><span class="line">      log.Println(<span class="string">&quot;ping&quot;</span>)  </span><br><span class="line">      fmt.Fprint(w, <span class="string">&quot;pong&quot;</span>)  </span><br><span class="line">   &#125;)  </span><br><span class="line">  </span><br><span class="line">   http.ListenAndServe(<span class="string">&quot;:8081&quot;</span>, <span class="literal">nil</span>)  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p> 应用非常简单就是提供了一个 <code>ping</code>  接口，然后返回了一个 <code>pong</code>.</p>
+<h2 id="Dockerfile"><a href="#Dockerfile" class="headerlink" title="Dockerfile"></a>Dockerfile</h2><figure class="highlight dockerfile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 第一阶段：编译 Go 程序  </span></span><br><span class="line"><span class="keyword">FROM</span> golang:<span class="number">1.19</span> AS dependencies  </span><br><span class="line"><span class="keyword">ENV</span> GOPROXY=https://goproxy.cn,direct  </span><br><span class="line"><span class="keyword">WORKDIR</span><span class="language-bash"> /go/src/app  </span></span><br><span class="line"><span class="keyword">COPY</span><span class="language-bash"> go.mod .  </span></span><br><span class="line"><span class="comment">#COPY ../../go.sum .  </span></span><br><span class="line"><span class="keyword">RUN</span><span class="language-bash"> --mount=<span class="built_in">type</span>=ssh go mod download  </span></span><br><span class="line">  </span><br><span class="line"><span class="comment"># 第二阶段：构建可执行文件  </span></span><br><span class="line"><span class="keyword">FROM</span> golang:<span class="number">1.19</span> AS builder  </span><br><span class="line"><span class="keyword">WORKDIR</span><span class="language-bash"> /go/src/app  </span></span><br><span class="line"><span class="keyword">COPY</span><span class="language-bash"> . .  </span></span><br><span class="line"><span class="comment">#COPY --from=dependencies /go/pkg /go/pkg  </span></span><br><span class="line"><span class="keyword">RUN</span><span class="language-bash"> go build  </span></span><br><span class="line">  </span><br><span class="line"><span class="comment"># 第三阶段：部署  </span></span><br><span class="line"><span class="keyword">FROM</span> debian:stable-slim  </span><br><span class="line"><span class="keyword">RUN</span><span class="language-bash"> apt-get update &amp;&amp; apt-get install -y curl  </span></span><br><span class="line"><span class="keyword">COPY</span><span class="language-bash"> --from=builder /go/src/app/k8s-combat /go/bin/k8s-combat  </span></span><br><span class="line"><span class="keyword">ENV</span> PATH=<span class="string">&quot;/go/bin:$&#123;PATH&#125;&quot;</span>  </span><br><span class="line">  </span><br><span class="line"><span class="comment"># 启动 Go 程序  </span></span><br><span class="line"><span class="keyword">CMD</span><span class="language-bash"> [<span class="string">&quot;k8s-combat&quot;</span>]</span></span><br></pre></td></tr></table></figure>
+
+<p> 之后编写了一个 <code>dockerfile</code> 用于构建 <code>docker</code> 镜像。</p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">docker:  </span></span><br><span class="line">   @echo <span class="string">&quot;Docker Build...&quot;</span>  </span><br><span class="line">   docker build . -t crossoverjie/k8s-combat:v1 &amp;&amp; docker image push crossoverjie/k8s-combat:v1</span><br></pre></td></tr></table></figure>
+
+<p>使用 <code>make docker</code>  会在本地构建镜像并上传到 <code>dockerhub</code></p>
+<h2 id="编写-deployment"><a href="#编写-deployment" class="headerlink" title="编写 deployment"></a>编写 deployment</h2><p>下一步便是整个过程中最重要的环节了，也是唯一和 k8s 打交道的地方，那就是编写 deployment。</p>
+<iframe src="//player.bilibili.com/player.html?aid=702346697&bvid=BV1Cm4y1n7yG&cid=1235124452&page=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"> </iframe>
+
+<p>在之前的视频《一分钟了解 k8s》中讲过常见的组件：<br><img src="https://s2.loli.net/2023/09/04/hrOUSVsmP2KkNlC.png" alt="image.png"></p>
+<p>其中我们最常见的就是 deployment，通常用于部署无状态应用；现在还不太需要了解其他的组件，先看看 deployment 如何编写：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span>  </span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span>  </span><br><span class="line"><span class="attr">metadata:</span>  </span><br><span class="line">  <span class="attr">labels:</span>  </span><br><span class="line">    <span class="attr">app:</span> <span class="string">k8s-combat</span>  </span><br><span class="line">  <span class="attr">name:</span> <span class="string">k8s-combat</span>  </span><br><span class="line"><span class="attr">spec:</span>  </span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">1</span>  </span><br><span class="line">  <span class="attr">selector:</span>  </span><br><span class="line">    <span class="attr">matchLabels:</span>  </span><br><span class="line">      <span class="attr">app:</span> <span class="string">k8s-combat</span>  </span><br><span class="line">  <span class="attr">template:</span>  </span><br><span class="line">    <span class="attr">metadata:</span>  </span><br><span class="line">      <span class="attr">labels:</span>  </span><br><span class="line">        <span class="attr">app:</span> <span class="string">k8s-combat</span>  </span><br><span class="line">    <span class="attr">spec:</span>  </span><br><span class="line">      <span class="attr">containers:</span>  </span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">k8s-combat</span>  </span><br><span class="line">          <span class="attr">image:</span> <span class="string">crossoverjie/k8s-combat:v1</span>  </span><br><span class="line">          <span class="attr">imagePullPolicy:</span> <span class="string">Always</span>  </span><br><span class="line">          <span class="attr">resources:</span>  </span><br><span class="line">            <span class="attr">limits:</span>  </span><br><span class="line">              <span class="attr">cpu:</span> <span class="string">&quot;1&quot;</span>  </span><br><span class="line">              <span class="attr">memory:</span> <span class="string">300Mi</span>  </span><br><span class="line">            <span class="attr">requests:</span>  </span><br><span class="line">              <span class="attr">cpu:</span> <span class="string">&quot;0.1&quot;</span>  </span><br><span class="line">              <span class="attr">memory:</span> <span class="string">30Mi</span></span><br></pre></td></tr></table></figure>
+
+<p>开头两行的 <code>apiVersion</code>  和 <code>kind</code> 可以暂时不要关注，就理解为 deployment 的固定写法即可。</p>
+<p>metadata：顾名思义就是定义元数据的地方，告诉 <code>Pod</code> 我们这个 <code>deployment</code> 叫什么名字，这里定义为：<code>k8s-combat</code></p>
+<p>中间的：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">metadata:</span>  </span><br><span class="line">  <span class="attr">labels:</span>  </span><br><span class="line">    <span class="attr">app:</span> <span class="string">k8s-combat</span></span><br></pre></td></tr></table></figure>
+
+<p>也很容易理解，就是给这个 <code>deployment</code> 打上标签，通常是将这个标签和其他的组件进行关联使用才有意义，不然就只是一个标签而已。</p>
+<blockquote>
+<p>标签是键值对的格式，key, value 都可以自定义。</p>
+</blockquote>
+<p>而这里的  <code>app: k8s-combat</code> 便是和下面的 spec 下的 selector 选择器匹配，表明都使用  <code>app: k8s-combat</code>  进行关联。</p>
+<p>而 template 中所定义的标签也是为了让选择器和 template 中的定义的 Pod 进行关联。</p>
+<blockquote>
+<p>Pod 是 k8s 中相同功能容器的分组，一个 Pod 可以绑定多个容器，这里就只有我们应用容器一个了；后续在讲到 istio 和日志采集时便可以看到其他的容器。</p>
+</blockquote>
+<p>template 中定义的内容就很容易理解了，指定了我们的容器拉取地址，以及所占用的资源(<code>cpu/ memory</code>)。</p>
+<p><code>replicas: 1</code>：表示只部署一个副本，也就是只有一个节点的意思。</p>
+<h2 id="部署应用"><a href="#部署应用" class="headerlink" title="部署应用"></a>部署应用</h2><p>之后我们使用命令:</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f deployment/deployment.yaml</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>生产环境中往往会使用云厂商所提供的 k8s 环境，我们本地可以使用 <a target="_blank" rel="noopener" href="https://minikube.sigs.k8s.io/docs/start/">https://minikube.sigs.k8s.io/docs/start/</a> minikube 来模拟。</p>
+</blockquote>
+<p>就会应用这个 deployment 同时将容器部署到 k8s 中，之后使用:</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pod</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p> 在后台 k8s 会根据我们填写的资源选择一个合适的节点，将当前这个 Pod 部署过去。</p>
+</blockquote>
+<p> 就会列出我们刚才部署的 Pod:</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">❯ kubectl get pod</span><br><span class="line">NAME                                READY   STATUS    RESTARTS   AGE</span><br><span class="line">k8s-combat-57f794c59b-7k58n         1/1     Running   0          17h</span><br></pre></td></tr></table></figure>
+
+<p>我们使用命令：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl exec -it k8s-combat-57f794c59b-7k58n  bash</span><br></pre></td></tr></table></figure>
+<p>就会进入我们的容器，这个和使用 docker 类似。</p>
+<p>之后执行 curl 命令便可以访问我们的接口了：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">root@k8s-combat-57f794c59b-7k58n:/# curl http://127.0.0.1:8081/ping</span><br><span class="line">pong</span><br><span class="line">root@k8s-combat-57f794c59b-7k58n:/#</span><br></pre></td></tr></table></figure>
+
+<p>这时候我们再开一个终端执行：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">❯ kubectl logs -f k8s-combat-57f794c59b-7k58n</span><br><span class="line">2023/09/03 09:28:07 ping</span><br></pre></td></tr></table></figure>
+<p>便可以打印容器中的日志，当然前提是应用的日志是写入到了标准输出中。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>以上就是这一章节的主要内容，重点就是将我们应用程序员打包为 docker 镜像后上传到镜像仓库，再配置好 deployment 由 k8s 进行调度运行。</p>
+<p>下一章主要会涉及服务内部的调用，感兴趣的朋友可以先关注起来。</p>
+<p>相关的源码和 yaml 资源文件都存在这里：<br><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/k8s-combat">https://github.com/crossoverJie/k8s-combat</a></p>
+<p>#Blog #K8s </p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2023/08/31/ob/k8s-0-start/" title="k8s 入门到实战--部署应用到 k8s">http://crossoverjie.top/2023/08/31/ob/k8s-0-start/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Go/" rel="tag"><i class="fa fa-tag"></i> Go</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2023/08/30/ob/Pulsar-SQL/" rel="prev" title="使用 SQL 的方式查询消息队列数据以及踩坑指南">
+                  <i class="fa fa-chevron-left"></i> 使用 SQL 的方式查询消息队列数据以及踩坑指南
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2023/09/05/ob/k8s-service/" rel="next" title="k8s入门到实战--跨服务调用">
+                  k8s入门到实战--跨服务调用 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
