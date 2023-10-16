@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="前言前段时间写过一篇 gRPC 的入门文章，在最后还留了一个坑没有填：也就是 gRPC 的负载均衡问题，因为当时的业务请求量不算大，再加上公司没有对 Istio 这类服务网格比较熟悉的大牛，所以我们也就一直拖着没有解决，依然只是使用了 kubernetes 的 service 进行负载，好在也没有出什么问题。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="在 kubernetes 环境中实现 gRPC 负载均衡">
+<meta property="og:url" content="http://crossoverjie.top/2023/10/16/ob/k8s-grpc-lb/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言前段时间写过一篇 gRPC 的入门文章，在最后还留了一个坑没有填：也就是 gRPC 的负载均衡问题，因为当时的业务请求量不算大，再加上公司没有对 Istio 这类服务网格比较熟悉的大牛，所以我们也就一直拖着没有解决，依然只是使用了 kubernetes 的 service 进行负载，好在也没有出什么问题。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2023/10/16/wJiKvMAaWUyOCpX.png">
+<meta property="og:image" content="https://s2.loli.net/2023/10/16/41I2RZXeQanFgdB.png">
+<meta property="og:image" content="https://s2.loli.net/2023/10/16/NxJqPM49vAgEBtX.png">
+<meta property="og:image" content="https://s2.loli.net/2023/10/16/x31gJLImRlfXa9i.png">
+<meta property="og:image" content="https://s2.loli.net/2023/10/16/PLnyAKsmDZQRoeh.png">
+<meta property="og:image" content="https://s2.loli.net/2023/10/16/XOU1TGtvm7PeJ8o.png">
+<meta property="article:published_time" content="2023-10-16T07:55:50.000Z">
+<meta property="article:modified_time" content="2023-10-16T12:47:17.360Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="gRPC">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2023/10/16/wJiKvMAaWUyOCpX.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2023/10/16/ob/k8s-grpc-lb/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2023/10/16/ob/k8s-grpc-lb/","path":"2023/10/16/ob/k8s-grpc-lb/","title":"在 kubernetes 环境中实现 gRPC 负载均衡"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>在 kubernetes 环境中实现 gRPC 负载均衡 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">80</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">192</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">173</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#gRPC-%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1"><span class="nav-number">2.</span> <span class="nav-text">gRPC 负载均衡</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B4%9F%E8%BD%BD%E4%B8%8D%E5%9D%87%E8%A1%A1"><span class="nav-number">2.1.</span> <span class="nav-text">负载不均衡</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8E%9F%E7%90%86"><span class="nav-number">2.1.1.</span> <span class="nav-text">原理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B5%8B%E8%AF%95"><span class="nav-number">2.1.2.</span> <span class="nav-text">测试</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-Istio"><span class="nav-number">2.2.</span> <span class="nav-text">使用 Istio</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8E%9F%E7%90%86-1"><span class="nav-number">2.3.</span> <span class="nav-text">原理</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">192</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">80</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">173</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2023/10/16/ob/k8s-grpc-lb/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="在 kubernetes 环境中实现 gRPC 负载均衡 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          在 kubernetes 环境中实现 gRPC 负载均衡
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2023-10-16 15:55:50 / Modified: 20:47:17" itemprop="dateCreated datePublished" datetime="2023-10-16T15:55:50+08:00">2023-10-16</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/" itemprop="url" rel="index"><span itemprop="name">OB</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/k8s/" itemprop="url" rel="index"><span itemprop="name">k8s</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2023/10/16/ob/k8s-grpc-lb/" class="post-meta-item leancloud_visitors" data-flag-title="在 kubernetes 环境中实现 gRPC 负载均衡" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2023/10/16/ob/k8s-grpc-lb/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2023/10/16/ob/k8s-grpc-lb/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://s2.loli.net/2023/10/16/wJiKvMAaWUyOCpX.png" alt="Istio-grpc-lb.png"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前段时间写过一篇 <code>gRPC</code> 的入门文章，在最后还留了一个坑没有填：<br><img src="https://s2.loli.net/2023/10/16/41I2RZXeQanFgdB.png" alt="image.png"><br>也就是 <code>gRPC</code> 的负载均衡问题，因为当时的业务请求量不算大，再加上公司没有对 Istio 这类服务网格比较熟悉的大牛，所以我们也就一直拖着没有解决，依然只是使用了 kubernetes 的 service 进行负载，好在也没有出什么问题。</p>
+<span id="more"></span>
+
+<p>由于现在换了公司后也需要维护公司的服务网格服务，结合公司内部对 Istio 的使用现在终于不再停留在理论阶段了。</p>
+<p>所以也终有机会将这个坑填了。</p>
+<h1 id="gRPC-负载均衡"><a href="#gRPC-负载均衡" class="headerlink" title="gRPC 负载均衡"></a>gRPC 负载均衡</h1><h2 id="负载不均衡"><a href="#负载不均衡" class="headerlink" title="负载不均衡"></a>负载不均衡</h2><h3 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h3><p>先来回顾下背景，为什么会有 <code>gRPC</code> 负债不均衡的问题。<br>由于 <code>gRPC</code> 是基于 HTTP&#x2F;2 协议的，所以客户端和服务端会保持长链接，一旦链接建立成功后就会一直使用这个连接处理后续的请求。</p>
+<p><img src="https://s2.loli.net/2023/10/16/NxJqPM49vAgEBtX.png" alt="image.png"></p>
+<p>除非我们每次请求之后都新建一个连接，这显然是不合理的。</p>
+<p>所以要解决 <code>gRPC</code> 的负载均衡通常有两种方案：</p>
+<ul>
+<li>服务端负载均衡</li>
+<li>客户端负载均衡<br>在 <code>gRPC</code> 这个场景服务端负载均衡不是很合适，所有的请求都需要经过一个负载均衡器，这样它就成为整个系统的瓶颈，所以更推荐使用客户端负载均衡。</li>
+</ul>
+<p>客户端负载均衡目前也有两种方案，最常见也是传统方案。<br><img src="https://s2.loli.net/2023/10/16/x31gJLImRlfXa9i.png" alt="image.png"><br>这里以 Dubbo 的调用过程为例，调用的时候需要从服务注册中心获取到提供者的节点信息，然后在客户端本地根据一定的负载均衡算法得出一个节点然后发起请求。</p>
+<p>换成 <code>gRPC</code> 也是类似的，这里以 <code>go-zero</code> 负载均衡的原理为例：<br><img src="https://s2.loli.net/2023/10/16/PLnyAKsmDZQRoeh.png" alt="image.png"></p>
+<p>gRPC 官方库也提供了对应的负载均衡接口，但我们依然需要自己维护服务列表然后在客户端编写负载均衡算法，这里有个官方 demo:</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/grpc/grpc-go/blob/87eb5b7502493f758e76c4d09430c0049a81a557/examples/features/load_balancing/client/main.go">https://github.com/grpc/grpc-go/blob/87eb5b7502493f758e76c4d09430c0049a81a557/examples/features/load_balancing&#x2F;client&#x2F;main.go</a></p>
+<p>但切换到 kubernetes 环境中时再使用以上的方式就不够优雅了，因为我们使用 kubernetes 的目的就是不想再额外的维护这个客户端包，这部分能力最好是由 kubernetes 自己就能提供。</p>
+<p>但遗憾的是 kubernetes 提供的 service 只是基于 L4 的负载，所以我们每次请求的时候都只能将请求发往同一个 Provider 节点。</p>
+<h3 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h3><p>这里我写了一个小程序来验证负债不均衡的示例：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Create gRPC server</span></span><br><span class="line"><span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;  </span><br><span class="line">   <span class="keyword">var</span> port = <span class="string">&quot;:50051&quot;</span>  </span><br><span class="line">   lis, err := net.Listen(<span class="string">&quot;tcp&quot;</span>, port)  </span><br><span class="line">   <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;  </span><br><span class="line">      log.Fatalf(<span class="string">&quot;failed to listen: %v&quot;</span>, err)  </span><br><span class="line">   &#125;  </span><br><span class="line">   s := grpc.NewServer()  </span><br><span class="line">   pb.RegisterGreeterServer(s, &amp;server&#123;&#125;)  </span><br><span class="line">   <span class="keyword">if</span> err := s.Serve(lis); err != <span class="literal">nil</span> &#123;  </span><br><span class="line">      log.Fatalf(<span class="string">&quot;failed to serve: %v&quot;</span>, err)  </span><br><span class="line">   &#125; <span class="keyword">else</span> &#123;  </span><br><span class="line">      log.Printf(<span class="string">&quot;served on %s \n&quot;</span>, port)  </span><br><span class="line">   &#125;  </span><br><span class="line">&#125;()</span><br><span class="line"><span class="comment">// server is used to implement helloworld.GreeterServer.  </span></span><br><span class="line"><span class="keyword">type</span> server <span class="keyword">struct</span> &#123;  </span><br><span class="line">   pb.UnimplementedGreeterServer  </span><br><span class="line">&#125;  </span><br><span class="line">  </span><br><span class="line"><span class="comment">// SayHello implements helloworld.GreeterServer  </span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *server)</span></span> SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, <span class="type">error</span>) &#123;  </span><br><span class="line">   log.Printf(<span class="string">&quot;Received: %v&quot;</span>, in.GetName())  </span><br><span class="line">   name, _ := os.Hostname()  </span><br><span class="line">   <span class="comment">// Return hostname of Server</span></span><br><span class="line">   <span class="keyword">return</span> &amp;pb.HelloReply&#123;Message: fmt.Sprintf(<span class="string">&quot;hostname:%s, in:%s&quot;</span>, name, in.Name)&#125;, <span class="literal">nil</span>  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用同一个 gRPC 连接发起一次 gRPC 请求，服务端会返回它的 <code>hostname</code></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> (  </span><br><span class="line">   once sync.Once  </span><br><span class="line">   c    pb.GreeterClient  </span><br><span class="line">)  </span><br><span class="line">http.HandleFunc(<span class="string">&quot;/grpc_client&quot;</span>, <span class="function"><span class="keyword">func</span><span class="params">(w http.ResponseWriter, r *http.Request)</span></span> &#123;  </span><br><span class="line">   once.Do(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;  </span><br><span class="line">      service := r.URL.Query().Get(<span class="string">&quot;name&quot;</span>)  </span><br><span class="line">      conn, err := grpc.Dial(fmt.Sprintf(<span class="string">&quot;%s:50051&quot;</span>, service), grpc.WithInsecure(), grpc.WithBlock())  </span><br><span class="line">      <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;  </span><br><span class="line">         log.Fatalf(<span class="string">&quot;did not connect: %v&quot;</span>, err)  </span><br><span class="line">      &#125;  </span><br><span class="line">      c = pb.NewGreeterClient(conn)  </span><br><span class="line">   &#125;)  </span><br><span class="line">  </span><br><span class="line">   <span class="comment">// Contact the server and print out its response.  </span></span><br><span class="line">   name := <span class="string">&quot;world&quot;</span>  </span><br><span class="line">   ctx, cancel := context.WithTimeout(context.Background(), time.Second)  </span><br><span class="line">   <span class="keyword">defer</span> cancel()  </span><br><span class="line">   g, err := c.SayHello(ctx, &amp;pb.HelloRequest&#123;Name: name&#125;)  </span><br><span class="line">   <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;  </span><br><span class="line">      log.Fatalf(<span class="string">&quot;could not greet: %v&quot;</span>, err)  </span><br><span class="line">   &#125;  </span><br><span class="line">   fmt.Fprint(w, fmt.Sprintf(<span class="string">&quot;Greeting: %s&quot;</span>, g.GetMessage()))  </span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+
+<p>创建一个 service 用于给 <code>gRPC</code> 提供域名：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span>  </span><br><span class="line"><span class="attr">kind:</span> <span class="string">Service</span>  </span><br><span class="line"><span class="attr">metadata:</span>  </span><br><span class="line">  <span class="attr">name:</span> <span class="string">native-tools-2</span></span><br><span class="line"><span class="attr">spec:</span>  </span><br><span class="line">  <span class="attr">selector:</span>  </span><br><span class="line">    <span class="attr">app:</span> <span class="string">native-tools-2</span></span><br><span class="line">  <span class="attr">ports:</span>  </span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span>  </span><br><span class="line">      <span class="attr">port:</span> <span class="number">8081</span>  </span><br><span class="line">      <span class="attr">targetPort:</span> <span class="number">8081</span>  </span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">grpc</span>  </span><br><span class="line">      <span class="attr">port:</span> <span class="number">50051</span>  </span><br><span class="line">      <span class="attr">targetPort:</span> <span class="number">50051</span></span><br></pre></td></tr></table></figure>
+<p>同时将我们的 gRPC server 部署三个节点，再部署了一个客户端节点：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">❯ k get pod</span><br><span class="line">NAME                                READY   STATUS    RESTARTS</span><br><span class="line">native-tools-2-d6c454689-52wgd      1/1     Running   0              </span><br><span class="line">native-tools-2-d6c454689-67rx4      1/1     Running   0              </span><br><span class="line">native-tools-2-d6c454689-zpwxt      1/1     Running   0              </span><br><span class="line">native-tools-65c5bd87fc-2fsmc       2/2     Running   0             </span><br></pre></td></tr></table></figure>
+
+
+<p>我们进入客户端节点执行多次 grpc 请求：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">k <span class="built_in">exec</span> -it native-tools-65c5bd87fc-2fsmc bash</span><br><span class="line">Greeting: hostname:native-tools-2-d6c454689-zpwxt, <span class="keyword">in</span>:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line">Greeting: hostname:native-tools-2-d6c454689-zpwxt, <span class="keyword">in</span>:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line">Greeting: hostname:native-tools-2-d6c454689-zpwxt, <span class="keyword">in</span>:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line">Greeting: hostname:native-tools-2-d6c454689-zpwxt, <span class="keyword">in</span>:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line">Greeting: hostname:native-tools-2-d6c454689-zpwxt, <span class="keyword">in</span>:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line">Greeting: hostname:native-tools-2-d6c454689-zpwxt, <span class="keyword">in</span>:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line">Greeting: hostname:native-tools-2-d6c454689-zpwxt, <span class="keyword">in</span>:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line">Greeting: hostname:native-tools-2-d6c454689-zpwxt, <span class="keyword">in</span>:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br></pre></td></tr></table></figure>
+<p>会发现每次请求的都是同一个节点 <code>native-tools-2-d6c454689-zpwxt</code>，这也就证明了在 kubernetes 中直接使用 gRPC 负载是不均衡的，一旦连接建立后就只能将请求发往那个节点。</p>
+<h2 id="使用-Istio"><a href="#使用-Istio" class="headerlink" title="使用 Istio"></a>使用 Istio</h2><p>Istio 可以拿来解决这个问题，我们换到一个注入了 Istio 的 namespace 下还是同样的 代码，同样的 service 资源进行测试。</p>
+<blockquote>
+<p>关于开启 namespace 的 Istio 注入会在后续更新，现在感兴趣的可以查看下官方文档：<br><a target="_blank" rel="noopener" href="https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/">https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/</a></p>
+</blockquote>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">Greeting: hostname:native-tools-2-5fbf46cf54-5m7dl, in:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line"></span><br><span class="line">Greeting: hostname:native-tools-2-5fbf46cf54-xprjz, in:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line"></span><br><span class="line">Greeting: hostname:native-tools-2-5fbf46cf54-5m7dl, in:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line"></span><br><span class="line">Greeting: hostname:native-tools-2-5fbf46cf54-5m7dl, in:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line"></span><br><span class="line">Greeting: hostname:native-tools-2-5fbf46cf54-xprjz, in:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line"></span><br><span class="line">Greeting: hostname:native-tools-2-5fbf46cf54-xprjz, in:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line"></span><br><span class="line">Greeting: hostname:native-tools-2-5fbf46cf54-5m7dl, in:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line"></span><br><span class="line">Greeting: hostname:native-tools-2-5fbf46cf54-5m7dl, in:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line"></span><br><span class="line">Greeting: hostname:native-tools-2-5fbf46cf54-nz8h5, in:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br><span class="line"></span><br><span class="line">Greeting: hostname:native-tools-2-5fbf46cf54-nz8h5, in:worldistio-proxy@n:/$ curl http://127.0.0.1:8081/grpc_client?name=native-tools-2</span><br></pre></td></tr></table></figure>
+<p>可以发现同样的请求已经被负载到了多个 server 后端，这样我们就可以不再单独维护一个客户端 SDK 的情况下实现了负载均衡。</p>
+<h2 id="原理-1"><a href="#原理-1" class="headerlink" title="原理"></a>原理</h2><p>其实本质上 Istio 也是客户端负载均衡的一种实现。<br><img src="https://s2.loli.net/2023/10/16/XOU1TGtvm7PeJ8o.png" alt="image.png"><br>以 Istio 的架构图为例：</p>
+<ul>
+<li>每一个 Pod 下会新增一个 <code>Proxy</code> 的 <code>container</code>，所有的流量入口和出口都会经过它。</li>
+<li>它会从控制平面 <code>Istiod</code> 中拿到服务的注册信息，也就是 <code>kubernetes</code> 中的 service。</li>
+<li>发生请求时由 proxy 容器中的 <code>Envoy</code> 进行最终的负载请求。</li>
+</ul>
+<p>可以在使用了 Istio 的 Pod 中查看到具体的容器：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">❯ k get pod native-tools-2-5fbf46cf54-5m7dl -n istio-test-2 -o json | jq <span class="string">&#x27;.spec.containers[].name&#x27;</span></span><br><span class="line"><span class="string">&quot;istio-proxy&quot;</span></span><br><span class="line"><span class="string">&quot;native-tools-2&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>可以发现这里存在一个 <code>istio-proxy</code> 的容器，也就是我们常说的 <code>sidecar</code>，这样我们就可以把原本的 SDK 里的功能全部交给 Istio 去处理。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>当然 Istio 的功能远不止于此，比如：</p>
+<ul>
+<li>统一网关，处理东西、南北向流量。</li>
+<li>灰度发布</li>
+<li>流量控制</li>
+<li>接口粒度的超时配置</li>
+<li>自动重试等</li>
+</ul>
+<p>这次只是一个开胃菜，更多关于 <code>Istio</code> 的内容会在后续更新，比如会从如何在 <code>kubernetes</code> 集群中安装 <code>Istio</code> 讲起，带大家一步步使用好 <code>Istio</code>。</p>
+<p><sub>参考链接：</sub></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://istio.io/latest/docs/setup/getting-started/">https://istio.io/latest/docs/setup/getting-started/</a></li>
+<li><a target="_blank" rel="noopener" href="https://segmentfault.com/a/1190000042295402">https://segmentfault.com/a/1190000042295402</a></li>
+<li><a target="_blank" rel="noopener" href="https://go-zero.dev/docs/tutorials/service/governance/lb">https://go-zero.dev/docs/tutorials/service/governance/lb</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2023/10/16/ob/k8s-grpc-lb/" title="在 kubernetes 环境中实现 gRPC 负载均衡">http://crossoverjie.top/2023/10/16/ob/k8s-grpc-lb/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/gRPC/" rel="tag"><i class="fa fa-tag"></i> gRPC</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2023/10/13/ob/newsletter/Newsletter01-20231013/" rel="prev" title="技术阅读周刊第一期">
+                  <i class="fa fa-chevron-left"></i> 技术阅读周刊第一期
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
