@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="最近我们的 Pulsar 存储有很长一段时间数据一直得不到回收，但消息确实已经是 ACK 了，理论上应该是会被回收的，随着时间流逝不但没回收还一直再涨，最后在没找到原因的情况下就只有一直不停的扩容。  最后磁盘是得到了回收，过程先不表，之后再讨论。  为了防止类似的问题再次发生，我们希望可以监控到磁盘维度，能够列出各个日志文件的大小以及创建时间。 这时就需要对 Pulsar 的存储模型有一定的了">
+<meta property="og:type" content="article">
+<meta property="og:title" content="白话 Pulsar Bookkeeper 的存储模型">
+<meta property="og:url" content="http://crossoverjie.top/2024/01/15/ob/Bookkeeper-storage/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="最近我们的 Pulsar 存储有很长一段时间数据一直得不到回收，但消息确实已经是 ACK 了，理论上应该是会被回收的，随着时间流逝不但没回收还一直再涨，最后在没找到原因的情况下就只有一直不停的扩容。  最后磁盘是得到了回收，过程先不表，之后再讨论。  为了防止类似的问题再次发生，我们希望可以监控到磁盘维度，能够列出各个日志文件的大小以及创建时间。 这时就需要对 Pulsar 的存储模型有一定的了">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/01/15/xU7FZCPjckRMBAD.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/15/EjpuQKJN5MVIW8r.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/15/tMITYocL89ZapVG.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/15/ZOMcNSG53Ttz4eo.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/15/uvPC1Y8kdOJ3m5B.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/15/nJeNDFbu2MIQp5a.png">
+<meta property="article:published_time" content="2024-01-15T11:20:59.000Z">
+<meta property="article:modified_time" content="2024-01-15T15:30:41.385Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Pulsar">
+<meta property="article:tag" content="Bookkeeper">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2024/01/15/xU7FZCPjckRMBAD.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2024/01/15/ob/Bookkeeper-storage/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2024/01/15/ob/Bookkeeper-storage/","path":"2024/01/15/ob/Bookkeeper-storage/","title":"白话 Pulsar Bookkeeper 的存储模型"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>白话 Pulsar Bookkeeper 的存储模型 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">80</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">218</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">176</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AD%98%E5%82%A8%E6%A8%A1%E5%9E%8B"><span class="nav-number">2.</span> <span class="nav-text">存储模型</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">218</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">80</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">176</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2024/01/15/ob/Bookkeeper-storage/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="白话 Pulsar Bookkeeper 的存储模型 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          白话 Pulsar Bookkeeper 的存储模型
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2024-01-15 19:20:59 / Modified: 23:30:41" itemprop="dateCreated datePublished" datetime="2024-01-15T19:20:59+08:00">2024-01-15</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/" itemprop="url" rel="index"><span itemprop="name">OB</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2024/01/15/ob/Bookkeeper-storage/" class="post-meta-item leancloud_visitors" data-flag-title="白话 Pulsar Bookkeeper 的存储模型" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2024/01/15/ob/Bookkeeper-storage/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2024/01/15/ob/Bookkeeper-storage/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://s2.loli.net/2024/01/15/xU7FZCPjckRMBAD.png"></p>
+<p>最近我们的 Pulsar 存储有很长一段时间数据一直得不到回收，但消息确实已经是 ACK 了，理论上应该是会被回收的，随着时间流逝不但没回收还一直再涨，最后在没找到原因的情况下就只有一直不停的扩容。</p>
+<blockquote>
+<p>最后磁盘是得到了回收，过程先不表，之后再讨论。</p>
+</blockquote>
+<p>为了防止类似的问题再次发生，我们希望可以监控到磁盘维度，能够列出各个日志文件的大小以及创建时间。</p>
+<p>这时就需要对 <code>Pulsar</code> 的存储模型有一定的了解，也就有了这篇文章。</p>
+<span id="more"></span>
+
+<p><img src="https://s2.loli.net/2024/01/15/EjpuQKJN5MVIW8r.png" alt="image.png"><br>讲到 Pulsar 的存储模型，本质上就是 Bookkeeper 的存储模型。</p>
+<p>Pulsar 所有的消息读写都是通过 Bookkeeper 实现的。</p>
+<blockquote>
+<p><code>Bookkeeper</code> 是一个可扩展、可容错、低延迟的日志存储数据库，基于 Append Only 模型。（数据只能追加不能修改）</p>
+</blockquote>
+<p><img src="https://s2.loli.net/2024/01/15/tMITYocL89ZapVG.png" alt="image.png"></p>
+<p>这里我利用 Pulsar 和 Bookkeeper 的 Admin API 列出了 Broker 和 BK 中 Ledger 分别占用的磁盘空间。</p>
+<blockquote>
+<p>关于这个如何获取和计算的，后续也准备提交给社区。</p>
+</blockquote>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>但和我们实际 <code>kubernetes</code> 中的磁盘占用量依然对不上，所以就想看看在 BK 中实际的存储日志和 <code>Ledger</code> 到底差在哪里。</p>
+<blockquote>
+<p>知道 Ledger 就可以通过 Ledger 的元数据中找到对应的 topic，从而判断哪些 topic 的数据导致统计不能匹配。</p>
+</blockquote>
+<p>Bookkeeper 有提提供一个Admin API 可以返回当前 BK 所使用了哪些日志文件的接口:<br><a target="_blank" rel="noopener" href="https://bookkeeper.apache.org/docs/admin/http#endpoint-apiv1bookielist_disk_filefile_typetype">https://bookkeeper.apache.org/docs/admin/http#endpoint-apiv1bookielist_disk_filefile_typetype</a></p>
+<p><img src="https://s2.loli.net/2024/01/15/ZOMcNSG53Ttz4eo.png"></p>
+<p>从返回的结果可以看出，落到具体的磁盘上只有一个文件名称，是无法知道具体和哪些 Ledger 进行关联的，也就无法知道具体的 topic 了。</p>
+<p>此时只能大胆假设，应该每个文件和具体的消息 ID 有一个映射关系，也就是索引。<br>所以需要搞清楚这个索引是如何运行的。</p>
+<h1 id="存储模型"><a href="#存储模型" class="headerlink" title="存储模型"></a>存储模型</h1><p><img src="https://s2.loli.net/2024/01/15/uvPC1Y8kdOJ3m5B.png"></p>
+<p>我查阅了一些网上的文章和源码大概梳理了一个存储流程：</p>
+<ol>
+<li>BK 收到写入请求，数据会异步写入到 <code>Journal</code>&#x2F;<code>Entrylog</code></li>
+<li>Journal 直接顺序写入，并且会快速清除已经写入的数据，所以需要的磁盘空间不多（所以从监控中其实可以看到 Journal 的磁盘占有率是很低的）。</li>
+<li>考虑到会随机读消息，EntryLog 在写入前进行排序，保证落盘的数据中同一个 Ledger 的数据尽量挨在一起，充分利用 PageCache.</li>
+<li>最终数据的索引通过 <code>LedgerId+EntryId</code> 生成索引信息存放到 <code>RockDB</code> 中（<code>Pulsar</code> 的场景使用的是 <code>DbLedgerStorage</code> 实现）。</li>
+<li>读取数据时先从获取索引，然后再从磁盘读取数据。</li>
+<li>利用 <code>Journal</code> 和 <code>EntryLog</code> 实现消息的读写分离。</li>
+</ol>
+<p>简单来说 BK 在存储数据的时候会进行双写，<code>Journal</code> 目录用于存放写的数据，对消息顺序没有要求，写完后就可以清除了。</p>
+<p>而 <code>Entry</code> 目录主要用于后续消费消息进行读取使用，大部分场景都是顺序读，毕竟我们消费消息的时候很少会回溯，所以需要充分利用磁盘的 PageCache，将顺序的消息尽量的存储在一起。</p>
+<blockquote>
+<p>同一个日志文件中可能会存放多个 Ledger 的消息，这些数据如果不排序直接写入就会导致乱序，而消费时大概率是顺序的，但具体到磁盘的表现就是随机读了，这样读取效率较低。</p>
+</blockquote>
+<p>所以我们使用 <code>Helm</code> 部署 <code>Bookkeeper</code> 的时候需要分别指定 <code>journal</code> 和 <code>ledgers</code> 的目录</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">volumes:</span>  </span><br><span class="line">  <span class="comment"># use a persistent volume or emptyDir  </span></span><br><span class="line">  <span class="attr">persistence:</span> <span class="literal">true</span>  </span><br><span class="line">  <span class="attr">journal:</span>  </span><br><span class="line">    <span class="attr">name:</span> <span class="string">journal</span>  </span><br><span class="line">    <span class="attr">size:</span> <span class="string">20Gi</span>  </span><br><span class="line">    <span class="attr">local_storage:</span> <span class="literal">false</span>  </span><br><span class="line">    <span class="attr">multiVolumes:</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">journal0</span>  </span><br><span class="line">        <span class="attr">size:</span> <span class="string">10Gi</span>  </span><br><span class="line">        <span class="comment"># storageClassName: existent-storage-class  </span></span><br><span class="line">        <span class="attr">mountPath:</span> <span class="string">/pulsar/data/bookkeeper/journal0</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">journal1</span>  </span><br><span class="line">        <span class="attr">size:</span> <span class="string">10Gi</span>  </span><br><span class="line">        <span class="comment"># storageClassName: existent-storage-class  </span></span><br><span class="line">        <span class="attr">mountPath:</span> <span class="string">/pulsar/data/bookkeeper/journal1</span>  </span><br><span class="line">  <span class="attr">ledgers:</span>  </span><br><span class="line">    <span class="attr">name:</span> <span class="string">ledgers</span>  </span><br><span class="line">    <span class="attr">size:</span> <span class="string">50Gi</span>  </span><br><span class="line">    <span class="attr">local_storage:</span> <span class="literal">false</span>  </span><br><span class="line">    <span class="attr">storageClassName:</span> <span class="string">sc</span></span><br><span class="line">    <span class="comment"># storageClass:  </span></span><br><span class="line">      <span class="comment"># ...    useMultiVolumes: false  </span></span><br><span class="line">    <span class="attr">multiVolumes:</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ledgers0</span>  </span><br><span class="line">        <span class="attr">size:</span> <span class="string">1000Gi</span>  </span><br><span class="line">        <span class="comment"># storageClassName: existent-storage-class  </span></span><br><span class="line">        <span class="attr">mountPath:</span> <span class="string">/pulsar/data/bookkeeper/ledgers0</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ledgers1</span>  </span><br><span class="line">        <span class="attr">size:</span> <span class="string">1000Gi</span>  </span><br><span class="line">        <span class="comment"># storageClassName: existent-storage-class  </span></span><br><span class="line">        <span class="attr">mountPath:</span> <span class="string">/pulsar/data/bookkeeper/ledgers1</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<p><img src="https://s2.loli.net/2024/01/15/nJeNDFbu2MIQp5a.png"><br>每次在写入和读取数据的时候都需要通过消息 ID 也就是 ledgerId 和 entryId 来获取索引信息。</p>
+<blockquote>
+<p>也印证了之前索引的猜测。</p>
+</blockquote>
+<p>所以借助于 BK 读写分离的特性，我们还可以单独优化存储。</p>
+<p>比如写入 <code>Journal</code> 的磁盘因为是顺序写入，所以即便是普通的 <code>HDD</code> 硬盘速度也很快。</p>
+<p>大部分场景下都是读大于写，所以我们可以单独为 <code>Ledger</code> 分配高性能 SSD 磁盘，按需使用。</p>
+<blockquote>
+<p>因为在最底层的日志文件中无法直接通过 ledgerId 得知占用磁盘的大小，所以我们实际的磁盘占用率对不上的问题依然没有得到解决，这个问题我还会持续跟进，有新的进展再继续同步。</p>
+</blockquote>
+<p>#Blog #Pulsar </p>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2024/01/15/ob/Bookkeeper-storage/" title="白话 Pulsar Bookkeeper 的存储模型">http://crossoverjie.top/2024/01/15/ob/Bookkeeper-storage/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Pulsar/" rel="tag"><i class="fa fa-tag"></i> Pulsar</a>
+              <a href="/tags/Bookkeeper/" rel="tag"><i class="fa fa-tag"></i> Bookkeeper</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/01/12/ob/newsletter/Newsletter12-202401012/" rel="prev" title="技术阅读周刊第十四期：Golang 作者 Rob Pike 在 GopherConAU 上的分享">
+                  <i class="fa fa-chevron-left"></i> 技术阅读周刊第十四期：Golang 作者 Rob Pike 在 GopherConAU 上的分享
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
