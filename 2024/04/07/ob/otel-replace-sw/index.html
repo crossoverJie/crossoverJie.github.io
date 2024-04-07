@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="背景最近公司将我们之前使用的链路工具切换为了 OpenTelemetry.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="实战：如何优雅的从 Skywalking 切换到 OpenTelemetry">
+<meta property="og:url" content="http://crossoverjie.top/2024/04/07/ob/otel-replace-sw/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景最近公司将我们之前使用的链路工具切换为了 OpenTelemetry.">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/03/04/8YFIh7suTirZacj.png">
+<meta property="og:image" content="https://s2.loli.net/2024/03/03/9V1aUnpOd8EAG2Y.png">
+<meta property="og:image" content="https://s2.loli.net/2024/03/03/xzHPV9mgCJkZ4cY.png">
+<meta property="og:image" content="https://s2.loli.net/2024/03/03/s7fryhQSPJgcuvj.png">
+<meta property="og:image" content="https://s2.loli.net/2024/03/03/lLIqQtmD2AdfGyv.png">
+<meta property="article:published_time" content="2024-04-07T09:16:21.000Z">
+<meta property="article:modified_time" content="2024-04-07T15:27:53.792Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="k8s">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2024/03/04/8YFIh7suTirZacj.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2024/04/07/ob/otel-replace-sw/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2024/04/07/ob/otel-replace-sw/","path":"2024/04/07/ob/otel-replace-sw/","title":"实战：如何优雅的从 Skywalking 切换到 OpenTelemetry"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>实战：如何优雅的从 Skywalking 切换到 OpenTelemetry | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">80</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">226</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">178</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%9A%BE%E7%82%B9"><span class="nav-number">1.1.</span> <span class="nav-text">难点</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%88%87%E6%8D%A2%E6%96%B9%E6%A1%88"><span class="nav-number">2.</span> <span class="nav-text">切换方案</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%B7%E4%BD%93%E4%BB%A3%E7%A0%81"><span class="nav-number">3.</span> <span class="nav-text">具体代码</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%81%8D%E5%8E%86-deployment-%E5%BE%97%E5%88%B0%E9%9C%80%E8%A6%81%E6%9B%BF%E6%8D%A2%E7%9A%84%E5%AE%B9%E5%99%A8%E9%95%9C%E5%83%8F"><span class="nav-number">3.1.</span> <span class="nav-text">遍历 deployment 得到需要替换的容器镜像</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Upgrade-%E6%A0%B8%E5%BF%83%E5%87%BD%E6%95%B0"><span class="nav-number">3.2.</span> <span class="nav-text">Upgrade 核心函数</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9E%84%E5%BB%BA%E6%96%B0%E9%95%9C%E5%83%8F"><span class="nav-number">3.3.</span> <span class="nav-text">构建新镜像</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9A%E6%97%B6%E6%A3%80%E6%B5%8B%E6%9B%BF%E6%8D%A2%E6%98%AF%E5%90%A6%E6%88%90%E5%8A%9F"><span class="nav-number">3.4.</span> <span class="nav-text">定时检测替换是否成功</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%86%E6%89%B9%E5%A4%84%E7%90%86-deployment"><span class="nav-number">3.5.</span> <span class="nav-text">分批处理 deployment</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">226</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">80</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">178</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2024/04/07/ob/otel-replace-sw/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="实战：如何优雅的从 Skywalking 切换到 OpenTelemetry | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          实战：如何优雅的从 Skywalking 切换到 OpenTelemetry
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2024-04-07 17:16:21 / Modified: 23:27:53" itemprop="dateCreated datePublished" datetime="2024-04-07T17:16:21+08:00">2024-04-07</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/" itemprop="url" rel="index"><span itemprop="name">OB</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2024/04/07/ob/otel-replace-sw/" class="post-meta-item leancloud_visitors" data-flag-title="实战：如何优雅的从 Skywalking 切换到 OpenTelemetry" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2024/04/07/ob/otel-replace-sw/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2024/04/07/ob/otel-replace-sw/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://s2.loli.net/2024/03/04/8YFIh7suTirZacj.png"></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>最近公司将我们之前使用的链路工具切换为了 <code>OpenTelemetry</code>.</p>
+<p><img src="https://s2.loli.net/2024/03/03/9V1aUnpOd8EAG2Y.png"></p>
+<span id="more"></span>
+<p>我们的技术栈是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">        OTLP                               </span><br><span class="line">Client──────────►Collect────────►StartRocks</span><br><span class="line">(Agent)                               ▲    </span><br><span class="line">                                      │    </span><br><span class="line">                                      │    </span><br><span class="line">                                   Jaeger                                       </span><br></pre></td></tr></table></figure>
+
+<p>其中客户端使用 OpenTelemetry 提供的 Java Agent 进行埋点收集数据，再由 Agent 通过 OTLP(OpenTelemetry Protocol) 协议将数据发往 Collector，在 <code>Collector</code> 中我们可以自行任意处理数据，并决定将这些数据如何存储（这点在以往的 SkyWalking 体系中是很难自定义的）</p>
+<p>这里我们将数据写入 StartRocks 中，供之后的 UI 层进行查看。</p>
+<blockquote>
+<p><code>OpenTelemetry</code> 是可观测系统的新标准，基于它可以兼容以前使用的 Prometheus、 victoriametrics、skywalking 等系统，同时还可以灵活扩展，不用与任何但一生态或技术栈进行绑定。<br>更多关于 OTel 的内容会在今后介绍。</p>
+</blockquote>
+<h2 id="难点"><a href="#难点" class="headerlink" title="难点"></a>难点</h2><p>其中有一个关键问题就是：如何在线上进行<strong>无缝切换</strong>。</p>
+<p>虽然我们内部的发布系统已经支持重新发布后就会切换到新的链路，也可以让业务自行发布然后逐步的切换到新的系统，这样也是最保险的方式。</p>
+<p>但这样会有几个问题：</p>
+<ul>
+<li>当存在调用依赖的系统没有全部切换为新链路时，再查询的时候就会出现断层，整个链路无法全部串联起来。</li>
+<li>业务团队没有足够的动力去推动发布，可能切换的周期较长。</li>
+</ul>
+<p>所以最好的方式还是由我们在后台统一发布，对外没有任何感知就可以一键全部切换为 OpenTelemetry。</p>
+<p>仔细一看貌似也没什么难的，无非就是模拟用户点击发布按钮而已。</p>
+<p>但这事由我们自动来做就不一样了，用户点击发布的时候会选择他们认为可以发布的分支进行发布，我们不能自作主张的比如选择 main 分支，有可能只是合并了但还不具备发布条件。</p>
+<p>所以保险的方式还是得用当前项目上一次发布时所使用的 git hash 值重新打包发布。</p>
+<p>但这也有几个问题：</p>
+<ul>
+<li>重复打包发布太慢了，线上几十上百个项目，每打包发布一次就得几分钟，虽然可以并发，但考虑到 kubernetes 的压力也不能调的太高。</li>
+<li>保不准业务镜像中有单独加入一些环境变量，这样打包可能会漏。</li>
+</ul>
+<h1 id="切换方案"><a href="#切换方案" class="headerlink" title="切换方案"></a>切换方案</h1><p>所以思来想去最保险的方法还是将业务镜像拉取下来，然后手动删除镜像中的 skywalking 包以及 JVM 参数，全部替换为 OpenTelemetry 的包和 JVM 参数。</p>
+<p>整体的方案如下：</p>
+<ol>
+<li>遍历 namespace 的 <code>pod ＞0</code> 的 deployment</li>
+<li>遍历 deployment 中的所有 container，获得业务镜像<ol>
+<li>跳过 istio 和日志采集 container，获取到业务容器</li>
+<li>判断该容器是否需要替换，其实就是判断环境变量中是否有 skywalking ，如果有就需要替换。</li>
+<li>获取业务容器的镜像</li>
+</ol>
+</li>
+<li>基于该 Image 重新构建一个 OpenTelemetry 的镜像<br>   3.1 新的镜像包含新的启动脚本.<br>   3.1.1 新的启动脚本中会删除原有的 skywalking agent<br>   3.2 新镜像会包含 OpenTelemetry 的 jar 包以及我们自定义的 OTel 扩展包<br>   3.3 替换启动命令为新的启动脚本</li>
+<li>修改 deployment 中的 JVM 启动参数</li>
+<li>修改 deployment 的镜像后滚动更新</li>
+<li>开启一个 goroutine 定时检测更新之后是否启动成功<ol>
+<li>如果长时间 (比如五分钟) 都没有启动成功，则执行回滚流程</li>
+</ol>
+</li>
+</ol>
+<h1 id="具体代码"><a href="#具体代码" class="headerlink" title="具体代码"></a>具体代码</h1><p>因为需要涉及到操作 kubernetes，所以整体就使用 Golang 实现了。</p>
+<h2 id="遍历-deployment-得到需要替换的容器镜像"><a href="#遍历-deployment-得到需要替换的容器镜像" class="headerlink" title="遍历 deployment 得到需要替换的容器镜像"></a>遍历 deployment 得到需要替换的容器镜像</h2><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">ProcessDeployment</span><span class="params">(ctx context.Context, finish []<span class="type">string</span>, deployment v1.Deployment, clientSet kubernetes.Interface)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">	deploymentName := deployment.Name</span><br><span class="line">	<span class="keyword">for</span> _, s := <span class="keyword">range</span> finish &#123;</span><br><span class="line">		<span class="keyword">if</span> s == deploymentName &#123;</span><br><span class="line">			klog.Infof(<span class="string">&quot;Skip finish deployment:%s&quot;</span>, deploymentName)</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// Write finish deployment name to a file</span></span><br><span class="line">	<span class="keyword">defer</span> writeDeploymentName2File(deploymentName, fmt.Sprintf(<span class="string">&quot;finish-%s.log&quot;</span>, deployment.Namespace))</span><br><span class="line"></span><br><span class="line">	appName := deployment.GetObjectMeta().GetLabels()[<span class="string">&quot;appName&quot;</span>]</span><br><span class="line">	klog.Infof(<span class="string">&quot;Begin to process deployment:%s, appName:%s&quot;</span>, deploymentName, appName)</span><br><span class="line"></span><br><span class="line">	upgrade, err := checkContainIstio(ctx, deployment, clientSet)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> upgrade == <span class="literal">false</span> &#123;</span><br><span class="line">		klog.Infof(<span class="string">&quot;Don&#x27;t have istio, No need to upgrade deployment:%s appName:%s&quot;</span>, deploymentName, appName)</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> i, container := <span class="keyword">range</span> deployment.Spec.Template.Spec.Containers &#123;</span><br><span class="line">		<span class="keyword">if</span> strings.HasPrefix(deploymentName, container.Name) &#123;</span><br><span class="line"></span><br><span class="line">			<span class="comment">// Check if container has sw jvm</span></span><br><span class="line">			<span class="keyword">for</span> _, envVar := <span class="keyword">range</span> container.Env &#123;</span><br><span class="line">				<span class="keyword">if</span> envVar.Name == <span class="string">&quot;CATALINA_OPTS&quot;</span> &#123;</span><br><span class="line">					<span class="keyword">if</span> !strings.Contains(envVar.Value, <span class="string">&quot;skywalking&quot;</span>) &#123;</span><br><span class="line">						klog.Infof(<span class="string">&quot;Skip upgrade don&#x27;t have sw jvm deployment:%s container:%s&quot;</span>, deploymentName, container.Name)</span><br><span class="line">						<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">					&#125;</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">			upgrade(container)</span><br><span class="line"></span><br><span class="line">			<span class="comment">// Check newDeployment status</span></span><br><span class="line">			<span class="keyword">go</span> checkNewDeploymentStatus(ctx, clientSet, newDeployment)</span><br><span class="line"></span><br><span class="line">			<span class="comment">// delete from image</span></span><br><span class="line">			deleteImage(container.Image)</span><br><span class="line"></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个函数需要传入一个 deployment ，同时还有一个已经完成了的列表进来。</p>
+<blockquote>
+<p>已完成列表用于多次运行的时候可以快速跳过已经执行的 deployment。</p>
+</blockquote>
+<p><code>checkContainIstio()</code> 函数很简单，判断是否包含了 Istio 容器，如果没有包含说明不是后端应用（可能是前端、大数据之类的任务），就可以直接跳过了。</p>
+<hr>
+<p><img src="https://s2.loli.net/2024/03/03/xzHPV9mgCJkZ4cY.png"><br>而判断是否需要替换的前提这事判断环境变量 <code>CATALINA_OPTS</code> 中是否包含了 skywalking 的内容，如果包含则说明需要进行替换。</p>
+<h2 id="Upgrade-核心函数"><a href="#Upgrade-核心函数" class="headerlink" title="Upgrade 核心函数"></a>Upgrade 核心函数</h2><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">upgrade</span><span class="params">(container Container)</span></span>&#123;</span><br><span class="line">	klog.Infof(<span class="string">&quot;Begin to upgrade deployment:%s container:%s&quot;</span>, deploymentName, container.Name)</span><br><span class="line">	newImageName := fmt.Sprintf(<span class="string">&quot;%s-otel-%s&quot;</span>, container.Image, generateRandomString(<span class="number">4</span>))</span><br><span class="line">	err := BuildNewOtelImage(container.Image, newImageName)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Update deployment jvm ENV</span></span><br><span class="line">	<span class="keyword">for</span> e, envVar := <span class="keyword">range</span> container.Env &#123;</span><br><span class="line">		<span class="keyword">if</span> envVar.Name == <span class="string">&quot;CATALINA_OPTS&quot;</span> &#123;</span><br><span class="line">			otelJVM := replaceSWAgent2OTel(envVar.Value, appName)</span><br><span class="line">			deployment.Spec.Template.Spec.Containers[i].Env[e].Value = otelJVM</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// Update deployment image</span></span><br><span class="line">	deployment.Spec.Template.Spec.Containers[i].Image = newImageName</span><br><span class="line"></span><br><span class="line">	newDeployment, err := clientSet.AppsV1().Deployments(deployment.Namespace).Update(ctx, &amp;deployment, metav1.UpdateOptions&#123;&#125;)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	klog.Infof(<span class="string">&quot;Finish upgrade deployment:%s container:%s&quot;</span>, deploymentName, container.Name)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里一共分为以下几部：</p>
+<ul>
+<li>基于老镜像构建新镜像</li>
+<li>更新原有的 <code>CATALINA_OPTS</code> 环境变量，也就是替换 skywalking 的参数</li>
+<li>更新 deployment 镜像，触发滚动更新</li>
+</ul>
+<h2 id="构建新镜像"><a href="#构建新镜像" class="headerlink" title="构建新镜像"></a>构建新镜像</h2><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">	dockerfile = fmt.Sprintf(<span class="string">`FROM %s</span></span><br><span class="line"><span class="string">COPY %s /home/admin/%s</span></span><br><span class="line"><span class="string">COPY otel.tar.gz /home/admin/otel.tar.gz</span></span><br><span class="line"><span class="string">RUN tar -zxvf /home/admin/otel.tar.gz -C /home/admin</span></span><br><span class="line"><span class="string">RUN rm -rf /home/admin/skywalking-agent</span></span><br><span class="line"><span class="string">ENTRYPOINT [&quot;/bin/sh&quot;, &quot;/home/admin/start.sh&quot;]</span></span><br><span class="line"><span class="string">`</span>, fromImage, script, script)</span><br><span class="line"></span><br><span class="line">	idx := strings.LastIndex(newImageName, <span class="string">&quot;/&quot;</span>) + <span class="number">1</span></span><br><span class="line">	dockerFileName := newImageName[idx:]</span><br><span class="line">	create, err := os.Create(fmt.Sprintf(<span class="string">&quot;Dockerfile-%s&quot;</span>, dockerFileName))</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">		create.Close()</span><br><span class="line">		os.Remove(create.Name())</span><br><span class="line">	&#125;()</span><br><span class="line">	_, err = create.WriteString(dockerfile)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	cmd := exec.Command(<span class="string">&quot;docker&quot;</span>, <span class="string">&quot;build&quot;</span>, <span class="string">&quot;.&quot;</span>, <span class="string">&quot;-f&quot;</span>, create.Name(), <span class="string">&quot;-t&quot;</span>, newImageName)</span><br><span class="line">	cmd.Stdin = strings.NewReader(dockerfile)</span><br><span class="line">	<span class="keyword">if</span> err := cmd.Run(); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+
+<p>其实这里的重点就是构建这个新镜像，从这个 dockerfile 中也能看出具体的逻辑，也就是上文提到的删除原有的 skywalking 资源同时将新的 OpenTelemetry 资源打包进去。</p>
+<p>最后再将这个镜像上传到私服。</p>
+<p><img src="https://s2.loli.net/2024/03/03/s7fryhQSPJgcuvj.png"><br>其中的替换 JVM 参数也比较简单，直接删除 skywalking 的内容，然后再追加上 OpenTelemetry 需要的参数即可。</p>
+<h2 id="定时检测替换是否成功"><a href="#定时检测替换是否成功" class="headerlink" title="定时检测替换是否成功"></a>定时检测替换是否成功</h2><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">checkNewDeploymentStatus</span><span class="params">(ctx context.Context, clientSet kubernetes.Interface, newDeployment *v1.Deployment)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">	ready := <span class="literal">true</span></span><br><span class="line">	tick := time.Tick(<span class="number">10</span> * time.Second)</span><br><span class="line">	<span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">30</span>; i++ &#123;</span><br><span class="line">		&lt;-tick</span><br><span class="line">		originPodList, err := clientSet.CoreV1().Pods(newDeployment.Namespace).List(ctx, metav1.ListOptions&#123;</span><br><span class="line">			LabelSelector: metav1.FormatLabelSelector(&amp;metav1.LabelSelector&#123;</span><br><span class="line">				MatchLabels: newDeployment.Spec.Selector.MatchLabels,</span><br><span class="line">			&#125;),</span><br><span class="line">		&#125;)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> err</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// Check if there are any Pods</span></span><br><span class="line">		<span class="keyword">if</span> <span class="built_in">len</span>(originPodList.Items) == <span class="number">0</span> &#123;</span><br><span class="line">			klog.Infof(<span class="string">&quot;No Pod in deployment:%s, Skip&quot;</span>, newDeployment.Name)</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">for</span> _, item := <span class="keyword">range</span> originPodList.Items &#123;</span><br><span class="line">			<span class="comment">// Check Pod running</span></span><br><span class="line">			<span class="keyword">for</span> _, status := <span class="keyword">range</span> item.Status.ContainerStatuses &#123;</span><br><span class="line">				<span class="keyword">if</span> status.RestartCount &gt; <span class="number">0</span> &#123;</span><br><span class="line">					ready = <span class="literal">false</span></span><br><span class="line">					<span class="keyword">break</span></span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">		klog.Infof(<span class="string">&quot;Check deployment:%s namespace:%s status:%t&quot;</span>, newDeployment.Name, newDeployment.Namespace, ready)</span><br><span class="line">		<span class="keyword">if</span> ready == <span class="literal">false</span> &#123;</span><br><span class="line">			<span class="keyword">break</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> ready == <span class="literal">false</span> &#123;</span><br><span class="line">		<span class="comment">// rollback</span></span><br><span class="line">		klog.Infof(<span class="string">&quot;=======Rollback deployment:%s namespace:%s&quot;</span>, newDeployment.Name, newDeployment.Namespace)</span><br><span class="line">		writeDeploymentName2File(newDeployment.Name, fmt.Sprintf(<span class="string">&quot;rollback-%s.log&quot;</span>, newDeployment.Namespace))</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里会启动一个 10s 执行一次的定时任务，每次都会检测是否有容器发生了重启（正常情况下是不会出现重启的）</p>
+<p>如果检测了 30 次都没有重启的容器，那就说明本次替换成功了，不然就记录一个日志文件，然后人工处理。</p>
+<blockquote>
+<p>这种通常是原有的镜像与 OpenTelemetry 不兼容，比如里面写死了一些 skywalking 的 API，导致启动失败。</p>
+</blockquote>
+<p>所以替换任务跑完之后我还会检测这个 <code>rollback-$namespace</code> 的日志文件，人工处理这些失败的应用。</p>
+<h2 id="分批处理-deployment"><a href="#分批处理-deployment" class="headerlink" title="分批处理 deployment"></a>分批处理 deployment</h2><p>最后讲讲如何单个调用刚才的 <code>ProcessDeployment()</code> 函数。</p>
+<p>考虑到不能对 kubernetes 产生影响，所以我们需要限制并发处理 deployment 的数量（我这里的限制是 10 个）。</p>
+<p>所以就得分批进行替换，每次替换 10 个，而且其中有一个执行失败就得暂停后续任务，由人工检测失败原因再决定是否继续处理。</p>
+<blockquote>
+<p>毕竟处理的是线上应用，需要小心谨慎。</p>
+</blockquote>
+<p>所以触发的代码如下：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">ProcessDeploymentList</span><span class="params">(ctx context.Context, data []v1.Deployment, clientSet kubernetes.Interface)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">	file, err := os.ReadFile(fmt.Sprintf(<span class="string">&quot;finish-%s.log&quot;</span>, data[<span class="number">0</span>].Namespace))</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	split := strings.Split(<span class="type">string</span>(file), <span class="string">&quot;\n&quot;</span>)</span><br><span class="line"></span><br><span class="line">	batchSize := <span class="number">10</span></span><br><span class="line">	start := <span class="number">0</span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> start &lt; <span class="built_in">len</span>(data) &#123;</span><br><span class="line"></span><br><span class="line">		end := start + batchSize</span><br><span class="line">		<span class="keyword">if</span> end &gt; <span class="built_in">len</span>(data) &#123;</span><br><span class="line">			end = <span class="built_in">len</span>(data)</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		batch := data[start:end]</span><br><span class="line"></span><br><span class="line">		<span class="comment">//等待goroutine结束</span></span><br><span class="line">		<span class="keyword">var</span> wg sync.WaitGroup</span><br><span class="line">		klog.Infof(<span class="string">&quot;Start process batch size %d&quot;</span>, <span class="built_in">len</span>(batch))</span><br><span class="line"></span><br><span class="line">		errs := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="type">error</span>, <span class="built_in">len</span>(batch))</span><br><span class="line"></span><br><span class="line">		wg.Add(<span class="built_in">len</span>(batch))</span><br><span class="line">		<span class="keyword">for</span> _, item := <span class="keyword">range</span> batch &#123;</span><br><span class="line">			d := item</span><br><span class="line">			<span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">				<span class="keyword">defer</span> wg.Done()</span><br><span class="line">				<span class="keyword">if</span> err := ProcessDeployment(ctx, split, d, clientSet); err != <span class="literal">nil</span> &#123;</span><br><span class="line">					klog.Errorf(<span class="string">&quot;!!!Process deployment name:%s error: %v&quot;</span>, d.Name, err)</span><br><span class="line">					errs &lt;- err</span><br><span class="line">					<span class="keyword">return</span></span><br><span class="line">				&#125;</span><br><span class="line">			&#125;()</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">			wg.Wait()</span><br><span class="line">			<span class="built_in">close</span>(errs)</span><br><span class="line">		&#125;()</span><br><span class="line"></span><br><span class="line">		<span class="comment">//任何一个失败就返回</span></span><br><span class="line">		<span class="keyword">for</span> err := <span class="keyword">range</span> errs &#123;</span><br><span class="line">			<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">				<span class="keyword">return</span> err</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		start = end</span><br><span class="line">		klog.Infof(<span class="string">&quot;Deal next batch&quot;</span>)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用 <code>WaitGroup</code> 来控制一组任务，使用一个 chan 来传递异常；这类分批处理的代码在一些批处理框架中还蛮常见的。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>最后只需要查询某个 namespace 下的所有 deployment 列表传入这个批处理函数即可。</p>
+<p>不过整个过程中还是有几个点需要注意：</p>
+<ul>
+<li>因为需要替换镜像的前提是要把现有的镜像拉取到本地，所以跑这个任务的客户端需要有充足的磁盘，同时和镜像服务器的网络条件较好。</li>
+<li>不然执行的过程会比较慢，同时磁盘占用满了也会影响任务。</li>
+</ul>
+<p>其实这个功能依然有提升空间，考虑到后续会升级 OpenTelemetry  agent 的版本，甚至也需要增减一些 JVM 参数。</p>
+<p>所以最后有一个统一的工具，可以直接升级 Agent，而不是每次我都需要修改这里的代码。</p>
+<p><img src="https://s2.loli.net/2024/03/03/lLIqQtmD2AdfGyv.png"></p>
+<p>后来在网上看到了得物的相关分享，他们可以远程加载配置来解决这个问题。</p>
+<p>这也是一种解决方案，直到我们看到了 OpenTelemetry 社区提供了 <a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-operator/#opentelemetry-auto-instrumentation-injection">Operator</a>，其中也包含了注入 agent 的功能。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">opentelemetry.io/v1alpha1</span>  </span><br><span class="line"><span class="attr">kind:</span> <span class="string">Instrumentation</span>  </span><br><span class="line"><span class="attr">metadata:</span>  </span><br><span class="line">  <span class="attr">name:</span> <span class="string">my-instrumentation</span>  </span><br><span class="line"><span class="attr">spec:</span>  </span><br><span class="line">  <span class="attr">exporter:</span>  </span><br><span class="line">    <span class="attr">endpoint:</span> <span class="string">http://otel-collector:4317</span>  </span><br><span class="line">  <span class="attr">propagators:</span>  </span><br><span class="line">    <span class="bullet">-</span> <span class="string">tracecontext</span>  </span><br><span class="line">    <span class="bullet">-</span> <span class="string">baggage</span>  </span><br><span class="line">    <span class="bullet">-</span> <span class="string">b3</span>  </span><br><span class="line">  <span class="attr">sampler:</span>  </span><br><span class="line">    <span class="attr">type:</span> <span class="string">parentbased_traceidratio</span>  </span><br><span class="line">    <span class="attr">argument:</span> <span class="string">&quot;0.25&quot;</span>  </span><br><span class="line">  <span class="attr">java:</span>  </span><br><span class="line">    <span class="attr">image:</span> <span class="string">private/autoinstrumentation-java:1.32.0-1</span></span><br></pre></td></tr></table></figure>
+
+<p>我们可以使用他提供的 CRD 来配置我们 agent，只要维护好自己的镜像就好了。</p>
+<p>使用起来也很简单，只要安装好了 OpenTelemetry-operator ，然后再需要注入 Java Agent 的 Pod 中使用注解：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">instrumentation.opentelemetry.io/inject-java:</span> <span class="string">&quot;true&quot;</span></span><br></pre></td></tr></table></figure>
+<p> operator 就会自动从刚才我们配置的镜像中读取 agent，然后复制到我们的业务容器。</p>
+<p>再配置上环境变量 <code>$JAVA_TOOL_OPTIONS=/otel/javaagent.java</code>, 这是一个 Java 内置的环境变量，应用启动的时候会自动识别，这样就可以自动注入 agent 了。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">envJavaToolsOptions   = <span class="string">&quot;JAVA_TOOL_OPTIONS&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// set env value</span></span><br><span class="line">idx := getIndexOfEnv(container.Env, envJavaToolsOptions)  </span><br><span class="line"><span class="keyword">if</span> idx == <span class="number">-1</span> &#123;  </span><br><span class="line">    container.Env = <span class="built_in">append</span>(container.Env, corev1.EnvVar&#123;  </span><br><span class="line">       Name:  envJavaToolsOptions,  </span><br><span class="line">       Value: javaJVMArgument,  </span><br><span class="line">    &#125;)&#125; <span class="keyword">else</span> &#123;  </span><br><span class="line">    container.Env[idx].Value = container.Env[idx].Value + javaJVMArgument  </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// copy javaagent.jar</span></span><br><span class="line">pod.Spec.InitContainers = <span class="built_in">append</span>(pod.Spec.InitContainers, corev1.Container&#123;  </span><br><span class="line">    Name:      javaInitContainerName,  </span><br><span class="line">    Image:     javaSpec.Image,  </span><br><span class="line">    Command:   []<span class="type">string</span>&#123;<span class="string">&quot;cp&quot;</span>, <span class="string">&quot;/javaagent.jar&quot;</span>, javaInstrMountPath + <span class="string">&quot;/javaagent.jar&quot;</span>&#125;,  </span><br><span class="line">    Resources: javaSpec.Resources,  </span><br><span class="line">    VolumeMounts: []corev1.VolumeMount&#123;&#123;  </span><br><span class="line">       Name:      javaVolumeName,  </span><br><span class="line">       MountPath: javaInstrMountPath,  </span><br><span class="line">    &#125;&#125;,&#125;)</span><br></pre></td></tr></table></figure>
+
+<p>大致的运行原理是当有 Pod 的事件发生了变化（重启、重新部署等），operator 就会检测到变化，此时会判断是否开启了刚才的注解：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">instrumentation.opentelemetry.io/inject-java:</span> <span class="string">&quot;true&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>接着会写入环境变量 <code>JAVA_TOOL_OPTIONS</code>，同时将 jar 包从 InitContainers 中复制到业务容器中。</p>
+<blockquote>
+<p>这里使用到了 kubernetes 的初始化容器，该容器是用于做一些准备工作的，比如依赖安装、配置检测或者是等待其他一些组件启动成功后再启动业务容器。</p>
+</blockquote>
+<p>目前这个 operator 还处于使用阶段，同时部分功能还不满足（比如支持自定义扩展），今后有时间也可以分析下它的运行原理。</p>
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://xie.infoq.cn/article/e6def1e245e9d67735bd00dd5">https://xie.infoq.cn/article/e6def1e245e9d67735bd00dd5</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-operator/#opentelemetry-auto-instrumentation-injection">https://github.com/open-telemetry/opentelemetry-operator/#opentelemetry-auto-instrumentation-injection</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2024/04/07/ob/otel-replace-sw/" title="实战：如何优雅的从 Skywalking 切换到 OpenTelemetry">http://crossoverjie.top/2024/04/07/ob/otel-replace-sw/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/k8s/" rel="tag"><i class="fa fa-tag"></i> k8s</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/03/27/ob/k8s-pulsar-scale/" rel="prev" title="在 kubernetes 环境下如何优雅扩缩容 Pulsar">
+                  <i class="fa fa-chevron-left"></i> 在 kubernetes 环境下如何优雅扩缩容 Pulsar
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
