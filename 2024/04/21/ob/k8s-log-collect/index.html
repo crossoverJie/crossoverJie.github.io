@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="当我们没有使用云原生方案部署应用时采用的日志方案往往是 ELK 技术栈。 这套技术方案比较成熟，稳定性也很高，所以几乎成为了当时的标配。 可是随着我们使用 kubernetes 步入云原生的时代后， kubernetes 把以往的操作系统上的许多底层都屏蔽，再由他提供了一些标准接口。 同时在 kubernetes 中的日志来源也比传统虚拟机多，比如可能有容器、kubernetes 自身的事件、日志">
+<meta property="og:type" content="article">
+<meta property="og:title" content="在 kubernetes 环境下如何采集日志">
+<meta property="og:url" content="http://crossoverjie.top/2024/04/21/ob/k8s-log-collect/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="当我们没有使用云原生方案部署应用时采用的日志方案往往是 ELK 技术栈。 这套技术方案比较成熟，稳定性也很高，所以几乎成为了当时的标配。 可是随着我们使用 kubernetes 步入云原生的时代后， kubernetes 把以往的操作系统上的许多底层都屏蔽，再由他提供了一些标准接口。 同时在 kubernetes 中的日志来源也比传统虚拟机多，比如可能有容器、kubernetes 自身的事件、日志">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/03/16/5pNYcOuxgXzsG1F.png">
+<meta property="og:image" content="https://s2.loli.net/2024/03/18/EWB1PFJku6x8On3.png">
+<meta property="og:image" content="https://s2.loli.net/2024/03/16/iUXB3YQdEAgJmpT.png">
+<meta property="og:image" content="https://s2.loli.net/2024/03/16/48NxKOuQmB5oer1.png">
+<meta property="og:image" content="https://s2.loli.net/2024/03/16/Xo23G568BevhWKc.png">
+<meta property="og:image" content="https://s2.loli.net/2024/03/16/V1mf7MBpodq5eRU.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/02/H7pjinzQ5EWR2tF.png">
+<meta property="og:image" content="https://s2.loli.net/2024/03/18/ogBTPu47CifOrnp.png">
+<meta property="og:image" content="https://s2.loli.net/2024/03/18/VdvhIbzRWxlc79Q.png">
+<meta property="article:published_time" content="2024-04-21T05:07:07.000Z">
+<meta property="article:modified_time" content="2024-04-21T11:40:56.213Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="日志">
+<meta property="article:tag" content="kubernetes">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2024/03/16/5pNYcOuxgXzsG1F.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2024/04/21/ob/k8s-log-collect/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2024/04/21/ob/k8s-log-collect/","path":"2024/04/21/ob/k8s-log-collect/","title":"在 kubernetes 环境下如何采集日志"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>在 kubernetes 环境下如何采集日志 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">80</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">229</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">180</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%8A%82%E7%82%B9%E9%87%87%E9%9B%86"><span class="nav-number">1.</span> <span class="nav-text">节点采集</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Sidecar-%E4%BB%A3%E7%90%86%E6%A8%A1%E5%BC%8F"><span class="nav-number">2.</span> <span class="nav-text">Sidecar 代理模式</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%9B%B4%E6%8E%A5%E5%86%99%E5%85%A5"><span class="nav-number">3.</span> <span class="nav-text">直接写入</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%97%A5%E5%BF%97%E5%AE%89%E5%85%A8"><span class="nav-number">4.</span> <span class="nav-text">日志安全</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#OpenTelemetry"><span class="nav-number">5.</span> <span class="nav-text">OpenTelemetry</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">229</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">80</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">180</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2024/04/21/ob/k8s-log-collect/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="在 kubernetes 环境下如何采集日志 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          在 kubernetes 环境下如何采集日志
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2024-04-21 13:07:07 / Modified: 19:40:56" itemprop="dateCreated datePublished" datetime="2024-04-21T13:07:07+08:00">2024-04-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/" itemprop="url" rel="index"><span itemprop="name">OB</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2024/04/21/ob/k8s-log-collect/" class="post-meta-item leancloud_visitors" data-flag-title="在 kubernetes 环境下如何采集日志" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2024/04/21/ob/k8s-log-collect/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2024/04/21/ob/k8s-log-collect/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>当我们没有使用云原生方案部署应用时采用的日志方案往往是 ELK 技术栈。<br><img src="https://s2.loli.net/2024/03/16/5pNYcOuxgXzsG1F.png"></p>
+<p>这套技术方案比较成熟，稳定性也很高，所以几乎成为了当时的标配。</p>
+<p>可是随着我们使用 kubernetes 步入云原生的时代后， kubernetes 把以往的操作系统上的许多底层都屏蔽，再由他提供了一些标准接口。</p>
+<p>同时在 kubernetes 中的日志来源也比传统虚拟机多，比如可能有容器、kubernetes 自身的事件、日志等。</p>
+<p>我们的日志采集方案也得与时俱进，kubernetes 的官方博客有介绍提供一下几种方案：</p>
+<h1 id="节点采集"><a href="#节点采集" class="headerlink" title="节点采集"></a>节点采集</h1><p><img src="https://s2.loli.net/2024/03/18/EWB1PFJku6x8On3.png"></p>
+<p>第一种方案是在节点中采集日志，我们知道 kubernetes 是分为 master 调度节点以及 worker 工作节点；我们的应用都是运行在 worker 节点中的。</p>
+<blockquote>
+<p>在 kubernetes 环境中更推荐使用标准的 stdout&#x2F;stderr 作为日志输出，这样 kubernetes 更方便做统一处理。</p>
+</blockquote>
+<p><img src="https://s2.loli.net/2024/03/16/iUXB3YQdEAgJmpT.png"></p>
+<p>以我们的 docker 运行时为例，默认情况下我们的标准输入文件会写入到 <code>/var/log</code> 目录中。</p>
+<p><img src="https://s2.loli.net/2024/03/16/48NxKOuQmB5oer1.png"></p>
+<p>如上图所示：我们可以在 kubernetes 的每一个 worker 节点中部署一个 <code>DaemonSet</code> 类型的采集器（filebeat 等），再由他去采集该节点下 <code>/var/log</code> 的日志，最终由他将日志采集后发往日志处理的后端，比如 elasticsearch 等组件中。</p>
+<p>这种方案的好处是资源占用较低，往往是有多少个 worker 节点就可以部署多少个采集器。</p>
+<p>而且和业务的耦合度低，业务和采集器不管谁进行重启或升级互相都不会产生影响。</p>
+<p>但缺点也比较明显，整个节点的日志采集瓶颈都在这个采集器这里了，如果某些 worker 节点的 Pod 数量不均衡，或者是本身日志产生也不平均时就会出现明显的负债不平衡。</p>
+<p>而且也无法针对某些日志高峰场景进行调优（毕竟所有的 Pod 都是使用的一个日志采集器）。</p>
+<p>所以节点级的日志采集更适用与该 worker 节点负债较低的时候使用，也更容易维护。</p>
+<h1 id="Sidecar-代理模式"><a href="#Sidecar-代理模式" class="headerlink" title="Sidecar 代理模式"></a>Sidecar 代理模式</h1><p><img src="https://s2.loli.net/2024/03/16/Xo23G568BevhWKc.png"><br>第二种相对于第一种可以理解为由集中式的日志采集分散到各个应用 Pod 中自行采集。</p>
+<p>需要为每一个业务 Pod 挂载一个边车（sidecar）进行日志采集，由于边车和业务 Pod 共享的是一个存储，所以可以很方便的读取到日志。</p>
+<p>由于它是和应用挂载在一起的，所以资源占用自然会比节点采集更多，同理耦合度也增加了，采集组件的升级可能还会影响的业务 Pod。</p>
+<p>但同样的带来好处就是可以针对单个 Pod 更精细的控制采集方案。</p>
+<p>比如对于一些日志写入频繁的应用，可以将 filebeat 的配置提高，甚至还可以将这种高负载的日志单独写入一个 elasticsearch 中，这样可以与普通负载的日志进行资源隔离。</p>
+<p>这个方案更适用与集群规模较大的场景，需要做一些精细化配置。</p>
+<hr>
+<p>我们其实也是采用的也是这个方案，不过具体细节稍有不同。</p>
+<p>我们没有直接使用标准输入和输出，原因如下：</p>
+<p>日志格式没法统一，导致最终查询的时候无法做一些标准化的限制（比如我们要求每个日志都需要带业务 id、traceId 等，查询时候有这些业务指标就很容易沉淀一些标准的查询语句。）</p>
+<p>最终我们还是采用了 Java 的老朋友，logback 配置了自己的日志格式，所有的应用都会根据这个模版进行日志输出。</p>
+<p>同时利用日志框架的批量写入、缓冲等特性还更容易进行日志的性能调优。（只使用标准输出时对应用来说是黑盒。）</p>
+<p>最终我们的技术方案是：<br><img src="https://s2.loli.net/2024/03/16/V1mf7MBpodq5eRU.png"></p>
+<h1 id="直接写入"><a href="#直接写入" class="headerlink" title="直接写入"></a>直接写入</h1><p>还有一种方案是直接写入，这个其实和 kubernetes 本身就没有太多关系了。</p>
+<p>由业务自己调用 elasticsearch 或者其他的存储组件的 API 进行写入，这种通常适用于对性能要求较高的场景，略过了中间的采集步骤，直接写入存储端。</p>
+<p>这个我在 <a href="https://crossoverjie.top/2023/08/23/ob/VictoriaLogs-Intro/">VictoriaLogs：一款超低占用的 ElasticSearch 替代方案</a>中介绍过，我需要在 broker 的拦截器中埋点消息信息，从而可以生成一个消息🆔的链路信息。</p>
+<p><img src="https://s2.loli.net/2023/08/02/H7pjinzQ5EWR2tF.png"></p>
+<p>因为需要拦截消息的发送、消费的各个阶段，加上并发压力较高，所以对日志的写入性能要求还是蛮高的。</p>
+<p>因此就需要在拦截器中直接对写入到日志存储。</p>
+<blockquote>
+<p>这里考虑到我这里的但一场景，以及对资源的消耗，最终选取了 <code>victoriaLog</code> 这个日志存储。</p>
+</blockquote>
+<p>而在发送日志的时候也得用了高性能的日志发生框架，这里选取了<a target="_blank" rel="noopener" href="https://github.com/aliyun/aliyun-log-java-producer">aliyun-log-java-producer</a>然后做了一些定制。</p>
+<p>这个库支持以下一些功能：</p>
+<ul>
+<li>高性能：批量发送、多线程等</li>
+<li>自动重试</li>
+<li>异步非阻塞</li>
+<li>资源控制（可以对内存、数量进行控制）</li>
+</ul>
+<p>因为这是为阿里云日志服务的一个组件，代码里硬编码了只能写入阿里的日志服务。</p>
+<p>所以拿来稍加改造后，现在可以支持自定义发送到任意后端，只需要在初始化时自定义实现发送回调接口即可：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">ProducerConfig</span> <span class="variable">producerConfig</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ProducerConfig</span>();</span><br><span class="line">producerConfig.setSenderArgs(<span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;vlogUrl, client&#125;);</span><br><span class="line">producerConfig.setSender((batch, args) -&gt; &#123;</span><br><span class="line">    <span class="type">StringBuilder</span> <span class="variable">body</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">StringBuilder</span>();</span><br><span class="line">    <span class="keyword">for</span> (String s : batch.getLogItemsString()) &#123;</span><br><span class="line">        body.append(<span class="string">&quot;&#123;\&quot;create\&quot;:&#123;&#125;&#125;&quot;</span>);</span><br><span class="line">        body.append(<span class="string">&quot;\n&quot;</span>);</span><br><span class="line">        body.append(s);</span><br><span class="line">        body.append(<span class="string">&quot;\n&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="type">RequestBody</span> <span class="variable">requestBody</span> <span class="operator">=</span></span><br><span class="line">            RequestBody.create(MediaType.parse(<span class="string">&quot;application/json&quot;</span>), body.toString());</span><br><span class="line">    <span class="type">Request</span> <span class="variable">request</span> <span class="operator">=</span></span><br><span class="line">            <span class="keyword">new</span> <span class="title class_">Request</span>.Builder()</span><br><span class="line">                    .url(String.format(<span class="string">&quot;%s/insert/elasticsearch/_bulk&quot;</span>, args[<span class="number">0</span>]))</span><br><span class="line">                    .post(requestBody)</span><br><span class="line">                    .build();</span><br><span class="line"></span><br><span class="line">    <span class="type">OkHttpClient</span> <span class="variable">okHttpClient</span> <span class="operator">=</span> (OkHttpClient) args[<span class="number">1</span>];</span><br><span class="line">    <span class="keyword">try</span> (<span class="type">Response</span> <span class="variable">response</span> <span class="operator">=</span> okHttpClient.newCall(request).execute()) &#123;</span><br><span class="line">        <span class="keyword">if</span> (response.isSuccessful()) &#123;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            log.error(<span class="string">&quot;Request failed with error code: &quot;</span> + response);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">        log.error(<span class="string">&quot;Send vlogs failed&quot;</span>, e);</span><br><span class="line">        <span class="keyword">throw</span> e;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br><span class="line">logProducer = <span class="keyword">new</span> <span class="title class_">LogProducer</span>(producerConfig);</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>考虑到这个库只是对阿里云日志服务的一个组件，加上代码已经很久没维护了，所以就没有将这部分代码提交到社区，感兴趣的评论区留言。</p>
+</blockquote>
+<h1 id="日志安全"><a href="#日志安全" class="headerlink" title="日志安全"></a>日志安全</h1><p>日志是一个非常基础但又很敏感的功能，首先是编码规范上要避免打印一些敏感信息；比如身份证、密码等；同时对日志的访问也要最好权限控制。</p>
+<p>在我们内部的研效平台中，对于日志、监控等功能都是和应用权限挂钩的。</p>
+<p>简单来说就是关闭了统一查询 ES 的入口，只在应用层级提供查询，类似于：</p>
+<p><img src="https://s2.loli.net/2024/03/18/ogBTPu47CifOrnp.png"></p>
+<blockquote>
+<p>图来自于 orbit 产品。</p>
+</blockquote>
+<h1 id="OpenTelemetry"><a href="#OpenTelemetry" class="headerlink" title="OpenTelemetry"></a>OpenTelemetry</h1><p>当然讲到日志目前自然也逃不过 OpenTelemetry，作为当前云原生可观测性的标准也提供了对应的日志组件。</p>
+<p><img src="https://s2.loli.net/2024/03/18/VdvhIbzRWxlc79Q.png"><br>OpenTelemetry 也定义了结构化的日志格式：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;resourceLogs&quot;</span><span class="punctuation">:</span><span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;resource&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;attributes&quot;</span><span class="punctuation">:</span><span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;key&quot;</span><span class="punctuation">:</span><span class="string">&quot;resource-attr&quot;</span><span class="punctuation">,</span><span class="attr">&quot;value&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;stringValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;resource-attr-val-1&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="attr">&quot;scopeLogs&quot;</span><span class="punctuation">:</span><span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;scope&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="attr">&quot;logRecords&quot;</span><span class="punctuation">:</span><span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;timeUnixNano&quot;</span><span class="punctuation">:</span><span class="string">&quot;1581452773000000789&quot;</span><span class="punctuation">,</span><span class="attr">&quot;severityNumber&quot;</span><span class="punctuation">:</span><span class="number">9</span><span class="punctuation">,</span><span class="attr">&quot;severityText&quot;</span><span class="punctuation">:</span><span class="string">&quot;Info&quot;</span><span class="attr">&quot;body&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;stringValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;This is a log message&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="attr">&quot;attributes&quot;</span><span class="punctuation">:</span><span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;key&quot;</span><span class="punctuation">:</span><span class="string">&quot;app&quot;</span><span class="punctuation">,</span><span class="attr">&quot;value&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;stringValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;server&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="punctuation">&#123;</span><span class="attr">&quot;key&quot;</span><span class="punctuation">:</span><span class="string">&quot;instance_num&quot;</span><span class="punctuation">,</span><span class="attr">&quot;value&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;intValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;1&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">,</span><span class="attr">&quot;droppedAttributesCount&quot;</span><span class="punctuation">:</span><span class="number">1</span><span class="punctuation">,</span><span class="attr">&quot;traceId&quot;</span><span class="punctuation">:</span><span class="string">&quot;08040201000000000000000000000000&quot;</span><span class="punctuation">,</span><span class="attr">&quot;spanId&quot;</span><span class="punctuation">:</span><span class="string">&quot;0102040800000000&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="punctuation">&#123;</span><span class="attr">&quot;timeUnixNano&quot;</span><span class="punctuation">:</span><span class="string">&quot;1581452773000000789&quot;</span><span class="punctuation">,</span><span class="attr">&quot;severityNumber&quot;</span><span class="punctuation">:</span><span class="number">9</span><span class="punctuation">,</span><span class="attr">&quot;severityText&quot;</span><span class="punctuation">:</span><span class="string">&quot;Info&quot;</span><span class="punctuation">,</span><span class="attr">&quot;body&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;stringValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;something happened&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="attr">&quot;attributes&quot;</span><span class="punctuation">:</span><span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;key&quot;</span><span class="punctuation">:</span><span class="string">&quot;customer&quot;</span><span class="punctuation">,</span><span class="attr">&quot;value&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;stringValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;acme&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="punctuation">&#123;</span><span class="attr">&quot;key&quot;</span><span class="punctuation">:</span><span class="string">&quot;env&quot;</span><span class="punctuation">,</span><span class="attr">&quot;value&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;stringValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;dev&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">,</span><span class="attr">&quot;droppedAttributesCount&quot;</span><span class="punctuation">:</span><span class="number">1</span><span class="punctuation">,</span><span class="attr">&quot;traceId&quot;</span><span class="punctuation">:</span><span class="string">&quot;&quot;</span><span class="punctuation">,</span><span class="attr">&quot;spanId&quot;</span><span class="punctuation">:</span><span class="string">&quot;&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+<p>我们可以配置 <code>otel.logs.exporter=otlp (default)</code> 可以将日志输出到 <code>oetl-collector</code> 中，再由他输出到后端存储中。</p>
+<p>虽然这样 <code>otel-collectoer</code> 就成为瓶颈了，但我们也可以部署多个副本来降低压力。</p>
+<p>同时也可以在应用中指定不同的 <code>endpoint(otel.exporter.otlp.endpoint=http://127.0.0.1:4317)</code> 来区分日志的 collector，与其他类型的 collector 做到资源隔离。</p>
+<p>不过目前社区关于日志的实践还比较少，而且由于版本 1.0 版本 release 的时间也不算长，稳定性和之前的 filebeat 相比还得需要时间检验。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>理想情况下，我们需要将可观测性的三个重要组件都关联起来才能更好的排查定位问题。</p>
+<p>比如当收到监控系统通过指标变化发出的报警时，可以通过链路追踪定位具体是哪个系统触发的问题。</p>
+<p>之后通过 traceID 定位到具体的日志，再通过日志的上下文列出更多日志信息，这样整个链条就可以串联起来，可以极大的提高效率。</p>
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/aliyun/aliyun-log-java-producer">https://github.com/aliyun/aliyun-log-java-producer</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/cluster-administration/logging/">https://kubernetes.io/docs/concepts/cluster-administration/logging/</a></li>
+<li><a target="_blank" rel="noopener" href="https://coding.net/help/docs/orbit/env/logs-event/intro.html">https://coding.net/help/docs/orbit/env/logs-event/intro.html</a></li>
+<li><a target="_blank" rel="noopener" href="https://opentelemetry.io/docs/concepts/signals/logs/">https://opentelemetry.io/docs/concepts/signals/logs/</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2024/04/21/ob/k8s-log-collect/" title="在 kubernetes 环境下如何采集日志">http://crossoverjie.top/2024/04/21/ob/k8s-log-collect/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/%E6%97%A5%E5%BF%97/" rel="tag"><i class="fa fa-tag"></i> 日志</a>
+              <a href="/tags/kubernetes/" rel="tag"><i class="fa fa-tag"></i> kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/04/15/ob/how-to-write-otel-extensions/" rel="prev" title="实战：如何编写一个 OpenTelemetry Extensions">
+                  <i class="fa fa-chevron-left"></i> 实战：如何编写一个 OpenTelemetry Extensions
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
