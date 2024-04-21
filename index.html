@@ -255,7 +255,7 @@
       <span class="post-meta-item-text">Posted on</span>
       
 
-      <time title="Created: 2024-04-21 13:07:07 / Modified: 19:40:56" itemprop="dateCreated datePublished" datetime="2024-04-21T13:07:07+08:00">2024-04-21</time>
+      <time title="Created: 2024-04-21 13:07:07 / Modified: 19:49:07" itemprop="dateCreated datePublished" datetime="2024-04-21T13:07:07+08:00">2024-04-21</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -302,83 +302,14 @@
 <p>这套技术方案比较成熟，稳定性也很高，所以几乎成为了当时的标配。</p>
 <p>可是随着我们使用 kubernetes 步入云原生的时代后， kubernetes 把以往的操作系统上的许多底层都屏蔽，再由他提供了一些标准接口。</p>
 <p>同时在 kubernetes 中的日志来源也比传统虚拟机多，比如可能有容器、kubernetes 自身的事件、日志等。</p>
-<p>我们的日志采集方案也得与时俱进，kubernetes 的官方博客有介绍提供一下几种方案：</p>
-<h1 id="节点采集"><a href="#节点采集" class="headerlink" title="节点采集"></a>节点采集</h1><p><img src="https://s2.loli.net/2024/03/18/EWB1PFJku6x8On3.png"></p>
-<p>第一种方案是在节点中采集日志，我们知道 kubernetes 是分为 master 调度节点以及 worker 工作节点；我们的应用都是运行在 worker 节点中的。</p>
-<blockquote>
-<p>在 kubernetes 环境中更推荐使用标准的 stdout&#x2F;stderr 作为日志输出，这样 kubernetes 更方便做统一处理。</p>
-</blockquote>
-<p><img src="https://s2.loli.net/2024/03/16/iUXB3YQdEAgJmpT.png"></p>
-<p>以我们的 docker 运行时为例，默认情况下我们的标准输入文件会写入到 <code>/var/log</code> 目录中。</p>
-<p><img src="https://s2.loli.net/2024/03/16/48NxKOuQmB5oer1.png"></p>
-<p>如上图所示：我们可以在 kubernetes 的每一个 worker 节点中部署一个 <code>DaemonSet</code> 类型的采集器（filebeat 等），再由他去采集该节点下 <code>/var/log</code> 的日志，最终由他将日志采集后发往日志处理的后端，比如 elasticsearch 等组件中。</p>
-<p>这种方案的好处是资源占用较低，往往是有多少个 worker 节点就可以部署多少个采集器。</p>
-<p>而且和业务的耦合度低，业务和采集器不管谁进行重启或升级互相都不会产生影响。</p>
-<p>但缺点也比较明显，整个节点的日志采集瓶颈都在这个采集器这里了，如果某些 worker 节点的 Pod 数量不均衡，或者是本身日志产生也不平均时就会出现明显的负债不平衡。</p>
-<p>而且也无法针对某些日志高峰场景进行调优（毕竟所有的 Pod 都是使用的一个日志采集器）。</p>
-<p>所以节点级的日志采集更适用与该 worker 节点负债较低的时候使用，也更容易维护。</p>
-<h1 id="Sidecar-代理模式"><a href="#Sidecar-代理模式" class="headerlink" title="Sidecar 代理模式"></a>Sidecar 代理模式</h1><p><img src="https://s2.loli.net/2024/03/16/Xo23G568BevhWKc.png"><br>第二种相对于第一种可以理解为由集中式的日志采集分散到各个应用 Pod 中自行采集。</p>
-<p>需要为每一个业务 Pod 挂载一个边车（sidecar）进行日志采集，由于边车和业务 Pod 共享的是一个存储，所以可以很方便的读取到日志。</p>
-<p>由于它是和应用挂载在一起的，所以资源占用自然会比节点采集更多，同理耦合度也增加了，采集组件的升级可能还会影响的业务 Pod。</p>
-<p>但同样的带来好处就是可以针对单个 Pod 更精细的控制采集方案。</p>
-<p>比如对于一些日志写入频繁的应用，可以将 filebeat 的配置提高，甚至还可以将这种高负载的日志单独写入一个 elasticsearch 中，这样可以与普通负载的日志进行资源隔离。</p>
-<p>这个方案更适用与集群规模较大的场景，需要做一些精细化配置。</p>
-<hr>
-<p>我们其实也是采用的也是这个方案，不过具体细节稍有不同。</p>
-<p>我们没有直接使用标准输入和输出，原因如下：</p>
-<p>日志格式没法统一，导致最终查询的时候无法做一些标准化的限制（比如我们要求每个日志都需要带业务 id、traceId 等，查询时候有这些业务指标就很容易沉淀一些标准的查询语句。）</p>
-<p>最终我们还是采用了 Java 的老朋友，logback 配置了自己的日志格式，所有的应用都会根据这个模版进行日志输出。</p>
-<p>同时利用日志框架的批量写入、缓冲等特性还更容易进行日志的性能调优。（只使用标准输出时对应用来说是黑盒。）</p>
-<p>最终我们的技术方案是：<br><img src="https://s2.loli.net/2024/03/16/V1mf7MBpodq5eRU.png"></p>
-<h1 id="直接写入"><a href="#直接写入" class="headerlink" title="直接写入"></a>直接写入</h1><p>还有一种方案是直接写入，这个其实和 kubernetes 本身就没有太多关系了。</p>
-<p>由业务自己调用 elasticsearch 或者其他的存储组件的 API 进行写入，这种通常适用于对性能要求较高的场景，略过了中间的采集步骤，直接写入存储端。</p>
-<p>这个我在 <a href="https://crossoverjie.top/2023/08/23/ob/VictoriaLogs-Intro/">VictoriaLogs：一款超低占用的 ElasticSearch 替代方案</a>中介绍过，我需要在 broker 的拦截器中埋点消息信息，从而可以生成一个消息🆔的链路信息。</p>
-<p><img src="https://s2.loli.net/2023/08/02/H7pjinzQ5EWR2tF.png"></p>
-<p>因为需要拦截消息的发送、消费的各个阶段，加上并发压力较高，所以对日志的写入性能要求还是蛮高的。</p>
-<p>因此就需要在拦截器中直接对写入到日志存储。</p>
-<blockquote>
-<p>这里考虑到我这里的但一场景，以及对资源的消耗，最终选取了 <code>victoriaLog</code> 这个日志存储。</p>
-</blockquote>
-<p>而在发送日志的时候也得用了高性能的日志发生框架，这里选取了<a target="_blank" rel="noopener" href="https://github.com/aliyun/aliyun-log-java-producer">aliyun-log-java-producer</a>然后做了一些定制。</p>
-<p>这个库支持以下一些功能：</p>
-<ul>
-<li>高性能：批量发送、多线程等</li>
-<li>自动重试</li>
-<li>异步非阻塞</li>
-<li>资源控制（可以对内存、数量进行控制）</li>
-</ul>
-<p>因为这是为阿里云日志服务的一个组件，代码里硬编码了只能写入阿里的日志服务。</p>
-<p>所以拿来稍加改造后，现在可以支持自定义发送到任意后端，只需要在初始化时自定义实现发送回调接口即可：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">ProducerConfig</span> <span class="variable">producerConfig</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ProducerConfig</span>();</span><br><span class="line">producerConfig.setSenderArgs(<span class="keyword">new</span> <span class="title class_">Object</span>[]&#123;vlogUrl, client&#125;);</span><br><span class="line">producerConfig.setSender((batch, args) -&gt; &#123;</span><br><span class="line">    <span class="type">StringBuilder</span> <span class="variable">body</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">StringBuilder</span>();</span><br><span class="line">    <span class="keyword">for</span> (String s : batch.getLogItemsString()) &#123;</span><br><span class="line">        body.append(<span class="string">&quot;&#123;\&quot;create\&quot;:&#123;&#125;&#125;&quot;</span>);</span><br><span class="line">        body.append(<span class="string">&quot;\n&quot;</span>);</span><br><span class="line">        body.append(s);</span><br><span class="line">        body.append(<span class="string">&quot;\n&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="type">RequestBody</span> <span class="variable">requestBody</span> <span class="operator">=</span></span><br><span class="line">            RequestBody.create(MediaType.parse(<span class="string">&quot;application/json&quot;</span>), body.toString());</span><br><span class="line">    <span class="type">Request</span> <span class="variable">request</span> <span class="operator">=</span></span><br><span class="line">            <span class="keyword">new</span> <span class="title class_">Request</span>.Builder()</span><br><span class="line">                    .url(String.format(<span class="string">&quot;%s/insert/elasticsearch/_bulk&quot;</span>, args[<span class="number">0</span>]))</span><br><span class="line">                    .post(requestBody)</span><br><span class="line">                    .build();</span><br><span class="line"></span><br><span class="line">    <span class="type">OkHttpClient</span> <span class="variable">okHttpClient</span> <span class="operator">=</span> (OkHttpClient) args[<span class="number">1</span>];</span><br><span class="line">    <span class="keyword">try</span> (<span class="type">Response</span> <span class="variable">response</span> <span class="operator">=</span> okHttpClient.newCall(request).execute()) &#123;</span><br><span class="line">        <span class="keyword">if</span> (response.isSuccessful()) &#123;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            log.error(<span class="string">&quot;Request failed with error code: &quot;</span> + response);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">        log.error(<span class="string">&quot;Send vlogs failed&quot;</span>, e);</span><br><span class="line">        <span class="keyword">throw</span> e;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br><span class="line">logProducer = <span class="keyword">new</span> <span class="title class_">LogProducer</span>(producerConfig);</span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>考虑到这个库只是对阿里云日志服务的一个组件，加上代码已经很久没维护了，所以就没有将这部分代码提交到社区，感兴趣的评论区留言。</p>
-</blockquote>
-<h1 id="日志安全"><a href="#日志安全" class="headerlink" title="日志安全"></a>日志安全</h1><p>日志是一个非常基础但又很敏感的功能，首先是编码规范上要避免打印一些敏感信息；比如身份证、密码等；同时对日志的访问也要最好权限控制。</p>
-<p>在我们内部的研效平台中，对于日志、监控等功能都是和应用权限挂钩的。</p>
-<p>简单来说就是关闭了统一查询 ES 的入口，只在应用层级提供查询，类似于：</p>
-<p><img src="https://s2.loli.net/2024/03/18/ogBTPu47CifOrnp.png"></p>
-<blockquote>
-<p>图来自于 orbit 产品。</p>
-</blockquote>
-<h1 id="OpenTelemetry"><a href="#OpenTelemetry" class="headerlink" title="OpenTelemetry"></a>OpenTelemetry</h1><p>当然讲到日志目前自然也逃不过 OpenTelemetry，作为当前云原生可观测性的标准也提供了对应的日志组件。</p>
-<p><img src="https://s2.loli.net/2024/03/18/VdvhIbzRWxlc79Q.png"><br>OpenTelemetry 也定义了结构化的日志格式：</p>
-<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;resourceLogs&quot;</span><span class="punctuation">:</span><span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;resource&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;attributes&quot;</span><span class="punctuation">:</span><span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;key&quot;</span><span class="punctuation">:</span><span class="string">&quot;resource-attr&quot;</span><span class="punctuation">,</span><span class="attr">&quot;value&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;stringValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;resource-attr-val-1&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="attr">&quot;scopeLogs&quot;</span><span class="punctuation">:</span><span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;scope&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="attr">&quot;logRecords&quot;</span><span class="punctuation">:</span><span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;timeUnixNano&quot;</span><span class="punctuation">:</span><span class="string">&quot;1581452773000000789&quot;</span><span class="punctuation">,</span><span class="attr">&quot;severityNumber&quot;</span><span class="punctuation">:</span><span class="number">9</span><span class="punctuation">,</span><span class="attr">&quot;severityText&quot;</span><span class="punctuation">:</span><span class="string">&quot;Info&quot;</span><span class="attr">&quot;body&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;stringValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;This is a log message&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="attr">&quot;attributes&quot;</span><span class="punctuation">:</span><span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;key&quot;</span><span class="punctuation">:</span><span class="string">&quot;app&quot;</span><span class="punctuation">,</span><span class="attr">&quot;value&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;stringValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;server&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="punctuation">&#123;</span><span class="attr">&quot;key&quot;</span><span class="punctuation">:</span><span class="string">&quot;instance_num&quot;</span><span class="punctuation">,</span><span class="attr">&quot;value&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;intValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;1&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">,</span><span class="attr">&quot;droppedAttributesCount&quot;</span><span class="punctuation">:</span><span class="number">1</span><span class="punctuation">,</span><span class="attr">&quot;traceId&quot;</span><span class="punctuation">:</span><span class="string">&quot;08040201000000000000000000000000&quot;</span><span class="punctuation">,</span><span class="attr">&quot;spanId&quot;</span><span class="punctuation">:</span><span class="string">&quot;0102040800000000&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="punctuation">&#123;</span><span class="attr">&quot;timeUnixNano&quot;</span><span class="punctuation">:</span><span class="string">&quot;1581452773000000789&quot;</span><span class="punctuation">,</span><span class="attr">&quot;severityNumber&quot;</span><span class="punctuation">:</span><span class="number">9</span><span class="punctuation">,</span><span class="attr">&quot;severityText&quot;</span><span class="punctuation">:</span><span class="string">&quot;Info&quot;</span><span class="punctuation">,</span><span class="attr">&quot;body&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;stringValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;something happened&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="attr">&quot;attributes&quot;</span><span class="punctuation">:</span><span class="punctuation">[</span><span class="punctuation">&#123;</span><span class="attr">&quot;key&quot;</span><span class="punctuation">:</span><span class="string">&quot;customer&quot;</span><span class="punctuation">,</span><span class="attr">&quot;value&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;stringValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;acme&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span><span class="punctuation">&#123;</span><span class="attr">&quot;key&quot;</span><span class="punctuation">:</span><span class="string">&quot;env&quot;</span><span class="punctuation">,</span><span class="attr">&quot;value&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span><span class="attr">&quot;stringValue&quot;</span><span class="punctuation">:</span><span class="string">&quot;dev&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">,</span><span class="attr">&quot;droppedAttributesCount&quot;</span><span class="punctuation">:</span><span class="number">1</span><span class="punctuation">,</span><span class="attr">&quot;traceId&quot;</span><span class="punctuation">:</span><span class="string">&quot;&quot;</span><span class="punctuation">,</span><span class="attr">&quot;spanId&quot;</span><span class="punctuation">:</span><span class="string">&quot;&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
-<p>我们可以配置 <code>otel.logs.exporter=otlp (default)</code> 可以将日志输出到 <code>oetl-collector</code> 中，再由他输出到后端存储中。</p>
-<p>虽然这样 <code>otel-collectoer</code> 就成为瓶颈了，但我们也可以部署多个副本来降低压力。</p>
-<p>同时也可以在应用中指定不同的 <code>endpoint(otel.exporter.otlp.endpoint=http://127.0.0.1:4317)</code> 来区分日志的 collector，与其他类型的 collector 做到资源隔离。</p>
-<p>不过目前社区关于日志的实践还比较少，而且由于版本 1.0 版本 release 的时间也不算长，稳定性和之前的 filebeat 相比还得需要时间检验。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>理想情况下，我们需要将可观测性的三个重要组件都关联起来才能更好的排查定位问题。</p>
-<p>比如当收到监控系统通过指标变化发出的报警时，可以通过链路追踪定位具体是哪个系统触发的问题。</p>
-<p>之后通过 traceID 定位到具体的日志，再通过日志的上下文列出更多日志信息，这样整个链条就可以串联起来，可以极大的提高效率。</p>
-<p>参考链接：</p>
-<ul>
-<li><a target="_blank" rel="noopener" href="https://github.com/aliyun/aliyun-log-java-producer">https://github.com/aliyun/aliyun-log-java-producer</a></li>
-<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/cluster-administration/logging/">https://kubernetes.io/docs/concepts/cluster-administration/logging/</a></li>
-<li><a target="_blank" rel="noopener" href="https://coding.net/help/docs/orbit/env/logs-event/intro.html">https://coding.net/help/docs/orbit/env/logs-event/intro.html</a></li>
-<li><a target="_blank" rel="noopener" href="https://opentelemetry.io/docs/concepts/signals/logs/">https://opentelemetry.io/docs/concepts/signals/logs/</a></li>
-</ul>
-
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2024/04/21/ob/k8s-log-collect/#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
       
     </div>
 
