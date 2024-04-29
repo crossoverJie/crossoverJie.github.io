@@ -21,12 +21,12 @@
 <script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
      crossorigin="anonymous"></script>
-    <meta name="description" content="背景前两天收到业务反馈有一个 topic 的分区消息堆积了：根据之前的经验来看，要么是业务消费逻辑出现问题导致消费过慢，当然也有小概率是消息队列的 Bug（我们使用的是 pulsar）。 排查通过排查，发现确实是在一点多的时候消息堆积了（后面是修复之后堆积开始下降）。 于是我在刚才堆积处查看了一条堆积消息的列表： 获取到其中一条消息的 messageId.  这里本质上使用的是 pulsar-ad">
+    <meta name="description" content="背景前两天收到业务反馈有一个 topic 的分区消息堆积了：根据之前的经验来看，要么是业务消费逻辑出现问题导致消费过慢，当然也有小概率是消息队列的 Bug（我们使用的是 pulsar）。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="一次消息队列异常堆积的排查">
 <meta property="og:url" content="http://crossoverjie.top/2024/04/29/ob/pulsar-slow-consume/index.html">
 <meta property="og:site_name" content="crossoverJie&#39;s Blog">
-<meta property="og:description" content="背景前两天收到业务反馈有一个 topic 的分区消息堆积了：根据之前的经验来看，要么是业务消费逻辑出现问题导致消费过慢，当然也有小概率是消息队列的 Bug（我们使用的是 pulsar）。 排查通过排查，发现确实是在一点多的时候消息堆积了（后面是修复之后堆积开始下降）。 于是我在刚才堆积处查看了一条堆积消息的列表： 获取到其中一条消息的 messageId.  这里本质上使用的是 pulsar-ad">
+<meta property="og:description" content="背景前两天收到业务反馈有一个 topic 的分区消息堆积了：根据之前的经验来看，要么是业务消费逻辑出现问题导致消费过慢，当然也有小概率是消息队列的 Bug（我们使用的是 pulsar）。">
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://s2.loli.net/2024/03/24/Ckb3MRswVAvjXfn.png">
 <meta property="og:image" content="https://s2.loli.net/2024/03/24/6TBk2Jo9sWZpRGe.png">
@@ -45,7 +45,7 @@
 <meta property="og:image" content="https://s2.loli.net/2024/03/24/w8RomB4UVOyErvf.png">
 <meta property="og:image" content="https://s2.loli.net/2024/03/24/SGTLjp8uBOHtJea.png">
 <meta property="article:published_time" content="2024-04-29T07:47:10.000Z">
-<meta property="article:modified_time" content="2024-04-29T01:35:57.835Z">
+<meta property="article:modified_time" content="2024-04-29T02:24:24.167Z">
 <meta property="article:author" content="crossoverJie">
 <meta property="article:tag" content="Pulsar">
 <meta name="twitter:card" content="summary">
@@ -277,7 +277,7 @@
       <span class="post-meta-item-text">Posted on</span>
       
 
-      <time title="Created: 2024-04-29 15:47:10 / Modified: 09:35:57" itemprop="dateCreated datePublished" datetime="2024-04-29T15:47:10+08:00">2024-04-29</time>
+      <time title="Created: 2024-04-29 15:47:10 / Modified: 10:24:24" itemprop="dateCreated datePublished" datetime="2024-04-29T15:47:10+08:00">2024-04-29</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -328,6 +328,7 @@
     
     <div class="post-body" itemprop="articleBody">
         <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前两天收到业务反馈有一个 topic 的分区消息堆积了：<br><img src="https://s2.loli.net/2024/03/24/Ckb3MRswVAvjXfn.png"><br>根据之前的经验来看，要么是业务消费逻辑出现问题导致消费过慢，当然也有小概率是消息队列的 Bug（我们使用的是 pulsar）。</p>
+<span id="more"></span>
 <h1 id="排查"><a href="#排查" class="headerlink" title="排查"></a>排查</h1><p><img src="https://s2.loli.net/2024/03/24/6TBk2Jo9sWZpRGe.png"><br>通过排查，发现确实是在一点多的时候消息堆积了（后面是修复之后堆积开始下降）。</p>
 <p>于是我在刚才堆积处查看了一条堆积消息的列表：<br><img src="https://s2.loli.net/2024/03/24/UeizjIc3brVfnNy.png"></p>
 <p>获取到其中一条消息的 <code>messageId</code>.</p>

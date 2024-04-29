@@ -255,7 +255,7 @@
       <span class="post-meta-item-text">Posted on</span>
       
 
-      <time title="Created: 2024-04-29 15:47:10 / Modified: 09:35:57" itemprop="dateCreated datePublished" datetime="2024-04-29T15:47:10+08:00">2024-04-29</time>
+      <time title="Created: 2024-04-29 15:47:10 / Modified: 10:24:24" itemprop="dateCreated datePublished" datetime="2024-04-29T15:47:10+08:00">2024-04-29</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -299,84 +299,14 @@
     
     <div class="post-body" itemprop="articleBody">
           <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前两天收到业务反馈有一个 topic 的分区消息堆积了：<br><img src="https://s2.loli.net/2024/03/24/Ckb3MRswVAvjXfn.png"><br>根据之前的经验来看，要么是业务消费逻辑出现问题导致消费过慢，当然也有小概率是消息队列的 Bug（我们使用的是 pulsar）。</p>
-<h1 id="排查"><a href="#排查" class="headerlink" title="排查"></a>排查</h1><p><img src="https://s2.loli.net/2024/03/24/6TBk2Jo9sWZpRGe.png"><br>通过排查，发现确实是在一点多的时候消息堆积了（后面是修复之后堆积开始下降）。</p>
-<p>于是我在刚才堆积处查看了一条堆积消息的列表：<br><img src="https://s2.loli.net/2024/03/24/UeizjIc3brVfnNy.png"></p>
-<p>获取到其中一条消息的 <code>messageId</code>.</p>
-<blockquote>
-<p>这里本质上使用的是 pulsar-admin 的 API。<br><a target="_blank" rel="noopener" href="https://pulsar.apache.org/docs/3.2.x/admin-api-topics/#peek-messages"><code>org.apache.pulsar.client.admin.Topics#peekMessages</code></a></p>
-</blockquote>
-<p><img src="https://s2.loli.net/2024/03/24/IEGwRWphsFf6xk2.png"><br>再通过这条消息的 id （为了演示，这里的 messageId 可能不一样）在我们的 pulsar 消息链路系统中找到了消息的发送链路：<br><img src="https://s2.loli.net/2024/03/24/CwQRAWXMu8Hxq5y.png"><br>通过这个链路会发现消息一直在推送，但就是没有收到客户端的 ACK 响应。</p>
-<blockquote>
-<p>相关的消息链路埋点可以参考这里：<a href="https://crossoverjie.top/2023/12/11/ob/Pulsar-Broker-Interceptor/">如何编写一个 Pulsar Broker Interceptor 插件</a></p>
-</blockquote>
-<p>简单来说就是在以下几个 broker 提供的拦截器接口加上埋点数据即可：</p>
-<ul>
-<li>messageProduced</li>
-<li>messageDispatched</li>
-<li>messageAcked</li>
-</ul>
-<p>既然知道了是客户端没有响应 ACK，那就得知道客户端此时在干什么。</p>
-<p>首先排查了 JVM 内存、CPU 等监控情况，发现一切都挺正常的，这段时间没有明显的尖刺。</p>
-<h2 id="Arthas-排查"><a href="#Arthas-排查" class="headerlink" title="Arthas 排查"></a>Arthas 排查</h2><p>于是便准备使用 arthas 查看下线程的运行情况。</p>
-<p>我们进入到对应 Pod 的容器，执行：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">java -jar arthas-boot.jar</span><br></pre></td></tr></table></figure>
-
-<p>因为 JVM 内存都没有啥异常，所以先看看 thread 的运行堆栈，考虑到是 pulsar 消费线程卡住了，所以我们需要加上线程状态已经过滤下线程的名称：<br><img src="https://s2.loli.net/2024/03/24/brPcepjMFKaC9d8.png"></p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">thread --state WAITING | grep pulsar</span><br></pre></td></tr></table></figure>
-<p>此时就会列出当前 Java 进程中状态为 WATING 并且线程名称以 pulsar 开头的线程。</p>
-<blockquote>
-<p>我在之前的文章 <a href="https://crossoverjie.top/2023/08/03/ob/Pulsar-Client/">从 Pulsar Client 的原理到它的监控面板</a> 中分析过客户端的原理。</p>
-</blockquote>
-<p><img src="https://s2.loli.net/2023/08/02/vweWVR8fkJgrSMI.png" alt="20230802224400.png"><br><img src="https://s2.loli.net/2024/03/24/h7KQXueLySHYotW.png"></p>
-<p>可以知道 pulsar 客户端在其中使用的是 <code>pulsar-</code>打头的线程名称，所以这样就列出了我们需要重点关注的线程。</p>
-<p>我们以图中列出的线程 Id：320 为例：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">thread 320</span><br></pre></td></tr></table></figure>
-
-<p><img src="https://s2.loli.net/2024/03/24/cT1Eylp6aXd5QeZ.png"><br>此时便会打印当前线程的堆栈。</p>
-<p>从上述堆栈中会发现线程一直处于 IO 操作中，看起来是在操作数据库。</p>
-<p>我们再往下翻一翻，会发现上层调用的业务代码：<br><img src="https://s2.loli.net/2024/03/24/BhFGeJ7X6DLbC1s.png"><br>查阅代码得知这是一个数据库的写入操作，看起来是在这个环节数据库响应过慢导致的 pulsar 线程被阻塞了；从而导致消息没有及时 ACK。</p>
-<p>为了最终确认是否由数据库引起的，于是继续查询了当前应用的慢 SQL 情况：<br><img src="https://s2.loli.net/2024/03/24/vcYDGapUVms82Jl.png"></p>
-<p>发现其中有一个查询语句调用频次和平均耗时都比较高，而且正好这个表也是刚才在堆栈里操作的那张表。</p>
-<p>经过业务排查发现这个慢 SQL 是由一个定时任务触发的，而这个定时任务由于某些原因一直也没有停止，所以为了快速解决这个问题，我们先尝试将这个定时任务停掉。</p>
-<p>果然停掉没多久后消息就开始快速消费了：<br><img src="https://s2.loli.net/2024/03/24/wlDtCeBZL6IjkRM.png"><br>从这个时间线也可以看得出来了，在服务端推送了多次之后终于收到了 ACK。</p>
-<p>修复之后业务再去排查优化这个慢 SQL，这样这个问题就得到根本的解决了。</p>
-<h1 id="更多好用技巧"><a href="#更多好用技巧" class="headerlink" title="更多好用技巧"></a>更多好用技巧</h1><p>当然 arthas 好用的功能还远不止此，我觉得还有以下功能比较好用：</p>
-<h2 id="火焰图"><a href="#火焰图" class="headerlink" title="火焰图"></a>火焰图</h2><p>profile：可以输出火焰图，在做性能分析的时候非常有用。<br><img src="https://s2.loli.net/2024/03/24/2qsjgQMCRhtxNdm.png"></p>
-<h2 id="动态修改内存数据"><a href="#动态修改内存数据" class="headerlink" title="动态修改内存数据"></a>动态修改内存数据</h2><p>还记得之前我们碰到过一个 pulsar <a href="https://crossoverjie.top/2024/01/09/ob/Pulsar-Delete-Topic/">删除 topic 的 Bug</a>，虽然最终修复了问题，但是在发布修复版本的时候为了避免再次触发老版本的 bug，需要在内存中将某个关键字段的值修改掉。</p>
-<p>而且是不能重启应用的情况下修改，此时使用 arthas 就非常的方便：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -O https://arthas.aliyun.com/arthas-boot.jar &amp;&amp; java -jar arthas-boot.jar 1 -c &quot;vmtool -x 3 --action getInstances --className org.apache.pulsar.broker.ServiceConfiguration  --express &#x27;instances[0].setTopicLevelPoliciesEnabled(false)&#x27;&quot;</span><br></pre></td></tr></table></figure>
-<p>这里使用的是 <code>vmtool</code> 这个子命令来获取对象，最终再使用 <code>express</code> 表达式将其中的值改为了 false。</p>
-<p>当然这是一个高危操作，不到万不得已不推荐这么使用。</p>
-<h2 id="Arthas-Tunnel-amp-Web-Console"><a href="#Arthas-Tunnel-amp-Web-Console" class="headerlink" title="Arthas Tunnel &amp; Web Console"></a>Arthas Tunnel &amp; Web Console</h2><p>这是一个方便开发者通过网页就可以连接到 arthas 的功能，避免直接登录到服务器进行操作。<br><img src="https://s2.loli.net/2024/03/24/d38vNUbylAhSKxP.png"><br><img src="https://s2.loli.net/2024/03/24/w8RomB4UVOyErvf.png"></p>
-<p>我们在研效普通也内置了该功能，让开发排查问题更加方便。</p>
-<h2 id="CPU-使用过多"><a href="#CPU-使用过多" class="headerlink" title="CPU 使用过多"></a>CPU 使用过多</h2><p>cpu 异常使用排查也是一个非常有用的功能，虽然我们可以通过监控得知 JVM 的 cpu 使用情况，但是没法知道具体是哪个线程以及哪行代码造成的 cpu 过高。</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">thread -n 3</span><br></pre></td></tr></table></figure>
-
-<p><img src="https://s2.loli.net/2024/03/24/SGTLjp8uBOHtJea.png"></p>
-<p>使用以上命令就可以将 cpu 排名前三的线程打印出来，并且列出他的堆栈情况，这样可以很直观的得知 cpu 消耗了在哪些地方了。</p>
-<p>当然还有一些 trace 查询：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">trace demo.MathGame run &#x27;#cost &gt; 10&#x27;</span><br></pre></td></tr></table></figure>
-<p>比如这是将调用超过 10ms 的函数打印出来，不过如果我们接入了可观测系统（OpenTelemetry、skywalking等）这个功能就用不太上了。</p>
-<hr>
-<p> 还可以在运行的时候不停机修改日志级别，这种在线上排查一些疑难杂症的时候非常好用（通常情况下 debug 日志是不打印的），我们可以将日志级别调整为 debug 打印出更加详细的信息：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">[arthas@2062]$ </span><span class="language-bash">logger --name ROOT --level debug</span></span><br><span class="line">update logger level success.</span><br></pre></td></tr></table></figure>
-
-<hr>
-<p>如果是在 kubernetes 环境中执行也有可能碰到 Java 进程启动后没有在磁盘中写入 PID 的情况：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">java -jar arthas-boot.jar</span>  </span><br><span class="line">[INFO] arthas-boot version: 3.6.7  </span><br><span class="line">[INFO] Can not find java process. Try to pass &lt;pid&gt; in command line.  </span><br><span class="line">Please select an available pid.</span><br></pre></td></tr></table></figure>
-
-<p>导致直接运行的时候无法找到 Java 进程；此时就需要先 ps 拿到 PID 之后再传入 PID 连入 arthas：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">java -jar arthas-boot.jar 1</span></span><br></pre></td></tr></table></figure>
-
-<p>更多关于 arthas 的用法可以参考官网。</p>
-<p>参考链接：</p>
-<ul>
-<li><a target="_blank" rel="noopener" href="https://pulsar.apache.org/docs/3.2.x/admin-api-topics/#peek-messages">https://pulsar.apache.org/docs/3.2.x/admin-api-topics/#peek-messages</a></li>
-<li><a href="https://crossoverjie.top/2023/12/11/ob/Pulsar-Broker-Interceptor/">https://crossoverjie.top/2023/12/11/ob/Pulsar-Broker-Interceptor/</a></li>
-<li><a target="_blank" rel="noopener" href="https://arthas.aliyun.com/">https://arthas.aliyun.com/</a></li>
-<li><a href="https://crossoverjie.top/2024/01/09/ob/Pulsar-Delete-Topic/">https://crossoverjie.top/2024/01/09/ob/Pulsar-Delete-Topic/</a></li>
-</ul>
-
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2024/04/29/ob/pulsar-slow-consume/#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
       
     </div>
 
