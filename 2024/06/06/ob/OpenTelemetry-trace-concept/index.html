@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="在之前写过两篇比较系统的关于 OpenTelemetry 的文章：  OpenTelemetry 实践指南：历史、架构与基本概念 实操 OpenTelemetry：通过 Demo 掌握微服务监控的艺术  从基本概念到如何部署 demo 实战了解 OpenTelemetry，从那个 demo 中也可以得知整个 OpenTelemetry 体系的复杂性，包含了太多的组件和概念。 为了能更清晰的了解每个">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅">
+<meta property="og:url" content="http://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="在之前写过两篇比较系统的关于 OpenTelemetry 的文章：  OpenTelemetry 实践指南：历史、架构与基本概念 实操 OpenTelemetry：通过 Demo 掌握微服务监控的艺术  从基本概念到如何部署 demo 实战了解 OpenTelemetry，从那个 demo 中也可以得知整个 OpenTelemetry 体系的复杂性，包含了太多的组件和概念。 为了能更清晰的了解每个">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/05/05/ljQ6yNhKzn3b1c9.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/05/NOEbTamR67x83nS.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/05/wyzLpbhYkjOUFav.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/05/3C49thIJOZTuf82.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/05/glkIuxbFDBcai36.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/05/rMjV9qsveNEKORW.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/05/aBd1ubsS2kxMzGf.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/05/3c6LNtIbSkpQlRU.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/05/hISQNv91KP85WFC.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/05/Lz1hY8pflRebANx.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/05/vIHtBxGATKOg13l.png">
+<meta property="article:published_time" content="2024-06-05T16:55:16.000Z">
+<meta property="article:modified_time" content="2024-06-06T13:00:48.174Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="OpenTelemetry">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2024/05/05/ljQ6yNhKzn3b1c9.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/","path":"2024/06/06/ob/OpenTelemetry-trace-concept/","title":"从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">83</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">236</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">181</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Trace"><span class="nav-number">1.</span> <span class="nav-text">Trace</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Span"><span class="nav-number">2.</span> <span class="nav-text">Span</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#OpenTelemetry-%E4%B8%AD%E7%9A%84-Span"><span class="nav-number">2.1.</span> <span class="nav-text">OpenTelemetry 中的 Span</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Span-Status"><span class="nav-number">2.1.1.</span> <span class="nav-text">Span Status</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Span-Kind"><span class="nav-number">2.1.2.</span> <span class="nav-text">Span Kind</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Annotations"><span class="nav-number">2.2.</span> <span class="nav-text">Annotations</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Context-Propagation"><span class="nav-number">3.</span> <span class="nav-text">Context Propagation</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%8C%E4%B8%80%E8%BF%9B%E7%A8%8B"><span class="nav-number">3.1.</span> <span class="nav-text">同一进程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B7%A8%E8%BF%9B%E7%A8%8B"><span class="nav-number">3.2.</span> <span class="nav-text">跨进程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Baggage"><span class="nav-number">3.3.</span> <span class="nav-text">Baggage</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">236</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">83</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">181</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2024-06-06 00:55:16 / Modified: 21:00:48" itemprop="dateCreated datePublished" datetime="2024-06-06T00:55:16+08:00">2024-06-06</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/" itemprop="url" rel="index"><span itemprop="name">OB</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/OpenTelemetry/" itemprop="url" rel="index"><span itemprop="name">OpenTelemetry</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2024/06/06/ob/OpenTelemetry-trace-concept/" class="post-meta-item leancloud_visitors" data-flag-title="从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2024/06/06/ob/OpenTelemetry-trace-concept/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2024/06/06/ob/OpenTelemetry-trace-concept/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>在之前写过两篇比较系统的关于 OpenTelemetry 的文章：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://juejin.cn/post/7358450927110357026">OpenTelemetry 实践指南：历史、架构与基本概念</a></li>
+<li><a target="_blank" rel="noopener" href="https://juejin.cn/post/7360216766373068837">实操 OpenTelemetry：通过 Demo 掌握微服务监控的艺术</a></li>
+</ul>
+<p>从基本概念到如何部署 demo 实战了解 OpenTelemetry，从那个 demo 中也可以得知整个 OpenTelemetry 体系的复杂性，包含了太多的组件和概念。</p>
+<p>为了能更清晰的了解每个关键组件的作用以及原理，我打算分为几期来讲解 OpenTelemetry 的三个核心组件：</p>
+<ul>
+<li>Trace</li>
+<li>Metrics</li>
+<li>Logs</li>
+</ul>
+<p>首先以 Trace 讲起。</p>
+<span id="more"></span>
+<h1 id="Trace"><a href="#Trace" class="headerlink" title="Trace"></a>Trace</h1><p>开始之前还是先复习一下 Trace 的历史背景。</p>
+<p>如今现代的分布式追踪的起源源自于 Google 在 2010 年发布的一篇论文：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://static.googleusercontent.com/media/research.google.com/zh-CN//archive/papers/dapper-2010-1.pdf">Dapper, a Large-Scale Distributed Systems Tracing Infrastructure</a></li>
+</ul>
+<p>在这篇论文中提出了分布式追踪的几个核心概念：</p>
+<ul>
+<li>Trace</li>
+<li>Span<ul>
+<li>Span 的一些基础数据结构</li>
+</ul>
+</li>
+<li>可视化追踪以及展示</li>
+</ul>
+<p>之后 Twitter 受到了 Dapper 的启发开源了现在我们熟知的 <a target="_blank" rel="noopener" href="https://zipkin.io/">Zipkin</a>，包含了存储和可视化 UI 展示我们的追踪链路。</p>
+<p>Uber 也在 2015 年开源了 <a target="_blank" rel="noopener" href="https://www.jaegertracing.io/">Jaeger</a> 项目，它的功能和 Zipkin 类似，但目前我们用的较多的还是 Jaeger；现在已经成为 CNCF 的托管项目。</p>
+<p>之后陆续出现过 <strong>OpenTracing</strong> 和 <strong>OpenCensus</strong> 项目，他们都企图统一分布式追踪这一领域。</p>
+<p>直到 <code>OpenTelemetry</code> 的出现整合了以上两个项目，并且逐渐成为可观测领域的标准。</p>
+<blockquote>
+<p>更多历史背景可以参考之前的文章：<a target="_blank" rel="noopener" href="https://juejin.cn/post/7358450927110357026">OpenTelemetry 实践指南：历史、架构与基本概念</a></p>
+</blockquote>
+<p><img src="https://s2.loli.net/2024/05/05/ljQ6yNhKzn3b1c9.png"></p>
+<p><img src="https://s2.loli.net/2024/05/05/NOEbTamR67x83nS.png"></p>
+<p>这里我们结合 Dapper 论文中的资料进行分析，在这个调用中用户发起了一次请求，内部系统经历了 4 次 RPC 调用。</p>
+<p>从第二张图会看到一些关键信息：</p>
+<ul>
+<li>spanName</li>
+<li>parentId</li>
+<li>spanId</li>
+</ul>
+<p>parentId 很好理解，主要是定义调用的主次关系；要注意的是并行调用时 parentId 是同一个。</p>
+<p>spanId 在可以理解为每一个独立的操作，在这里就是一次 RPC 调用；同理一次数据库操作、消息的收发都是一个 span。</p>
+<blockquote>
+<p>span 的更多内容在后文继续讲解。</p>
+</blockquote>
+<h1 id="Span"><a href="#Span" class="headerlink" title="Span"></a>Span</h1><p><img src="https://s2.loli.net/2024/05/05/wyzLpbhYkjOUFav.png"><br>当我们把某一个具体的 span 放大会看到更加详细的信息，其中最关键的如下：</p>
+<ul>
+<li>traceId</li>
+<li>spanName</li>
+<li>spanId</li>
+<li>parentId</li>
+<li>开始时间</li>
+<li>结束时间</li>
+</ul>
+<p>由于一个完整的 trace 链路由 N 个 span 组成，所以这个链路必须得有一个唯一的 traceId 将这些 span 串联起来。<br>这样才可以在可视化的时候更好的展示链路信息。</p>
+<p>以上的这些字段很容易理解，都是一些必须的信息。</p>
+<p>在 Dapper 论文中使用 Annotations 来存放 span 的属性，也就是刚才那些字段，当然也可以自定义存放一些数据，比如图中的 <code>&quot;foo&quot;</code>。</p>
+<h2 id="OpenTelemetry-中的-Span"><a href="#OpenTelemetry-中的-Span" class="headerlink" title="OpenTelemetry 中的 Span"></a>OpenTelemetry 中的 Span</h2><p>OpenTelemetry 的 trace 自然也是基于 Dapper 的，只是额外做了一些优化，比如在刚才那些字段的基础上新增了一些概念：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;/v1/sys/health&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;context&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;trace_id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;7bba9f33312b3dbb8b2c2c62bb7abe2d&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;span_id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;086e83747d0e381e&quot;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;parent_id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;start_time&quot;</span><span class="punctuation">:</span> <span class="string">&quot;2021-10-22 16:04:01.209458162 +0000 UTC&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;end_time&quot;</span><span class="punctuation">:</span> <span class="string">&quot;2021-10-22 16:04:01.209514132 +0000 UTC&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;status_code&quot;</span><span class="punctuation">:</span> <span class="string">&quot;STATUS_CODE_OK&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;status_message&quot;</span><span class="punctuation">:</span> <span class="string">&quot;&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;attributes&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;net.transport&quot;</span><span class="punctuation">:</span> <span class="string">&quot;IP.TCP&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;net.peer.ip&quot;</span><span class="punctuation">:</span> <span class="string">&quot;172.17.0.1&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;net.peer.port&quot;</span><span class="punctuation">:</span> <span class="string">&quot;51820&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;net.host.ip&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.177.2.152&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;net.host.port&quot;</span><span class="punctuation">:</span> <span class="string">&quot;26040&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;http.method&quot;</span><span class="punctuation">:</span> <span class="string">&quot;GET&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;http.target&quot;</span><span class="punctuation">:</span> <span class="string">&quot;/v1/sys/health&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;http.server_name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;mortar-gateway&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;http.route&quot;</span><span class="punctuation">:</span> <span class="string">&quot;/v1/sys/health&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;http.user_agent&quot;</span><span class="punctuation">:</span> <span class="string">&quot;Consul Health Check&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;http.scheme&quot;</span><span class="punctuation">:</span> <span class="string">&quot;http&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;http.host&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.177.2.152:26040&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;http.flavor&quot;</span><span class="punctuation">:</span> <span class="string">&quot;1.1&quot;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;events&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">    <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;message&quot;</span><span class="punctuation">:</span> <span class="string">&quot;OK&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;timestamp&quot;</span><span class="punctuation">:</span> <span class="string">&quot;2021-10-22 16:04:01.209512872 +0000 UTC&quot;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">]</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>以这个 JSON 为例，新增了：</p>
+<ul>
+<li><input disabled="" type="checkbox"> <code>Span Context</code><ul>
+<li><code>Span</code> 的上下文，存放的都是不可变的数据，因为每个 Span 之间是存在关联关系的，这些关联关系都是存放在 context 中，主要就是 trace_id, span_id.</li>
+</ul>
+</li>
+<li><code>Attributes</code>: 可以理解为 Dapper 中的 Annotations，存放的是我们自定义的键值对，通常是由我们常用第三方开源 Instrumentation 内置的一些属性。</li>
+<li><code>Span Events</code>: Span 的一些关键事件。</li>
+</ul>
+<p><img src="https://s2.loli.net/2024/05/05/3C49thIJOZTuf82.png"><br>比如我们常用的 Redis 客户端 lettuce，它就会自己记录一些 Attributes。</p>
+<hr>
+<p>如果有多个 span 存在依赖关系：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">       [Span A]  ←←←(the root span)</span><br><span class="line">           |</span><br><span class="line">    +------+------+</span><br><span class="line">    |             |</span><br><span class="line">[Span B]      [Span C] ←←←(Span C is a `child` of Span A)</span><br><span class="line">    |             |</span><br><span class="line">[Span D]      +---+-------+</span><br><span class="line">              |           |</span><br><span class="line">          [Span E]    [Span F]</span><br></pre></td></tr></table></figure>
+
+<p>大部分的可视化工具都是以时间线的方式进行展示：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">––|–––––––|–––––––|–––––––|–––––––|–––––––|–––––––|–––––––|–&gt; time</span><br><span class="line"></span><br><span class="line"> [Span A···················································]</span><br><span class="line">   [Span B··········································]</span><br><span class="line">      [Span D······································]</span><br><span class="line">    [Span C····················································]</span><br><span class="line">         [Span E·······]        [Span F··]</span><br></pre></td></tr></table></figure>
+
+<p>这些和 Dapper 中描述的概念没有本质区别。</p>
+<hr>
+<h3 id="Span-Status"><a href="#Span-Status" class="headerlink" title="Span Status"></a>Span Status</h3><p>Span 还内置了一些 Status：</p>
+<ul>
+<li><code>Unset</code></li>
+<li><code>Error</code></li>
+<li><code>Ok</code></li>
+</ul>
+<p>默认情况下是 Unset，出现错误时则是 Error，一切正常时则是 Ok。</p>
+<p><img src="https://s2.loli.net/2024/05/05/glkIuxbFDBcai36.png"><br>通过可视化页面很容易得知某个 trace 中 span 的异常情况，点进去后可以看到具体的异常 span 以及它的错误日志。</p>
+<h3 id="Span-Kind"><a href="#Span-Kind" class="headerlink" title="Span Kind"></a>Span Kind</h3><p>最后是 Span 的类型：</p>
+<ul>
+<li>Client</li>
+<li>Server</li>
+<li>Internal</li>
+<li>Producer</li>
+<li>Consumer</li>
+</ul>
+<p><img src="https://s2.loli.net/2024/05/05/rMjV9qsveNEKORW.png"></p>
+<p>Client 和 Server 非常好理解，比如我们有一个 gRPC 接口，调用方的 Span 是 client，而服务端的 Span 自然就是 Server。</p>
+<p>Internal 则是内部组件调用产生的 Span，这类 Span 相对会少一些。</p>
+<p>Producer 和 Consumer 一般指的是发起异步调用时的 Span，我们常见的就是往消息队列里生产和消费消息。</p>
+<p>通过这几种类型的 Span 也可以了解到什么情况下会创建 Span，通常是以下几种场景：</p>
+<ul>
+<li>RPC 调用</li>
+<li>数据库（Redis、MySQL、Mongo 等等）操作</li>
+<li>生产和消费消息</li>
+<li>有意义的内部调用</li>
+</ul>
+<p>通常在一个函数内部再调用其他的本地函数是不用创建 span 的，不然这个链路会非常的长。</p>
+<h2 id="Annotations"><a href="#Annotations" class="headerlink" title="Annotations"></a>Annotations</h2><p>当然也有一些特殊情况，比如我的某个内部函数非常重要，需要单独关心它的调用时长。</p>
+<p>此时我们就可以使用 Annotations 来单独创建自己的 Span。</p>
+<blockquote>
+<p>这个 Annotations 和 Dapper 中的不是同一个，只是 Java 中的注解。</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span>  </span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">sayHello</span><span class="params">(HelloRequest request, StreamObserver&lt;HelloReply&gt; responseObserver)</span> &#123;  </span><br><span class="line">    Executors.newFixedThreadPool(<span class="number">1</span>).execute(() -&gt; &#123;  </span><br><span class="line">        myMethod(request.getName());  </span><br><span class="line">    &#125;);    </span><br><span class="line">    </span><br><span class="line">    <span class="type">HelloReply</span> <span class="variable">reply</span> <span class="operator">=</span> HelloReply.newBuilder()  </span><br><span class="line">            .setMessage(<span class="string">&quot;Hello ==&gt; &quot;</span> + request.getName())  </span><br><span class="line">            .build();  </span><br><span class="line">    responseObserver.onNext(reply);  </span><br><span class="line">    responseObserver.onCompleted();  </span><br><span class="line">&#125;  </span><br><span class="line">  </span><br><span class="line"><span class="meta">@SneakyThrows</span>  </span><br><span class="line"><span class="meta">@WithSpan</span>  </span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">myMethod</span><span class="params">(<span class="meta">@SpanAttribute(&quot;request.name&quot;)</span> String name)</span> &#123;  </span><br><span class="line">    TimeUnit.SECONDS.sleep(<span class="number">1</span>);  </span><br><span class="line">    log.info(<span class="string">&quot;myMethod:&#123;&#125;&quot;</span>, name);  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>以这段代码为例，这是一个 gRPC 的服务端接口，在这个接口中调用了一个函数 <code>myMethod</code>，默认情况下并不会为它单独创建一个 Span。</p>
+<p>但如果我们想单独记录它，就可以使用 <code>@WithSpan</code> 这个注解，同时也可以使用  <code>@SpanAttribute</code> 来自定义 attribute。</p>
+<p>最终的效果如下：<br><img src="https://s2.loli.net/2024/05/05/aBd1ubsS2kxMzGf.png"><br>此时就会单独为这个函数创建一个 Span。</p>
+<blockquote>
+<p>需要单独引入一个依赖:</p>
+</blockquote>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependencies</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.opentelemetry.instrumentation<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>opentelemetry-instrumentation-annotations<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>2.3.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependencies</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<h1 id="Context-Propagation"><a href="#Context-Propagation" class="headerlink" title="Context Propagation"></a>Context Propagation</h1><p>上下文传播也是 Trace 中非常重要的概念，刚才提到了每个 Span 都有自己不可变的上下文，那么后续的 Span 如何和上游的 Span 进行关联呢？</p>
+<p>这里有两种情况：</p>
+<ul>
+<li>同一进程</li>
+<li>垮进程</li>
+</ul>
+<h2 id="同一进程"><a href="#同一进程" class="headerlink" title="同一进程"></a>同一进程</h2><p>同一个进程也分为两种情况：</p>
+<ul>
+<li>单线程</li>
+<li>多线程</li>
+</ul>
+<p>单线程的比较好处理，我们只需要把数据写入 <code>ThreadLocal</code> 中就可以做到线程隔离。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> ThreadLocal&lt;Context&gt; THREAD_LOCAL_STORAGE = <span class="keyword">new</span> <span class="title class_">ThreadLocal</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span>  </span><br><span class="line"><span class="meta">@Nullable</span>  </span><br><span class="line"><span class="keyword">public</span> Context <span class="title function_">current</span><span class="params">()</span> &#123;  </span><br><span class="line">  <span class="keyword">return</span> THREAD_LOCAL_STORAGE.get();  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这点我们可以通过源码 <code>io.opentelemetry.context.ThreadLocalContextStorage</code>看到具体的实现过程。</p>
+<p>而如果是多线程时：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Executors.newFixedThreadPool(<span class="number">1</span>).execute(() -&gt; &#123;  </span><br><span class="line">    myMethod(request.getName());  </span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+
+<p>则需要对使用的线程池进行单独处理，将父线程中 threadlocal 中的数据拷贝出来进行传递，比如有阿里提供的 <code>TransmittableThreadLocal</code>，可以提供对线程池的支持。</p>
+<h2 id="跨进程"><a href="#跨进程" class="headerlink" title="跨进程"></a>跨进程</h2><p>而如果是垮进程的场景，就需要将 context 的信息进行序列化传递。</p>
+<p>如果是 gRPC 调用会将信息存放到 metadata 中。</p>
+<p>HTTP 调用则是存放在 header 中。</p>
+<p>消息队列，比如 Pulsar 也可以将数据存放在消息中的 header 中进行传递。</p>
+<p>数据一旦跨进程传输成功后，就和单进程一样的处理方式了。</p>
+<h2 id="Baggage"><a href="#Baggage" class="headerlink" title="Baggage"></a>Baggage</h2><p><img src="https://s2.loli.net/2024/05/05/3c6LNtIbSkpQlRU.png"></p>
+<p>有时候我们需要通过垮 Span 传递信息，比如如上图所示：<br>我们需要在 serverB 中拿到 serverA 中收到的一个请求参数： <code>http://127.0.0.1:8181/request\?name\=1232</code></p>
+<p><img src="https://s2.loli.net/2024/05/05/hISQNv91KP85WFC.png"></p>
+<p>这个数据默认会作为 span 的 attribute ，但只会存在于第一个 span。</p>
+<p>如果我们想要在后续的 span 中也能拿到这个数据，甚至是垮进程也能获取到。</p>
+<p>那就需要使用 <code>Baggage</code> 这个对象了。</p>
+<p>它的使用也很简单：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@RequestMapping(&quot;/request&quot;)</span>  </span><br><span class="line"><span class="keyword">public</span> String <span class="title function_">request</span><span class="params">(<span class="meta">@RequestParam</span> String name)</span> &#123;  </span><br><span class="line">	<span class="comment">// 写入</span></span><br><span class="line">    Baggage.current().toBuilder().  </span><br><span class="line">          put(<span class="string">&quot;request.name&quot;</span>, name).build()  </span><br><span class="line">          .storeInContext(Context.current()).makeCurrent();</span><br><span class="line">&#125;         </span><br><span class="line"></span><br><span class="line"><span class="comment">// 获取</span></span><br><span class="line"><span class="type">String</span> <span class="variable">value</span> <span class="operator">=</span> Baggage.current().getEntryValue(<span class="string">&quot;request.name&quot;</span>);  </span><br><span class="line">log.info(<span class="string">&quot;request.name: &#123;&#125;&quot;</span>, value);</span><br></pre></td></tr></table></figure>
+
+<p>只要是属于同一个 trace 的调用就可以直接获取到数据。<br><img src="https://s2.loli.net/2024/05/05/Lz1hY8pflRebANx.png"></p>
+<blockquote>
+<p>traceId 也是垮 Span 传递的。</p>
+</blockquote>
+<p>而它的原理也是通过往 context 中写入数据实现的：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Immutable</span>  </span><br><span class="line"><span class="keyword">class</span> <span class="title class_">BaggageContextKey</span> &#123;  </span><br><span class="line">  <span class="keyword">static</span> <span class="keyword">final</span> ContextKey&lt;Baggage&gt; KEY = ContextKey.named(<span class="string">&quot;opentelemetry-baggage-key&quot;</span>);  </span><br><span class="line">  </span><br><span class="line">  <span class="keyword">private</span> <span class="title function_">BaggageContextKey</span><span class="params">()</span> &#123;&#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://s2.loli.net/2024/05/05/vIHtBxGATKOg13l.png"><br>而这个 context 是通过一个 entries 数据存储数据的，不管是在内部还是外部的跨进程调用，OpenTelemetry 都会将 context 通过 <code>Context Propagation</code> 传递出去。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>Trace 这部分的内容我觉得比 Metrics 和 Logs 更加复杂一些，毕竟多了一些数据结构；现在的内容也只是冰山一角，现在也在做 trace 的一些定制化开发，后续有新的进展会接着更新。</p>
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://static.googleusercontent.com/media/research.google.com/zh-CN//archive/papers/dapper-2010-1.pdf">https://static.googleusercontent.com/media/research.google.com/zh-CN//archive/papers/dapper-2010-1.pdf</a></li>
+<li><a target="_blank" rel="noopener" href="https://opentelemetry.io/docs/languages/java/automatic/annotations/">https://opentelemetry.io/docs/languages/java/automatic/annotations/</a></li>
+<li><a target="_blank" rel="noopener" href="https://opentelemetry.io/docs/specs/otel/overview/#tracing-signal">https://opentelemetry.io/docs/specs/otel/overview/#tracing-signal</a></li>
+<li><a target="_blank" rel="noopener" href="https://opentelemetry.io/docs/concepts/context-propagation/">https://opentelemetry.io/docs/concepts/context-propagation/</a></li>
+<li><a target="_blank" rel="noopener" href="https://opentelemetry.io/docs/concepts/observability-primer/#distributed-traces">https://opentelemetry.io/docs/concepts/observability-primer/#distributed-traces</a></li>
+<li><a target="_blank" rel="noopener" href="https://tech.meituan.com/2023/04/20/traceid-google-dapper-mtrace.html">https://tech.meituan.com/2023/04/20/traceid-google-dapper-mtrace.html</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/" title="从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅">http://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/OpenTelemetry/" rel="tag"><i class="fa fa-tag"></i> OpenTelemetry</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/06/03/ob/Kubernetes-tricks/" rel="prev" title="【译】几个你或许并不知道 kubernetes 技巧">
+                  <i class="fa fa-chevron-left"></i> 【译】几个你或许并不知道 kubernetes 技巧
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
