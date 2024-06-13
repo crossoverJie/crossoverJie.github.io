@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="在上一篇：从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅我们讲解了 Trace 的一些核心概念：  Trace Span Context Baggage 等  这次我们来讲另一个话题 Metrics。 背景关于 metrics 我最早接触相关概念的就是 prometheus，它是第二个加入 CNCF（云原生）社区的项目（第一个是 kubernetes），可见在云原生领域 M">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从 Prometheus 到 OpenTelemetry：指标监控的演进与实践">
+<meta property="og:url" content="http://crossoverjie.top/2024/06/13/ob/OpenTelemetry-metrics-concept/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="在上一篇：从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅我们讲解了 Trace 的一些核心概念：  Trace Span Context Baggage 等  这次我们来讲另一个话题 Metrics。 背景关于 metrics 我最早接触相关概念的就是 prometheus，它是第二个加入 CNCF（云原生）社区的项目（第一个是 kubernetes），可见在云原生领域 M">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/05/12/1QWEAdFHqYzhl4g.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/12/4iMpax5Ptod2Nws.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/12/vCDZY3ygX7MrzGH.png">
+<meta property="article:published_time" content="2024-06-13T10:22:48.000Z">
+<meta property="article:modified_time" content="2024-06-13T09:16:45.396Z">
+<meta property="article:author" content="crossoverJie">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2024/05/12/1QWEAdFHqYzhl4g.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2024/06/13/ob/OpenTelemetry-metrics-concept/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2024/06/13/ob/OpenTelemetry-metrics-concept/","path":"2024/06/13/ob/OpenTelemetry-metrics-concept/","title":"从 Prometheus 到 OpenTelemetry：指标监控的演进与实践"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>从 Prometheus 到 OpenTelemetry：指标监控的演进与实践 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">83</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">237</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">181</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E7%BB%84%E4%BB%B6"><span class="nav-number">2.</span> <span class="nav-text">基本组件</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#MeterProvider"><span class="nav-number">2.1.</span> <span class="nav-text">MeterProvider</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Meter-Exporter"><span class="nav-number">2.2.</span> <span class="nav-text">Meter Exporter</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Metric-Instruments"><span class="nav-number">2.3.</span> <span class="nav-text">Metric Instruments</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%A1%88%E4%BE%8B"><span class="nav-number">3.</span> <span class="nav-text">案例</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">237</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">83</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">181</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2024/06/13/ob/OpenTelemetry-metrics-concept/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="从 Prometheus 到 OpenTelemetry：指标监控的演进与实践 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          从 Prometheus 到 OpenTelemetry：指标监控的演进与实践
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2024-06-13 18:22:48 / Modified: 17:16:45" itemprop="dateCreated datePublished" datetime="2024-06-13T18:22:48+08:00">2024-06-13</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/" itemprop="url" rel="index"><span itemprop="name">OB</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/OpenTelemetry/" itemprop="url" rel="index"><span itemprop="name">OpenTelemetry</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2024/06/13/ob/OpenTelemetry-metrics-concept/" class="post-meta-item leancloud_visitors" data-flag-title="从 Prometheus 到 OpenTelemetry：指标监控的演进与实践" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2024/06/13/ob/OpenTelemetry-metrics-concept/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2024/06/13/ob/OpenTelemetry-metrics-concept/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>在上一篇：<a href="https://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/">从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅</a>我们讲解了 Trace 的一些核心概念：</p>
+<ul>
+<li>Trace</li>
+<li>Span</li>
+<li>Context</li>
+<li>Baggage 等</li>
+</ul>
+<p>这次我们来讲另一个话题 <code>Metrics</code>。</p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>关于 metrics 我最早接触相关概念的就是 prometheus，它是第二个加入 CNCF（云原生）社区的项目（第一个是 kubernetes），可见在云原生领域 Metrics 指标监控从诞生之初就是一个非常重要的组件。</p>
+<p>现实也确实如此，如今只要使用到了 kubernetes 相关的项目，对其监控就是必不可少的。</p>
+<p>当然也不止是云原生的项目才需要 Metrics 指标监控，我们任何一个业务都是需要的，不然我们的服务运行对开发运维来说都是一个黑盒，无法知道此时系统的运行情况，因此才需要我们的业务系统将一些关键运行指标暴露出来。</p>
+<p><img src="https://s2.loli.net/2024/05/12/1QWEAdFHqYzhl4g.png"></p>
+<p>业务数据：比如订单的增长率、销售金额等业务数据；同时还有应用自身的资源占用情况：</p>
+<ul>
+<li>QPS</li>
+<li>Latency</li>
+<li>内存</li>
+<li>CPU 等信息。</li>
+</ul>
+<p> 在使用 OpenTelemetry 之前，因为 prometheus 是这部分的绝对标准，所以我们通常都会使用 prometheus 的包来暴露这些指标：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- The client --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.prometheus<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>simpleclient<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">version</span>&gt;</span>0.16.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="comment">&lt;!-- Hotspot JVM metrics--&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.prometheus<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>simpleclient_hotspot<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">version</span>&gt;</span>0.16.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>暴露一个自定义的指标也很简单：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> io.prometheus.client.Counter;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">YourClass</span> &#123;</span><br><span class="line">  <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Counter</span> <span class="variable">requests</span> <span class="operator">=</span> Counter.build()</span><br><span class="line">     .name(<span class="string">&quot;requests_total&quot;</span>).help(<span class="string">&quot;Total requests.&quot;</span>).register();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">void</span> <span class="title function_">processRequest</span><span class="params">()</span> &#123;</span><br><span class="line">    requests.inc();</span><br><span class="line">    <span class="comment">// Your code here.</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这是暴露一个单调递增的指标，prometheus 还提供了其他几种指标类型：</p>
+</blockquote>
+<ul>
+<li>Counter</li>
+<li>Gauge</li>
+<li>Histogram</li>
+</ul>
+<p>之后我们只需要在 prometheus 中配置一些抓取规则即可：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">scrape_configs:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">job_name:</span> <span class="string">&#x27;springboot&#x27;</span></span><br><span class="line">    <span class="attr">scrape_interval:</span> <span class="string">10s</span></span><br><span class="line">    <span class="attr">static_configs:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">targets:</span> [<span class="string">&#x27;localhost:8080&#x27;</span>] <span class="comment"># Spring Boot ip+port</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>当然如果是运行在 kubernetes 环境，prometheus 也可以基于服务发现配置一些规则，自动抓取我们的 Pod 的数据，由于不是本文的重点就不过多介绍。</p>
+</blockquote>
+<h1 id="基本组件"><a href="#基本组件" class="headerlink" title="基本组件"></a>基本组件</h1><p>在 OpenTelemetry 中自然也提供了 Metrics 这个组件，同时它也是完全兼容 Prometheus，所以我们理解和使用起来并不复杂。</p>
+<h2 id="MeterProvider"><a href="#MeterProvider" class="headerlink" title="MeterProvider"></a>MeterProvider</h2><p>不同于 prometheus 客户端中直接提供了 Counter 就可以创建指标了，在 OpenTelemetry 中会提供一个 <code>MeterProvider</code> 的接口，使用这个接口可以获取 Meter，再使用 Meter 才可以创建 Counter、Gauge、Histogram 等数据。</p>
+<p>下面来看看具体如何使用，这里我以 Pulsar 源码的代码进行演示：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">InstrumentProvider</span><span class="params">(OpenTelemetry otel)</span> &#123;  </span><br><span class="line">    <span class="keyword">if</span> (otel == <span class="literal">null</span>) &#123;  </span><br><span class="line">        <span class="comment">// By default, metrics are disabled, unless the OTel java agent is configured.  </span></span><br><span class="line">        <span class="comment">// This allows to enable metrics without any code change.        otel = GlobalOpenTelemetry.get();  </span></span><br><span class="line">    &#125;    <span class="built_in">this</span>.meter = otel.getMeterProvider()  </span><br><span class="line">            .meterBuilder(<span class="string">&quot;org.apache.pulsar.client&quot;</span>)  </span><br><span class="line">            .setInstrumentationVersion(PulsarVersion.getVersion())  </span><br><span class="line">            .build();  </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">LongCounterBuilder</span> <span class="variable">builder</span> <span class="operator">=</span> meter.counterBuilder(name)  </span><br><span class="line">        .setDescription(description)  </span><br><span class="line">        .setUnit(unit.toString());</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="Meter-Exporter"><a href="#Meter-Exporter" class="headerlink" title="Meter Exporter"></a>Meter Exporter</h2><p>Meter Exporter 则是一个 OpenTelemetry 独有的概念，与我们之前讲到的一样：OpenTelemetry 作为厂商无关的平台，允许我们将数据写入到任何兼容的产品里。</p>
+<p>所以我们在使用 Metrics 时需要指定一个 exporter：</p>
+<table>
+<thead>
+<tr>
+<th>Exporter 类型</th>
+<th>作用</th>
+<th>备注</th>
+<th>参数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>OTLP Exporter</td>
+<td>通过 OpenTelemetry Protocol（OTLP） 发送指标数据到 collect。</td>
+<td>默认生产环境中推荐使用，需要将数据发送到支持 OTLP 的后端，如 OpenTelemetry Collector。</td>
+<td>-Dotel.metrics.exporter&#x3D;otlp (default)</td>
+</tr>
+<tr>
+<td>Console Exporter</td>
+<td>将指标数据打印到控制台的导出器。</td>
+<td>开发和调试，快速查看指标数据。</td>
+<td>-Dotel.metrics.exporter&#x3D;console</td>
+</tr>
+<tr>
+<td>Prometheus Exporter</td>
+<td>将指标数据以 Prometheus 抓取的格式暴露给 Prometheus 服务。</td>
+<td>与 Prometheus 集成，适用于需要 Prometheus 监控的场景，这个可以无缝和以往使用 prometheus 的场景兼容</td>
+<td>-Dotel.metrics.exporter&#x3D;prometheus</td>
+</tr>
+</tbody></table>
+<h2 id="Metric-Instruments"><a href="#Metric-Instruments" class="headerlink" title="Metric Instruments"></a>Metric Instruments</h2><p>与 prometheus 类似，OpenTelemetry 也提供了以下几种指标类型：</p>
+<ul>
+<li><strong>Counter</strong>：单调递增计数器，比如可以用来记录订单数、总的请求数。</li>
+<li><strong>UpDownCounter</strong>：与 Counter 类似，只不过它可以递减。</li>
+<li><strong>Gauge</strong>：用于记录随时在变化的值，比如内存使用量、CPU 使用量等。</li>
+<li><strong>Histogram</strong>：通常用于记录请求延迟、响应时间等。</li>
+</ul>
+<p>同时每个指标还有以下几个字段：</p>
+<ul>
+<li>Name：名称，必填。</li>
+<li>Kind：类型，必填。</li>
+<li>Unit：单位，可选。</li>
+<li>Description：描述，可选。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">messageInCounter = meter  </span><br><span class="line">        .counterBuilder(MESSAGE_IN_COUNTER)  </span><br><span class="line">        .setUnit(<span class="string">&quot;&#123;message&#125;&quot;</span>)  </span><br><span class="line">        .setDescription(<span class="string">&quot;The total number of messages received for this topic.&quot;</span>)  </span><br><span class="line">        .buildObserver();</span><br></pre></td></tr></table></figure>
+
+<p>还是以 Pulsar 的为例，<code>messageInCounter</code> 是一个记录总的消息接收数量的 Counter 类型。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">subscriptionCounter = meter  </span><br><span class="line">        .upDownCounterBuilder(SUBSCRIPTION_COUNTER)  </span><br><span class="line">        .setUnit(<span class="string">&quot;&#123;subscription&#125;&quot;</span>)  </span><br><span class="line">        .setDescription(<span class="string">&quot;The number of Pulsar subscriptions of the topic served by this broker.&quot;</span>)  </span><br><span class="line">        .buildObserver();</span><br></pre></td></tr></table></figure>
+<p>这是记录一个订阅者数量的指标，类型是 UpDownCounter，也就是可以增加减少的指标。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> List&lt;Double&gt; latencyHistogramBuckets =  </span><br><span class="line">        Lists.newArrayList(<span class="number">.0005</span>, <span class="number">.001</span>, <span class="number">.0025</span>, <span class="number">.005</span>, <span class="number">.01</span>, <span class="number">.025</span>, <span class="number">.05</span>, <span class="number">.1</span>, <span class="number">.25</span>, <span class="number">.5</span>, <span class="number">1.0</span>, <span class="number">2.5</span>, <span class="number">5.0</span>, <span class="number">10.0</span>, <span class="number">30.0</span>, <span class="number">60.0</span>);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">DoubleHistogramBuilder</span> <span class="variable">builder</span> <span class="operator">=</span> meter.histogramBuilder(<span class="string">&quot;pulsar.client.producer.message.send.duration&quot;</span>)  </span><br><span class="line">        .setDescription(<span class="string">&quot;Publish latency experienced by the application, includes client batching time&quot;</span>)  </span><br><span class="line">        .setUnit(Unit.Seconds.toString())  </span><br><span class="line">        .setExplicitBucketBoundariesAdvice(latencyHistogramBuckets);</span><br></pre></td></tr></table></figure>
+
+<p>这是一个记录 Pulsar producer 发送延迟的指标，类型是 <code>Histogram</code>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">backlogQuotaAge = meter  </span><br><span class="line">        .gaugeBuilder(BACKLOG_QUOTA_AGE)  </span><br><span class="line">        .ofLongs()  </span><br><span class="line">        .setUnit(<span class="string">&quot;s&quot;</span>)  </span><br><span class="line">        .setDescription(<span class="string">&quot;The age of the oldest unacknowledged message (backlog).&quot;</span>)  </span><br><span class="line">        .buildObserver();</span><br></pre></td></tr></table></figure>
+
+<p>这是一个记录最大 unack 也就是 backlog 时间的指标，类型是 <code>Gauge</code>。</p>
+<h1 id="案例"><a href="#案例" class="headerlink" title="案例"></a>案例</h1><p>在之前的文章：<a href="https://crossoverjie.top/2024/04/15/ob/how-to-write-otel-extensions/">实战：如何编写一个 OpenTelemetry Extensions</a>中讲过如何开发一个 OpenTelemetry 的 extension，其实当时我就是开发了一个用于在 Pulsar 客户端中暴露指标的一个插件。</p>
+<blockquote>
+<p>不过目前 Pulsar 社区已经集成了该功能。</p>
+</blockquote>
+<p>其中的核心代码与上面讲到的类似：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">registerObservers</span><span class="params">()</span> &#123;    </span><br><span class="line">    <span class="type">Meter</span> <span class="variable">meter</span> <span class="operator">=</span> MetricsRegistration.getMeter();    </span><br><span class="line">    </span><br><span class="line">    meter.gaugeBuilder(<span class="string">&quot;pulsar_producer_num_msg_send&quot;</span>)    </span><br><span class="line">            .setDescription(<span class="string">&quot;The number of messages published in the last interval&quot;</span>)    </span><br><span class="line">            .ofLongs()    </span><br><span class="line">            .buildWithCallback(    </span><br><span class="line">                    r -&gt; recordProducerMetrics(r, ProducerStats::getNumMsgsSent));</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">recordProducerMetrics</span><span class="params">(ObservableLongMeasurement observableLongMeasurement, Function&lt;ProducerStats, Long&gt; getter)</span> &#123;    </span><br><span class="line">    <span class="keyword">for</span> (Producer producer : CollectionHelper.PRODUCER_COLLECTION.list()) &#123;    </span><br><span class="line">        <span class="type">ProducerStats</span> <span class="variable">stats</span> <span class="operator">=</span> producer.getStats();    </span><br><span class="line">        <span class="type">String</span> <span class="variable">topic</span> <span class="operator">=</span> producer.getTopic();    </span><br><span class="line">        <span class="keyword">if</span> (topic.endsWith(RetryMessageUtil.RETRY_GROUP_TOPIC_SUFFIX)) &#123;    </span><br><span class="line">            <span class="keyword">continue</span>;    </span><br><span class="line">        &#125;        observableLongMeasurement.record(getter.apply(stats),    </span><br><span class="line">                Attributes.of(PRODUCER_NAME, producer.getProducerName(), TOPIC, topic));    </span><br><span class="line">    &#125;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>只是这里使用了 <code>buildWithCallback</code> 回调函数，OpenTelemetry 会每隔 30s 调用一次这个函数，通常适用于 Gauge 类型的数据。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">java -javaagent:opentelemetry-javaagent.jar \  </span><br><span class="line">     -Dotel.javaagent.extensions=ext.jar  \</span><br><span class="line">     -Dotel.metrics.exporter=prometheus \</span><br><span class="line">     -Dotel.exporter.prometheus.port=<span class="number">18180</span> \</span><br><span class="line">     -jar myapp.jar</span><br></pre></td></tr></table></figure>
+
+<p>配合上 Prometheus 的两个启动参数就可以在本地 18180 中获取到指标数据：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl http://127.0.0.1:18180/metrics</span><br></pre></td></tr></table></figure>
+
+<p>当然也可以直接发往 OpenTelemetry-Collector 中，再由它发往 prometheus，只是这样需要额外在 collector 中配置一下：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">exporters:</span></span><br><span class="line">  <span class="attr">debug:</span> &#123;&#125;</span><br><span class="line">  <span class="attr">otlphttp:</span></span><br><span class="line">    <span class="attr">metrics_endpoint:</span> <span class="string">http://promethus:8480/insert/0/opentelemetry/api/v1/push</span></span><br><span class="line"><span class="attr">service:</span></span><br><span class="line">  <span class="attr">pipelines:</span></span><br><span class="line">    <span class="attr">metrics:</span></span><br><span class="line">      <span class="attr">exporters:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">otlphttp</span></span><br><span class="line">      <span class="attr">processors:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">k8sattributes</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">batch</span></span><br><span class="line">      <span class="attr">receivers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">otlp</span>	</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://s2.loli.net/2024/05/12/4iMpax5Ptod2Nws.png"></p>
+<p>这样我们就可以在 Grafana 中通过 prometheus 查询到数据了。</p>
+<p>有一点需要注意，如果我们自定义的指标最好是参考官方的<a target="_blank" rel="noopener" href="https://opentelemetry.io/docs/specs/semconv/general/metrics/">语义和命名规范</a>来定义这些指标名称。</p>
+<p><img src="https://s2.loli.net/2024/05/12/vCDZY3ygX7MrzGH.png"></p>
+<p>比如 OpenTelemetry 的规范中名称是用 <strong>.</strong> 来进行分隔的。</p>
+<blockquote>
+<p>切换为 OpenTelemetry 之后自然就不需要依赖 prometheus 的包，取而代之的是 OTel 的包：</p>
+</blockquote>
+<figure class="highlight gradle"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">compileOnly <span class="string">&#x27;io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:1.34.1&#x27;</span>  </span><br><span class="line">compileOnly <span class="string">&#x27;io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:1.32.0&#x27;</span></span><br></pre></td></tr></table></figure>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>相对来说 Metrics 的使用比 Trace 简单的多，同时 Metrics 其实也可以和 Trace 进行关联，也就是 <a target="_blank" rel="noopener" href="https://opentelemetry.io/docs/specs/otel/metrics/data-model/#exemplars">Exemplars</a>，限于篇幅就不在本文展开了，感兴趣的可以自行查阅。</p>
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/blob/master/pulsar-client/src/main/java/org/apache/pulsar/client/impl/metrics/InstrumentProvider.java">https://github.com/apache/pulsar/blob/master/pulsar-client/src/main/java/org/apache/pulsar/client/impl/metrics/InstrumentProvider.java</a></li>
+<li><a target="_blank" rel="noopener" href="https://opentelemetry.io/docs/specs/semconv/general/metrics/">https://opentelemetry.io/docs/specs/semconv/general/metrics/</a></li>
+<li><a target="_blank" rel="noopener" href="https://opentelemetry.io/docs/specs/otel/metrics/data-model/#exemplars">https://opentelemetry.io/docs/specs/otel/metrics/data-model/#exemplars</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2024/06/13/ob/OpenTelemetry-metrics-concept/" title="从 Prometheus 到 OpenTelemetry：指标监控的演进与实践">http://crossoverjie.top/2024/06/13/ob/OpenTelemetry-metrics-concept/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/06/06/ob/OpenTelemetry-trace-concept/" rel="prev" title="从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅">
+                  <i class="fa fa-chevron-left"></i> 从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
