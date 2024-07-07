@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="🧰Helm 的作用在开始前需要先对 kubernetes  Operator 有个简单的认识。 以为我们在编写部署一些简单 Deployment 的时候只需要自己编写一个 yaml 文件然后 kubectl apply 即可。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从 Helm 到 Operator：Kubernetes应用管理的进化">
+<meta property="og:url" content="http://crossoverjie.top/2024/07/08/ob/how-operator-working/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="🧰Helm 的作用在开始前需要先对 kubernetes  Operator 有个简单的认识。 以为我们在编写部署一些简单 Deployment 的时候只需要自己编写一个 yaml 文件然后 kubectl apply 即可。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/06/01/9EtzrfIAvcXm4aJ.png">
+<meta property="og:image" content="https://s2.loli.net/2024/06/01/t4ZnXcS9wokMPER.png">
+<meta property="og:image" content="https://s2.loli.net/2024/06/01/IUjriqye6EMFCT8.png">
+<meta property="og:image" content="https://s2.loli.net/2024/06/01/RBKp15lhkHsbeEY.png">
+<meta property="article:published_time" content="2024-07-08T03:19:51.000Z">
+<meta property="article:modified_time" content="2024-07-07T07:45:26.500Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="kubernetes">
+<meta property="article:tag" content="Operator">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2024/06/01/9EtzrfIAvcXm4aJ.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2024/07/08/ob/how-operator-working/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2024/07/08/ob/how-operator-working/","path":"2024/07/08/ob/how-operator-working/","title":"从 Helm 到 Operator：Kubernetes应用管理的进化"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>从 Helm 到 Operator：Kubernetes应用管理的进化 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">86</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">241</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">182</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%F0%9F%A7%B0Helm-%E7%9A%84%E4%BD%9C%E7%94%A8"><span class="nav-number">1.</span> <span class="nav-text">🧰Helm 的作用</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%F0%9F%A4%94Operator-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">2.</span> <span class="nav-text">🤔Operator 是什么</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%F0%9F%92%94Helm-%E7%9A%84%E7%97%9B%E7%82%B9"><span class="nav-number">2.1.</span> <span class="nav-text">💔Helm 的痛点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%F0%9F%92%8ECRD-Custom-Resource-Definitions"><span class="nav-number">2.2.</span> <span class="nav-text">💎CRD(Custom Resource Definitions)</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Operator-%E5%8E%9F%E7%90%86"><span class="nav-number">3.</span> <span class="nav-text">Operator 原理</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">241</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">86</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">182</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2024/07/08/ob/how-operator-working/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="从 Helm 到 Operator：Kubernetes应用管理的进化 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          从 Helm 到 Operator：Kubernetes应用管理的进化
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2024-07-08 11:19:51" itemprop="dateCreated datePublished" datetime="2024-07-08T11:19:51+08:00">2024-07-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2024-07-07 15:45:26" itemprop="dateModified" datetime="2024-07-07T15:45:26+08:00">2024-07-07</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/" itemprop="url" rel="index"><span itemprop="name">OB</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/kubernetes/" itemprop="url" rel="index"><span itemprop="name">kubernetes</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/kubernetes/kubernetes/" itemprop="url" rel="index"><span itemprop="name">kubernetes</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2024/07/08/ob/how-operator-working/" class="post-meta-item leancloud_visitors" data-flag-title="从 Helm 到 Operator：Kubernetes应用管理的进化" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2024/07/08/ob/how-operator-working/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2024/07/08/ob/how-operator-working/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h1 id="🧰Helm-的作用"><a href="#🧰Helm-的作用" class="headerlink" title="🧰Helm 的作用"></a>🧰Helm 的作用</h1><p>在开始前需要先对 kubernetes  Operator 有个简单的认识。</p>
+<p>以为我们在编写部署一些简单 <code>Deployment</code> 的时候只需要自己编写一个 yaml 文件然后 <code>kubectl apply</code> 即可。</p>
+<span id="more"></span>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span>  </span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span>  </span><br><span class="line"><span class="attr">metadata:</span>  </span><br><span class="line">  <span class="attr">labels:</span>  </span><br><span class="line">    <span class="attr">app:</span> <span class="string">k8s-combat</span>  </span><br><span class="line">  <span class="attr">name:</span> <span class="string">k8s-combat</span>  </span><br><span class="line"><span class="attr">spec:</span>  </span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">1</span>  </span><br><span class="line">  <span class="attr">selector:</span>  </span><br><span class="line">    <span class="attr">matchLabels:</span>  </span><br><span class="line">      <span class="attr">app:</span> <span class="string">k8s-combat</span>  </span><br><span class="line">  <span class="attr">template:</span>  </span><br><span class="line">    <span class="attr">metadata:</span>  </span><br><span class="line">      <span class="attr">labels:</span>  </span><br><span class="line">        <span class="attr">app:</span> <span class="string">k8s-combat</span>  </span><br><span class="line">    <span class="attr">spec:</span>  </span><br><span class="line">      <span class="attr">containers:</span>  </span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">k8s-combat</span>  </span><br><span class="line">          <span class="attr">image:</span> <span class="string">crossoverjie/k8s-combat:v1</span>  </span><br><span class="line">          <span class="attr">imagePullPolicy:</span> <span class="string">Always</span>  </span><br><span class="line">          <span class="attr">resources:</span>  </span><br><span class="line">            <span class="attr">limits:</span>  </span><br><span class="line">              <span class="attr">cpu:</span> <span class="string">&quot;1&quot;</span>  </span><br><span class="line">              <span class="attr">memory:</span> <span class="string">300Mi</span>  </span><br><span class="line">            <span class="attr">requests:</span>  </span><br><span class="line">              <span class="attr">cpu:</span> <span class="string">&quot;0.1&quot;</span>  </span><br><span class="line">              <span class="attr">memory:</span> <span class="string">30Mi</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f deployment.yaml</span><br></pre></td></tr></table></figure>
+
+<p>这对于一些并不复杂的项目来说完全够用了，但组件一多就比较麻烦了。</p>
+<p><img src="https://s2.loli.net/2024/06/01/9EtzrfIAvcXm4aJ.png"><br>这里以 Apache Pulsar 为例：它的核心组件有:</p>
+<ul>
+<li>Broker</li>
+<li>Proxy</li>
+<li>Zookeeper</li>
+<li>Bookkeeper</li>
+<li>Prometheus(可选)</li>
+<li>Grafana(可选)<br>等组件，每个组件的启动还有这依赖关系。<blockquote>
+<p>必须需要等 Zookeeper 和 Bookkeeper 启动之后才能将流量放进来。</p>
+</blockquote>
+</li>
+</ul>
+<p>此时如何还继续使用 yaml 文件一个个部署就会非常繁琐，好在社区有提供 Helm 一键安装程序，使用它我们只需要在一个同意的 yaml 里简单的配置一些组件，配置就可以由 helm 来部署整个复杂的 Pulsar 系统。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">components:</span>  </span><br><span class="line">  <span class="comment"># zookeeper  </span></span><br><span class="line">  <span class="attr">zookeeper:</span> <span class="literal">true</span>  </span><br><span class="line">  <span class="comment"># bookkeeper  </span></span><br><span class="line">  <span class="attr">bookkeeper:</span> <span class="literal">true</span>  </span><br><span class="line">  <span class="comment"># bookkeeper - autorecovery  </span></span><br><span class="line">  <span class="attr">autorecovery:</span> <span class="literal">true</span>  </span><br><span class="line">  <span class="comment"># broker  </span></span><br><span class="line">  <span class="attr">broker:</span> <span class="literal">true</span>  </span><br><span class="line">  <span class="comment"># functions  </span></span><br><span class="line">  <span class="attr">functions:</span> <span class="literal">false</span>  </span><br><span class="line">  <span class="comment"># proxy  </span></span><br><span class="line">  <span class="attr">proxy:</span> <span class="literal">true</span>  </span><br><span class="line">  <span class="comment"># toolset  </span></span><br><span class="line">  <span class="attr">toolset:</span> <span class="literal">true</span>  </span><br><span class="line">  <span class="comment"># pulsar manager  </span></span><br><span class="line">  <span class="attr">pulsar_manager:</span> <span class="literal">false</span>  </span><br><span class="line"><span class="attr">monitoring:</span>  </span><br><span class="line">  <span class="comment"># monitoring - prometheus  </span></span><br><span class="line">  <span class="attr">prometheus:</span> <span class="literal">true</span>  </span><br><span class="line">  <span class="comment"># monitoring - grafana  </span></span><br><span class="line">  <span class="attr">grafana:</span> <span class="literal">true</span>  </span><br><span class="line">  <span class="comment"># monitoring - node_exporter  </span></span><br><span class="line">  <span class="attr">node_exporter:</span> <span class="literal">true</span>  </span><br><span class="line">  <span class="comment"># alerting - alert-manager  </span></span><br><span class="line">  <span class="attr">alert_manager:</span> <span class="literal">false</span></span><br></pre></td></tr></table></figure>
+
+<p>比如在 helm 的 yaml 中我们可以选择使用哪些 components，以及是否启用监控组件。</p>
+<p>最后直接使用这个文件进行安装：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">helm install pulsar apache/pulsar \</span><br><span class="line">	--values charts/pulsar/values.yaml \</span><br><span class="line">	--<span class="built_in">set</span> namespace=pulsar \</span><br><span class="line">    --<span class="built_in">set</span> initialize=<span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+<p>它就会自动生成各个组件的 yaml 文件，然后统一执行。</p>
+<p>所以 helm 的本质上和 <code>kubectl apply yaml</code> 一样的，只是我们在定义 value.yaml 时帮我们处理了许多不需要用户低频修改的参数。</p>
+<p>我们可以使用 helm 将要执行的 yaml 输出后人工审核</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm install pulsar apache/pulsar --dry-run --debug &gt; debug.yaml</span><br></pre></td></tr></table></figure>
+
+
+<h1 id="🤔Operator-是什么"><a href="#🤔Operator-是什么" class="headerlink" title="🤔Operator 是什么"></a>🤔Operator 是什么</h1><h2 id="💔Helm-的痛点"><a href="#💔Helm-的痛点" class="headerlink" title="💔Helm 的痛点"></a>💔Helm 的痛点</h2><p>Helm 虽然可以帮我们部署或者升级一个大型应用，但他却没法帮我们运维这个应用。</p>
+<p>举个例子：比如我希望当 Pulsar Broker 的流量或者内存达到某个阈值后就指定扩容 Broker，闲时再自动回收。</p>
+<p>或者某个 Bookkeeper 的磁盘使用率达到阈值后可以自动扩容磁盘，这些仅仅使用 Helm 时都是无法实现的。</p>
+<p>以上这些需求我们目前也是通过监控系统发出报警，然后再由人工处理。</p>
+<p>其中最大的痛点就是进行升级：</p>
+<ul>
+<li>升级ZK</li>
+<li>关闭auto recovery</li>
+<li>升级Bookkeeper</li>
+<li>升级Broker</li>
+<li>升级Proxy</li>
+<li>开启auto recovery</li>
+</ul>
+<p>因为每次升级是有先后顺序的，需要依次观察每个组件运行是否正常才能往后操作。</p>
+<p>如果有 Operator 理性情况下下我们只需要更新一下镜像版本，它就可以自动执行以上的所有步骤最后将集群升级完毕。</p>
+<p>所以相对于 Helm 来说 Operator 是可以站在一个更高的视角俯视整个应用系统，它能发现系统哪个地方需要它从而直接修复。</p>
+<h2 id="💎CRD-Custom-Resource-Definitions"><a href="#💎CRD-Custom-Resource-Definitions" class="headerlink" title="💎CRD(Custom Resource Definitions)"></a>💎CRD(Custom Resource Definitions)</h2><p>而提到 Operator 那就不得不提到 CRD(Custom Resource Definitions)翻译过来就是自定义资源。</p>
+<p>这是 kubernetes 提供的一个 API 扩展机制，类似于内置的 <code>Deployment/StatefulSet/Services</code> 资源，CRD 是一种自定义的资源。</p>
+<p>这里以我们常用的 <code>prometheus-operator</code> 和 <code>VictoriaMetrics-operator</code> 为例：</p>
+<p>Prometheus：</p>
+<ul>
+<li>**<code>Prometheus</code>**：用于定义 Prometheus 的 Deployment</li>
+<li>**<code>Alertmanager</code>**：用于定义 <strong><code>Alertmanager</code></strong></li>
+<li>**<code>ScrapeConfig</code>**：用于定会抓取规则</li>
+</ul>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">monitoring.coreos.com/v1alpha1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">ScrapeConfig</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">static-config</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">my-namespace</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">prometheus:</span> <span class="string">system-monitoring-prometheus</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">staticConfigs:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">job:</span> <span class="string">prometheus</span></span><br><span class="line">      <span class="attr">targets:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">prometheus.demo.do.prometheus.io:9090</span></span><br></pre></td></tr></table></figure>
+
+<p>使用时的一个很大区别就是资源的 <code>kind: ScrapeConfig</code> 为自定义的类型。</p>
+<p>VictoriaMetrics 的 CRD：</p>
+<ul>
+<li>VMPodScrape：Pod 的抓取规则</li>
+<li>VMCluster：配置 VM 集群</li>
+<li>VMAlert：配置 VM 的告警规则</li>
+<li>等等</li>
+</ul>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># vmcluster.yaml</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">operator.victoriametrics.com/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">VMCluster</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">demo</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">retentionPeriod:</span> <span class="string">&quot;1&quot;</span></span><br><span class="line">  <span class="attr">replicationFactor:</span> <span class="number">2</span></span><br><span class="line">  <span class="attr">vmstorage:</span></span><br><span class="line">    <span class="attr">replicaCount:</span> <span class="number">2</span></span><br><span class="line">    <span class="attr">storageDataPath:</span> <span class="string">&quot;/vm-data&quot;</span></span><br><span class="line">    <span class="attr">storage:</span></span><br><span class="line">      <span class="attr">volumeClaimTemplate:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">resources:</span></span><br><span class="line">            <span class="attr">requests:</span></span><br><span class="line">              <span class="attr">storage:</span> <span class="string">&quot;10Gi&quot;</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="attr">limits:</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">&quot;1&quot;</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">&quot;1Gi&quot;</span></span><br><span class="line">  <span class="attr">vmselect:</span></span><br><span class="line">    <span class="attr">replicaCount:</span> <span class="number">2</span></span><br><span class="line">    <span class="attr">cacheMountPath:</span> <span class="string">&quot;/select-cache&quot;</span></span><br><span class="line">    <span class="attr">storage:</span></span><br><span class="line">      <span class="attr">volumeClaimTemplate:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">resources:</span></span><br><span class="line">            <span class="attr">requests:</span></span><br><span class="line">              <span class="attr">storage:</span> <span class="string">&quot;1Gi&quot;</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="attr">limits:</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">&quot;1&quot;</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">&quot;1Gi&quot;</span></span><br><span class="line">      <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">&quot;0.5&quot;</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">&quot;500Mi&quot;</span></span><br><span class="line">  <span class="attr">vminsert:</span></span><br><span class="line">    <span class="attr">replicaCount:</span> <span class="number">2</span></span><br></pre></td></tr></table></figure>
+
+<p>以上是用于创建一个 VM 集群的 CRD 资源，应用之后就会自动创建一个集群。</p>
+<h1 id="Operator-原理"><a href="#Operator-原理" class="headerlink" title="Operator 原理"></a>Operator 原理</h1><p><img src="https://s2.loli.net/2024/06/01/t4ZnXcS9wokMPER.png"><br>Operator 通常是运行在 kubernetes API server 的 <code>webhook</code> 之上，简单来说就是在一些内置资源的关键节点 API-server 会调用我们注册的一个 <code>webhook</code>，在这个 <code>webhook</code> 中我们根据我们的 CRD 做一些自定义的操作。</p>
+<p>理论上我们可以使用任何语言都可以写 Operator，只需要能处理 api-server 的回调即可。</p>
+<p>只是 Go 语言有很多成熟的工具，比如常用的 <a target="_blank" rel="noopener" href="https://kubebuilder.io/">kubebuilder</a> 和 <a target="_blank" rel="noopener" href="https://sdk.operatorframework.io/">operator-sdk</a>.</p>
+<p>他们内置了许多命令行工具，可以帮我们节省需要工作量。</p>
+<p>这里以 operator-sdk 为例：</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ operator-sdk create webhook --group cache --version v1alpha1 --kind Memcached --defaulting --programmatic-validation</span><br></pre></td></tr></table></figure>
+
+<p>会直接帮我们创建好一个标准的 operator 项目:</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">├── Dockerfile</span><br><span class="line">├── Makefile</span><br><span class="line">├── PROJECT</span><br><span class="line">├── api</span><br><span class="line">│   └── v1alpha1</span><br><span class="line">│       ├── memcached_webhook.go</span><br><span class="line">│       ├── webhook_suite_test.go</span><br><span class="line">├── config</span><br><span class="line">│   ├── certmanager</span><br><span class="line">│   │   ├── certificate.yaml</span><br><span class="line">│   │   ├── kustomization.yaml</span><br><span class="line">│   │   └── kustomizeconfig.yaml</span><br><span class="line">│   ├── default</span><br><span class="line">│   │   ├── manager_webhook_patch.yaml</span><br><span class="line">│   │   └── webhookcainjection_patch.yaml</span><br><span class="line">│   └── webhook</span><br><span class="line">│       ├── kustomization.yaml</span><br><span class="line">│       ├── kustomizeconfig.yaml</span><br><span class="line">│       └── service.yaml</span><br><span class="line">├── go.mod</span><br><span class="line">├── go.sum</span><br><span class="line">└── main.go</span><br></pre></td></tr></table></figure>
+
+<p>其中 Makefile 中包含了开发过程中常用的工具链（包括根据声明的结构体自动生成 CRD 资源、部署k8s 环境测试等等）、Dockerfile 等等。</p>
+<p>这样我们就只需要专注于开发业务逻辑即可。</p>
+<p>因为我前段时间给 <a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-operator">https://github.com/open-telemetry/opentelemetry-operator</a> 贡献过两个 feature，所以就以这个 Operator 为例：</p>
+<p>它有一个 CRD: <code>kind: Instrumentation</code>，在这个 CRD 中可以将 OpenTelemetry 的 agent 注入到应用中。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">opentelemetry.io/v1alpha1</span>  </span><br><span class="line"><span class="attr">kind:</span> <span class="string">Instrumentation</span>  </span><br><span class="line"><span class="attr">metadata:</span>  </span><br><span class="line">  <span class="attr">name:</span> <span class="string">instrumentation-test-order</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">test</span>  </span><br><span class="line"><span class="attr">spec:</span>  </span><br><span class="line">  <span class="attr">env:</span>  </span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">OTEL_SERVICE_NAME</span>  </span><br><span class="line">      <span class="attr">value:</span> <span class="string">order</span></span><br><span class="line">  <span class="attr">selector:</span>  </span><br><span class="line">    <span class="attr">matchLabels:</span>  </span><br><span class="line">      <span class="attr">app:</span> <span class="string">order</span>  </span><br><span class="line">  <span class="attr">java:</span>  </span><br><span class="line">    <span class="attr">image:</span> <span class="string">autoinstrumentation-java:2.4.0-release</span>  </span><br><span class="line">    <span class="attr">extensions:</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">autoinstrumentation-java:2.4.0-release</span>  </span><br><span class="line">        <span class="attr">dir:</span> <span class="string">/extensions</span>  </span><br><span class="line">  </span><br><span class="line">    <span class="attr">env:</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">OTEL_RESOURCE_ATTRIBUTES</span>  </span><br><span class="line">        <span class="attr">value:</span> <span class="string">service.name=order</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">OTEL_INSTRUMENTATION_MESSAGING_EXPERIMENTAL_RECEIVE_TELEMETRY_ENABLED</span>  </span><br><span class="line">        <span class="attr">value:</span> <span class="string">&quot;true&quot;</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">OTEL_TRACES_EXPORTER</span>  </span><br><span class="line">        <span class="attr">value:</span> <span class="string">otlp</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">OTEL_METRICS_EXPORTER</span>  </span><br><span class="line">        <span class="attr">value:</span> <span class="string">otlp</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">OTEL_LOGS_EXPORTER</span>  </span><br><span class="line">        <span class="attr">value:</span> <span class="string">none</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">OTEL_EXPORTER_OTLP_ENDPOINT</span>  </span><br><span class="line">        <span class="attr">value:</span> <span class="string">http://open-telemetry-opentelemetry-collector.otel.svc.cluster.local:4317</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">OTEL_EXPORTER_OTLP_COMPRESSION</span>  </span><br><span class="line">        <span class="attr">value:</span> <span class="string">gzip</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">OTEL_EXPERIMENTAL_EXPORTER_OTLP_RETRY_ENABLED</span>  </span><br><span class="line">        <span class="attr">value:</span> <span class="string">&quot;true&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>它的运行规则是当我们的 Pod 在启动过程中会判断 Pod 的注解中是否开启了注入 OpenTelemetry 的配置。</p>
+<p>如果开启则会将我们在 CRD 中自定义的镜像里的 javaagent 复制到业务容器中，同时会将下面的那些环境变量也一起加入的业务容器中。</p>
+<p>要达到这样的效果就需要我们注册一个回调 endpoint。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">mgr.GetWebhookServer().Register(<span class="string">&quot;/mutate-v1-pod&quot;</span>, &amp;webhook.Admission&#123;  </span><br><span class="line">    Handler: podmutation.NewWebhookHandler(cfg, ctrl.Log.WithName(<span class="string">&quot;pod-webhook&quot;</span>), decoder, mgr.GetClient(),  </span><br><span class="line">       []podmutation.PodMutator&#123;  </span><br><span class="line">          sidecar.NewMutator(logger, cfg, mgr.GetClient()),  </span><br><span class="line">          instrumentation.NewMutator(logger, mgr.GetClient(), mgr.GetEventRecorderFor(<span class="string">&quot;opentelemetry-operator&quot;</span>), cfg),  </span><br><span class="line">       &#125;),&#125;)</span><br></pre></td></tr></table></figure>
+
+<p>当 Pod 创建或有新的变更请求时就会回调我们的接口。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(pm *instPodMutator)</span></span> Mutate(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, <span class="type">error</span>) &#123;  </span><br><span class="line">    logger := pm.Logger.WithValues(<span class="string">&quot;namespace&quot;</span>, pod.Namespace, <span class="string">&quot;name&quot;</span>, pod.Name)</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>在这个接口中我们就可以拿到 Pod 的信息，然后再获取 CRD <code>Instrumentation</code> 做我们的业务逻辑。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> otelInsts v1alpha1.InstrumentationList  </span><br><span class="line"><span class="keyword">if</span> err := pm.Client.List(ctx, &amp;otelInsts, client.InNamespace(ns.Name)); err != <span class="literal">nil</span> &#123;  </span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span>, err  </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// 从 CRD 中将数据复制到业务容器中。</span></span><br><span class="line">pod.Spec.InitContainers = <span class="built_in">append</span>(pod.Spec.InitContainers, corev1.Container&#123;</span><br><span class="line">	Name:      javaInitContainerName,</span><br><span class="line">	Image:     javaSpec.Image,</span><br><span class="line">	Command:   []<span class="type">string</span>&#123;<span class="string">&quot;cp&quot;</span>, <span class="string">&quot;/javaagent.jar&quot;</span>, javaInstrMountPath + <span class="string">&quot;/javaagent.jar&quot;</span>&#125;,</span><br><span class="line">	Resources: javaSpec.Resources,</span><br><span class="line">	VolumeMounts: []corev1.VolumeMount&#123;&#123;</span><br><span class="line">		Name:      javaVolumeName,</span><br><span class="line">		MountPath: javaInstrMountPath,</span><br><span class="line">	&#125;&#125;,</span><br><span class="line">&#125;)</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> i, extension := <span class="keyword">range</span> javaSpec.Extensions &#123;</span><br><span class="line">	pod.Spec.InitContainers = <span class="built_in">append</span>(pod.Spec.InitContainers, corev1.Container&#123;</span><br><span class="line">		Name:      initContainerName + fmt.Sprintf(<span class="string">&quot;-extension-%d&quot;</span>, i),</span><br><span class="line">		Image:     extension.Image,</span><br><span class="line">		Command:   []<span class="type">string</span>&#123;<span class="string">&quot;cp&quot;</span>, <span class="string">&quot;-r&quot;</span>, extension.Dir + <span class="string">&quot;/.&quot;</span>, javaInstrMountPath + <span class="string">&quot;/extensions&quot;</span>&#125;,</span><br><span class="line">		Resources: javaSpec.Resources,</span><br><span class="line">		VolumeMounts: []corev1.VolumeMount&#123;&#123;</span><br><span class="line">			Name:      javaVolumeName,</span><br><span class="line">			MountPath: javaInstrMountPath,</span><br><span class="line">		&#125;&#125;,</span><br><span class="line">	&#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>不过需要注意的是想要在测试环境中测试 operator 是需要安装一个 <a target="_blank" rel="noopener" href="https://kubebuilder.io/quick-start">cert-manage</a>，这样 <code>webhook</code> 才能正常的回调。</p>
+</blockquote>
+<p><img src="https://s2.loli.net/2024/06/01/IUjriqye6EMFCT8.png"><br>要使得 CRD 生效，我们还得先将 CRD 安装进 kubernetes 集群中，不过这些 operator-sdk 这类根据已经考虑周到了。</p>
+<p>我们只需要定义好 CRD 的结构体：<br><img src="https://s2.loli.net/2024/06/01/RBKp15lhkHsbeEY.png"></p>
+<p>然后使用 Makefile 中的工具 <code>make bundle</code> 就会自动将结构体转换为 CRD。</p>
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/VictoriaMetrics/operator">https://github.com/VictoriaMetrics/operator</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/prometheus-operator/prometheus-operator">https://github.com/prometheus-operator/prometheus-operator</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2024/07/08/ob/how-operator-working/" title="从 Helm 到 Operator：Kubernetes应用管理的进化">http://crossoverjie.top/2024/07/08/ob/how-operator-working/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"><i class="fa fa-tag"></i> kubernetes</a>
+              <a href="/tags/Operator/" rel="tag"><i class="fa fa-tag"></i> Operator</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/07/02/ob/go-5-tips/" rel="prev" title="【译】五个我最近在 Go 里学到的小技巧">
+                  <i class="fa fa-chevron-left"></i> 【译】五个我最近在 Go 里学到的小技巧
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
