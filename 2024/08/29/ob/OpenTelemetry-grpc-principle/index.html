@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="前言 最近在给 opentelemetry-java-instrumentation 提交了一个 PR，是关于给 gRPC 新增四个 metrics：  rpc.client.request.size: 客户端请求包大小 rpc.client.response.size：客户端收到的响应包大小 rpc.server.request.size：服务端收到的请求包大小 rpc.server.respo">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenTelemetry 实战：gRPC 监控的实现原理">
+<meta property="og:url" content="http://crossoverjie.top/2024/08/29/ob/OpenTelemetry-grpc-principle/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言 最近在给 opentelemetry-java-instrumentation 提交了一个 PR，是关于给 gRPC 新增四个 metrics：  rpc.client.request.size: 客户端请求包大小 rpc.client.response.size：客户端收到的响应包大小 rpc.server.request.size：服务端收到的请求包大小 rpc.server.respo">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/07/29/uUTYr8lziEABk4d.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/29/efGYRktoK8IESzP.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/15/skNmSDJaPfHh3GB.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/15/xoG2finOmFlDReE.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/29/dVaESmoXIwJC6Li.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/29/dawSY4uQGmJo6qi.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/29/46mOv7XMoT81Bxl.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/29/A1zk79tVOr3DxnQ.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/29/RP9LWQVKSOF1d4Z.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/30/h1uvr3EjA9fGmzR.png">
+<meta property="article:published_time" content="2024-08-29T06:50:33.000Z">
+<meta property="article:modified_time" content="2024-09-03T15:08:51.463Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="OpenTelemetry">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2024/07/29/uUTYr8lziEABk4d.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2024/08/29/ob/OpenTelemetry-grpc-principle/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2024/08/29/ob/OpenTelemetry-grpc-principle/","path":"2024/08/29/ob/OpenTelemetry-grpc-principle/","title":"OpenTelemetry 实战：gRPC 监控的实现原理"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>OpenTelemetry 实战：gRPC 监控的实现原理 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">87</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">251</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">185</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#gRPC-%E5%A2%9E%E5%BC%BA%E5%8E%9F%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">gRPC 增强原理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-byte-buddy-%E5%A2%9E%E5%BC%BA%E4%BB%A3%E7%A0%81"><span class="nav-number">2.1.</span> <span class="nav-text">使用 byte-buddy 增强代码</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%8E%B7%E5%8F%96-span-%E7%9A%84-attribute"><span class="nav-number">3.</span> <span class="nav-text">获取 span 的 attribute</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89-metrics"><span class="nav-number">4.</span> <span class="nav-text">自定义 metrics</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Golang-%E5%A2%9E%E5%BC%BA"><span class="nav-number">5.</span> <span class="nav-text">Golang 增强</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">251</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">87</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">185</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2024/08/29/ob/OpenTelemetry-grpc-principle/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="OpenTelemetry 实战：gRPC 监控的实现原理 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          OpenTelemetry 实战：gRPC 监控的实现原理
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2024-08-29 14:50:33" itemprop="dateCreated datePublished" datetime="2024-08-29T14:50:33+08:00">2024-08-29</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2024-09-03 23:08:51" itemprop="dateModified" datetime="2024-09-03T23:08:51+08:00">2024-09-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/" itemprop="url" rel="index"><span itemprop="name">OB</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/OpenTelemetry/" itemprop="url" rel="index"><span itemprop="name">OpenTelemetry</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2024/08/29/ob/OpenTelemetry-grpc-principle/" class="post-meta-item leancloud_visitors" data-flag-title="OpenTelemetry 实战：gRPC 监控的实现原理" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2024/08/29/ob/OpenTelemetry-grpc-principle/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2024/08/29/ob/OpenTelemetry-grpc-principle/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p><img src="https://s2.loli.net/2024/07/29/uUTYr8lziEABk4d.png"></p>
+<p>最近在给 <code>opentelemetry-java-instrumentation</code> 提交了一个 <a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-java-instrumentation/pull/11833">PR</a>，是关于给 gRPC 新增四个 metrics：</p>
+<ul>
+<li><code>rpc.client.request.size</code>: 客户端请求包大小</li>
+<li><code>rpc.client.response.size</code>：客户端收到的响应包大小</li>
+<li><code>rpc.server.request.size</code>：服务端收到的请求包大小</li>
+<li><code>rpc.server.response.size</code>：服务端响应的请求包大小</li>
+</ul>
+<p>这个 PR 的主要目的就是能够在指标监控中拿到 <code>RPC</code> 请求的包大小，而这里的关键就是如何才能拿到这些包的大小。</p>
+<span id="more"></span>
+
+<p>首先支持的是 <code>gRPC</code>（目前在云原生领域使用的最多），其余的 RPC 理论上也是可以支持的：<br><img src="https://s2.loli.net/2024/07/29/efGYRktoK8IESzP.png"></p>
+<p>在实现的过程中我也比较好奇 <code>OpenTelemetry</code> 框架是如何给 <code>gRPC</code> 请求创建 <code>span</code> 调用链的，如下图所示：<br><img src="https://s2.loli.net/2024/07/15/skNmSDJaPfHh3GB.png" alt="image.png"><br><img src="https://s2.loli.net/2024/07/15/xoG2finOmFlDReE.png" alt="image.png"></p>
+<blockquote>
+<p>这是一个 gRPC 远程调用，java-demo 是 gRPC 的客户端，k8s-combat 是 gRPC 的服务端</p>
+</blockquote>
+<p>在开始之前我们可以根据 <code>OpenTelemetry</code> 的运行原理大概猜测下它的实现过程。</p>
+<p>首先我们应用可以创建这些链路信息的前提是：使用了 <code>OpenTelemetry</code> 提供的 <code>javaagent</code>，这个 agent 的原理是在运行时使用了 <a target="_blank" rel="noopener" href="https://github.com/raphw/byte-buddy">byte-buddy</a> 增强了我们应用的字节码，在这些字节码中代理业务逻辑，从而可以在不影响业务的前提下增强我们的代码（只要就是创建 span、metrics 等数据）</p>
+<blockquote>
+<p>Spring 的一些代理逻辑也是这样实现的</p>
+</blockquote>
+<h1 id="gRPC-增强原理"><a href="#gRPC-增强原理" class="headerlink" title="gRPC 增强原理"></a>gRPC 增强原理</h1><p>而在工程实现上，我们最好是不能对业务代码进行增强，而是要找到这些框架提供的扩展接口。</p>
+<p>拿 <code>gRPC</code> 来说，我们可以使用它所提供的 <code>io.grpc.ClientInterceptor</code> 和 <code>io.grpc.ServerInterceptor</code> 接口来增强代码。</p>
+<p>打开 <code>io.opentelemetry.instrumentation.grpc.v1_6.TracingClientInterceptor</code> 类我们可以看到它就是实现了 <code>io.grpc.ClientInterceptor</code>：<br><img src="https://s2.loli.net/2024/07/29/dVaESmoXIwJC6Li.png"></p>
+<p>而其中最关键的就是要实现 <code>io.grpc.ClientInterceptor#interceptCall</code> 函数：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span>  </span><br><span class="line"><span class="keyword">public</span> &lt;REQUEST, RESPONSE&gt; ClientCall&lt;REQUEST, RESPONSE&gt; <span class="title function_">interceptCall</span><span class="params">(  </span></span><br><span class="line"><span class="params">    MethodDescriptor&lt;REQUEST, RESPONSE&gt; method, CallOptions callOptions, Channel next)</span> &#123;  </span><br><span class="line">  <span class="type">GrpcRequest</span> <span class="variable">request</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">GrpcRequest</span>(method, <span class="literal">null</span>, <span class="literal">null</span>, next.authority());  </span><br><span class="line">  <span class="type">Context</span> <span class="variable">parentContext</span> <span class="operator">=</span> Context.current();  </span><br><span class="line">  <span class="keyword">if</span> (!instrumenter.shouldStart(parentContext, request)) &#123;  </span><br><span class="line">    <span class="keyword">return</span> next.newCall(method, callOptions);  </span><br><span class="line">  &#125;  </span><br><span class="line">  <span class="type">Context</span> <span class="variable">context</span> <span class="operator">=</span> instrumenter.start(parentContext, request);  </span><br><span class="line">  ClientCall&lt;REQUEST, RESPONSE&gt; result;  </span><br><span class="line">  <span class="keyword">try</span> (<span class="type">Scope</span> <span class="variable">ignored</span> <span class="operator">=</span> context.makeCurrent()) &#123;  </span><br><span class="line">    <span class="keyword">try</span> &#123;  </span><br><span class="line">      <span class="comment">// call other interceptors  </span></span><br><span class="line">      result = next.newCall(method, callOptions);  </span><br><span class="line">    &#125; <span class="keyword">catch</span> (Throwable e) &#123;  </span><br><span class="line">      instrumenter.end(context, request, Status.UNKNOWN, e);  </span><br><span class="line">      <span class="keyword">throw</span> e;  </span><br><span class="line">    &#125;  &#125;  </span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">TracingClientCall</span>&lt;&gt;(result, parentContext, context, request);  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个接口是 <code>gRPC</code> 提供的拦截器接口，对于 <code>gRPC</code> 客户端来说就是在发起真正的网络调用前后会执行的方法。</p>
+<p>所以在这个接口中我们就可以实现创建 span 获取包大小等逻辑。</p>
+<h2 id="使用-byte-buddy-增强代码"><a href="#使用-byte-buddy-增强代码" class="headerlink" title="使用 byte-buddy 增强代码"></a>使用 byte-buddy 增强代码</h2><p>不过有一个问题是我们实现的 <code>io.grpc.ClientInterceptor</code> 类需要加入到拦截器中才可以使用：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">var</span> <span class="variable">managedChannel</span> <span class="operator">=</span> ManagedChannelBuilder.forAddress(host, port) .intercept(<span class="keyword">new</span> <span class="title class_">TracingClientInterceptor</span>()) <span class="comment">// 加入拦截器</span></span><br><span class="line">.usePlaintext()</span><br><span class="line">.build();</span><br></pre></td></tr></table></figure>
+
+<p>但在 <code>javaagent</code> 中是没法给业务代码中加上这样的代码的。</p>
+<p>此时就需要 <a target="_blank" rel="noopener" href="https://bytebuddy.net/#/">byte-buddy</a> 登场了，它可以动态修改字节码从而实现类似于修改源码的效果。</p>
+<p>在 <code>io.opentelemetry.javaagent.instrumentation.grpc.v1_6.GrpcClientBuilderBuildInstr umentation</code>  类里可以看到 <code>OpenTelemetry</code> 是如何使用 <code>byte-buddy</code> 的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> ElementMatcher&lt;TypeDescription&gt; <span class="title function_">typeMatcher</span><span class="params">()</span> &#123;</span><br><span class="line">  <span class="keyword">return</span> extendsClass(named(<span class="string">&quot;io.grpc.ManagedChannelBuilder&quot;</span>))</span><br><span class="line">      .and(declaresField(named(<span class="string">&quot;interceptors&quot;</span>)));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">transform</span><span class="params">(TypeTransformer transformer)</span> &#123;</span><br><span class="line">  transformer.applyAdviceToMethod(</span><br><span class="line">      isMethod().and(named(<span class="string">&quot;build&quot;</span>)),</span><br><span class="line">      GrpcClientBuilderBuildInstrumentation.class.getName() + <span class="string">&quot;$AddInterceptorAdvice&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@SuppressWarnings(&quot;unused&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">AddInterceptorAdvice</span> &#123;</span><br><span class="line"></span><br><span class="line">  <span class="meta">@Advice</span>.OnMethodEnter(suppress = Throwable.class)</span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">addInterceptor</span><span class="params">(</span></span><br><span class="line"><span class="params">      <span class="meta">@Advice</span>.This ManagedChannelBuilder&lt;?&gt; builder,</span></span><br><span class="line"><span class="params">      <span class="meta">@Advice</span>.FieldValue(<span class="string">&quot;interceptors&quot;</span>)</span> List&lt;ClientInterceptor&gt; interceptors) &#123;</span><br><span class="line">    VirtualField&lt;ManagedChannelBuilder&lt;?&gt;, Boolean&gt; instrumented =</span><br><span class="line">        VirtualField.find(ManagedChannelBuilder.class, Boolean.class);</span><br><span class="line">    <span class="keyword">if</span> (!Boolean.TRUE.equals(instrumented.get(builder))) &#123;</span><br><span class="line">      interceptors.add(<span class="number">0</span>, GrpcSingletons.CLIENT_INTERCEPTOR);</span><br><span class="line">      instrumented.set(builder, <span class="literal">true</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从这里的源码可以看出，使用了 <code>byte-buddy</code> 拦截了 <code>io.grpc.ManagedChannelBuilder#intercept(java.util.List&lt;io.grpc.ClientInterceptor&gt;)</code> 函数。</p>
+<blockquote>
+<p>io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers#extendsClass&#x2F; isMethod 等函数都是 byte-buddy 库提供的函数。</p>
+</blockquote>
+<p>而这个函数正好就是我们需要在业务代码里加入拦截器的地方。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">interceptors.add(<span class="number">0</span>, GrpcSingletons.CLIENT_INTERCEPTOR);</span><br><span class="line">GrpcSingletons.CLIENT_INTERCEPTOR = <span class="keyword">new</span> <span class="title class_">TracingClientInterceptor</span>(clientInstrumenter, propagators);</span><br></pre></td></tr></table></figure>
+<p>通过这行代码可以手动将 <code>OpenTelemetry</code> 里的 <code>TracingClientInterceptor</code> 加入到拦截器列表中，并且作为第一个拦截器。</p>
+<p>而这里的：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">extendsClass(named(<span class="string">&quot;io.grpc.ManagedChannelBuilder&quot;</span>))</span><br><span class="line">        .and(declaresField(named(<span class="string">&quot;interceptors&quot;</span>)))</span><br></pre></td></tr></table></figure>
+
+<p>通过函数的名称也可以看出是为了找到 继承了<code>io.grpc.ManagedChannelBuilder</code> 类中存在成员变量 <code>interceptors</code> 的类。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">transformer.applyAdviceToMethod(  </span><br><span class="line">    isMethod().and(named(<span class="string">&quot;build&quot;</span>)),  </span><br><span class="line">    GrpcClientBuilderBuildInstrumentation.class.getName() + <span class="string">&quot;$AddInterceptorAdvice&quot;</span>);</span><br></pre></td></tr></table></figure>
+<p>然后在调用 <code>build</code> 函数后就会进入自定义的 <code>AddInterceptorAdvice</code> 类，从而就可以拦截到添加拦截器的逻辑，然后把自定义的拦截器加入其中。</p>
+<h1 id="获取-span-的-attribute"><a href="#获取-span-的-attribute" class="headerlink" title="获取 span 的 attribute"></a>获取 span 的 attribute</h1><p><img src="https://s2.loli.net/2024/07/29/dawSY4uQGmJo6qi.png"></p>
+<p>我们在 gRPC 的链路中还可以看到这个请求的具体属性，比如：</p>
+<ul>
+<li>gRPC 服务提供的 IP 端口。</li>
+<li>请求的响应码</li>
+<li>请求的 service 和 method</li>
+<li>线程等信息。<blockquote>
+<p>这些信息在问题排查过程中都是至关重要的。</p>
+</blockquote>
+</li>
+</ul>
+<p>可以看到这里新的 <code>attribute</code> 主要是分为了三类：</p>
+<ul>
+<li><code>net.*</code> 是网络相关的属性</li>
+<li><code>rpc.*</code> 是和 grpc 相关的属性</li>
+<li><code>thread.*</code> 是线程相关的属性</li>
+</ul>
+<p>所以理论上我们在设计 API 时最好可以将这些不同分组的属性解耦开，如果是 MQ 相关的可能还有一些 topic 等数据，所以各个属性之间是互不影响的。</p>
+<p>带着这个思路我们来看看 gRPC 这里是如何实现的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">clientInstrumenterBuilder</span><br><span class="line">	.setSpanStatusExtractor(GrpcSpanStatusExtractor.CLIENT)</span><br><span class="line">	.addAttributesExtractors(additionalExtractors)</span><br><span class="line">        .addAttributesExtractor(RpcClientAttributesExtractor.create(rpcAttributesGetter))</span><br><span class="line">        .addAttributesExtractor(ServerAttributesExtractor.create(netClientAttributesGetter))</span><br><span class="line">        .addAttributesExtractor(NetworkAttributesExtractor.create(netClientAttributesGetter))</span><br></pre></td></tr></table></figure>
+
+<p><code>OpenTelemetry</code> 会提供一个 <code>io.opentelemetry.instrumentation.api.instrumenter.InstrumenterBuilder#addAttributesExtractor</code>构建器函数，用于存放自定义的属性解析器。</p>
+<p>从这里的源码可以看出分别传入了网络相关、RPC 相关的解析器；正好也就对应了图中的那些属性，也满足了我们刚才提到的解耦特性。</p>
+<p>而每一个自定义属性解析器都需要实现接口 <code>io.opentelemetry.instrumentation.api.instrumenter.AttributesExtractor</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">AttributesExtractor</span>&lt;REQUEST, RESPONSE&gt; &#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里我们以 <code>GrpcRpcAttributesGetter</code> 为例。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">enum</span> <span class="title class_">GrpcRpcAttributesGetter</span> <span class="keyword">implements</span> <span class="title class_">RpcAttributesGetter</span>&lt;GrpcRequest&gt; &#123;</span><br><span class="line">  INSTANCE;</span><br><span class="line"></span><br><span class="line">  <span class="meta">@Override</span></span><br><span class="line">  <span class="keyword">public</span> String <span class="title function_">getSystem</span><span class="params">(GrpcRequest request)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&quot;grpc&quot;</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="meta">@Override</span></span><br><span class="line">  <span class="meta">@Nullable</span></span><br><span class="line">  <span class="keyword">public</span> String <span class="title function_">getService</span><span class="params">(GrpcRequest request)</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">fullMethodName</span> <span class="operator">=</span> request.getMethod().getFullMethodName();</span><br><span class="line">    <span class="type">int</span> <span class="variable">slashIndex</span> <span class="operator">=</span> fullMethodName.lastIndexOf(<span class="string">&#x27;/&#x27;</span>);</span><br><span class="line">    <span class="keyword">if</span> (slashIndex == -<span class="number">1</span>) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> fullMethodName.substring(<span class="number">0</span>, slashIndex);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到 system 是写死的 <code>grpc</code>，也就是对于到页面上的 <code>rpc.system</code> 属性。</p>
+<p>而这里的 <code>getService</code> 函数则是拿来获取 <code>rpc.service</code> 属性的，可以看到它是通过 <code>gRPC</code> <code>的method</code> 信息来获取 <code>service</code> 的。</p>
+<hr>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">RpcAttributesGetter</span>&lt;REQUEST&gt; &#123;  </span><br><span class="line">  </span><br><span class="line">  <span class="meta">@Nullable</span>  </span><br><span class="line">  String <span class="title function_">getService</span><span class="params">(REQUEST request)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>而这里 <code>REQUEST</code> 其实是一个泛型，在 gRPC 里是 <code>GrpcRequest</code>，在其他 RPC 里这是对应的 RPC 的数据。</p>
+<p>这个 <code>GrpcRequest</code> 是在我们自定义的拦截器中创建并传递的。<br><img src="https://s2.loli.net/2024/07/29/46mOv7XMoT81Bxl.png"></p>
+<p>而我这里需要的请求包大小也是在拦截中获取到数据然后写入进 GrpcRequest。</p>
+<p><img src="https://s2.loli.net/2024/07/29/A1zk79tVOr3DxnQ.png"></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> &lt;T&gt; Long <span class="title function_">getBodySize</span><span class="params">(T message)</span> &#123;  </span><br><span class="line">  <span class="keyword">if</span> (message <span class="keyword">instanceof</span> MessageLite) &#123;  </span><br><span class="line">    <span class="keyword">return</span> (<span class="type">long</span>) ((MessageLite) message).getSerializedSize();  </span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;  </span><br><span class="line">    <span class="comment">// Message is not a protobuf message  </span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">null</span>;  </span><br><span class="line">  &#125;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样就可以实现不同的 RPC 中获取自己的 <code>attribute</code>，同时每一组 <code>attribute</code> 也都是隔离的，互相解耦。</p>
+<h1 id="自定义-metrics"><a href="#自定义-metrics" class="headerlink" title="自定义 metrics"></a>自定义 metrics</h1><p>每个插件自定义 Metrics 的逻辑也是类似的，需要由框架层面提供 API 接口：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> InstrumenterBuilder&lt;REQUEST, RESPONSE&gt; <span class="title function_">addOperationMetrics</span><span class="params">(OperationMetrics factory)</span> &#123;  </span><br><span class="line">  operationMetrics.add(requireNonNull(factory, <span class="string">&quot;operationMetrics&quot;</span>));  </span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">this</span>;  </span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 客户端的 metrics</span></span><br><span class="line">.addOperationMetrics(RpcClientMetrics.get());</span><br><span class="line"></span><br><span class="line"><span class="comment">// 服务端的 metrics</span></span><br><span class="line">.addOperationMetrics(RpcServerMetrics.get());</span><br></pre></td></tr></table></figure>
+
+<p>之后也会在框架层面回调这些自定义的 <code>OperationMetrics</code>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">   <span class="keyword">if</span> (operationListeners.length != <span class="number">0</span>) &#123;</span><br><span class="line">     <span class="comment">// operation listeners run after span start, so that they have access to the current span</span></span><br><span class="line">     <span class="comment">// for capturing exemplars</span></span><br><span class="line">     <span class="type">long</span> <span class="variable">startNanos</span> <span class="operator">=</span> getNanos(startTime);</span><br><span class="line">     <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; operationListeners.length; i++) &#123;</span><br><span class="line">       context = operationListeners[i].onStart(context, attributes, startNanos);</span><br><span class="line">     &#125;</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (operationListeners.length != <span class="number">0</span>) &#123;  </span><br><span class="line">  <span class="type">long</span> <span class="variable">endNanos</span> <span class="operator">=</span> getNanos(endTime);  </span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> operationListeners.length - <span class="number">1</span>; i &gt;= <span class="number">0</span>; i--) &#123;  </span><br><span class="line">    operationListeners[i].onEnd(context, attributes, endNanos);  </span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这其中最关键的就是两个函数 onStart 和 onEnd，分别会在当前这个 span 的开始和结束时进行回调。</p>
+<p>所以通常的做法是在 <code>onStart</code> 函数中初始化数据，然后在 <code>onEnd</code> 结束时统计结果，最终可以拿到 metrics 所需要的数据。</p>
+<p>以这个 <code>rpc.client.duration</code> 客户端的请求耗时指标为例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span>  </span><br><span class="line"><span class="keyword">public</span> Context <span class="title function_">onStart</span><span class="params">(Context context, Attributes startAttributes, <span class="type">long</span> startNanos)</span> &#123;  </span><br><span class="line">  <span class="keyword">return</span> context.with(  </span><br><span class="line">      RPC_CLIENT_REQUEST_METRICS_STATE,  </span><br><span class="line">      <span class="keyword">new</span> <span class="title class_">AutoValue_RpcClientMetrics_State</span>(startAttributes, startNanos));  </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span>  </span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onEnd</span><span class="params">(Context context, Attributes endAttributes, <span class="type">long</span> endNanos)</span> &#123;  </span><br><span class="line">  <span class="type">State</span> <span class="variable">state</span> <span class="operator">=</span> context.get(RPC_CLIENT_REQUEST_METRICS_STATE);</span><br><span class="line">	<span class="type">Attributes</span> <span class="variable">attributes</span> <span class="operator">=</span> state.startAttributes().toBuilder().putAll(endAttributes).build();  </span><br><span class="line">	clientDurationHistogram.record(  </span><br><span class="line">	    (endNanos - state.startTimeNanos()) / NANOS_PER_MS, attributes, context);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在开始时记录下当前的时间，结束时获取当前时间和结束时间的差值正好就是这个 span 的执行时间，也就是 rpc client 的处理时间。</p>
+<p>在 <code>OpenTelemetry</code> 中绝大多数的请求时间都是这么记录的。</p>
+<h1 id="Golang-增强"><a href="#Golang-增强" class="headerlink" title="Golang 增强"></a>Golang 增强</h1><p>而在 <code>Golang</code> 中因为没有 <a target="_blank" rel="noopener" href="https://bytebuddy.net/#/">byte-buddy</a> 这种魔法库的存在，不可以直接修改源码，所以通常的做法还是得硬编码才行。</p>
+<p>还是以 <code>gRPC</code> 为例，我们在创建 gRPC server 时就得指定一个 <code>OpenTelemetry</code> 提供的函数。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">s := grpc.NewServer(  </span><br><span class="line">    grpc.StatsHandler(otelgrpc.NewServerHandler()),  </span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p><img src="https://s2.loli.net/2024/07/29/RP9LWQVKSOF1d4Z.png"></p>
+<p> 在这个 SDK 中也会实现刚才在 Java 里类似的逻辑，限于篇幅具体逻辑就不细讲了。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>以上就是 <code>gRPC</code> 在 <code>OpenTelemetry</code> 中的具体实现，主要就是在找到需要增强框架是否有提供扩展的接口，如果有就直接使用该接口进行埋点。</p>
+<p>如果没有那就需要查看源码，找到核心逻辑，再使用 <code>byte-buddy</code> 进行埋点。</p>
+<p><img src="https://s2.loli.net/2024/07/30/h1uvr3EjA9fGmzR.png"></p>
+<p>比如 Pulsar 并没有在客户端提供一些扩展接口，只能找到它的核心函数进行埋点。</p>
+<p>而在具体埋点过程中 <code>OpenTelemetry</code> 提供了许多解耦的 API，方便我们实现埋点所需要的业务逻辑，也会在后续的文章继续分析 <code>OpenTelemetry</code> 的一些设计原理和核心 API 的使用。</p>
+<p>这部分 API 的设计我觉得是 <code>OpenTelemetry</code> 中最值得学习的地方。</p>
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://bytebuddy.net/#/">https://bytebuddy.net/#/</a></li>
+<li><a target="_blank" rel="noopener" href="https://opentelemetry.io/docs/specs/semconv/rpc/rpc-metrics/#metric-rpcserverrequestsize">https://opentelemetry.io/docs/specs/semconv/rpc/rpc-metrics/#metric-rpcserverrequestsize</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2024/08/29/ob/OpenTelemetry-grpc-principle/" title="OpenTelemetry 实战：gRPC 监控的实现原理">http://crossoverjie.top/2024/08/29/ob/OpenTelemetry-grpc-principle/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/OpenTelemetry/" rel="tag"><i class="fa fa-tag"></i> OpenTelemetry</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/08/27/ob/OpenTelemetry-02-metrics/" rel="prev" title="OpenTelemetry 实战：从零实现应用指标监控">
+                  <i class="fa fa-chevron-left"></i> OpenTelemetry 实战：从零实现应用指标监控
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
