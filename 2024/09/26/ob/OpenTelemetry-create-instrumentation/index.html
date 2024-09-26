@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="背景因为公司内部在使用 PowerJob 作为我们的分布式调度系统，同时又是使用 OpenTelemetry 作为可观测的底座，但目前 OpenTelemetry 还没有对 PowerJob 提供支持，目前社区只对同类型的 XXL-JOB 有支持。 恰好公司内部也有一些开发同学有类似的需求： 于是在这个背景下我便开始着手开发 PowerJob 的 instrumentation，最终的效果如下：">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenTelemetry 实战：从 0 到 1 编写一个 Instrumentation">
+<meta property="og:url" content="http://crossoverjie.top/2024/09/26/ob/OpenTelemetry-create-instrumentation/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景因为公司内部在使用 PowerJob 作为我们的分布式调度系统，同时又是使用 OpenTelemetry 作为可观测的底座，但目前 OpenTelemetry 还没有对 PowerJob 提供支持，目前社区只对同类型的 XXL-JOB 有支持。 恰好公司内部也有一些开发同学有类似的需求： 于是在这个背景下我便开始着手开发 PowerJob 的 instrumentation，最终的效果如下：">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/qfdloarJ7iNzPXy.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/6aIFxlEyKt7OfsC.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/r7xgSHKCftqvuXw.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/KNnWPzm5rU9By3c.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/K43Ix8LCkQWAao5.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/29DQxfMgFViuHYa.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/FJgRjf1ACVlmG3D.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/yLhmXBKDzVaYjJ5.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/MuRmI9e28pghzNH.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/AxGWtdflEI5NmKn.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/ynupP2g5UMWGD3Z.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/ku9e3vhG5mSYPc4.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/NZgl4GUR327IXW5.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/vDSXq9tpGW7LAdb.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/HjIi5dBKlw9FxQy.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/4xmRqFZi6NpkPML.png">
+<meta property="og:image" content="https://s2.loli.net/2024/08/26/yLhmXBKDzVaYjJ5.png">
+<meta property="article:published_time" content="2024-09-26T05:14:01.000Z">
+<meta property="article:modified_time" content="2024-09-26T13:39:32.089Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="OpenTelemetry">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2024/08/26/qfdloarJ7iNzPXy.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2024/09/26/ob/OpenTelemetry-create-instrumentation/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2024/09/26/ob/OpenTelemetry-create-instrumentation/","path":"2024/09/26/ob/OpenTelemetry-create-instrumentation/","title":"OpenTelemetry 实战：从 0 到 1 编写一个 Instrumentation"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>OpenTelemetry 实战：从 0 到 1 编写一个 Instrumentation | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">88</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">255</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">186</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%BC%80%E5%8F%91-Instrumentation-%E7%9A%84%E5%89%8D%E7%BD%AE%E7%9F%A5%E8%AF%86"><span class="nav-number">2.</span> <span class="nav-text">开发 Instrumentation 的前置知识</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%89%BE%E5%88%B0%E5%9F%8B%E7%82%B9%E5%85%A5%E5%8F%A3"><span class="nav-number">3.</span> <span class="nav-text">找到埋点入口</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E9%80%89%E6%8B%A9%E5%90%88%E9%80%82%E7%9A%84%E7%89%88%E6%9C%AC"><span class="nav-number">4.</span> <span class="nav-text">选择合适的版本</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E9%80%BB%E8%BE%91%E5%AE%9E%E7%8E%B0"><span class="nav-number">5.</span> <span class="nav-text">逻辑实现</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E4%BA%9B%E5%9D%91"><span class="nav-number">6.</span> <span class="nav-text">一些坑</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E6%A8%A1%E5%9D%97"><span class="nav-number">6.1.</span> <span class="nav-text">创建模块</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%A1%B9%E7%9B%AE%E6%9E%84%E5%BB%BA"><span class="nav-number">6.2.</span> <span class="nav-text">项目构建</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Muzzle"><span class="nav-number">7.</span> <span class="nav-text">Muzzle</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%95%E5%85%83%E6%B5%8B%E8%AF%95"><span class="nav-number">7.1.</span> <span class="nav-text">单元测试</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">8.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">255</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">88</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">186</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2024/09/26/ob/OpenTelemetry-create-instrumentation/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="OpenTelemetry 实战：从 0 到 1 编写一个 Instrumentation | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          OpenTelemetry 实战：从 0 到 1 编写一个 Instrumentation
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2024-09-26 13:14:01 / Modified: 21:39:32" itemprop="dateCreated datePublished" datetime="2024-09-26T13:14:01+08:00">2024-09-26</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/" itemprop="url" rel="index"><span itemprop="name">OB</span></a>
+        </span>
+          , 
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/OpenTelemetry/" itemprop="url" rel="index"><span itemprop="name">OpenTelemetry</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2024/09/26/ob/OpenTelemetry-create-instrumentation/" class="post-meta-item leancloud_visitors" data-flag-title="OpenTelemetry 实战：从 0 到 1 编写一个 Instrumentation" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2024/09/26/ob/OpenTelemetry-create-instrumentation/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2024/09/26/ob/OpenTelemetry-create-instrumentation/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>因为公司内部在使用 <a target="_blank" rel="noopener" href="https://github.com/PowerJob/PowerJob">PowerJob</a> 作为我们的分布式调度系统，同时又是使用 OpenTelemetry 作为可观测的底座，但目前 OpenTelemetry 还没有对 PowerJob 提供支持，目前社区只对同类型的 XXL-JOB 有支持。<br><img src="https://s2.loli.net/2024/08/26/qfdloarJ7iNzPXy.png"></p>
+<p>恰好公司内部也有一些开发同学有类似的需求：<br><img src="https://s2.loli.net/2024/08/26/6aIFxlEyKt7OfsC.png"></p>
+<p>于是在这个背景下我便开始着手开发 PowerJob 的 instrumentation，最终的效果如下：<br><img src="https://s2.loli.net/2024/08/26/r7xgSHKCftqvuXw.png"><br><img src="https://s2.loli.net/2024/08/26/KNnWPzm5rU9By3c.png"></p>
+<span id="more"></span>
+<p>从这个链路图中可以看到 grpc-consumer 提供了调度的入口函数，然后在内部发送了 Pulsar 消息，最终又调用了 grpc-provider 的 <code>gRPC</code> 接口。</p>
+<p>这样就可以把整个链路串起来，同时还能查看 <code>PowerJob</code> 调度的 JobId、以及调用参数等数据，这样排查问题时也更加直观。</p>
+<h1 id="开发-Instrumentation-的前置知识"><a href="#开发-Instrumentation-的前置知识" class="headerlink" title="开发 Instrumentation 的前置知识"></a>开发 Instrumentation 的前置知识</h1><p>在正式开发 Instrumentation 之前还需要了解一些前置知识点。</p>
+<p><img src="https://s2.loli.net/2024/08/26/K43Ix8LCkQWAao5.png"><br><img src="https://s2.loli.net/2024/08/26/29DQxfMgFViuHYa.png"></p>
+<p>这里我们以现有的  <code>gRPC</code> 和我编写的 PowerJob instrumentation 为例，可以看到 <code>gRPC</code> 的 instrumentation 中多了一个 library 的模块。</p>
+<p>这里就引申出了两种埋点方式：</p>
+<ul>
+<li><strong>Library instrumentation</strong></li>
+<li><strong>Java agent instrumentation</strong></li>
+</ul>
+<p>通常我们对一个框架或者一个库进行埋点时，首先需要找到它的埋点入口。</p>
+<p>以 <em><code>grpc</code></em> 为例，我们首先需要看他是否有提供扩展的 API 可以供我们埋点，恰好 grpc 是有提供客户端和服务端的拦截器的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">io.grpc.ClientInterceptor</span><br><span class="line">io.grpc.ServerInterceptor</span><br></pre></td></tr></table></figure>
+
+<p>我们便可以在这些拦截中加入埋点逻辑，比如客户端的埋点代码如下 <code>io.opentelemetry.instrumentation.grpc.v1_6.TracingClientInterceptor</code> ：</p>
+<p><img src="https://s2.loli.net/2024/08/26/FJgRjf1ACVlmG3D.png"></p>
+<p>这部分代码便是写在 <code>grpc-1.6/library</code> 模块下的。</p>
+<p>这样做有一个好处是：当我们的业务代码不想使用 <code>javaagent</code> 时还可以手动引入 <code>grpc-1.6/library</code> 包，然后使用 <code>TracingClientInterceptor</code> 拦截器也可以实现 trace 埋点的功能。</p>
+<figure class="highlight kotlin"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">implementation(project(<span class="string">&quot;:instrumentation:grpc-1.6:library&quot;</span>))</span><br></pre></td></tr></table></figure>
+<p>之后 <code>javaagent</code> 这个模块也会引入 <code>library</code> ，然后直接使用它提供的 API 实现 agent 级别的埋点。</p>
+<p>而如果一些库或者中间件并没有提供这种扩展 API 时，我们就只能使用 agent 的方式在字节码层面上进行埋点，这样就不会限制框架了，理论上任何 Java 代码都可以埋点。</p>
+<p>所以总的来说一个库可能会没有 library instrumentation，但一定会有 agent instrumentation，我们可以根据当前框架的代码进行选择。</p>
+<blockquote>
+<p>而这里的 PowerJob 因为并没有提供扩展接口，所有只有 agent 的 instrumentation。</p>
+</blockquote>
+<h1 id="找到埋点入口"><a href="#找到埋点入口" class="headerlink" title="找到埋点入口"></a>找到埋点入口</h1><p>在开始编码之前我们需要对要埋点的库或者框架有一个清晰的理解，至少得知道它的核心逻辑在哪里。</p>
+<p>以 PowerJob 的调度执行逻辑为例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">TestBasicProcessor</span> <span class="keyword">implements</span> <span class="title class_">BasicProcessor</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> ProcessResult <span class="title function_">process</span><span class="params">(TaskContext context)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;======== BasicProcessor#process ========&quot;</span>);</span><br><span class="line">        System.out.println(<span class="string">&quot;TaskContext: &quot;</span> + JsonUtils.toJSONString(context) + <span class="string">&quot;;time = &quot;</span> + System.currentTimeMillis());</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">ProcessResult</span>(<span class="literal">true</span>, System.currentTimeMillis() + <span class="string">&quot;success&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这是一个最简单的调度执行器的实现逻辑。</p>
+</blockquote>
+<p>从这里看出：如果我们想要在执行器中埋点，那最核心的就是这里的 process 函数。</p>
+<p>需要在 process 的执行前后拿到 context 数据，写入到 OpenTelemetry 中的 span 即可。</p>
+<hr>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SimpleCustomizedHandler</span> <span class="keyword">extends</span> <span class="title class_">IJobHandler</span> &#123;  </span><br><span class="line">  </span><br><span class="line">  <span class="meta">@Override</span>  </span><br><span class="line">  <span class="keyword">public</span> ReturnT&lt;String&gt; <span class="title function_">execute</span><span class="params">(String s)</span> <span class="keyword">throws</span> Exception &#123;  </span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">ReturnT</span>&lt;&gt;(<span class="string">&quot;Hello World&quot;</span>);  </span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>而在 xxl-job 中，它的核心逻辑就是这里的 <code>execute</code> 函数。</p>
+<h1 id="选择合适的版本"><a href="#选择合适的版本" class="headerlink" title="选择合适的版本"></a>选择合适的版本</h1><p>找到核心的埋点逻辑后还有一个很重要的工作要做：那就是<strong>选择你需要支持的版本</strong>。</p>
+<p>选择版本的原因是有可能框架或库在版本迭代过程中核心 API 发生了变化，比如：</p>
+<ul>
+<li>函数签名发生了改变</li>
+<li>包名也发生了改变</li>
+</ul>
+<p>以 xxl-job 为例，它在迭代过程中就发生了几次函数签名的修改，所以我们需要针对不同的版本做兼容处理：</p>
+<p><img src="https://s2.loli.net/2024/08/26/yLhmXBKDzVaYjJ5.png"></p>
+<p>而我这里选择支持 <code>PowerJob:4.0+</code> 的版本，因为社区在 4.0 之后做了大量重构，导致修改了包名，同时核心逻辑的函数签名也没发生过变化。</p>
+<p><img src="https://s2.loli.net/2024/08/26/MuRmI9e28pghzNH.png"></p>
+<blockquote>
+<p>4.0 之前的版本我就没做兼容了，感兴趣的朋友可以自行实现。</p>
+</blockquote>
+<h1 id="逻辑实现"><a href="#逻辑实现" class="headerlink" title="逻辑实现"></a>逻辑实现</h1><p>首先第一步需要创建一个 <code>InstrumentationModule</code>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@AutoService(InstrumentationModule.class)</span>  </span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">PowerJobInstrumentationModule</span> <span class="keyword">extends</span> <span class="title class_">InstrumentationModule</span> &#123;  </span><br><span class="line">  <span class="keyword">public</span> <span class="title function_">PowerJobInstrumentationModule</span><span class="params">()</span> &#123;  </span><br><span class="line">    <span class="built_in">super</span>(<span class="string">&quot;powerjob&quot;</span>, <span class="string">&quot;powerjob-4.0&quot;</span>);  </span><br><span class="line">  &#125;  </span><br><span class="line">  <span class="meta">@Override</span>  </span><br><span class="line">  <span class="keyword">public</span> List&lt;TypeInstrumentation&gt; <span class="title function_">typeInstrumentations</span><span class="params">()</span> &#123;  </span><br><span class="line">    <span class="keyword">return</span> asList(<span class="keyword">new</span> <span class="title class_">BasicProcessorInstrumentation</span>());  </span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://s2.loli.net/2024/08/26/AxGWtdflEI5NmKn.png"></p>
+<blockquote>
+<p>这里的 @AutoService 注解，会在代码编译之后生成一份 SPI 文件。</p>
+</blockquote>
+<p>之后便是实现这里最核心的 <code>BasicProcessorInstrumentation</code>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">BasicProcessorInstrumentation</span> <span class="keyword">implements</span> <span class="title class_">TypeInstrumentation</span> &#123;  </span><br><span class="line">  <span class="meta">@Override</span>  </span><br><span class="line">  <span class="keyword">public</span> ElementMatcher&lt;TypeDescription&gt; <span class="title function_">typeMatcher</span><span class="params">()</span> &#123;  </span><br><span class="line">    <span class="keyword">return</span> implementsInterface(named(<span class="string">&quot;tech.powerjob.worker.core.processor.sdk.BasicProcessor&quot;</span>));  </span><br><span class="line">  &#125;  </span><br><span class="line">  <span class="meta">@Override</span>  </span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">transform</span><span class="params">(TypeTransformer transformer)</span> &#123;  </span><br><span class="line">    transformer.applyAdviceToMethod(  </span><br><span class="line">        named(<span class="string">&quot;process&quot;</span>).and(isPublic()).and(takesArguments(<span class="number">1</span>)),  </span><br><span class="line">        BasicProcessorInstrumentation.class.getName() + <span class="string">&quot;$ProcessAdvice&quot;</span>);  </span><br><span class="line">  &#125;</span><br><span class="line">&#125;  </span><br></pre></td></tr></table></figure>
+
+<p>从它的代码也可以看出，这里主要是指定我们需要对哪个方法的哪个函数进行埋点，然后埋点之后的处理逻辑是在哪个类(<code>ProcessAdvice</code>)中实现的。</p>
+<p>之后便是 <code>ProcessAdvice</code> 的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">ProcessAdvice</span> &#123;  </span><br><span class="line">  </span><br><span class="line">  <span class="meta">@SuppressWarnings(&quot;unused&quot;)</span>  </span><br><span class="line">  <span class="meta">@Advice</span>.OnMethodEnter(suppress = Throwable.class)  </span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">onSchedule</span><span class="params">(  </span></span><br><span class="line"><span class="params">      <span class="meta">@Advice</span>.This BasicProcessor handler,  </span></span><br><span class="line"><span class="params">      <span class="meta">@Advice</span>.Argument(<span class="number">0</span>)</span> TaskContext taskContext,  </span><br><span class="line">      <span class="meta">@Advice</span>.Local(<span class="string">&quot;otelRequest&quot;</span>) PowerJobProcessRequest request,  </span><br><span class="line">      <span class="meta">@Advice</span>.Local(<span class="string">&quot;otelContext&quot;</span>) Context context,  </span><br><span class="line">      <span class="meta">@Advice</span>.Local(<span class="string">&quot;otelScope&quot;</span>) Scope scope) &#123;  </span><br><span class="line">    <span class="type">Context</span> <span class="variable">parentContext</span> <span class="operator">=</span> currentContext();  </span><br><span class="line">    request = PowerJobProcessRequest.createRequest(taskContext.getJobId(), handler, <span class="string">&quot;process&quot;</span>);  </span><br><span class="line">    request.setInstanceParams(taskContext.getInstanceParams());  </span><br><span class="line">    request.setJobParams(taskContext.getJobParams());  </span><br><span class="line">    context = helper().startSpan(parentContext, request);  </span><br><span class="line">    <span class="keyword">if</span> (context == <span class="literal">null</span>) &#123;  </span><br><span class="line">      <span class="keyword">return</span>;  </span><br><span class="line">    &#125;    scope = context.makeCurrent();  </span><br><span class="line">  &#125;  </span><br><span class="line">  </span><br><span class="line">  <span class="meta">@SuppressWarnings(&quot;unused&quot;)</span>  </span><br><span class="line">  <span class="meta">@Advice</span>.OnMethodExit(onThrowable = Throwable.class, suppress = Throwable.class)  </span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">stopSpan</span><span class="params">(  </span></span><br><span class="line"><span class="params">      <span class="meta">@Advice</span>.Return ProcessResult result,  </span></span><br><span class="line"><span class="params">      <span class="meta">@Advice</span>.Thrown Throwable throwable,  </span></span><br><span class="line"><span class="params">      <span class="meta">@Advice</span>.Local(<span class="string">&quot;otelRequest&quot;</span>)</span> PowerJobProcessRequest request,  </span><br><span class="line">      <span class="meta">@Advice</span>.Local(<span class="string">&quot;otelContext&quot;</span>) Context context,  </span><br><span class="line">      <span class="meta">@Advice</span>.Local(<span class="string">&quot;otelScope&quot;</span>) Scope scope) &#123;  </span><br><span class="line">    helper().stopSpan(result, request, throwable, scope, context);  </span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里最主要的就是使用 <code>OpenTelemetry</code> 提供 SDK 在入口处调用 <code>startSpan</code> 开始一个 span，然后在函数退出时调用 <code>stopSpan</code> 函数。</p>
+<p>同时在执行前将一些请求信息存起来：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">request = PowerJobProcessRequest.createRequest(taskContext.getJobId(), handler, <span class="string">&quot;process&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<p>这样可以根据这些请求信息生成 span 的 attribute，也就是 jobId, jobParam 等数据。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">PowerJobExperimentalAttributeExtractor</span>  </span><br><span class="line">    <span class="keyword">implements</span> <span class="title class_">AttributesExtractor</span>&lt;PowerJobProcessRequest, Void&gt; &#123;  </span><br><span class="line">  </span><br><span class="line">  <span class="meta">@Override</span>  </span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onStart</span><span class="params">(  </span></span><br><span class="line"><span class="params">      AttributesBuilder attributes,  </span></span><br><span class="line"><span class="params">      Context parentContext,  </span></span><br><span class="line"><span class="params">      PowerJobProcessRequest powerJobProcessRequest)</span> &#123;  </span><br><span class="line">    attributes.put(POWERJOB_JOB_ID, powerJobProcessRequest.getJobId());  </span><br><span class="line">    attributes.put(POWERJOB_JOB_PARAM, powerJobProcessRequest.getJobParams());  </span><br><span class="line">    attributes.put(POWERJOB_JOB_INSTANCE_PARAM, powerJobProcessRequest.getInstanceParams());  </span><br><span class="line">    attributes.put(POWERJOB_JOB_INSTANCE_TRPE, powerJobProcessRequest.getJobType());  </span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>比如这里的 jobId&#x2F; jobParams 数据都是从刚才写入的 <code>PowerJobProcessRequest</code> 中获取的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (CAPTURE_EXPERIMENTAL_SPAN_ATTRIBUTES) &#123;  </span><br><span class="line">  builder.addAttributesExtractor(  </span><br><span class="line">      AttributesExtractor.constant(AttributeKey.stringKey(<span class="string">&quot;job.system&quot;</span>), <span class="string">&quot;powerjob&quot;</span>));  </span><br><span class="line">  builder.addAttributesExtractor(<span class="keyword">new</span> <span class="title class_">PowerJobExperimentalAttributeExtractor</span>());  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>同时只需要将刚才的 <code>PowerJobExperimentalAttributeExtractor</code> 在初始化 Instrumenter 时进行配置，这样 <code>OpenTelemetry</code> 的 SDK 就会自动回调这个接口，从而获取到 Span 的 attribute。</p>
+<hr>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> <span class="keyword">static</span> net.bytebuddy.matcher.ElementMatchers.isPublic;  </span><br><span class="line"><span class="keyword">import</span> <span class="keyword">static</span> net.bytebuddy.matcher.ElementMatchers.named;  </span><br><span class="line"><span class="keyword">import</span> <span class="keyword">static</span> net.bytebuddy.matcher.ElementMatchers.takesArguments;</span><br><span class="line"><span class="keyword">import</span> net.bytebuddy.asm.Advice;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>其实这里大部分的 API 都是 bytebuddy 提供的。</p>
+</blockquote>
+<p>不知道大家是否觉得眼熟，Instrumentation 的写法其实和 spring 的拦截器有异曲同工之妙：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> org.aspectj.lang.annotation.Aspect;</span><br><span class="line"><span class="keyword">import</span> org.aspectj.lang.annotation.Around;</span><br><span class="line"><span class="keyword">import</span> org.aspectj.lang.ProceedingJoinPoint;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Aspect</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">AroundExample</span> &#123;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Around(&quot;execution(* com.xyz..service.*.*(..))&quot;)</span></span><br><span class="line">	<span class="keyword">public</span> Object <span class="title function_">doBasicProfiling</span><span class="params">(ProceedingJoinPoint pjp)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">		<span class="comment">// start stopwatch</span></span><br><span class="line">		<span class="type">Object</span> <span class="variable">retVal</span> <span class="operator">=</span> pjp.proceed();</span><br><span class="line">		<span class="comment">// stop stopwatch</span></span><br><span class="line">		<span class="keyword">return</span> retVal;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>毕竟 Spring 的拦截器也是使用 <code>bytebuddy</code> 实现的。</p>
+</blockquote>
+<h1 id="一些坑"><a href="#一些坑" class="headerlink" title="一些坑"></a>一些坑</h1><p>其实整个埋点过程非常简单，我们可以参考一些现有的 instrumentation 就可以很快实现逻辑；真正麻烦的时候在提交 PR 时需要通过 CI 校验。</p>
+<p><img src="https://s2.loli.net/2024/08/26/ynupP2g5UMWGD3Z.png"></p>
+<blockquote>
+<p>我这里大概提交了 8次才把  CI 全部跑通过。</p>
+</blockquote>
+<p>这里面有各种小坑，只有自己提交过才能感受得到，下面我就一一列举一些大家可能会碰到的问题。</p>
+<h2 id="创建模块"><a href="#创建模块" class="headerlink" title="创建模块"></a>创建模块</h2><p>首先第一个是创建模块的时候记得使用 kotlin 作为 gradle 的 DSL。</p>
+<p><img src="https://s2.loli.net/2024/08/26/ku9e3vhG5mSYPc4.png"></p>
+<p>IDEA 这里默认选择的是 Groovy 作为 DSL；我当时没有注意，后面在项目构建过程中一直在报错，仔细核对后发现是 DSL 的问题，修改之后就能编译通过了。</p>
+<h2 id="项目构建"><a href="#项目构建" class="headerlink" title="项目构建"></a>项目构建</h2><p>第二个是 module 的命名规则。</p>
+<p><img src="https://s2.loli.net/2024/08/26/NZgl4GUR327IXW5.png"></p>
+<p>我们需要遵守 v4_0_0 的规则，同时还得与 <code>PowerJobInstrumentationModule</code> 中定义的名称相同：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="title function_">PowerJobInstrumentationModule</span><span class="params">()</span> &#123;  </span><br><span class="line">  <span class="built_in">super</span>(<span class="string">&quot;powerjob&quot;</span>, <span class="string">&quot;powerjob-4.0&quot;</span>);  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>比如如果我们的包名称是 <code>powerjob.v1.1.0</code> ，那这里的名称也得是 <code>&quot;powerjob-1.1.0&quot;</code></p>
+<h1 id="Muzzle"><a href="#Muzzle" class="headerlink" title="Muzzle"></a>Muzzle</h1><p>第三个是 <code>Muzzle</code> 校验，<code>Muzzle</code> 是为了保证 <code>javaagent</code> 在业务代码中使用时和运行时的依赖不发生冲突而定义的一个校验规则。</p>
+<figure class="highlight kotlin"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">muzzle &#123;  </span><br><span class="line">  pass &#123;  </span><br><span class="line">    group.<span class="keyword">set</span>(<span class="string">&quot;tech.powerjob&quot;</span>)  </span><br><span class="line">    module.<span class="keyword">set</span>(<span class="string">&quot;powerjob-worker&quot;</span>)  </span><br><span class="line">    versions.<span class="keyword">set</span>(<span class="string">&quot;[4.0.0,)&quot;</span>)  </span><br><span class="line">    assertInverse.<span class="keyword">set</span>(<span class="literal">true</span>)  </span><br><span class="line">    extraDependency(<span class="string">&quot;tech.powerjob:powerjob-official-processors:1.1.0&quot;</span>)  </span><br><span class="line">  &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>以我这个为例，它的含义是兼容 <code>tech.powerjob:powerjob-worker:4.0.0+</code>以上的版本。</p>
+<p><code>assertInverse.set(true)</code>: 的作用是与之相反的版本，也就是 4.0.0 以下的版本都不做支持，如果在这些版本中运行 javaagent 是不会生效的。</p>
+<blockquote>
+<p>因为这些低版本的 powerjob 不兼容我们的埋点代码。</p>
+</blockquote>
+<p><code>extraDependency</code>：的作用是额外需要依赖的包，我这里额外使用了这个包里的一些类，如果不加上的话在做 <code>Muzzle</code> 校验时也会失败。</p>
+<h2 id="单元测试"><a href="#单元测试" class="headerlink" title="单元测试"></a>单元测试</h2><p>最后便是单元测试了：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="keyword">void</span> <span class="title function_">testBasicProcessor</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">  <span class="type">long</span> <span class="variable">jobId</span> <span class="operator">=</span> <span class="number">1</span>;</span><br><span class="line">  <span class="type">String</span> <span class="variable">jobParam</span> <span class="operator">=</span> <span class="string">&quot;abc&quot;</span>;</span><br><span class="line">  <span class="type">TaskContext</span> <span class="variable">taskContext</span> <span class="operator">=</span> genTaskContext(jobId, jobParam);</span><br><span class="line">  <span class="type">BasicProcessor</span> <span class="variable">testBasicProcessor</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">TestBasicProcessor</span>();</span><br><span class="line">  testBasicProcessor.process(taskContext);</span><br><span class="line">  testing.waitAndAssertTraces(</span><br><span class="line">      trace -&gt; &#123;</span><br><span class="line">        trace.hasSpansSatisfyingExactly(</span><br><span class="line">            span -&gt; &#123;</span><br><span class="line">              span.hasName(String.format(<span class="string">&quot;%s.process&quot;</span>, TestBasicProcessor.class.getSimpleName()));</span><br><span class="line">              span.hasKind(SpanKind.INTERNAL);</span><br><span class="line">              span.hasStatus(StatusData.unset());</span><br><span class="line">              span.hasAttributesSatisfying(</span><br><span class="line">                  attributeAssertions(</span><br><span class="line">                      TestBasicProcessor.class.getName(), jobId, jobParam, BASIC_PROCESSOR));</span><br><span class="line">            &#125;);</span><br><span class="line">      &#125;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> List&lt;AttributeAssertion&gt; <span class="title function_">attributeAssertions</span><span class="params">(</span></span><br><span class="line"><span class="params">    String codeNamespace, <span class="type">long</span> jobId, String jobParam, String jobType)</span> &#123;</span><br><span class="line">  List&lt;AttributeAssertion&gt; attributeAssertions =</span><br><span class="line">      <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;(</span><br><span class="line">          asList(</span><br><span class="line">              equalTo(AttributeKey.stringKey(<span class="string">&quot;code.namespace&quot;</span>), codeNamespace),</span><br><span class="line">              equalTo(AttributeKey.stringKey(<span class="string">&quot;code.function&quot;</span>), <span class="string">&quot;process&quot;</span>),</span><br><span class="line">              equalTo(AttributeKey.stringKey(<span class="string">&quot;job.system&quot;</span>), <span class="string">&quot;powerjob&quot;</span>),</span><br><span class="line">              equalTo(AttributeKey.longKey(<span class="string">&quot;scheduling.powerjob.job.id&quot;</span>), jobId),</span><br><span class="line">              equalTo(AttributeKey.stringKey(<span class="string">&quot;scheduling.powerjob.job.type&quot;</span>), jobType)));</span><br><span class="line">  <span class="keyword">if</span> (!StringUtils.isNullOrEmpty(jobParam)) &#123;</span><br><span class="line">    attributeAssertions.add(</span><br><span class="line">        equalTo(AttributeKey.stringKey(<span class="string">&quot;scheduling.powerjob.job.param&quot;</span>), jobParam));</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> attributeAssertions;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>测试的逻辑很简单，就是模拟一下核心逻辑的调用，然后断言是否存在我们预期的 Span，同时还得校验它的 attribute 是否符合我们的预期。</p>
+<p>这个单测当时也调了许久，因为 <code>versions.set(&quot;[4.0.0,)&quot;)</code> 这个配置，有一个 CI workflow 会校验最新版本的 powerjob 是否也能正常运行。</p>
+<p><img src="https://s2.loli.net/2024/08/26/vDSXq9tpGW7LAdb.png"></p>
+<p>比如它会拉取目前最新的依赖进行测试：</p>
+<figure class="highlight kotlin"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">implementation(<span class="string">&quot;tech.powerjob:powerjob-worker:5.1.0&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+<p>如果我们在单测中依赖了某些版本不存在的类，或者是函数签名发生过变化的函数用于测试，那这个 CI 就会执行失败。</p>
+<p><img src="https://s2.loli.net/2024/08/26/HjIi5dBKlw9FxQy.png"></p>
+<p>因为这里的构建日志非常多，同时还是并发测试的，如果我们想直接查看日志来定位问题会非常麻烦。</p>
+<p>当然社区也考虑到了，可以在 <code>“Build scan”</code> 这个步骤中查看 <code>gradle</code> 的构建日志。</p>
+<p><img src="https://s2.loli.net/2024/08/26/4xmRqFZi6NpkPML.png"></p>
+<p><a target="_blank" rel="noopener" href="https://scans.gradle.com/s/meywfxnvhhqtc/console-log/task/:instrumentation:powerjob-4.0:javaagent:compileTestJava?anchor=37&page=1">这里</a>会直接输出具体是哪里构建出了问题，通过它我们就能很快定位到原因。</p>
+<p>我这里也是因为使用的某些帮助函数在最新的版本中发生了变化，为了测试通过，就不得不调整测试代码了。</p>
+<p>如果你发现必须得依赖这些类或者函数来配合测试，那就只有考虑分为多个不同的版本进行测试，类似于 xxl-job：</p>
+<p><img src="https://s2.loli.net/2024/08/26/yLhmXBKDzVaYjJ5.png"></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>以上就是整个 instrumentation 的编写过程，其中核心的埋点过程并不复杂，只要我们对需要埋点的库或框架比较熟悉，都可以实现埋点。</p>
+<p>真正麻烦的是需要通过社区复杂且严谨的 CI 流程，好在不管是哪一步的 CI 失败都可以查到具体的原因，有点类似于升级打怪，跟着错误信息走，最终都能验证通过。</p>
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/main/CONTRIBUTING.md">https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/main/CONTRIBUTING.md</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/main/docs/contributing/writing-instrumentation.md">https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/main/docs/contributing/writing-instrumentation.md</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2024/09/26/ob/OpenTelemetry-create-instrumentation/" title="OpenTelemetry 实战：从 0 到 1 编写一个 Instrumentation">http://crossoverjie.top/2024/09/26/ob/OpenTelemetry-create-instrumentation/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/OpenTelemetry/" rel="tag"><i class="fa fa-tag"></i> OpenTelemetry</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/09/23/ob/Build-ower-AI-robot/" rel="prev" title="我用我的270篇文章做了一个数字 AI 替身">
+                  <i class="fa fa-chevron-left"></i> 我用我的270篇文章做了一个数字 AI 替身
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
