@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="背景最近这段时间在处理一个 StarRocks 的关于物化视图优化的一个问题，在此之前其实我也没有接触过 StarRocks 这类主要处理数据分析的数据库，就更别提在这上面做优化了。 在解决问题之前我先花了一两天时间熟悉了一下 StarRocks 的一些概念和使用方法，然后又花了一些时间搭建环境然后复现了该问题。 之后便开始阅读源码，大概知道了相关代码的执行流程，但即便是反复阅读了多次代码也没有找">
+<meta property="og:type" content="article">
+<meta property="og:title" content="StarRocks 开发环境搭建踩坑指北">
+<meta property="og:url" content="http://crossoverjie.top/2024/10/09/ob/StarRocks-dev-env-build/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景最近这段时间在处理一个 StarRocks 的关于物化视图优化的一个问题，在此之前其实我也没有接触过 StarRocks 这类主要处理数据分析的数据库，就更别提在这上面做优化了。 在解决问题之前我先花了一两天时间熟悉了一下 StarRocks 的一些概念和使用方法，然后又花了一些时间搭建环境然后复现了该问题。 之后便开始阅读源码，大概知道了相关代码的执行流程，但即便是反复阅读了多次代码也没有找">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/09/16/uqKGRIJXZB3pbMy.png">
+<meta property="og:image" content="https://s2.loli.net/2024/09/16/ouLglsXJEm1TpSh.png">
+<meta property="og:image" content="https://s2.loli.net/2024/09/16/tcfwoilyDdTQpxX.png">
+<meta property="og:image" content="https://s2.loli.net/2024/09/16/Lgrl4YSaD1GdzIZ.png">
+<meta property="og:image" content="https://s2.loli.net/2024/09/16/8XMI1DdjGkOKVPy.png">
+<meta property="og:image" content="https://s2.loli.net/2024/09/16/Jg5TIMtpKoknq4Z.png">
+<meta property="og:image" content="https://s2.loli.net/2024/09/16/mcFCo24Kyxui8gt.png">
+<meta property="og:image" content="https://s2.loli.net/2024/09/16/YMCXQDoch3NlA1L.png">
+<meta property="article:published_time" content="2024-10-09T09:20:19.000Z">
+<meta property="article:modified_time" content="2024-10-08T14:21:33.221Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="StarRocks">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2024/09/16/uqKGRIJXZB3pbMy.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2024/10/09/ob/StarRocks-dev-env-build/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2024/10/09/ob/StarRocks-dev-env-build/","path":"2024/10/09/ob/StarRocks-dev-env-build/","title":"StarRocks 开发环境搭建踩坑指北"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>StarRocks 开发环境搭建踩坑指北 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">90</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">257</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">188</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="nav-number">2.</span> <span class="nav-text">环境搭建</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%90%AD%E5%BB%BA%E6%9C%AC%E5%9C%B0%E9%9B%86%E7%BE%A4"><span class="nav-number">2.1.</span> <span class="nav-text">搭建本地集群</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8-FE"><span class="nav-number">2.1.1.</span> <span class="nav-text">启动 FE</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8-BE"><span class="nav-number">2.1.2.</span> <span class="nav-text">启动 BE</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BB%91%E5%AE%9A-FE-%E5%92%8C-BE"><span class="nav-number">2.1.3.</span> <span class="nav-text">绑定 FE 和 BE</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">257</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">90</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">188</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2024/10/09/ob/StarRocks-dev-env-build/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="StarRocks 开发环境搭建踩坑指北 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          StarRocks 开发环境搭建踩坑指北
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2024-10-09 17:20:19" itemprop="dateCreated datePublished" datetime="2024-10-09T17:20:19+08:00">2024-10-09</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2024-10-08 22:21:33" itemprop="dateModified" datetime="2024-10-08T22:21:33+08:00">2024-10-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/StarRocks/" itemprop="url" rel="index"><span itemprop="name">StarRocks</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2024/10/09/ob/StarRocks-dev-env-build/" class="post-meta-item leancloud_visitors" data-flag-title="StarRocks 开发环境搭建踩坑指北" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2024/10/09/ob/StarRocks-dev-env-build/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2024/10/09/ob/StarRocks-dev-env-build/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>最近这段时间在处理一个 <code>StarRocks</code> 的关于物化视图优化的一个问题，在此之前其实我也没有接触过 <code>StarRocks</code> 这类主要处理数据分析的数据库，就更别提在这上面做优化了。</p>
+<p>在解决问题之前我先花了一两天时间熟悉了一下 <code>StarRocks</code> 的一些概念和使用方法，然后又花了一些时间搭建环境然后复现了该问题。</p>
+<p>之后便开始阅读源码，大概知道了相关代码的执行流程，但即便是反复阅读了多次代码也没有找到具体出现问题的地方。</p>
+<p>所以便考虑在本地 Debug 源码，最终调试半天之后知道了问题所以，也做了相关修改，给社区提交了 PR，目前还在推进过程中。</p>
+<span id="more"></span>
+
+<h1 id="环境搭建"><a href="#环境搭建" class="headerlink" title="环境搭建"></a>环境搭建</h1><p>这里比较麻烦的是如何在本地 debug 代码。<br><img src="https://s2.loli.net/2024/09/16/uqKGRIJXZB3pbMy.png"><br>根据官方的架构图会发现 <code>StarRocks</code> 主要分为两个部分：</p>
+<ul>
+<li>FE：也就是常说的前端部分，主要负责元数据管理和构建执行计划。</li>
+<li>BE：后端存储部分，执行查询计划并存储数据。</li>
+</ul>
+<p>其中 FE 是 Java 写的，而存储的 BE 则是 C++ 写的，我这次需要修改的是 FE 前端的部分，所以本篇文章主要讨论的是 FE 相关的内容。</p>
+<p>好在社区已经有关于如何编译和构建源码的教程，这里我列举一些重点，FE 首先需要安装以下一些工具：</p>
+<ul>
+<li>Thrift</li>
+<li>Protobuf</li>
+<li>Python3</li>
+<li>JDK8+</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">brew install alberttwong/thrift/thrift@0.13</span><br><span class="line">$ thrift -version  </span><br><span class="line">Thrift version 0.13.0</span><br><span class="line"></span><br><span class="line">brew install protobuf</span><br></pre></td></tr></table></figure>
+
+<p>以上默认是在  Mac 平台上安装的流程，所以全程使用 <code>brew</code> 最方便了，如果是其他平台也是同理，只要安装好这些工具即可。</p>
+<p>紧接着便是编译 FE，我们需要先下载源码，然后进入 FE 的目录：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">git <span class="built_in">clone</span> https://github.com/StarRocks/starrocks.git</span><br><span class="line"><span class="built_in">cd</span> fe</span><br><span class="line">mvn install -DskipTests</span><br></pre></td></tr></table></figure>
+
+<p>然后直接使用 <code>maven</code> 编译安装即可。</p>
+<p>这里需要注意⚠️，因为编译过程中需要使用 <code>Python3</code> 来执行一些构建任务，新版本的 Mac 都是内置 <code>Python3</code> 的，但如果是老版本的 <code>Mac</code> 内置的则是 Python2。</p>
+<p>这时就需要我们将 Python3 的命令手动在构建任务里指定一下：</p>
+<p><img src="https://s2.loli.net/2024/09/16/ouLglsXJEm1TpSh.png"></p>
+<p>比如我这里的 Python3  命令为 <code>python3</code></p>
+<p>我们需要在 <code>fe/fe-core/pom.xml</code> 目录里修改下 Python 的命令名称：<br><img src="https://s2.loli.net/2024/09/16/tcfwoilyDdTQpxX.png"></p>
+<p>修改之后再 <code>mvn install</code> 编译一次，如果一切顺利的话便会编译成功。</p>
+<h2 id="搭建本地集群"><a href="#搭建本地集群" class="headerlink" title="搭建本地集群"></a>搭建本地集群</h2><h3 id="启动-FE"><a href="#启动-FE" class="headerlink" title="启动 FE"></a>启动 FE</h3><p>我的最终目的是可以在本地 IDEA 中启动 FE 然后再配合启动一个 BE，这样就可以在 IDEA 中调试 FE 的源码了。</p>
+<p>在启动 FE 之前还需要创建一些目录：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cp</span> -r conf fe/conf</span><br><span class="line"><span class="built_in">cp</span> -r bin fe/bin</span><br><span class="line"><span class="built_in">cp</span> -r webroot fe/webroot</span><br><span class="line"></span><br><span class="line"><span class="built_in">cd</span> fe  </span><br><span class="line"><span class="built_in">mkdir</span> <span class="built_in">log</span>  </span><br><span class="line"><span class="built_in">mkdir</span> meta</span><br></pre></td></tr></table></figure>
+
+<p>主要就是要在 FE 的目录下创建配置文件、执行脚本、日志、元数据等目录。</p>
+<p>接着便可以打开 <code>com.starrocks.StarRocksFE</code> 类在 IDEA 中运行了，在启动之前还需要配置一下环境变量：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 修改为自己的目录</span></span><br><span class="line"><span class="built_in">export</span> PID_DIR=/Users/smith/Code/starrocks/fe/bin</span><br><span class="line"><span class="built_in">export</span> STARROCKS_HOME=/Users/smith/Code/starrocks/fe</span><br><span class="line"><span class="built_in">export</span> LOG_DIR=/Users/smith/Code/starrocks/fe/log</span><br></pre></td></tr></table></figure>
+
+<p>同时需要配置下 <code>fe.conf</code> 中的 <code>priority_networks</code> 网络配置：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">priority_networks = 10.10.10.0/24</span><br></pre></td></tr></table></figure>
+<p>这个 IP 得是<strong>宿主机的 IP</strong>，后续我们使用 docker 启动 BE 的时候也需要用到。</p>
+<p><img src="https://s2.loli.net/2024/09/16/Lgrl4YSaD1GdzIZ.png"></p>
+<p>如果启动失败，可以在日志目录下查看日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">2024-09-16 21:21:59.942+08:00 ERROR (main|1) [NodeMgr.getCheckedSelfHostPort():642] edit_log_port 9010 is already in use. will exit.</span><br></pre></td></tr></table></figure>
+
+<p>碰到这个异常：提示端口被占用，那可以尝试关闭代理之后再试试。</p>
+<p>启动成功后我们便可以使用 <code>MySQL</code> 兼容的客户端进行连接了，这里我使用的是 <code>tableplus</code>:<br><img src="https://s2.loli.net/2024/09/16/8XMI1DdjGkOKVPy.png"></p>
+<p>然后我们使用以下 sql  可以查询 fe 的节点状态：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SHOW</span> PROC <span class="string">&#x27;/frontends&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<p><img src="https://s2.loli.net/2024/09/16/Jg5TIMtpKoknq4Z.png"></p>
+<p>看到类似的输出则代表启动成功了。</p>
+<h3 id="启动-BE"><a href="#启动-BE" class="headerlink" title="启动 BE"></a>启动 BE</h3><p>之后我们便可以使用 Docker 来启动 BE 了，之所以用 docker 启动，是因为 BE 是 C++ 编写的，想要在 Mac 上运行比较麻烦，最好是得有一台 <code>Ubuntu22</code> 的虚拟机。</p>
+<p>如果我们不需要调试 BE 的话，只使用 docker 启动是再合适不过了。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker run -p 9060:9060 -p 8040:8040 -p 9050:9050 -p 8060:8060 -p 9070:9070 -itd --<span class="built_in">rm</span> --name be -e <span class="string">&quot;TZ=Asia/Shanghai&quot;</span> starrocks/be-ubuntu</span><br></pre></td></tr></table></figure>
+
+<p>我们需要将 FE 需要连接 BE 的端口暴露出来，启动成功后该镜像并不会直接启动 BE，我们需要进入容器手动启动。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker <span class="built_in">exec</span> -it be bash</span><br></pre></td></tr></table></figure>
+
+<p>在启动之前我们依然需要修改下 be.conf 中的 <code>priority_networks</code> 配置：</p>
+<p><img src="https://s2.loli.net/2024/09/16/mcFCo24Kyxui8gt.png"><br>修改为和 fe.conf 中相同的配置。</p>
+<p>之后使用以下命令启动 be:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bin/start_be.sh --daemon</span><br></pre></td></tr></table></figure>
+
+<p>启动日志我们可以在 logs 目录中查看。</p>
+<h3 id="绑定-FE-和-BE"><a href="#绑定-FE-和-BE" class="headerlink" title="绑定 FE 和 BE"></a>绑定 FE 和 BE</h3><p>接下来还有最后一步就是将 FE 和 BE 绑定在一起。</p>
+<p>我们在 fe 中执行以下 sql：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> <span class="keyword">SYSTEM</span> <span class="keyword">ADD</span> BACKEND &quot;127.0.0.1:9050&quot;;</span><br></pre></td></tr></table></figure>
+
+<p>手动添加一个节点，之后再使用：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SHOW</span> PROC <span class="string">&#x27;/backends&#x27;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>可以查询到 BE 的节点状态：</p>
+<p><img src="https://s2.loli.net/2024/09/16/YMCXQDoch3NlA1L.png"></p>
+<p>如果出现以下结果代表连接成功，这样我们就可以创建数据库和表了。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这部分内容（本地 FE 联结 docker 里的 FE）官方文档并没有提及，也是我踩了不少坑、同时还咨询了一些大佬才全部调试成功。</p>
+<p>还有一点需要注意的事：如果我们网络环境发生了变化，比如从家里的 Wi-Fi 切换到了公司的，需要手动删除下 <code>FE/meta</code> 下的所有文件再次启动，BE 则是需要重启一下容器。</p>
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://docs.starrocks.io/zh/docs/developers/development-environment/IDEA/">https://docs.starrocks.io/zh/docs/developers/development-environment/IDEA/</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.starrocks.io/zh/docs/deployment/deploy_manually/#%E7%AC%AC%E5%9B%9B%E6%AD%A5%E6%90%AD%E5%BB%BA%E9%9B%86%E7%BE%A4">https://docs.starrocks.io/zh/docs/deployment/deploy_manually/#%E7%AC%AC%E5%9B%9B%E6%AD%A5%E6%90%AD%E5%BB%BA%E9%9B%86%E7%BE%A4</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2024/10/09/ob/StarRocks-dev-env-build/" title="StarRocks 开发环境搭建踩坑指北">http://crossoverjie.top/2024/10/09/ob/StarRocks-dev-env-build/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/StarRocks/" rel="tag"><i class="fa fa-tag"></i> StarRocks</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/09/29/ob/%F0%9F%A4%B3cim-support-integration-test/" rel="prev" title="🤳如何为复杂的 Java 应用编写集成测试">
+                  <i class="fa fa-chevron-left"></i> 🤳如何为复杂的 Java 应用编写集成测试
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
