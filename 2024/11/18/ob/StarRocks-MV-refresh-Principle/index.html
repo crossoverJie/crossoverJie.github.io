@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="前段时间给 StarRocks 的物化视图新增了一个特性，那也是我第一次接触 StarRocks，因为完全不熟悉这个数据库，所以很多东西都是从头开始了解概念。 为了能顺利的新增这个特性（具体内容可以见后文），我需要把整个物化视图的流程串联一遍，于是便有了这篇文章。 在开始之前简单了解下物化视图的基本概念：  简单来说，视图和 MySQL 这类传统数据库的概念类似，也是用于解决大量消耗性能的 SQL">
+<meta property="og:type" content="article">
+<meta property="og:title" content="StarRocks 物化视图刷新流程和原理">
+<meta property="og:url" content="http://crossoverjie.top/2024/11/18/ob/StarRocks-MV-refresh-Principle/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前段时间给 StarRocks 的物化视图新增了一个特性，那也是我第一次接触 StarRocks，因为完全不熟悉这个数据库，所以很多东西都是从头开始了解概念。 为了能顺利的新增这个特性（具体内容可以见后文），我需要把整个物化视图的流程串联一遍，于是便有了这篇文章。 在开始之前简单了解下物化视图的基本概念：  简单来说，视图和 MySQL 这类传统数据库的概念类似，也是用于解决大量消耗性能的 SQL">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/11/13/TMAjuUsEZGJiFDS.png">
+<meta property="og:image" content="https://s2.loli.net/2024/11/13/vJFQBAyfus5ZwIT.png">
+<meta property="og:image" content="https://s2.loli.net/2024/11/13/6QCojHZEJcUL4t2.png">
+<meta property="og:image" content="https://s2.loli.net/2024/11/13/2wtZfnFTUbsHaY4.png">
+<meta property="og:image" content="https://s2.loli.net/2024/11/14/QljDLmRrx97EIK6.png">
+<meta property="og:image" content="https://s2.loli.net/2024/11/14/3QFtkXRfvhCdNrS.png">
+<meta property="og:image" content="https://s2.loli.net/2024/11/15/OqjuMl1LNkWh39g.png">
+<meta property="og:image" content="https://s2.loli.net/2024/11/15/lrGJEnRgyQDd2Pc.png">
+<meta property="article:published_time" content="2024-11-18T14:35:25.000Z">
+<meta property="article:modified_time" content="2024-11-18T10:46:12.231Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="StarRocks">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2024/11/13/TMAjuUsEZGJiFDS.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2024/11/18/ob/StarRocks-MV-refresh-Principle/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2024/11/18/ob/StarRocks-MV-refresh-Principle/","path":"2024/11/18/ob/StarRocks-MV-refresh-Principle/","title":"StarRocks 物化视图刷新流程和原理"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>StarRocks 物化视图刷新流程和原理 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">91</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">262</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">188</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%88%B7%E6%96%B0%E6%9D%A1%E4%BB%B6"><span class="nav-number">1.</span> <span class="nav-text">刷新条件</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%88%B7%E6%96%B0%E6%B5%81%E7%A8%8B"><span class="nav-number">2.</span> <span class="nav-text">刷新流程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%96%B0%E5%A2%9E%E4%BC%98%E5%8C%96%E5%8F%82%E6%95%B0"><span class="nav-number">3.</span> <span class="nav-text">新增优化参数</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">262</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">91</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">188</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2024/11/18/ob/StarRocks-MV-refresh-Principle/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="StarRocks 物化视图刷新流程和原理 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          StarRocks 物化视图刷新流程和原理
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2024-11-18 22:35:25 / Modified: 18:46:12" itemprop="dateCreated datePublished" datetime="2024-11-18T22:35:25+08:00">2024-11-18</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/StarRocks/" itemprop="url" rel="index"><span itemprop="name">StarRocks</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2024/11/18/ob/StarRocks-MV-refresh-Principle/" class="post-meta-item leancloud_visitors" data-flag-title="StarRocks 物化视图刷新流程和原理" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2024/11/18/ob/StarRocks-MV-refresh-Principle/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2024/11/18/ob/StarRocks-MV-refresh-Principle/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>前段时间给 StarRocks 的物化视图新增了一个<a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/50926">特性</a>，那也是我第一次接触 StarRocks，因为完全不熟悉这个数据库，所以很多东西都是从头开始了解概念。</p>
+<p>为了能顺利的新增这个特性（具体内容可以见后文），我需要把整个物化视图的流程串联一遍，于是便有了这篇文章。</p>
+<p>在开始之前简单了解下物化视图的基本概念：</p>
+<p><img src="https://s2.loli.net/2024/11/13/TMAjuUsEZGJiFDS.png" alt="image.png"></p>
+<p>简单来说，视图和 MySQL 这类传统数据库的概念类似，也是用于解决大量消耗性能的 SQL 的，可以提前将这些数据查询好然后放在一张单独的表中，这样再查询的时候性能消耗就比较低了。</p>
+<span id="more"></span>
+
+<h1 id="刷新条件"><a href="#刷新条件" class="headerlink" title="刷新条件"></a>刷新条件</h1><p>为了保证视图数据的实时性，还需要在数据发生变化的时候能够及时刷新视图里的数据，目前有这几个地方会触发视图刷新：<br><img src="https://s2.loli.net/2024/11/13/vJFQBAyfus5ZwIT.png" alt="image.png"></p>
+<ul>
+<li>手动刷新视图，使用 <code>REFRESH MATERIALIZED VIEW order_mv;</code> 语句</li>
+<li>将视图设置为 active 状态：<code>ALTER MATERIALIZED VIEW order_mv ACTIVE;</code></li>
+<li>基表数据发生变化时触发刷新。<ul>
+<li><img src="https://s2.loli.net/2024/11/13/6QCojHZEJcUL4t2.png" alt="image.png"></li>
+</ul>
+</li>
+<li>truncate 基表时触发刷新：<code>truncate table trunc_db.t1;</code> </li>
+<li>drop partition 时触发：<code>ALTER TABLE &lt;tbl_name&gt; DROP PARTITION(S) p0, p1 [, ...];</code></li>
+</ul>
+<p>这里的 truncate table  和 drop partition 目前的版本还存在 bug：当基表和物化视图不在一个数据库时不会触发自动刷新，目前已经修复了。</p>
+<p><img src="https://s2.loli.net/2024/11/13/2wtZfnFTUbsHaY4.png" alt="image.png"></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/52618">https://github.com/StarRocks/starrocks/pull/52618</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/52295">https://github.com/StarRocks/starrocks/pull/52295</a></li>
+</ul>
+<h1 id="刷新流程"><a href="#刷新流程" class="headerlink" title="刷新流程"></a>刷新流程</h1><p><img src="https://s2.loli.net/2024/11/14/QljDLmRrx97EIK6.png" alt="image.png"></p>
+<p>如图所示，当触发一次刷新之后主要就是需要计算出需要刷新的分区。</p>
+<p>第一次触发刷新的时候是不会带上周期（比如时间范围），然后根据过滤计算出来的周期，默认情况下只会使用第一个周期（我们可以通过 <code>partition_refresh_number</code> 参数来调整单次刷新的分区数量）。</p>
+<p><img src="https://s2.loli.net/2024/11/14/3QFtkXRfvhCdNrS.png"></p>
+<p>然后如果还有其余的周期，会将这些周期重新触发一次刷新任务（会带上刚才剩余的周期数据），这样进行递归执行。</p>
+<p><img src="https://s2.loli.net/2024/11/15/OqjuMl1LNkWh39g.png"></p>
+<p>通过日志会看到返回的分区数据。</p>
+<h1 id="新增优化参数"><a href="#新增优化参数" class="headerlink" title="新增优化参数"></a>新增优化参数</h1><p>我们在使用物化视图的时候，碰到一个场景：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> IF <span class="keyword">NOT</span> <span class="keyword">EXISTS</span> test.par_tbl1</span><br><span class="line">(</span><br><span class="line">    datekey DATETIME,</span><br><span class="line">    k1      <span class="type">INT</span>,</span><br><span class="line">    item_id STRING,</span><br><span class="line">    v2      <span class="type">INT</span></span><br><span class="line">)<span class="keyword">PRIMARY</span> KEY (`datekey`,`k1`)</span><br><span class="line"> <span class="keyword">PARTITION</span> <span class="keyword">BY</span> date_trunc(<span class="string">&#x27;day&#x27;</span>, `datekey`);</span><br><span class="line"></span><br><span class="line"> <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> IF <span class="keyword">NOT</span> <span class="keyword">EXISTS</span> test.par_tbl2</span><br><span class="line">(</span><br><span class="line">    datekey DATETIME,</span><br><span class="line">    k1      <span class="type">INT</span>,</span><br><span class="line">    item_id STRING,</span><br><span class="line">    v2      <span class="type">INT</span></span><br><span class="line">)<span class="keyword">PRIMARY</span> KEY (`datekey`,`k1`)</span><br><span class="line"> <span class="keyword">PARTITION</span> <span class="keyword">BY</span> date_trunc(<span class="string">&#x27;day&#x27;</span>, `datekey`);</span><br><span class="line"></span><br><span class="line"> <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> IF <span class="keyword">NOT</span> <span class="keyword">EXISTS</span> test.par_tbl3</span><br><span class="line">(</span><br><span class="line">    datekey DATETIME,</span><br><span class="line">    k1      <span class="type">INT</span>,</span><br><span class="line">    item_id STRING,</span><br><span class="line">    v2      <span class="type">INT</span></span><br><span class="line">)</span><br><span class="line"> <span class="keyword">PRIMARY</span> KEY (`datekey`,`k1`);</span><br></pre></td></tr></table></figure>
+
+<p>但我们有三张基表，其中 1 和 2 都是分区表，但是 3 是非分区表。</p>
+<p>此时基于他们新建了一个物化视图：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span></span><br><span class="line">MATERIALIZED <span class="keyword">VIEW</span> test.mv_test</span><br><span class="line">REFRESH ASYNC</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> a_time</span><br><span class="line">PROPERTIES (</span><br><span class="line">&quot;excluded_trigger_tables&quot; <span class="operator">=</span> &quot;par_tbl3&quot;</span><br><span class="line">)</span><br><span class="line"><span class="keyword">AS</span></span><br><span class="line"><span class="keyword">select</span> date_trunc(&quot;day&quot;, a.datekey) <span class="keyword">as</span> a_time, date_trunc(&quot;day&quot;, b.datekey) <span class="keyword">as</span> b_time,date_trunc(&quot;day&quot;, c.datekey) <span class="keyword">as</span> c_time</span><br><span class="line"><span class="keyword">from</span> test.par_tbl1 a</span><br><span class="line">         <span class="keyword">left</span> <span class="keyword">join</span> test.par_tbl2 b <span class="keyword">on</span> a.datekey <span class="operator">=</span> b.datekey <span class="keyword">and</span> a.k1 <span class="operator">=</span> b.k1</span><br><span class="line">         <span class="keyword">left</span> <span class="keyword">join</span> test.par_tbl3 c <span class="keyword">on</span> a.k1 <span class="operator">=</span> c.k1;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>当我同时更新了分区表和非分区表的数据时：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">UPDATE</span> `par_tbl1` <span class="keyword">SET</span> `v2` <span class="operator">=</span> <span class="number">2</span> <span class="keyword">WHERE</span> `datekey` <span class="operator">=</span> <span class="string">&#x27;2024-08-05 01:00:00&#x27;</span> <span class="keyword">AND</span> `k1` <span class="operator">=</span> <span class="number">3</span>;</span><br><span class="line"><span class="keyword">UPDATE</span> `par_tbl3` <span class="keyword">SET</span> `item_id` <span class="operator">=</span> <span class="string">&#x27;3&#x27;</span> <span class="keyword">WHERE</span> `datekey` <span class="operator">=</span> <span class="string">&#x27;2024-10-01 01:00:00&#x27;</span> <span class="keyword">AND</span> `k1` <span class="operator">=</span> <span class="number">3</span>;</span><br></pre></td></tr></table></figure>
+
+<p>预期的结果是只有 <code>par_tbl1</code> 表里修改的数据会被同步到视图（<code>&quot;excluded_trigger_tables&quot; = &quot;par_tbl3&quot;</code>已经被设置为不会触发视图刷新），但实际情况是 <code>par_tbl1</code> 和 <code>par_tbl2</code> 表里所有的数据都会被刷新到物化视图中。</p>
+<p>我们可以使用这个 SQL 查询无刷视图任务的运行状态：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> information_schema.task_runs <span class="keyword">order</span> <span class="keyword">by</span> create_time <span class="keyword">desc</span>;</span><br></pre></td></tr></table></figure>
+
+<p>这样就会造成资源损耗，如果这两张基表的数据非常大，本次刷新会非常耗时。</p>
+<p>所以我们的需求是在这样的场景下也只刷新修改的数据。</p>
+<p>因此我们在新建物化视图的时候新增了一个参数：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span></span><br><span class="line">MATERIALIZED <span class="keyword">VIEW</span> test.mv_test</span><br><span class="line">REFRESH ASYNC</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> a_time</span><br><span class="line">PROPERTIES (</span><br><span class="line">&quot;excluded_trigger_tables&quot; <span class="operator">=</span> &quot;par_tbl3&quot;,</span><br><span class="line">&quot;excluded_refresh_tables&quot;<span class="operator">=</span>&quot;par_tbl3&quot;</span><br><span class="line">)</span><br><span class="line"><span class="keyword">AS</span></span><br><span class="line"><span class="keyword">select</span> date_trunc(&quot;day&quot;, a.datekey) <span class="keyword">as</span> a_time, date_trunc(&quot;day&quot;, b.datekey) <span class="keyword">as</span> b_time,date_trunc(&quot;day&quot;, c.datekey) <span class="keyword">as</span> c_time</span><br><span class="line"><span class="keyword">from</span> test.par_tbl1 a</span><br><span class="line">         <span class="keyword">left</span> <span class="keyword">join</span> test.par_tbl2 b <span class="keyword">on</span> a.datekey <span class="operator">=</span> b.datekey <span class="keyword">and</span> a.k1 <span class="operator">=</span> b.k1</span><br><span class="line">         <span class="keyword">left</span> <span class="keyword">join</span> test.par_tbl3 c <span class="keyword">on</span> a.k1 <span class="operator">=</span> c.k1;</span><br></pre></td></tr></table></figure>
+
+<p>这样当在刷新数据的时候，会判断 <code>excluded_refresh_tables</code> 配置的表是否有发生数据变化，如果有的话则不能将当前计算出来的分区（1,2 两张表的全量数据）全部刷新，而是继续求一个交集，只计算基表发生变化的数据。</p>
+<p>这样就可以避免 par_tbl1、par_tbl2 的数据全量刷新，而只刷新修改的数据。</p>
+<p>这样的场景通常是在关联的基表中有一张字典表，通常数据量不大，所以也不需要分区的场景。</p>
+<p>这样在创建物化视图的时候就可以使用这两个参数 <code>excluded_trigger_tables，excluded_refresh_tables</code> 将它排除掉了。</p>
+<p><img src="https://s2.loli.net/2024/11/15/lrGJEnRgyQDd2Pc.png"></p>
+<p>整体的刷新逻辑并不复杂，主要就是几个不同的刷新入口以及刷新过程中计算分区的逻辑。</p>
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://docs.starrocks.io/zh/docs/using_starrocks/async_mv/Materialized_view/#%E7%90%86%E8%A7%A3-starrocks-%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE">https://docs.starrocks.io/zh/docs/using_starrocks/async_mv/Materialized_view/#%E7%90%86%E8%A7%A3-starrocks-%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.starrocks.io/zh/docs/using_starrocks/async_mv/use_cases/data_modeling_with_materialized_views/#%E5%88%86%E5%8C%BA%E5%BB%BA%E6%A8%A1">https://docs.starrocks.io/zh/docs/using_starrocks/async_mv/use_cases/data_modeling_with_materialized_views/#%E5%88%86%E5%8C%BA%E5%BB%BA%E6%A8%A1</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/52295">https://github.com/StarRocks/starrocks/pull/52295</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/52618">https://github.com/StarRocks/starrocks/pull/52618</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2024/11/18/ob/StarRocks-MV-refresh-Principle/" title="StarRocks 物化视图刷新流程和原理">http://crossoverjie.top/2024/11/18/ob/StarRocks-MV-refresh-Principle/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/StarRocks/" rel="tag"><i class="fa fa-tag"></i> StarRocks</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/11/11/ob/StarRocks-meta/" rel="prev" title="深入理解 StarRocks 的元数据管理">
+                  <i class="fa fa-chevron-left"></i> 深入理解 StarRocks 的元数据管理
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
