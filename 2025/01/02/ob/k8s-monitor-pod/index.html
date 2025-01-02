@@ -23,7 +23,7 @@
      crossorigin="anonymous"></script>
     <meta name="description" content="前段时间有朋友问我如何在 kubernetes 里搭建监控系统，恰好在公司也在维护内部的可观测平台，正好借这个机会整理下目前常见的自建监控方案。 一个完整的监控系统通常包含以下的内容：  指标暴露：将系统内部需要关注的指标暴露出去 指标采集：收集并存储暴露出来的指标 指标展示：以各种图表展示和分析收集到的数据 监控告警：当某些关键指标在一定时间周期内出现异常时，可以及时通知相关人员   对于 k8">
 <meta property="og:type" content="article">
-<meta property="og:title" content="k8s-monitor-pod">
+<meta property="og:title" content="k8s 云原生应用如何接入监控">
 <meta property="og:url" content="http://crossoverjie.top/2025/01/02/ob/k8s-monitor-pod/index.html">
 <meta property="og:site_name" content="crossoverJie&#39;s Blog">
 <meta property="og:description" content="前段时间有朋友问我如何在 kubernetes 里搭建监控系统，恰好在公司也在维护内部的可观测平台，正好借这个机会整理下目前常见的自建监控方案。 一个完整的监控系统通常包含以下的内容：  指标暴露：将系统内部需要关注的指标暴露出去 指标采集：收集并存储暴露出来的指标 指标展示：以各种图表展示和分析收集到的数据 监控告警：当某些关键指标在一定时间周期内出现异常时，可以及时通知相关人员   对于 k8">
@@ -34,7 +34,7 @@
 <meta property="og:image" content="https://s2.loli.net/2024/12/23/rM7nDiWgTUmA8h3.png">
 <meta property="og:image" content="https://s2.loli.net/2024/07/22/oUPjd4KlX7niBaI.png">
 <meta property="article:published_time" content="2025-01-02T06:00:50.000Z">
-<meta property="article:modified_time" content="2025-01-02T06:04:30.164Z">
+<meta property="article:modified_time" content="2025-01-02T06:44:07.208Z">
 <meta property="article:author" content="crossoverJie">
 <meta property="article:tag" content="kubernetes">
 <meta name="twitter:card" content="summary">
@@ -45,10 +45,10 @@
 
 
 
-<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2025/01/02/ob/k8s-monitor-pod/","path":"2025/01/02/ob/k8s-monitor-pod/","title":"k8s-monitor-pod"}</script>
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2025/01/02/ob/k8s-monitor-pod/","path":"2025/01/02/ob/k8s-monitor-pod/","title":"k8s 云原生应用如何接入监控"}</script>
 
 <script class="next-config" data-name="calendar" type="application/json">""</script>
-<title>k8s-monitor-pod | crossoverJie's Blog</title>
+<title>k8s 云原生应用如何接入监控 | crossoverJie's Blog</title>
   
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
   <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
@@ -304,12 +304,12 @@
     </span>
 
     <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="k8s-monitor-pod | crossoverJie's Blog">
+      <meta itemprop="name" content="k8s 云原生应用如何接入监控 | crossoverJie's Blog">
       <meta itemprop="description" content="">
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          k8s-monitor-pod
+          k8s 云原生应用如何接入监控
         </h1>
 
         <div class="post-meta-container">
@@ -321,7 +321,7 @@
       <span class="post-meta-item-text">Posted on</span>
       
 
-      <time title="Created: 2025-01-02 14:00:50 / Modified: 14:04:30" itemprop="dateCreated datePublished" datetime="2025-01-02T14:00:50+08:00">2025-01-02</time>
+      <time title="Created: 2025-01-02 14:00:50 / Modified: 14:44:07" itemprop="dateCreated datePublished" datetime="2025-01-02T14:00:50+08:00">2025-01-02</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -338,7 +338,7 @@
     </span>
 
   
-    <span id="/2025/01/02/ob/k8s-monitor-pod/" class="post-meta-item leancloud_visitors" data-flag-title="k8s-monitor-pod" title="Views">
+    <span id="/2025/01/02/ob/k8s-monitor-pod/" class="post-meta-item leancloud_visitors" data-flag-title="k8s 云原生应用如何接入监控" title="Views">
       <span class="post-meta-item-icon">
         <i class="far fa-eye"></i>
       </span>
@@ -389,6 +389,7 @@
 <li>k8s 自带的系统组建</li>
 <li>业务 Pod 暴露出来的监控指标</li>
 </ul>
+<span id="more"></span>
 <h1 id="系统组建"><a href="#系统组建" class="headerlink" title="系统组建"></a>系统组建</h1><p>对于 kubernetes 系统组建可以由 <code>cAdvisor</code> 提供监控能力，默认情况下这个功能是开箱即用的，我们只需要在 Prometheus 中配置相关的任务抓取即可：</p>
 <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="bullet">-</span> <span class="attr">job_name:</span> <span class="string">nodeScrape/monitoring/cadvisor-scrape/0</span></span><br><span class="line">  <span class="attr">scrape_interval:</span> <span class="string">30s</span></span><br><span class="line">  <span class="attr">scrape_timeout:</span> <span class="string">15s</span></span><br><span class="line">  <span class="attr">scheme:</span> <span class="string">https</span></span><br><span class="line">  <span class="attr">bearer_token_file:</span> <span class="string">/var/run/secrets/kubernetes.io/serviceaccount/token</span></span><br><span class="line">  <span class="attr">tls_config:</span></span><br><span class="line">    <span class="attr">insecure_skip_verify:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">relabel_configs:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">source_labels:</span> [<span class="string">__meta_kubernetes_node_name</span>]</span><br><span class="line">    <span class="attr">target_label:</span> <span class="string">node</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">action:</span> <span class="string">replace</span></span><br><span class="line">    <span class="attr">source_labels:</span> [<span class="string">__meta_kubernetes_node_name</span>]</span><br><span class="line">    <span class="attr">separator:</span> <span class="string">;</span></span><br><span class="line">    <span class="attr">target_label:</span> <span class="string">__address__</span></span><br><span class="line">    <span class="attr">regex:</span> <span class="string">(.*)</span></span><br><span class="line">    <span class="attr">replacement:</span> <span class="string">kubernetes.default.svc:443</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">action:</span> <span class="string">replace</span></span><br><span class="line">    <span class="attr">source_labels:</span> [<span class="string">__meta_kubernetes_node_name</span>]</span><br><span class="line">    <span class="attr">separator:</span> <span class="string">;</span></span><br><span class="line">    <span class="attr">target_label:</span> <span class="string">__metrics_path__</span></span><br><span class="line">    <span class="attr">regex:</span> <span class="string">(.+)</span></span><br><span class="line">    <span class="attr">replacement:</span> <span class="string">/api/v1/nodes/$&#123;1&#125;/proxy/metrics/cadvisor</span></span><br><span class="line"></span><br><span class="line">  <span class="attr">kubernetes_sd_configs:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">role:</span> <span class="string">node</span></span><br></pre></td></tr></table></figure>
 
@@ -473,7 +474,7 @@
   </li>
   <li class="post-copyright-link">
       <strong>Post link: </strong>
-      <a href="http://crossoverjie.top/2025/01/02/ob/k8s-monitor-pod/" title="k8s-monitor-pod">http://crossoverjie.top/2025/01/02/ob/k8s-monitor-pod/</a>
+      <a href="http://crossoverjie.top/2025/01/02/ob/k8s-monitor-pod/" title="k8s 云原生应用如何接入监控">http://crossoverjie.top/2025/01/02/ob/k8s-monitor-pod/</a>
   </li>
   <li class="post-copyright-license">
     <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
