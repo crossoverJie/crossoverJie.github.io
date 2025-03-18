@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
+    <meta name="description" content="前段时间升级了生产环境的 StarRocks，从 3.3.3 升级到了 3.3.9，期间还是踩了不少坑所以在这里记录下。   因为我们的集群使用的是存算分离的版本，也是使用官方提供的 operator 部署在 kubernetes 里的，所以没法按照官方的流程进入虚拟机手动启停对应的服务。 只能使用 operator 提供的方案手动修改对应组件的镜像版本，后续的升级操作交给 operator 去完">
+<meta property="og:type" content="article">
+<meta property="og:title" content="StarRocks 升级注意事项">
+<meta property="og:url" content="http://crossoverjie.top/2025/03/14/starrocks/StarRocks-upgrade/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前段时间升级了生产环境的 StarRocks，从 3.3.3 升级到了 3.3.9，期间还是踩了不少坑所以在这里记录下。   因为我们的集群使用的是存算分离的版本，也是使用官方提供的 operator 部署在 kubernetes 里的，所以没法按照官方的流程进入虚拟机手动启停对应的服务。 只能使用 operator 提供的方案手动修改对应组件的镜像版本，后续的升级操作交给 operator 去完">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2025/03/17/uGyo2HULqzQ1j7W.png">
+<meta property="og:image" content="https://s2.loli.net/2025/03/17/7YwRaKzbPo4dAEs.png">
+<meta property="og:image" content="https://s2.loli.net/2025/03/17/g1q7NbX6H9t5oce.png">
+<meta property="og:image" content="https://s2.loli.net/2025/03/17/l6Dfcs4JYV52pQE.png">
+<meta property="og:image" content="https://s2.loli.net/2025/03/17/KpVCBqJGjXQctah.png">
+<meta property="og:image" content="https://s2.loli.net/2025/03/17/CMAiILF3ZHaouY6.png">
+<meta property="og:image" content="https://s2.loli.net/2025/03/18/nf3QioRgc96ze2p.png">
+<meta property="og:image" content="https://s2.loli.net/2025/03/18/DMNQsxH5ZqaKpFb.png">
+<meta property="og:image" content="https://s2.loli.net/2025/03/18/GP6Bzl7Zxq29FoD.png">
+<meta property="og:image" content="https://s2.loli.net/2025/03/18/PG8WVKrpfoTz61I.png">
+<meta property="article:published_time" content="2025-03-14T09:16:35.000Z">
+<meta property="article:modified_time" content="2025-03-18T06:35:10.890Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="StarRocks">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2025/03/17/uGyo2HULqzQ1j7W.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2025/03/14/starrocks/StarRocks-upgrade/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2025/03/14/starrocks/StarRocks-upgrade/","path":"2025/03/14/starrocks/StarRocks-upgrade/","title":"StarRocks 升级注意事项"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>StarRocks 升级注意事项 | crossoverJie's Blog</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">93</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">270</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">188</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%83%E6%95%B0%E6%8D%AE%E5%A4%87%E4%BB%BD%E4%B8%8E%E6%81%A2%E5%A4%8D"><span class="nav-number">1.</span> <span class="nav-text">元数据备份与恢复</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A4%87%E4%BB%BD%E5%85%83%E6%95%B0%E6%8D%AE"><span class="nav-number">1.1.</span> <span class="nav-text">备份元数据</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A4%87%E4%BB%BD%E4%BA%91%E5%AD%98%E5%82%A8%E6%95%B0%E6%8D%AE"><span class="nav-number">1.2.</span> <span class="nav-text">备份云存储数据</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%81%A2%E5%A4%8D%E5%85%83%E6%95%B0%E6%8D%AE"><span class="nav-number">1.3.</span> <span class="nav-text">恢复元数据</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE%E5%88%B7%E6%96%B0%E7%AD%96%E7%95%A5"><span class="nav-number">2.</span> <span class="nav-text">物化视图刷新策略</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE%E4%BD%9C%E4%B8%BA%E5%9F%BA%E8%A1%A8"><span class="nav-number">2.1.</span> <span class="nav-text">物化视图作为基表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE%E6%89%8B%E5%8A%A8-ACTIVE"><span class="nav-number">2.2.</span> <span class="nav-text">物化视图手动 ACTIVE</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">270</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">93</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">188</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll site-overview-item animated">
+    <div class="links-of-blogroll-title"><i class="fa fa-globe fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://wuchong.me/" title="http:&#x2F;&#x2F;wuchong.me" rel="noopener" target="_blank">Jark's Blog</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://tengj.top/" title="http:&#x2F;&#x2F;tengj.top" rel="noopener" target="_blank">嘟嘟独立博客</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://yemengying.com/" title="http:&#x2F;&#x2F;yemengying.com&#x2F;" rel="noopener" target="_blank">Giraffe Home</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.jamespan.me/" title="https:&#x2F;&#x2F;blog.jamespan.me&#x2F;" rel="noopener" target="_blank">潘小鶸(ruò)</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://fangjian0423.github.io/" title="http:&#x2F;&#x2F;fangjian0423.github.io&#x2F;" rel="noopener" target="_blank">Format's Notes</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yuzhouwan.com/" title="https:&#x2F;&#x2F;yuzhouwan.com&#x2F;" rel="noopener" target="_blank">Benedict Jin</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.didispace.com/" title="http:&#x2F;&#x2F;blog.didispace.com&#x2F;" rel="noopener" target="_blank">程序猿DD</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.52itstyle.vip/" title="https:&#x2F;&#x2F;blog.52itstyle.vip&#x2F;" rel="noopener" target="_blank">小柒博客</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://cmsblogs.com/" title="http:&#x2F;&#x2F;cmsblogs.com&#x2F;" rel="noopener" target="_blank">Java技术驿站</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://vim.ink/" title="https:&#x2F;&#x2F;vim.ink&#x2F;" rel="noopener" target="_blank">vim 教程网</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.jitwxs.cn/" title="https:&#x2F;&#x2F;www.jitwxs.cn" rel="noopener" target="_blank">jitwxs</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://www.javaboy.org/" title="http:&#x2F;&#x2F;www.javaboy.org" rel="noopener" target="_blank">江南一点雨</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://www.liangsonghua.me/" title="http:&#x2F;&#x2F;www.liangsonghua.me" rel="noopener" target="_blank">松花皮蛋的黑板报</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.fi-ads.com/" title="https:&#x2F;&#x2F;www.fi-ads.com" rel="noopener" target="_blank">Future iDeal</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://dbarobin.com/" title="https:&#x2F;&#x2F;dbarobin.com&#x2F;" rel="noopener" target="_blank">Cryptospace</a>
+        </li>
+    </ul>
+  </div>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2025/03/14/starrocks/StarRocks-upgrade/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="StarRocks 升级注意事项 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          StarRocks 升级注意事项
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2025-03-14 17:16:35" itemprop="dateCreated datePublished" datetime="2025-03-14T17:16:35+08:00">2025-03-14</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2025-03-18 14:35:10" itemprop="dateModified" datetime="2025-03-18T14:35:10+08:00">2025-03-18</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/" itemprop="url" rel="index"><span itemprop="name">OB</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2025/03/14/starrocks/StarRocks-upgrade/" class="post-meta-item leancloud_visitors" data-flag-title="StarRocks 升级注意事项" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2025/03/14/starrocks/StarRocks-upgrade/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2025/03/14/starrocks/StarRocks-upgrade/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>前段时间升级了生产环境的 <code>StarRocks</code>，从 3.3.3 升级到了 3.3.9，期间还是踩了不少坑所以在这里记录下。</p>
+<p><img src="https://s2.loli.net/2025/03/17/uGyo2HULqzQ1j7W.png"></p>
+<p> 因为我们的集群使用的是存算分离的版本，也是使用官方提供的 operator 部署在 kubernetes 里的，所以没法按照官方的流程进入虚拟机手动启停对应的服务。</p>
+<p>只能使用 operator 提供的方案手动修改对应组件的镜像版本，后续的升级操作交给 operator 去完成。</p>
+<span id="more"></span>
+
+<p><img src="https://s2.loli.net/2025/03/17/7YwRaKzbPo4dAEs.png"></p>
+<p>理论上这个升级流程没什么问题，修改镜像版本之后只需要安静等待他滚动更新即可。</p>
+<h1 id="元数据备份与恢复"><a href="#元数据备份与恢复" class="headerlink" title="元数据备份与恢复"></a>元数据备份与恢复</h1><p>但考虑到之前在社区看到有存算分离集群升级失败导致数据丢失的案例，我们的全量业务已经切换到 StarRocks，如果数据丢失那需要花几天时间进行数据同步，这在业务上是无法接受的，所以我们最好是可以在升级前备份数据，即便是升级失败数据依然还在。</p>
+<p><img src="https://s2.loli.net/2025/03/17/g1q7NbX6H9t5oce.png"></p>
+<p>原本官方社区是有提供数据备份与恢复能力的，但是我们使用的存算分离集群不支持😂，而想要获得社区版的支持应该还要等一段时间，即便是支持了我们升级到那个版本依然是需要备份的。</p>
+<p><img src="https://s2.loli.net/2025/03/17/l6Dfcs4JYV52pQE.png"></p>
+<blockquote>
+<p>好消息，在最新的 3.4.1 版本中已经支持了快照备份了，只是作为一个新 feature，稳定性还有待观察。</p>
+</blockquote>
+<p>所以我们的计划是在当前这个版本（3.3.3）能否自己备份数据，由于我们是存算分离的版本，所以数据主要分为两部分：</p>
+<ul>
+<li>存储在所有 FE 节点里的 meta 元数据</li>
+<li>存储在云存储里的业务数据</li>
+</ul>
+<p>备份的时候自然就需要备份这两部分的数据。</p>
+<h2 id="备份元数据"><a href="#备份元数据" class="headerlink" title="备份元数据"></a>备份元数据</h2><p>在元数据里存放了所有的数据库、表、视图等信息，具体在磁盘的结构如下：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">|-- bdb</span><br><span class="line">|   |-- 00000000.jdb</span><br><span class="line">|   |-- je.config.csv</span><br><span class="line">|   |-- je.info.0</span><br><span class="line">|   |-- je.info.0.lck</span><br><span class="line">|   |-- je.lck</span><br><span class="line">|   `-- je.stat.csv</span><br><span class="line">|-- image</span><br><span class="line">|   |-- ROLE</span><br><span class="line">|   |-- VERSION</span><br><span class="line">|   |-- image.327375</span><br><span class="line">|   |-- starmgr</span><br><span class="line">|   |   `-- image.390</span><br><span class="line">|   `-- v2</span><br><span class="line">|       |-- checksum.327375</span><br><span class="line">|       `-- image.327375</span><br></pre></td></tr></table></figure>
+
+<p>bdb 目录主要是用于 leader 选举的，理论上并不需要备份，真正需要的是 <code>image</code> 目录下的 <code>image.327375</code> 等元数据文件。</p>
+<p><img src="https://s2.loli.net/2025/03/17/KpVCBqJGjXQctah.png"></p>
+<p><img src="https://s2.loli.net/2025/03/17/CMAiILF3ZHaouY6.png"></p>
+<p>里面是用 JSON 存储的各种类型的元数据，FE 在启动的时候会读取该文件，然后根据不同的类型取不同的偏移量读取其中的元数据加载到内存里。</p>
+<p>我们的 FE 一共有三个节点，需要找到其中的 leader 节点（理论上只需要备份 leader 节点即可，其他节点会在 leader 启动后同步过去），直接将这个 meta 目录备份到本地即可：</p>
+<p>在开始之前需要停掉所有的写入任务，暂停所有的物化视图刷新。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"># inactive 所有的物化视图</span><br><span class="line"><span class="keyword">SELECT</span> CONCAT(<span class="string">&#x27;ALTER MATERIALIZED VIEW &#x27;</span>, TABLE_NAME, <span class="string">&#x27; INACTIVE;&#x27;</span>) <span class="keyword">FROM</span> information_schema.materialized_views;</span><br><span class="line"></span><br><span class="line"># 手动创建镜像</span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">SYSTEM</span> <span class="keyword">CREATE</span> IMAGE;</span><br><span class="line"></span><br><span class="line"># 找到 leader 节点</span><br><span class="line"><span class="keyword">SHOW</span> FRONTENDS;</span><br></pre></td></tr></table></figure>
+
+<p>然后进入 leader 节点备份元数据：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">k exec -it kube-starrocks-fe-0-n sr -- bash</span><br><span class="line"></span><br><span class="line">tar -zcvf meta.tar.gz meta/</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">下载备份元数据到本地</span></span><br><span class="line">k cp starrocks-fe-0:/opt/starrocks/fe/meta/image.tar.gz image.tar.gz -n starrocks -c fe --retries=5</span><br></pre></td></tr></table></figure>
+
+<h2 id="备份云存储数据"><a href="#备份云存储数据" class="headerlink" title="备份云存储数据"></a>备份云存储数据</h2><p>云存储的备份就需要结合你使用的云厂商来备份了，通常他们都有提供对应的备份能力。</p>
+<p>要注意的是我们再备份的时候需要记录在存储桶里的目录名称，之后还原的时候名称得保持一致才行。</p>
+<h2 id="恢复元数据"><a href="#恢复元数据" class="headerlink" title="恢复元数据"></a>恢复元数据</h2><p>当出现极端情况升级失败的时候，我们需要把元数据覆盖回去；但由于我们的应用运行在容器里，不可以在应用启动之后再替换元数据。</p>
+<p>只能在应用启动之前将之前备份的元数据覆盖回去，这里可以使用 kubernetes 中的 <code>initContainers</code> 提前将数据复制到应用容器里。</p>
+<p>在开始之前我们需要先把备份的元数据打包为一个镜像。</p>
+<figure class="highlight dockerfile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">FROM</span> busybox  </span><br><span class="line"><span class="keyword">ADD</span><span class="language-bash"> meta.tar.gz /temp</span></span><br></pre></td></tr></table></figure>
+
+<p>然后我们需要手动修改 FE 的 <code>statefulset</code> 的资源，创建一个 initContainers。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">initContainers:</span>  </span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">copy-file-init</span>  </span><br><span class="line">    <span class="attr">image:</span> <span class="string">meta:0.0.1</span>  </span><br><span class="line">    <span class="attr">command:</span> [<span class="string">&quot;/bin/sh&quot;</span>, <span class="string">&quot;-c&quot;</span>]  </span><br><span class="line">    <span class="attr">args:</span> [<span class="string">&quot;rm -rf /meta-target/* &amp;&amp; cp -r /temp/meta/. /meta-target&quot;</span>]  </span><br><span class="line">    <span class="attr">volumeMounts:</span>  </span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">fe-meta</span>  </span><br><span class="line">        <span class="attr">mountPath:</span> <span class="string">&quot;/meta-target&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>原理就是在 initContainers 中挂载原本 FE 的元数据目录，这样就可以直接将之前备份的元数据覆盖过去。</p>
+<blockquote>
+<p>当然也可以直接使用 k8s 的 go client 用代码的方式来修改，会更容易维护。</p>
+</blockquote>
+<p>还原的时候需要先将云存储里的数据先还原之后再还原元数据。</p>
+<h1 id="物化视图刷新策略"><a href="#物化视图刷新策略" class="headerlink" title="物化视图刷新策略"></a>物化视图刷新策略</h1><p>真正升级的时候倒是没有碰到升级失败的情况，所以没有走恢复流程；但是却碰到了一个更麻烦的事情。</p>
+<h2 id="物化视图作为基表"><a href="#物化视图作为基表" class="headerlink" title="物化视图作为基表"></a>物化视图作为基表</h2><p>我们在升级前将所有的物化视图设置为了 <code>INACTIVE</code>，升级成功后需要将他们都改为 <code>ACTIVE</code>。</p>
+<p>第一个问题是如果某个物化视图 <code>MV1</code> 的基表也是一个物化视图 <code>MV-base</code>，这样会导致 <code>MV1</code> 的全量刷新。</p>
+<p>我之前在这个 <a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/50926">PR</a> 里新增了一个参数：<code>excluded_refresh_tables</code> 可以用于排除基表发生变化的时候刷新物化视图，但是忘记了基表也是物化视图的场景。</p>
+<p><img src="https://s2.loli.net/2025/03/18/nf3QioRgc96ze2p.png"></p>
+<p>所以在这个 <a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/56428">PR</a> 中修复了该问题，现在基表是物化视图的时候也可以使用了。</p>
+<h2 id="物化视图手动-ACTIVE"><a href="#物化视图手动-ACTIVE" class="headerlink" title="物化视图手动 ACTIVE"></a>物化视图手动 ACTIVE</h2><p>前面提到在升级之前需要将所有的物化视图设置为 <code>INACTIVE</code>，升级成功后再手动设置为 ACTIVE。</p>
+<p>我们在手动 ACTIVE 之后发现这些物化视图又在做全量刷新了，于是我们检查了代码。</p>
+<p><img src="https://s2.loli.net/2025/03/18/DMNQsxH5ZqaKpFb.png"></p>
+<p>发现在使用 <code>ALTER MATERIALIZED VIEW order_mv ACTIVE;</code> 修改视图状态的时候会强制刷新物化视图的所有分区。</p>
+<p><img src="https://s2.loli.net/2025/03/18/GP6Bzl7Zxq29FoD.png"></p>
+<blockquote>
+<p>force: true 的时候会直接跳过基表的分区检查，导致分区的全量刷新。</p>
+</blockquote>
+<p><img src="https://s2.loli.net/2025/03/18/PG8WVKrpfoTz61I.png"></p>
+<p>同时会在 ACTIVE 的时候将视图基表的 <code>baseTableVisibleVersionMap</code> 版本号缓存清空，FE 需要在刷新的时候判断当前需要刷新的分区是否存在与缓存中，如果存在的话说明不需要刷新，现在被清空后就一定会被刷新。</p>
+<p>所以我提了一个 PR 可以在 <code>ACTIVE</code> 物化视图的时候人工判断是否需要刷新:</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">alter</span> materialized <span class="keyword">view</span> mv_test1 ACTIVE <span class="keyword">WITH</span> NO_VALIDATION</span><br></pre></td></tr></table></figure>
+
+<p>这样带上 <code>NO_VALIDATION</code> 参数后就 <code>force=false</code> 也就不会全量刷新了。</p>
+<p>如果在 ACTIVE 物化视图的时候碰到类似场景，可以在这个 <code>PR</code> 发布之后加上 <code>NO_VALIDATION</code> 来跳过刷新。</p>
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/50926">https://github.com/StarRocks/starrocks/pull/50926</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/56428">https://github.com/StarRocks/starrocks/pull/56428</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/56864">https://github.com/StarRocks/starrocks/pull/56864</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
+</div>
+
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2025/03/14/starrocks/StarRocks-upgrade/" title="StarRocks 升级注意事项">http://crossoverjie.top/2025/03/14/starrocks/StarRocks-upgrade/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
+
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/StarRocks/" rel="tag"><i class="fa fa-tag"></i> StarRocks</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2025/03/03/annual-summary/2024/" rel="prev" title="我的 2024">
+                  <i class="fa fa-chevron-left"></i> 我的 2024
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+  </div>
+  
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
+
+</body>
+</html>
