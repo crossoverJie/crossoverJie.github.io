@@ -1,26 +1,24 @@
+
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-default-color-scheme=auto>
+
+
+
 <head>
   <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width">
-<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
 
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
 
-  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
-  <link rel="mask-icon" href="/images/logo.svg" color="#222">
-
-<link rel="stylesheet" href="/css/main.css">
-
-
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
-
-<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
-     crossorigin="anonymous"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
     <meta name="description" content="背景之前写过一篇 从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅的文章，主要是从概念上讲解了 Trace 在 OpenTelemetry 的中的场景和使用。 也写过一篇 实操 OpenTelemetry：通过 Demo 掌握微服务监控的艺术：如何从一个 demo 开始集成 OpenTelemetry。 但还是有不少小伙伴反馈说无法快速上手（可能也是这个 demo 的项目比较">
 <meta property="og:type" content="article">
 <meta property="og:title" content="OpenTelemetry 实战：从零实现分布式链路追踪">
@@ -41,342 +39,305 @@
 <meta property="article:modified_time" content="2024-08-20T06:35:59.105Z">
 <meta property="article:author" content="crossoverJie">
 <meta property="article:tag" content="OpenTelemetry">
-<meta name="twitter:card" content="summary">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://s2.loli.net/2024/07/15/u4BYXOkztqyUoEK.png">
-
-
-<link rel="canonical" href="http://crossoverjie.top/2024/08/20/ob/OpenTelemetry-01-trace/">
-
-
-
-<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2024/08/20/ob/OpenTelemetry-01-trace/","path":"2024/08/20/ob/OpenTelemetry-01-trace/","title":"OpenTelemetry 实战：从零实现分布式链路追踪"}</script>
-
-<script class="next-config" data-name="calendar" type="application/json">""</script>
-<title>OpenTelemetry 实战：从零实现分布式链路追踪 | crossoverJie's Blog</title>
   
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
-  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
-  <script src="/js/third-party/analytics/google-analytics.js"></script>
+  
+  
+  <title>OpenTelemetry 实战：从零实现分布式链路追踪 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
 
 
 
 
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
 
 
-  <noscript>
-    <link rel="stylesheet" href="/css/noscript.css">
-  </noscript>
-<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
 </head>
 
-<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
-  <div class="headband"></div>
 
-  <main class="main">
-    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
-      <div class="header-inner"><div class="site-brand-container">
-  <div class="site-nav-toggle">
-    <div class="toggle" aria-label="Toggle navigation bar" role="button">
-        <span class="toggle-line"></span>
-        <span class="toggle-line"></span>
-        <span class="toggle-line"></span>
-    </div>
-  </div>
+<body>
+  
 
-  <div class="site-meta">
+  <header>
+    
 
-    <a href="/" class="brand" rel="start">
-      <i class="logo-line"></i>
-      <p class="site-title">crossoverJie's Blog</p>
-      <i class="logo-line"></i>
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
     </a>
-      <p class="site-subtitle" itemprop="description">baller</p>
-  </div>
 
-  <div class="site-nav-right">
-    <div class="toggle popup-trigger">
-        <i class="fa fa-search fa-fw fa-lg"></i>
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
     </div>
   </div>
-</div>
-
-
-
-<nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">95</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">277</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">188</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
-      <li class="menu-item menu-item-search">
-        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
-        </a>
-      </li>
-  </ul>
 </nav>
 
-
-
-  <div class="search-pop-overlay">
-    <div class="popup search-popup"><div class="search-header">
-  <span class="search-icon">
-    <i class="fa fa-search"></i>
-  </span>
-  <div class="search-input-container">
-    <input autocomplete="off" autocapitalize="off" maxlength="80"
-           placeholder="Searching..." spellcheck="false"
-           type="search" class="search-input">
-  </div>
-  <span class="popup-btn-close" role="button">
-    <i class="fa fa-times-circle"></i>
-  </span>
-</div>
-<div class="search-result-container no-result">
-  <div class="search-result-icon">
-    <i class="fa fa-spinner fa-pulse fa-5x"></i>
-  </div>
-</div>
-
-    </div>
-  </div>
-
-</div>
-        
   
-  <div class="toggle sidebar-toggle" role="button">
-    <span class="toggle-line"></span>
-    <span class="toggle-line"></span>
-    <span class="toggle-line"></span>
-  </div>
 
-  <aside class="sidebar">
-
-    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
-      <ul class="sidebar-nav">
-        <li class="sidebar-nav-toc">
-          Table of Contents
-        </li>
-        <li class="sidebar-nav-overview">
-          Overview
-        </li>
-      </ul>
-
-      <div class="sidebar-panel-container">
-        <!--noindex-->
-        <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84"><span class="nav-number">2.</span> <span class="nav-text">项目结构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Java-%E5%BA%94%E7%94%A8"><span class="nav-number">3.</span> <span class="nav-text">Java 应用</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Golang-%E5%BA%94%E7%94%A8"><span class="nav-number">4.</span> <span class="nav-text">Golang 应用</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89-span-%E7%9A%84-attribute"><span class="nav-number">5.</span> <span class="nav-text">自定义  span 的 attribute</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E6%96%B0%E5%A2%9E-span"><span class="nav-number">6.</span> <span class="nav-text">自定义新增 span</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li></ol></div>
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="OpenTelemetry 实战：从零实现分布式链路追踪"></span>
+          
         </div>
-        <!--/noindex-->
 
-        <div class="site-overview-wrap sidebar-panel">
-          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
-    <img class="site-author-image" itemprop="image" alt="crossoverJie"
-      src="/uploads/iverson.gif">
-  <p class="site-author-name" itemprop="name">crossoverJie</p>
-  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
-</div>
-<div class="site-state-wrap site-overview-item animated">
-  <nav class="site-state">
-      <div class="site-state-item site-state-posts">
-        <a href="/archives">
-          <span class="site-state-item-count">277</span>
-          <span class="site-state-item-name">posts</span>
-        </a>
-      </div>
-      <div class="site-state-item site-state-categories">
-          <a href="/categories">
-        <span class="site-state-item-count">95</span>
-        <span class="site-state-item-name">categories</span></a>
-      </div>
-      <div class="site-state-item site-state-tags">
-          <a href="/tags">
-        <span class="site-state-item-count">188</span>
-        <span class="site-state-item-name">tags</span></a>
-      </div>
-  </nav>
-</div>
-  <div class="links-of-author site-overview-item animated">
-      <span class="links-of-author-item">
-        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
       </span>
-      <span class="links-of-author-item">
-        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-08-20 14:53" pubdate>
+          August 20, 2024 pm
+        </time>
       </span>
-      <span class="links-of-author-item">
-        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
-      </span>
-  </div>
-  <div class="cc-license site-overview-item animated" itemprop="license">
-    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+    
   </div>
 
-
-  <div class="links-of-blogroll site-overview-item animated">
-    <div class="links-of-blogroll-title"><i class="fa fa-globe fa-fw"></i>
-      Links
-    </div>
-    <ul class="links-of-blogroll-list">
-        <li class="links-of-blogroll-item">
-          <a href="http://wuchong.me/" title="http:&#x2F;&#x2F;wuchong.me" rel="noopener" target="_blank">Jark's Blog</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://tengj.top/" title="http:&#x2F;&#x2F;tengj.top" rel="noopener" target="_blank">嘟嘟独立博客</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://yemengying.com/" title="http:&#x2F;&#x2F;yemengying.com&#x2F;" rel="noopener" target="_blank">Giraffe Home</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://blog.jamespan.me/" title="https:&#x2F;&#x2F;blog.jamespan.me&#x2F;" rel="noopener" target="_blank">潘小鶸(ruò)</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://fangjian0423.github.io/" title="http:&#x2F;&#x2F;fangjian0423.github.io&#x2F;" rel="noopener" target="_blank">Format's Notes</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://yuzhouwan.com/" title="https:&#x2F;&#x2F;yuzhouwan.com&#x2F;" rel="noopener" target="_blank">Benedict Jin</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://blog.didispace.com/" title="http:&#x2F;&#x2F;blog.didispace.com&#x2F;" rel="noopener" target="_blank">程序猿DD</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://blog.52itstyle.vip/" title="https:&#x2F;&#x2F;blog.52itstyle.vip&#x2F;" rel="noopener" target="_blank">小柒博客</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://cmsblogs.com/" title="http:&#x2F;&#x2F;cmsblogs.com&#x2F;" rel="noopener" target="_blank">Java技术驿站</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://vim.ink/" title="https:&#x2F;&#x2F;vim.ink&#x2F;" rel="noopener" target="_blank">vim 教程网</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://www.jitwxs.cn/" title="https:&#x2F;&#x2F;www.jitwxs.cn" rel="noopener" target="_blank">jitwxs</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://www.javaboy.org/" title="http:&#x2F;&#x2F;www.javaboy.org" rel="noopener" target="_blank">江南一点雨</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://www.liangsonghua.me/" title="http:&#x2F;&#x2F;www.liangsonghua.me" rel="noopener" target="_blank">松花皮蛋的黑板报</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://www.fi-ads.com/" title="https:&#x2F;&#x2F;www.fi-ads.com" rel="noopener" target="_blank">Future iDeal</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://dbarobin.com/" title="https:&#x2F;&#x2F;dbarobin.com&#x2F;" rel="noopener" target="_blank">Cryptospace</a>
-        </li>
-    </ul>
-  </div>
-
-        </div>
-      </div>
-    </div>
-  </aside>
-  <div class="sidebar-dimmer"></div>
-
-
-    </header>
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.8k words
+        
+      </span>
+    
 
     
-  <div class="back-to-top" role="button" aria-label="Back to top">
-    <i class="fa fa-arrow-up"></i>
-    <span>0%</span>
-  </div>
-  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
-
-<noscript>
-  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
-</noscript>
-
-
-    <div class="main-inner post posts-expand">
-
-
-  
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2024/08/20/ob/OpenTelemetry-01-trace/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/uploads/iverson.gif">
-      <meta itemprop="name" content="crossoverJie">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="crossoverJie's Blog">
-      <meta itemprop="description" content="You never know what you can do till you try.">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="OpenTelemetry 实战：从零实现分布式链路追踪 | crossoverJie's Blog">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h1 class="post-title" itemprop="name headline">
-          OpenTelemetry 实战：从零实现分布式链路追踪
-        </h1>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          24 mins
+        
       </span>
-      <span class="post-meta-item-text">Posted on</span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
       
 
-      <time title="Created: 2024-08-20 14:53:35 / Modified: 14:35:59" itemprop="dateCreated datePublished" datetime="2024-08-20T14:53:35+08:00">2024-08-20</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">In</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/OB/" itemprop="url" rel="index"><span itemprop="name">OB</span></a>
-        </span>
-          , 
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/OB/OpenTelemetry/" itemprop="url" rel="index"><span itemprop="name">OpenTelemetry</span></a>
-        </span>
-    </span>
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
 
-  
-    <span id="/2024/08/20/ob/OpenTelemetry-01-trace/" class="post-meta-item leancloud_visitors" data-flag-title="OpenTelemetry 实战：从零实现分布式链路追踪" title="Views">
-      <span class="post-meta-item-icon">
-        <i class="far fa-eye"></i>
-      </span>
-      <span class="post-meta-item-text">Views: </span>
-      <span class="leancloud-visitors-count"></span>
-    </span>
-    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
-      <span class="post-meta-item-icon">
-        <i class="far fa-eye"></i>
-      </span>
-      <span class="post-meta-item-text">Views: </span>
-      <span id="busuanzi_value_page_pv"></span>
-    </span>
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus: </span>
-    
-    <a title="disqus" href="/2024/08/20/ob/OpenTelemetry-01-trace/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2024/08/20/ob/OpenTelemetry-01-trace/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-</div>
+    </div>
 
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-        <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>之前写过一篇 <a href="https://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/">从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅</a>的文章，主要是从概念上讲解了 Trace 在 OpenTelemetry 的中的场景和使用。</p>
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">OpenTelemetry 实战：从零实现分布式链路追踪</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>之前写过一篇 <a href="https://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/">从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅</a>的文章，主要是从概念上讲解了 Trace 在 OpenTelemetry 的中的场景和使用。</p>
 <p>也写过一篇 <a href="https://crossoverjie.top/2024/05/26/ob/OTel-demo/">实操 OpenTelemetry：通过 Demo 掌握微服务监控的艺术</a>：如何从一个 demo 开始集成 OpenTelemetry。</p>
 <p>但还是有不少小伙伴反馈说无法快速上手（可能也是这个 demo 的项目比较多），于是我准备从 0 开始从真实的代码一步步带大家集成 <code>OpenTelemetry</code>，因为 OpenTelemetry 本身是跨多种语言的，所以也会以两种语言为（Java、Golang）主进行讲解。</p>
 <blockquote>
@@ -420,45 +381,45 @@
 <td>otel&#x2F;opentelemetry-collector-contrib:0.98.0</td>
 </tr>
 </tbody></table>
-<p><img src="https://s2.loli.net/2024/07/15/u4BYXOkztqyUoEK.png" alt="image.png"></p>
+<p><img src="https://s2.loli.net/2024/07/15/u4BYXOkztqyUoEK.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
 <p>在开始之前我们先看看实际的效果，我们需要先把 collector 和 Jaeger 部署好：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">docker run --rm -d --name jaeger \</span><br><span class="line">  -e COLLECTOR_ZIPKIN_HOST_PORT=:9411 \</span><br><span class="line">  -p 6831:6831/udp \</span><br><span class="line">  -p 6832:6832/udp \</span><br><span class="line">  -p 5778:5778 \</span><br><span class="line">  -p 16686:16686 \</span><br><span class="line">  -p 4317:4317 \</span><br><span class="line">  -p 4318:4318 \</span><br><span class="line">  -p 14250:14250 \</span><br><span class="line">  -p 14268:14268 \</span><br><span class="line">  -p 14269:14269 \</span><br><span class="line">  -p 9411:9411 \</span><br><span class="line">  jaegertracing/all-in-one:1.56</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">docker run --rm -d -v $(pwd)/coll-config.yaml:/etc/otelcol-contrib/config.yaml --name coll \</span><br><span class="line">-p 5318:4318 \</span><br><span class="line">-p 5317:4317 \</span><br><span class="line">otel/opentelemetry-collector-contrib:0.98.0</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs shell">docker run --rm -d --name jaeger \<br>  -e COLLECTOR_ZIPKIN_HOST_PORT=:9411 \<br>  -p 6831:6831/udp \<br>  -p 6832:6832/udp \<br>  -p 5778:5778 \<br>  -p 16686:16686 \<br>  -p 4317:4317 \<br>  -p 4318:4318 \<br>  -p 14250:14250 \<br>  -p 14268:14268 \<br>  -p 14269:14269 \<br>  -p 9411:9411 \<br>  jaegertracing/all-in-one:1.56<br><br><br>docker run --rm -d -v $(pwd)/coll-config.yaml:/etc/otelcol-contrib/config.yaml --name coll \<br>-p 5318:4318 \<br>-p 5317:4317 \<br>otel/opentelemetry-collector-contrib:0.98.0<br></code></pre></td></tr></table></figure>
 
 <p>这里有一个 <code>coll-config</code> 的配置文件如下：</p>
-<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">receivers:</span></span><br><span class="line">  <span class="attr">otlp:</span></span><br><span class="line">    <span class="attr">protocols:</span></span><br><span class="line">      <span class="attr">grpc:</span></span><br><span class="line">      <span class="attr">http:</span></span><br><span class="line"><span class="attr">exporters:</span></span><br><span class="line">  <span class="attr">debug:</span></span><br><span class="line">  <span class="attr">otlp:</span></span><br><span class="line">    <span class="attr">endpoint:</span> <span class="string">&quot;127.0.0.1:4317&quot;</span></span><br><span class="line">    <span class="attr">tls:</span></span><br><span class="line">      <span class="attr">insecure:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">processors:</span></span><br><span class="line">  <span class="attr">batch:</span></span><br><span class="line"><span class="attr">service:</span></span><br><span class="line">  <span class="attr">pipelines:</span></span><br><span class="line">    <span class="attr">traces:</span></span><br><span class="line">      <span class="attr">receivers:</span> [<span class="string">otlp</span>]</span><br><span class="line">      <span class="attr">processors:</span> [<span class="string">batch</span>]</span><br><span class="line">      <span class="attr">exporters:</span> [<span class="string">otlp</span>, <span class="string">debug</span>]</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">receivers:</span><br>  <span class="hljs-attr">otlp:</span><br>    <span class="hljs-attr">protocols:</span><br>      <span class="hljs-attr">grpc:</span><br>      <span class="hljs-attr">http:</span><br><span class="hljs-attr">exporters:</span><br>  <span class="hljs-attr">debug:</span><br>  <span class="hljs-attr">otlp:</span><br>    <span class="hljs-attr">endpoint:</span> <span class="hljs-string">&quot;127.0.0.1:4317&quot;</span><br>    <span class="hljs-attr">tls:</span><br>      <span class="hljs-attr">insecure:</span> <span class="hljs-literal">true</span><br><span class="hljs-attr">processors:</span><br>  <span class="hljs-attr">batch:</span><br><span class="hljs-attr">service:</span><br>  <span class="hljs-attr">pipelines:</span><br>    <span class="hljs-attr">traces:</span><br>      <span class="hljs-attr">receivers:</span> [<span class="hljs-string">otlp</span>]<br>      <span class="hljs-attr">processors:</span> [<span class="hljs-string">batch</span>]<br>      <span class="hljs-attr">exporters:</span> [<span class="hljs-string">otlp</span>, <span class="hljs-string">debug</span>]<br><br></code></pre></td></tr></table></figure>
 
 <p>重点是这里的 <code>endpoint: &quot;127.0.0.1:4317&quot;</code> 我们需要配置位 Jaeger 的 IP 和端口。</p>
 <blockquote>
 <p>更多关于这里的配置会在后续单独的 collector 章节中讲解。</p>
 </blockquote>
 <p>这两个服务都启动成功后再启动我们的 Java 客户端和  Go  服务端：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">java -javaagent:opentelemetry-javaagent-2.4.0-SNAPSHOT.jar \</span><br><span class="line">-Dotel.traces.exporter=otlp \</span><br><span class="line">-Dotel.metrics.exporter=otlp \</span><br><span class="line">-Dotel.logs.exporter=none \</span><br><span class="line">-Dotel.service.name=demo \</span><br><span class="line">-Dotel.exporter.otlp.protocol=grpc \</span><br><span class="line">-Dotel.propagators=tracecontext,baggage \</span><br><span class="line">-Dotel.exporter.otlp.endpoint=http://127.0.0.1:5317 \</span><br><span class="line">      -jar target/demo-0.0.1-SNAPSHOT.jar</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">Golang</span></span><br><span class="line">export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:5317</span><br><span class="line">export OTEL_RESOURCE_ATTRIBUTES=service.name=k8s-combat</span><br><span class="line">./k8s-combat</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs shell">java -javaagent:opentelemetry-javaagent-2.4.0-SNAPSHOT.jar \<br>-Dotel.traces.exporter=otlp \<br>-Dotel.metrics.exporter=otlp \<br>-Dotel.logs.exporter=none \<br>-Dotel.service.name=demo \<br>-Dotel.exporter.otlp.protocol=grpc \<br>-Dotel.propagators=tracecontext,baggage \<br>-Dotel.exporter.otlp.endpoint=http://127.0.0.1:5317 \<br>      -jar target/demo-0.0.1-SNAPSHOT.jar<br><span class="hljs-meta prompt_"></span><br><span class="hljs-meta prompt_"># </span><span class="language-bash">Golang</span><br>export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:5317<br>export OTEL_RESOURCE_ATTRIBUTES=service.name=k8s-combat<br>./k8s-combat<br></code></pre></td></tr></table></figure>
 
 <p>可以看到不管是 Java 还是 Golang 应用都是需要配置 <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> 参数，也就是 <code>opentelemetry-collector-contrib</code> 的地址。</p>
 <blockquote>
 <p>其余的一些配置在后面会讲到。</p>
 </blockquote>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl http://127.0.0.1:9191/request\?name\=1232</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">curl http://127.0.0.1:9191/request\?name\=1232<br></code></pre></td></tr></table></figure>
 <p>然后我们触发一下 Java 客户端的入口，就可以在 JaegerUI 中查询到刚才的链路了。<br><code>http://localhost:16686/search</code></p>
-<p><img src="https://s2.loli.net/2024/07/15/skNmSDJaPfHh3GB.png" alt="image.png"><br><img src="https://s2.loli.net/2024/07/15/xoG2finOmFlDReE.png" alt="image.png"><br>这样整个 <code>trace</code> 链路就串起来了。</p>
+<p><img src="https://s2.loli.net/2024/07/15/skNmSDJaPfHh3GB.png" srcset="/img/loading.gif" lazyload alt="image.png"><br><img src="https://s2.loli.net/2024/07/15/xoG2finOmFlDReE.png" srcset="/img/loading.gif" lazyload alt="image.png"><br>这样整个 <code>trace</code> 链路就串起来了。</p>
 <h1 id="Java-应用"><a href="#Java-应用" class="headerlink" title="Java 应用"></a>Java 应用</h1><p>下面来看看具体的应用代码里是如何编写的。</p>
 <blockquote>
 <p>Java 是基于 springboot 编写的，具体 springboot 的使用就不再赘述了。</p>
 </blockquote>
 <p>因为我们应用是使用 gRPC 通信的，所以需要提供一个 <code>helloworld.proto</code> 的 pb 文件：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">syntax = &quot;proto3&quot;;  </span><br><span class="line">  </span><br><span class="line">option go_package = &quot;google.golang.org/grpc/examples/helloworld/helloworld&quot;;  </span><br><span class="line">option java_multiple_files = true;  </span><br><span class="line">option java_package = &quot;io.grpc.examples.helloworld&quot;;  </span><br><span class="line">option java_outer_classname = &quot;HelloWorldProto&quot;;  </span><br><span class="line">  </span><br><span class="line">package helloworld;  </span><br><span class="line">  </span><br><span class="line">// The greeting service definition.  </span><br><span class="line">service Greeter &#123;  </span><br><span class="line">  // Sends a greeting  </span><br><span class="line">  rpc SayHello (HelloRequest) returns (HelloReply) &#123;&#125;  </span><br><span class="line">&#125;  </span><br><span class="line">  </span><br><span class="line">// The request message containing the user&#x27;s name.  </span><br><span class="line">message HelloRequest &#123;  </span><br><span class="line">  string name = 1;  </span><br><span class="line">&#125;  </span><br><span class="line">  </span><br><span class="line">// The response message containing the greetings  </span><br><span class="line">message HelloReply &#123;  </span><br><span class="line">  string message = 1;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><code class="hljs proto">syntax = &quot;proto3&quot;;  <br>  <br>option go_package = &quot;google.golang.org/grpc/examples/helloworld/helloworld&quot;;  <br>option java_multiple_files = true;  <br>option java_package = &quot;io.grpc.examples.helloworld&quot;;  <br>option java_outer_classname = &quot;HelloWorldProto&quot;;  <br>  <br>package helloworld;  <br>  <br>// The greeting service definition.  <br>service Greeter &#123;  <br>  // Sends a greeting  <br>  rpc SayHello (HelloRequest) returns (HelloReply) &#123;&#125;  <br>&#125;  <br>  <br>// The request message containing the user&#x27;s name.  <br>message HelloRequest &#123;  <br>  string name = 1;  <br>&#125;  <br>  <br>// The response message containing the greetings  <br>message HelloReply &#123;  <br>  string message = 1;  <br>&#125;<br></code></pre></td></tr></table></figure>
 
 <p>这个文件也没啥好说的，就定义了一个简单的 <code>SayHello</code> 接口。</p>
-<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>net.devh<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>grpc-spring-boot-starter<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">version</span>&gt;</span>3.1.0.RELEASE<span class="tag">&lt;/<span class="name">version</span>&gt;</span>  </span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span>  </span><br><span class="line">  </span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.grpc<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>grpc-stub<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;grpc.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span>  </span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span>  </span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.grpc<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>grpc-protobuf<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;grpc.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span>  </span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>net.devh<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>grpc-spring-boot-starter<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>3.1.0.RELEASE<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>  <br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>  <br>  <br><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>io.grpc<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>grpc-stub<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>$&#123;grpc.version&#125;<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>  <br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>  <br><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>io.grpc<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>grpc-protobuf<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>$&#123;grpc.version&#125;<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>  <br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br></code></pre></td></tr></table></figure>
 
 <p>在 Java 中使用了 <code>grpc-spring-boot-starter</code> 这个库来处理 gRPC 的客户端和服务端请求。</p>
-<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">grpc:</span>  </span><br><span class="line">  <span class="attr">server:</span>  </span><br><span class="line">    <span class="attr">port:</span> <span class="number">9192</span>  </span><br><span class="line">  <span class="attr">client:</span>  </span><br><span class="line">    <span class="attr">greeter:</span>  </span><br><span class="line">      <span class="attr">address:</span> <span class="string">&#x27;static://127.0.0.1:50051&#x27;</span>  </span><br><span class="line">      <span class="attr">enableKeepAlive:</span> <span class="literal">true</span>  </span><br><span class="line">      <span class="attr">keepAliveWithoutCalls:</span> <span class="literal">true</span>  </span><br><span class="line">      <span class="attr">negotiationType:</span> <span class="string">plaintext</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">grpc:</span>  <br>  <span class="hljs-attr">server:</span>  <br>    <span class="hljs-attr">port:</span> <span class="hljs-number">9192</span>  <br>  <span class="hljs-attr">client:</span>  <br>    <span class="hljs-attr">greeter:</span>  <br>      <span class="hljs-attr">address:</span> <span class="hljs-string">&#x27;static://127.0.0.1:50051&#x27;</span>  <br>      <span class="hljs-attr">enableKeepAlive:</span> <span class="hljs-literal">true</span>  <br>      <span class="hljs-attr">keepAliveWithoutCalls:</span> <span class="hljs-literal">true</span>  <br>      <span class="hljs-attr">negotiationType:</span> <span class="hljs-string">plaintext</span><br></code></pre></td></tr></table></figure>
 
 <p>然后我们定义了一个接口用于接收请求触发 <code>gRPC</code> 的调用：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@RequestMapping(&quot;/request&quot;)</span>  </span><br><span class="line"><span class="keyword">public</span> String <span class="title function_">request</span><span class="params">(<span class="meta">@RequestParam</span> String name)</span> &#123;  </span><br><span class="line">   log.info(<span class="string">&quot;request: &#123;&#125;&quot;</span>, request);    </span><br><span class="line">   <span class="type">HelloReply</span> <span class="variable">abc</span> <span class="operator">=</span> greeterStub.sayHello(io.grpc.examples.helloworld.HelloRequest.newBuilder().setName(request.getName()).build());   </span><br><span class="line">   <span class="keyword">return</span> abc.getMessage();  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@RequestMapping(&quot;/request&quot;)</span>  <br><span class="hljs-keyword">public</span> String <span class="hljs-title function_">request</span><span class="hljs-params">(<span class="hljs-meta">@RequestParam</span> String name)</span> &#123;  <br>   log.info(<span class="hljs-string">&quot;request: &#123;&#125;&quot;</span>, request);    <br>   <span class="hljs-type">HelloReply</span> <span class="hljs-variable">abc</span> <span class="hljs-operator">=</span> greeterStub.sayHello(io.grpc.examples.helloworld.HelloRequest.newBuilder().setName(request.getName()).build());   <br>   <span class="hljs-keyword">return</span> abc.getMessage();  <br>&#125;<br></code></pre></td></tr></table></figure>
 
 <p>Java 应用的实现非常简单，和我们日常日常开发没有任何区别；唯一的区别就是在启动时需要加入一个 <code>javaagent</code>以及一些启动参数。</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">java -javaagent:opentelemetry-javaagent-2.4.0-SNAPSHOT.jar \</span><br><span class="line">-Dotel.traces.exporter=otlp \</span><br><span class="line">-Dotel.metrics.exporter=otlp \</span><br><span class="line">-Dotel.logs.exporter=none \</span><br><span class="line">-Dotel.service.name=demo \</span><br><span class="line">-Dotel.exporter.otlp.protocol=grpc \</span><br><span class="line">-Dotel.propagators=tracecontext,baggage \</span><br><span class="line">-Dotel.exporter.otlp.endpoint=http://127.0.0.1:5317 \</span><br><span class="line">      -jar target/demo-0.0.1-SNAPSHOT.jar</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs shell">java -javaagent:opentelemetry-javaagent-2.4.0-SNAPSHOT.jar \<br>-Dotel.traces.exporter=otlp \<br>-Dotel.metrics.exporter=otlp \<br>-Dotel.logs.exporter=none \<br>-Dotel.service.name=demo \<br>-Dotel.exporter.otlp.protocol=grpc \<br>-Dotel.propagators=tracecontext,baggage \<br>-Dotel.exporter.otlp.endpoint=http://127.0.0.1:5317 \<br>      -jar target/demo-0.0.1-SNAPSHOT.jar<br></code></pre></td></tr></table></figure>
 
 <p>下面来仔细看看这些参数</p>
 <table>
@@ -507,74 +468,74 @@
 </tbody></table>
 <h1 id="Golang-应用"><a href="#Golang-应用" class="headerlink" title="Golang 应用"></a>Golang 应用</h1><p>接着我们来看看 Go 是如何集成 <code>OpenTelemetry</code> 的。</p>
 <p>在创建好项目之后我们需要添加 <code>OpenTelemetry</code> 所提供的包：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">go get &quot;go.opentelemetry.io/otel&quot; \</span><br><span class="line">  &quot;go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc&quot; \</span><br><span class="line">  &quot;go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc&quot; \</span><br><span class="line">  &quot;go.opentelemetry.io/otel/propagation&quot; \</span><br><span class="line">  &quot;go.opentelemetry.io/otel/sdk/metric&quot; \</span><br><span class="line">  &quot;go.opentelemetry.io/otel/sdk/resource&quot; \</span><br><span class="line">  &quot;go.opentelemetry.io/otel/sdk/trace&quot; \       &quot;go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc&quot;\</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs shell">go get &quot;go.opentelemetry.io/otel&quot; \<br>  &quot;go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc&quot; \<br>  &quot;go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc&quot; \<br>  &quot;go.opentelemetry.io/otel/propagation&quot; \<br>  &quot;go.opentelemetry.io/otel/sdk/metric&quot; \<br>  &quot;go.opentelemetry.io/otel/sdk/resource&quot; \<br>  &quot;go.opentelemetry.io/otel/sdk/trace&quot; \       &quot;go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc&quot;\<br></code></pre></td></tr></table></figure>
 
 <p>然后我们需要创建一个初始化 <code>tracer</code> 的函数：</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">initTracerProvider</span><span class="params">()</span></span> *sdktrace.TracerProvider &#123;</span><br><span class="line">	ctx := context.Background()</span><br><span class="line"></span><br><span class="line">	exporter, err := otlptracegrpc.New(ctx)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		log.Printf(<span class="string">&quot;new otlp trace grpc exporter failed: %v&quot;</span>, err)</span><br><span class="line">	&#125;</span><br><span class="line">	tp := sdktrace.NewTracerProvider(</span><br><span class="line">		sdktrace.WithBatcher(exporter),</span><br><span class="line">		sdktrace.WithResource(initResource()),</span><br><span class="line">	)</span><br><span class="line">	otel.SetTracerProvider(tp)</span><br><span class="line">	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext&#123;&#125;, propagation.Baggage&#123;&#125;))</span><br><span class="line">	<span class="keyword">return</span> tp</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-title">initTracerProvider</span><span class="hljs-params">()</span></span> *sdktrace.TracerProvider &#123;<br>	ctx := context.Background()<br><br>	exporter, err := otlptracegrpc.New(ctx)<br>	<span class="hljs-keyword">if</span> err != <span class="hljs-literal">nil</span> &#123;<br>		log.Printf(<span class="hljs-string">&quot;new otlp trace grpc exporter failed: %v&quot;</span>, err)<br>	&#125;<br>	tp := sdktrace.NewTracerProvider(<br>		sdktrace.WithBatcher(exporter),<br>		sdktrace.WithResource(initResource()),<br>	)<br>	otel.SetTracerProvider(tp)<br>	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext&#123;&#125;, propagation.Baggage&#123;&#125;))<br>	<span class="hljs-keyword">return</span> tp<br>&#125;<br></code></pre></td></tr></table></figure>
 
 <p>因为我们使用的是 <code>grpc</code> 协议上报 <code>otlp</code> 数据，所以这里使用的是 <code>exporter, err := otlptracegrpc.New(ctx)</code>  创建了一个 <code>exporter</code>。</p>
 <p><code>otel.SetTextMapPropagator()</code> 这个函数里配置数据和刚才 Java 里配置的 <code>-Dotel.propagators=tracecontext,baggage</code> 是一样的效果。</p>
 <p>与此同时我们还需要提供一个 <code>initResource()</code> 的函数：</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">initResource</span><span class="params">()</span></span> *sdkresource.Resource &#123;</span><br><span class="line">	initResourcesOnce.Do(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">		extraResources, _ := sdkresource.New(</span><br><span class="line">			context.Background(),</span><br><span class="line">			sdkresource.WithOS(),</span><br><span class="line">			sdkresource.WithProcess(),</span><br><span class="line">			sdkresource.WithContainer(),</span><br><span class="line">			sdkresource.WithHost(),</span><br><span class="line">		)</span><br><span class="line">		resource, _ = sdkresource.Merge(</span><br><span class="line">			sdkresource.Default(),</span><br><span class="line">			extraResources,</span><br><span class="line">		)</span><br><span class="line">	&#125;)</span><br><span class="line">	<span class="keyword">return</span> resource</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-title">initResource</span><span class="hljs-params">()</span></span> *sdkresource.Resource &#123;<br>	initResourcesOnce.Do(<span class="hljs-function"><span class="hljs-keyword">func</span><span class="hljs-params">()</span></span> &#123;<br>		extraResources, _ := sdkresource.New(<br>			context.Background(),<br>			sdkresource.WithOS(),<br>			sdkresource.WithProcess(),<br>			sdkresource.WithContainer(),<br>			sdkresource.WithHost(),<br>		)<br>		resource, _ = sdkresource.Merge(<br>			sdkresource.Default(),<br>			extraResources,<br>		)<br>	&#125;)<br>	<span class="hljs-keyword">return</span> resource<br>&#125;<br></code></pre></td></tr></table></figure>
 
-<p>这个函数用来告诉 trace 需要暴露那些 resource，也就是我们在这里看到进程相关的属性：<br><img src="https://s2.loli.net/2024/07/15/Gveu4hNjWdYLiBo.png" alt="image.png"><br>比如这里的 <code>sdkresource.WithOS(),</code> 就会显示 OS 的类型和描述。</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">WithOS</span><span class="params">()</span></span> Option &#123;  </span><br><span class="line">    <span class="keyword">return</span> WithDetectors(  </span><br><span class="line">       osTypeDetector&#123;&#125;,  </span><br><span class="line">       osDescriptionDetector&#123;&#125;,  </span><br><span class="line">    )&#125;</span><br></pre></td></tr></table></figure>
+<p>这个函数用来告诉 trace 需要暴露那些 resource，也就是我们在这里看到进程相关的属性：<br><img src="https://s2.loli.net/2024/07/15/Gveu4hNjWdYLiBo.png" srcset="/img/loading.gif" lazyload alt="image.png"><br>比如这里的 <code>sdkresource.WithOS(),</code> 就会显示 OS 的类型和描述。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-title">WithOS</span><span class="hljs-params">()</span></span> Option &#123;  <br>    <span class="hljs-keyword">return</span> WithDetectors(  <br>       osTypeDetector&#123;&#125;,  <br>       osDescriptionDetector&#123;&#125;,  <br>    )&#125;<br></code></pre></td></tr></table></figure>
 
 <p>而 <code>sdkresource.WithProcess(),</code> 显示的数据就更多了。</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">WithProcess</span><span class="params">()</span></span> Option &#123;  </span><br><span class="line">    <span class="keyword">return</span> WithDetectors(  </span><br><span class="line">       processPIDDetector&#123;&#125;,  </span><br><span class="line">       processExecutableNameDetector&#123;&#125;,  </span><br><span class="line">       processExecutablePathDetector&#123;&#125;,  </span><br><span class="line">       processCommandArgsDetector&#123;&#125;,  </span><br><span class="line">       processOwnerDetector&#123;&#125;,  </span><br><span class="line">       processRuntimeNameDetector&#123;&#125;,  </span><br><span class="line">       processRuntimeVersionDetector&#123;&#125;,  </span><br><span class="line">       processRuntimeDescriptionDetector&#123;&#125;,  </span><br><span class="line">    )&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-title">WithProcess</span><span class="hljs-params">()</span></span> Option &#123;  <br>    <span class="hljs-keyword">return</span> WithDetectors(  <br>       processPIDDetector&#123;&#125;,  <br>       processExecutableNameDetector&#123;&#125;,  <br>       processExecutablePathDetector&#123;&#125;,  <br>       processCommandArgsDetector&#123;&#125;,  <br>       processOwnerDetector&#123;&#125;,  <br>       processRuntimeNameDetector&#123;&#125;,  <br>       processRuntimeVersionDetector&#123;&#125;,  <br>       processRuntimeDescriptionDetector&#123;&#125;,  <br>    )&#125;<br></code></pre></td></tr></table></figure>
 
 <blockquote>
 <p>以上这些代码在 Java 中都是由 agent 指定创建的。</p>
 </blockquote>
 <hr>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Init OpenTelemetry start  </span></span><br><span class="line">tp := initTracerProvider()  </span><br><span class="line"><span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;  </span><br><span class="line">    <span class="keyword">if</span> err := tp.Shutdown(context.Background()); err != <span class="literal">nil</span> &#123;  </span><br><span class="line">       log.Printf(<span class="string">&quot;Error shutting down tracer provider: %v&quot;</span>, err)  </span><br><span class="line">    &#125;&#125;()  </span><br><span class="line">   </span><br><span class="line">err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(time.Second))  </span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;  </span><br><span class="line">    log.Err(err)  </span><br><span class="line">&#125;</span><br><span class="line">tracer = tp.Tracer(<span class="string">&quot;k8s-combat&quot;</span>)</span><br><span class="line"><span class="comment">// Init OpenTelemetry end</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-comment">// Init OpenTelemetry start  </span><br>tp := initTracerProvider()  <br><span class="hljs-keyword">defer</span> <span class="hljs-function"><span class="hljs-keyword">func</span><span class="hljs-params">()</span></span> &#123;  <br>    <span class="hljs-keyword">if</span> err := tp.Shutdown(context.Background()); err != <span class="hljs-literal">nil</span> &#123;  <br>       log.Printf(<span class="hljs-string">&quot;Error shutting down tracer provider: %v&quot;</span>, err)  <br>    &#125;&#125;()  <br>   <br>err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(time.Second))  <br><span class="hljs-keyword">if</span> err != <span class="hljs-literal">nil</span> &#123;  <br>    log.Err(err)  <br>&#125;<br>tracer = tp.Tracer(<span class="hljs-string">&quot;k8s-combat&quot;</span>)<br><span class="hljs-comment">// Init OpenTelemetry end</span><br></code></pre></td></tr></table></figure>
 
 <p>之后我们需要在 main 函数一开始就初始化 <code>traceProvider</code>。</p>
 <p>对于 <code>grpc</code> 来说，<code>OpenTelemetry</code> 的 Go-SDK 提供了自动埋点，但我们也得手动配置一下：</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">s := grpc.NewServer(  </span><br><span class="line">    grpc.StatsHandler(otelgrpc.NewServerHandler()),  </span><br><span class="line">)  </span><br><span class="line">pb.RegisterGreeterServer(s, &amp;server&#123;&#125;)</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs go">s := grpc.NewServer(  <br>    grpc.StatsHandler(otelgrpc.NewServerHandler()),  <br>)  <br>pb.RegisterGreeterServer(s, &amp;server&#123;&#125;)<br></code></pre></td></tr></table></figure>
 
 <p>使用 <code>grpc.StatsHandler(otelgrpc.NewServerHandler()),</code>  将 <code>OTel</code> 的 <code>serverHandle</code> 加入进去，这个 handle 会自动创建 <code>grpc</code> 服务端的 <code>span</code>。</p>
 <blockquote>
 <p>对 trace&#x2F;span 概念还有不了解的朋友可以查看这篇<a href="https://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/">文章</a>。</p>
 </blockquote>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> port = <span class="string">&quot;:50051&quot;</span>  </span><br><span class="line">lis, err := net.Listen(<span class="string">&quot;tcp&quot;</span>, port)  </span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;  </span><br><span class="line">    log.Fatal().Msgf(<span class="string">&quot;failed to listen: %v&quot;</span>, err)  </span><br><span class="line">&#125;  </span><br><span class="line">s := grpc.NewServer(  </span><br><span class="line">    grpc.StatsHandler(otelgrpc.NewServerHandler()),  </span><br><span class="line">)  </span><br><span class="line">pb.RegisterGreeterServer(s, &amp;server&#123;&#125;)  </span><br><span class="line"><span class="keyword">if</span> err := s.Serve(lis); err != <span class="literal">nil</span> &#123;  </span><br><span class="line">    log.Fatal().Msgf(<span class="string">&quot;failed to serve: %v&quot;</span>, err)  </span><br><span class="line">&#125; <span class="keyword">else</span> &#123;  </span><br><span class="line">    log.Printf(<span class="string">&quot;served on %s \n&quot;</span>, port)  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-keyword">var</span> port = <span class="hljs-string">&quot;:50051&quot;</span>  <br>lis, err := net.Listen(<span class="hljs-string">&quot;tcp&quot;</span>, port)  <br><span class="hljs-keyword">if</span> err != <span class="hljs-literal">nil</span> &#123;  <br>    log.Fatal().Msgf(<span class="hljs-string">&quot;failed to listen: %v&quot;</span>, err)  <br>&#125;  <br>s := grpc.NewServer(  <br>    grpc.StatsHandler(otelgrpc.NewServerHandler()),  <br>)  <br>pb.RegisterGreeterServer(s, &amp;server&#123;&#125;)  <br><span class="hljs-keyword">if</span> err := s.Serve(lis); err != <span class="hljs-literal">nil</span> &#123;  <br>    log.Fatal().Msgf(<span class="hljs-string">&quot;failed to serve: %v&quot;</span>, err)  <br>&#125; <span class="hljs-keyword">else</span> &#123;  <br>    log.Printf(<span class="hljs-string">&quot;served on %s \n&quot;</span>, port)  <br>&#125;<br></code></pre></td></tr></table></figure>
 
 <p>接着我们只需要启动这个 grpc 服务即可，就算完成了 Go 服务的集成。</p>
-<p>从这里可以看出 Java 相对于 Go 来说会简单许多，只需要配置一个 agent 就可以不该一行代码支持目前市面上流行的绝大多数框架。<br><img src="https://s2.loli.net/2024/04/17/kMDcrPwxJy4oZYe.png"></p>
-<h1 id="自定义-span-的-attribute"><a href="#自定义-span-的-attribute" class="headerlink" title="自定义  span 的 attribute"></a>自定义  span 的 attribute</h1><p>我们在看链路信息的时候其实看的最多的是某个 <code>span</code> 里的 <code>attribute</code> 数据（有些地方又称为 <code>tag</code>)<br>如下图所示：<br><img src="https://s2.loli.net/2024/07/15/jrdkNCAZhi6UIvP.png"></p>
+<p>从这里可以看出 Java 相对于 Go 来说会简单许多，只需要配置一个 agent 就可以不该一行代码支持目前市面上流行的绝大多数框架。<br><img src="https://s2.loli.net/2024/04/17/kMDcrPwxJy4oZYe.png" srcset="/img/loading.gif" lazyload></p>
+<h1 id="自定义-span-的-attribute"><a href="#自定义-span-的-attribute" class="headerlink" title="自定义  span 的 attribute"></a>自定义  span 的 attribute</h1><p>我们在看链路信息的时候其实看的最多的是某个 <code>span</code> 里的 <code>attribute</code> 数据（有些地方又称为 <code>tag</code>)<br>如下图所示：<br><img src="https://s2.loli.net/2024/07/15/jrdkNCAZhi6UIvP.png" srcset="/img/loading.gif" lazyload></p>
 <p>这里会展示当前 <code>span</code> 的各种信息，但如果我们想要额外加一些自己关心的数据应该如何添加呢？</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">message HelloRequest &#123;  </span><br><span class="line">  string name = 1;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs proto">message HelloRequest &#123;  <br>  string name = 1;  <br>&#125;<br></code></pre></td></tr></table></figure>
 <p>比如我们想知道这个 grpc 接口里的 name 参数，如上图所示那样展示在 span 中。</p>
 <p>好在 <code>OpenTelemetry</code> 已经考虑到类似的需求：</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">span := trace.SpanFromContext(ctx)  </span><br><span class="line">span.SetAttributes(attribute.String(<span class="string">&quot;request.name&quot;</span>, in.Name))</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs go">span := trace.SpanFromContext(ctx)  <br>span.SetAttributes(attribute.String(<span class="hljs-string">&quot;request.name&quot;</span>, in.Name))<br></code></pre></td></tr></table></figure>
 
 <p>我们使用 <code>span := trace.SpanFromContext(ctx)</code>  获取到当前的 span，然后调用 <code>SetAttributes</code> 就可以添加自定义的数据了。</p>
 <blockquote>
 <p>对应的 Java 也有类似的函数。</p>
 </blockquote>
 <p>除了新增 <code>attribute</code> 之外还可以新增 Event，Link 等数据，使用方式也是类似的。</p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// AddEvent adds an event with the provided name and options.  </span></span><br><span class="line">AddEvent(name <span class="type">string</span>, options ...EventOption)  </span><br><span class="line">  </span><br><span class="line"><span class="comment">// AddLink adds a link.  </span></span><br><span class="line"><span class="comment">// Adding links at span creation using WithLinks is preferred to calling AddLink  </span></span><br><span class="line"><span class="comment">// later, for contexts that are available during span creation, because head  </span></span><br><span class="line"><span class="comment">// sampling decisions can only consider information present during span creation.  </span></span><br><span class="line">AddLink(link Link)</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs Go"><span class="hljs-comment">// AddEvent adds an event with the provided name and options.  </span><br>AddEvent(name <span class="hljs-type">string</span>, options ...EventOption)  <br>  <br><span class="hljs-comment">// AddLink adds a link.  </span><br><span class="hljs-comment">// Adding links at span creation using WithLinks is preferred to calling AddLink  </span><br><span class="hljs-comment">// later, for contexts that are available during span creation, because head  </span><br><span class="hljs-comment">// sampling decisions can only consider information present during span creation.  </span><br>AddLink(link Link)<br></code></pre></td></tr></table></figure>
 
 
 <h1 id="自定义新增-span"><a href="#自定义新增-span" class="headerlink" title="自定义新增 span"></a>自定义新增 span</h1><p>同理我们可能不局限于为某个 span 新增 attribute，也有可能想要新增一个新的 span 来记录关键的调用信息。</p>
 <blockquote>
 <p>默认情况下只有 OpenTelemetry 实现过的组件的核心函数才会有 span，自己代码里的函数调用是不会创建span 的。</p>
 </blockquote>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *server)</span></span> span(ctx context.Context) &#123;  </span><br><span class="line">    ctx, span := tracer.Start(ctx, <span class="string">&quot;hello-span&quot;</span>)  </span><br><span class="line">    <span class="keyword">defer</span> span.End()  </span><br><span class="line">    <span class="comment">// do some work  </span></span><br><span class="line">    log.Printf(<span class="string">&quot;create span&quot;</span>)  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-params">(s *server)</span></span> span(ctx context.Context) &#123;  <br>    ctx, span := tracer.Start(ctx, <span class="hljs-string">&quot;hello-span&quot;</span>)  <br>    <span class="hljs-keyword">defer</span> span.End()  <br>    <span class="hljs-comment">// do some work  </span><br>    log.Printf(<span class="hljs-string">&quot;create span&quot;</span>)  <br>&#125;<br></code></pre></td></tr></table></figure>
 
 <p>在  Go 中只需要手动 Start 一个 span 即可。</p>
 <p>对应到 <code>Java</code> 稍微简单一些，只需要为函数添加一个注解即可。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@WithSpan(&quot;span&quot;)</span>  </span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">span</span><span class="params">(<span class="meta">@SpanAttribute(&quot;request.name&quot;)</span> String name)</span> &#123;  </span><br><span class="line">    TimeUnit.SECONDS.sleep(<span class="number">1</span>);  </span><br><span class="line">    log.info(<span class="string">&quot;span:&#123;&#125;&quot;</span>, name);  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@WithSpan(&quot;span&quot;)</span>  <br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">span</span><span class="hljs-params">(<span class="hljs-meta">@SpanAttribute(&quot;request.name&quot;)</span> String name)</span> &#123;  <br>    TimeUnit.SECONDS.sleep(<span class="hljs-number">1</span>);  <br>    log.info(<span class="hljs-string">&quot;span:&#123;&#125;&quot;</span>, name);  <br>&#125;<br></code></pre></td></tr></table></figure>
 
 <p>只不过得单独引入一个依赖：</p>
-<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.opentelemetry<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>opentelemetry-api<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span>  </span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span>  </span><br><span class="line">  </span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.opentelemetry.instrumentation<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>opentelemetry-instrumentation-annotations<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span>  </span><br><span class="line">  <span class="tag">&lt;<span class="name">version</span>&gt;</span>2.3.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span>  </span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>io.opentelemetry<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>opentelemetry-api<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>  <br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span>  <br>  <br><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>io.opentelemetry.instrumentation<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>opentelemetry-instrumentation-annotations<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>  <br>  <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>2.3.0<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>  <br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br></code></pre></td></tr></table></figure>
 
 
 <p>最终我们在 Jaeger UI 上看到的效果如下：</p>
-<p><img src="https://s2.loli.net/2024/07/15/1tLlYezQwInZWDX.png"></p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><img src="https://s2.loli.net/2024/07/15/WXPp1MUkdHo4zam.png"></p>
+<p><img src="https://s2.loli.net/2024/07/15/1tLlYezQwInZWDX.png" srcset="/img/loading.gif" lazyload></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><img src="https://s2.loli.net/2024/07/15/WXPp1MUkdHo4zam.png" srcset="/img/loading.gif" lazyload></p>
 <p>最后总结一下，OpenTelemetry 支持许多流行的语言，主要分为两类：是否支持自动埋点。</p>
-<p><img src="https://s2.loli.net/2024/07/15/fvu67rdoxtZkq5m.png"></p>
+<p><img src="https://s2.loli.net/2024/07/15/fvu67rdoxtZkq5m.png" srcset="/img/loading.gif" lazyload></p>
 <blockquote>
 <p>这里 Go 也可以零代码埋点，是使用了 eBPF，本文暂不做介绍。</p>
 </blockquote>
@@ -591,88 +552,199 @@
 <li><a href="https://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/">https://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/</a></li>
 </ul>
 
-    </div>
-
-    
-    
-    
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
       
 
-
-    <footer class="post-footer">
-          <div class="reward-container">
-  <div>Buy me a coffee</div>
-  <button>
-    Donate
-  </button>
-  <div class="post-reward">
-      <div>
-        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
-        <span>WeChat Pay</span>
-      </div>
-      <div>
-        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
-        <span>Alipay</span>
-      </div>
-
-  </div>
-</div>
-
-          
-
-<div class="post-copyright">
-<ul>
-  <li class="post-copyright-author">
-      <strong>Post author:  </strong>crossoverJie
-  </li>
-  <li class="post-copyright-link">
-      <strong>Post link: </strong>
-      <a href="http://crossoverjie.top/2024/08/20/ob/OpenTelemetry-01-trace/" title="OpenTelemetry 实战：从零实现分布式链路追踪">http://crossoverjie.top/2024/08/20/ob/OpenTelemetry-01-trace/</a>
-  </li>
-  <li class="post-copyright-license">
-    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
-  </li>
-</ul>
-</div>
-
-          <div class="followme">
-  <span>Welcome to my other publishing channels</span>
-
-  <div class="social-list">
-
-      <div class="social-item">
-        <a target="_blank" class="social-link" href="/atom.xml">
-          <span class="icon">
-            <i class="fa fa-rss"></i>
-          </span>
-
-          <span class="label">RSS</span>
-        </a>
-      </div>
-  </div>
-</div>
-
-          <div class="post-tags">
-              <a href="/tags/OpenTelemetry/" rel="tag"><i class="fa fa-tag"></i> OpenTelemetry</a>
-          </div>
-
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
         
+  <a href="/categories/OB/" class="category-chain-item">OB</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/OB/OpenTelemetry/" class="category-chain-item">OpenTelemetry</a>
+  
+  
 
-          <div class="post-nav">
-            <div class="post-nav-item">
-                <a href="/2024/08/15/ob/unit-test/" rel="prev" title="深入理解单元测试：技巧与最佳实践">
-                  <i class="fa fa-chevron-left"></i> 深入理解单元测试：技巧与最佳实践
-                </a>
-            </div>
-            <div class="post-nav-item">
-                <a href="/2024/08/27/ob/OpenTelemetry-02-metrics/" rel="next" title="OpenTelemetry 实战：从零实现应用指标监控">
-                  OpenTelemetry 实战：从零实现应用指标监控 <i class="fa fa-chevron-right"></i>
-                </a>
-            </div>
-          </div>
-    </footer>
-  </article>
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/OpenTelemetry/" class="print-no-link">#OpenTelemetry</a>
+      
+    </div>
+  
 </div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>OpenTelemetry 实战：从零实现分布式链路追踪</div>
+      <div>http://crossoverjie.top/2024/08/20/ob/OpenTelemetry-01-trace/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>August 20, 2024</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/08/27/ob/OpenTelemetry-02-metrics/" title="OpenTelemetry 实战：从零实现应用指标监控">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">OpenTelemetry 实战：从零实现应用指标监控</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/08/15/ob/unit-test/" title="深入理解单元测试：技巧与最佳实践">
+                        <span class="hidden-mobile">深入理解单元测试：技巧与最佳实践</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2024/08/20/ob/OpenTelemetry-01-trace/';
+          this.page.identifier = '/2024/08/20/ob/OpenTelemetry-01-trace/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
 
 
 
@@ -680,71 +752,234 @@
 
 
     
-  <div class="comments" id="disqus_thread">
-    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
   </div>
-  
 </div>
+
+    
+
+    
   </main>
 
-  <footer class="footer">
+  <footer>
     <div class="footer-inner">
-
-
-<div class="copyright">
-  &copy; 2016 – 
-  <span itemprop="copyrightYear">2025</span>
-  <span class="with-love">
-    <i class="fa fa-heart"></i>
-  </span>
-  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
-</div>
-<div class="busuanzi-count">
-    <span class="post-meta-item" id="busuanzi_container_site_uv">
-      <span class="post-meta-item-icon">
-        <i class="fa fa-user"></i>
-      </span>
-      <span class="site-uv" title="Total Visitors">
-        <span id="busuanzi_value_site_uv"></span>
-      </span>
-    </span>
-    <span class="post-meta-item" id="busuanzi_container_site_pv">
-      <span class="post-meta-item-icon">
-        <i class="fa fa-eye"></i>
-      </span>
-      <span class="site-pv" title="Total Views">
-        <span id="busuanzi_value_site_pv"></span>
-      </span>
-    </span>
-</div>
-  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
-  </div>
-
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
     </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="leancloud-site-pv-container" style="display: none">
+        总访问量 
+        <span id="leancloud-site-pv"></span>
+         次
+      </span>
+    
+    
+      <span id="leancloud-site-uv-container" style="display: none">
+        总访客数 
+        <span id="leancloud-site-uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
   </footer>
 
+  <!-- Scripts -->
   
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
-<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
 
   
-<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
-<script src="/js/third-party/search/local-search.js"></script>
-
+    <script  src="/js/img-lazyload.js" ></script>
+  
 
 
 
 
   
-  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
 
 
-  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
-  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
 
 
-<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
-<script src="/js/third-party/comments/disqus.js"></script>
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
 
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
 </body>
 </html>

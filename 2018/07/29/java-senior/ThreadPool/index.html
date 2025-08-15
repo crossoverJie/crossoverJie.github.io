@@ -1,26 +1,24 @@
+
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-default-color-scheme=auto>
+
+
+
 <head>
   <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width">
-<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
 
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
 
-  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
-  <link rel="mask-icon" href="/images/logo.svg" color="#222">
-
-<link rel="stylesheet" href="/css/main.css">
-
-
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
-
-<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
-     crossorigin="anonymous"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
     <meta name="description" content="前言平时接触过多线程开发的童鞋应该都或多或少了解过线程池，之前发布的《阿里巴巴 Java 手册》里也有一条：  可见线程池的重要性。 简单来说使用线程池有以下几个目的：  线程是稀缺资源，不能频繁的创建。 解耦作用；线程的创建于执行完全分开，方便维护。 应当将其放入一个池子中，可以给其他任务进行复用。  线程池原理谈到线程池就会想到池化技术，其中最核心的思想就是把宝贵的资源放到一个池子中；每次使">
 <meta property="og:type" content="article">
 <meta property="og:title" content="如何优雅的使用和理解线程池">
@@ -47,346 +45,307 @@
 <meta property="article:tag" content="SpringBoot">
 <meta property="article:tag" content="ThreadPool">
 <meta property="article:tag" content="Hystirx">
-<meta name="twitter:card" content="summary">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1d2a867bea.jpg">
-
-
-<link rel="canonical" href="http://crossoverjie.top/2018/07/29/java-senior/ThreadPool/">
-
-
-
-<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2018/07/29/java-senior/ThreadPool/","path":"2018/07/29/java-senior/ThreadPool/","title":"如何优雅的使用和理解线程池"}</script>
-
-<script class="next-config" data-name="calendar" type="application/json">""</script>
-<title>如何优雅的使用和理解线程池 | crossoverJie's Blog</title>
   
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
-  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
-  <script src="/js/third-party/analytics/google-analytics.js"></script>
+  
+  
+  <title>如何优雅的使用和理解线程池 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
 
 
 
 
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
 
 
-  <noscript>
-    <link rel="stylesheet" href="/css/noscript.css">
-  </noscript>
-<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
 </head>
 
-<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
-  <div class="headband"></div>
 
-  <main class="main">
-    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
-      <div class="header-inner"><div class="site-brand-container">
-  <div class="site-nav-toggle">
-    <div class="toggle" aria-label="Toggle navigation bar" role="button">
-        <span class="toggle-line"></span>
-        <span class="toggle-line"></span>
-        <span class="toggle-line"></span>
-    </div>
-  </div>
+<body>
+  
 
-  <div class="site-meta">
+  <header>
+    
 
-    <a href="/" class="brand" rel="start">
-      <i class="logo-line"></i>
-      <p class="site-title">crossoverJie's Blog</p>
-      <i class="logo-line"></i>
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
     </a>
-      <p class="site-subtitle" itemprop="description">baller</p>
-  </div>
 
-  <div class="site-nav-right">
-    <div class="toggle popup-trigger">
-        <i class="fa fa-search fa-fw fa-lg"></i>
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
     </div>
   </div>
-</div>
-
-
-
-<nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">95</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">277</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">188</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
-      <li class="menu-item menu-item-search">
-        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
-        </a>
-      </li>
-  </ul>
 </nav>
 
+  
 
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="如何优雅的使用和理解线程池"></span>
+          
+        </div>
 
-  <div class="search-pop-overlay">
-    <div class="popup search-popup"><div class="search-header">
-  <span class="search-icon">
-    <i class="fa fa-search"></i>
-  </span>
-  <div class="search-input-container">
-    <input autocomplete="off" autocapitalize="off" maxlength="80"
-           placeholder="Searching..." spellcheck="false"
-           type="search" class="search-input">
-  </div>
-  <span class="popup-btn-close" role="button">
-    <i class="fa fa-times-circle"></i>
-  </span>
-</div>
-<div class="search-result-container no-result">
-  <div class="search-result-icon">
-    <i class="fa fa-spinner fa-pulse fa-5x"></i>
-  </div>
-</div>
-
-    </div>
-  </div>
-
-</div>
         
-  
-  <div class="toggle sidebar-toggle" role="button">
-    <span class="toggle-line"></span>
-    <span class="toggle-line"></span>
-    <span class="toggle-line"></span>
-  </div>
-
-  <aside class="sidebar">
-
-    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
-      <ul class="sidebar-nav">
-        <li class="sidebar-nav-toc">
-          Table of Contents
-        </li>
-        <li class="sidebar-nav-overview">
-          Overview
-        </li>
-      </ul>
-
-      <div class="sidebar-panel-container">
-        <!--noindex-->
-        <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BA%BF%E7%A8%8B%E6%B1%A0%E5%8E%9F%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">线程池原理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A6%82%E4%BD%95%E9%85%8D%E7%BD%AE%E7%BA%BF%E7%A8%8B"><span class="nav-number">2.1.</span> <span class="nav-text">如何配置线程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BC%98%E9%9B%85%E7%9A%84%E5%85%B3%E9%97%AD%E7%BA%BF%E7%A8%8B%E6%B1%A0"><span class="nav-number">2.2.</span> <span class="nav-text">优雅的关闭线程池</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SpringBoot-%E4%BD%BF%E7%94%A8%E7%BA%BF%E7%A8%8B%E6%B1%A0"><span class="nav-number">3.</span> <span class="nav-text">SpringBoot 使用线程池</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%91%E6%8E%A7%E7%BA%BF%E7%A8%8B%E6%B1%A0"><span class="nav-number">4.</span> <span class="nav-text">监控线程池</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BA%BF%E7%A8%8B%E6%B1%A0%E9%9A%94%E7%A6%BB"><span class="nav-number">5.</span> <span class="nav-text">线程池隔离</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#hystrix-%E9%9A%94%E7%A6%BB"><span class="nav-number">5.1.</span> <span class="nav-text">hystrix 隔离</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
-        </div>
-        <!--/noindex-->
-
-        <div class="site-overview-wrap sidebar-panel">
-          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
-    <img class="site-author-image" itemprop="image" alt="crossoverJie"
-      src="/uploads/iverson.gif">
-  <p class="site-author-name" itemprop="name">crossoverJie</p>
-  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
-</div>
-<div class="site-state-wrap site-overview-item animated">
-  <nav class="site-state">
-      <div class="site-state-item site-state-posts">
-        <a href="/archives">
-          <span class="site-state-item-count">277</span>
-          <span class="site-state-item-name">posts</span>
-        </a>
-      </div>
-      <div class="site-state-item site-state-categories">
-          <a href="/categories">
-        <span class="site-state-item-count">95</span>
-        <span class="site-state-item-name">categories</span></a>
-      </div>
-      <div class="site-state-item site-state-tags">
-          <a href="/tags">
-        <span class="site-state-item-count">188</span>
-        <span class="site-state-item-name">tags</span></a>
-      </div>
-  </nav>
-</div>
-  <div class="links-of-author site-overview-item animated">
-      <span class="links-of-author-item">
-        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
       </span>
-      <span class="links-of-author-item">
-        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2018-07-29 02:00" pubdate>
+          July 29, 2018 am
+        </time>
       </span>
-      <span class="links-of-author-item">
-        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.6k words
+        
       </span>
-  </div>
-  <div class="cc-license site-overview-item animated" itemprop="license">
-    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
-  </div>
-
-
-  <div class="links-of-blogroll site-overview-item animated">
-    <div class="links-of-blogroll-title"><i class="fa fa-globe fa-fw"></i>
-      Links
-    </div>
-    <ul class="links-of-blogroll-list">
-        <li class="links-of-blogroll-item">
-          <a href="http://wuchong.me/" title="http:&#x2F;&#x2F;wuchong.me" rel="noopener" target="_blank">Jark's Blog</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://tengj.top/" title="http:&#x2F;&#x2F;tengj.top" rel="noopener" target="_blank">嘟嘟独立博客</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://yemengying.com/" title="http:&#x2F;&#x2F;yemengying.com&#x2F;" rel="noopener" target="_blank">Giraffe Home</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://blog.jamespan.me/" title="https:&#x2F;&#x2F;blog.jamespan.me&#x2F;" rel="noopener" target="_blank">潘小鶸(ruò)</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://fangjian0423.github.io/" title="http:&#x2F;&#x2F;fangjian0423.github.io&#x2F;" rel="noopener" target="_blank">Format's Notes</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://yuzhouwan.com/" title="https:&#x2F;&#x2F;yuzhouwan.com&#x2F;" rel="noopener" target="_blank">Benedict Jin</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://blog.didispace.com/" title="http:&#x2F;&#x2F;blog.didispace.com&#x2F;" rel="noopener" target="_blank">程序猿DD</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://blog.52itstyle.vip/" title="https:&#x2F;&#x2F;blog.52itstyle.vip&#x2F;" rel="noopener" target="_blank">小柒博客</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://cmsblogs.com/" title="http:&#x2F;&#x2F;cmsblogs.com&#x2F;" rel="noopener" target="_blank">Java技术驿站</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://vim.ink/" title="https:&#x2F;&#x2F;vim.ink&#x2F;" rel="noopener" target="_blank">vim 教程网</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://www.jitwxs.cn/" title="https:&#x2F;&#x2F;www.jitwxs.cn" rel="noopener" target="_blank">jitwxs</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://www.javaboy.org/" title="http:&#x2F;&#x2F;www.javaboy.org" rel="noopener" target="_blank">江南一点雨</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://www.liangsonghua.me/" title="http:&#x2F;&#x2F;www.liangsonghua.me" rel="noopener" target="_blank">松花皮蛋的黑板报</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://www.fi-ads.com/" title="https:&#x2F;&#x2F;www.fi-ads.com" rel="noopener" target="_blank">Future iDeal</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://dbarobin.com/" title="https:&#x2F;&#x2F;dbarobin.com&#x2F;" rel="noopener" target="_blank">Cryptospace</a>
-        </li>
-    </ul>
-  </div>
-
-        </div>
-      </div>
-    </div>
-  </aside>
-  <div class="sidebar-dimmer"></div>
-
-
-    </header>
+    
 
     
-  <div class="back-to-top" role="button" aria-label="Back to top">
-    <i class="fa fa-arrow-up"></i>
-    <span>0%</span>
-  </div>
-  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
-
-<noscript>
-  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
-</noscript>
-
-
-    <div class="main-inner post posts-expand">
-
-
-  
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2018/07/29/java-senior/ThreadPool/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/uploads/iverson.gif">
-      <meta itemprop="name" content="crossoverJie">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="crossoverJie's Blog">
-      <meta itemprop="description" content="You never know what you can do till you try.">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="如何优雅的使用和理解线程池 | crossoverJie's Blog">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h1 class="post-title" itemprop="name headline">
-          如何优雅的使用和理解线程池
-        </h1>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          22 mins
+        
       </span>
-      <span class="post-meta-item-text">Posted on</span>
+    
 
-      <time title="Created: 2018-07-29 02:00:16" itemprop="dateCreated datePublished" datetime="2018-07-29T02:00:16+08:00">2018-07-29</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">Edited on</span>
-      <time title="Modified: 2019-05-08 02:48:07" itemprop="dateModified" datetime="2019-05-08T02:48:07+08:00">2019-05-08</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">In</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/Java-%E8%BF%9B%E9%98%B6/" itemprop="url" rel="index"><span itemprop="name">Java 进阶</span></a>
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
         </span>
-    </span>
+        
+      
+      
+    
+  </div>
 
-  
-    <span id="/2018/07/29/java-senior/ThreadPool/" class="post-meta-item leancloud_visitors" data-flag-title="如何优雅的使用和理解线程池" title="Views">
-      <span class="post-meta-item-icon">
-        <i class="far fa-eye"></i>
-      </span>
-      <span class="post-meta-item-text">Views: </span>
-      <span class="leancloud-visitors-count"></span>
-    </span>
-    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
-      <span class="post-meta-item-icon">
-        <i class="far fa-eye"></i>
-      </span>
-      <span class="post-meta-item-text">Views: </span>
-      <span id="busuanzi_value_page_pv"></span>
-    </span>
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus: </span>
-    
-    <a title="disqus" href="/2018/07/29/java-senior/ThreadPool/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/07/29/java-senior/ThreadPool/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
+
+        
+      </div>
+
+      
+    </div>
+  </div>
 </div>
 
-        </div>
-      </header>
+</div>
 
+  </header>
+
+  <main>
     
-    
-    
-    <div class="post-body" itemprop="articleBody">
-        <p><img src="https://i.loli.net/2019/05/08/5cd1d2a867bea.jpg"></p>
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">如何优雅的使用和理解线程池</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2019/05/08/5cd1d2a867bea.jpg" srcset="/img/loading.gif" lazyload></p>
 <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>平时接触过多线程开发的童鞋应该都或多或少了解过线程池，之前发布的《阿里巴巴 Java 手册》里也有一条：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d2a8dad64.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2a8dad64.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>可见线程池的重要性。</p>
 <p>简单来说使用线程池有以下几个目的：</p>
 <ul>
@@ -405,12 +364,12 @@
 <span id="more"></span>
 
 <p>其实看这三种方式创建的源码就会发现：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> ExecutorService <span class="title function_">newCachedThreadPool</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">ThreadPoolExecutor</span>(<span class="number">0</span>, Integer.MAX_VALUE,</span><br><span class="line">                                  <span class="number">60L</span>, TimeUnit.SECONDS,</span><br><span class="line">                                  <span class="keyword">new</span> <span class="title class_">SynchronousQueue</span>&lt;Runnable&gt;());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> ExecutorService <span class="hljs-title function_">newCachedThreadPool</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">ThreadPoolExecutor</span>(<span class="hljs-number">0</span>, Integer.MAX_VALUE,<br>                                  <span class="hljs-number">60L</span>, TimeUnit.SECONDS,<br>                                  <span class="hljs-keyword">new</span> <span class="hljs-title class_">SynchronousQueue</span>&lt;Runnable&gt;());<br>&#125;<br></code></pre></td></tr></table></figure>
 
 <p>实际上还是利用 <code>ThreadPoolExecutor</code> 类实现的。</p>
 <p>所以我们重点来看下 <code>ThreadPoolExecutor</code> 是怎么玩的。</p>
 <p>首先是创建线程的 api：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ThreadPoolExecutor(<span class="type">int</span> corePoolSize, <span class="type">int</span> maximumPoolSize, <span class="type">long</span> keepAliveTime, TimeUnit unit, BlockingQueue&lt;Runnable&gt; workQueue, RejectedExecutionHandler handler) </span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java">ThreadPoolExecutor(<span class="hljs-type">int</span> corePoolSize, <span class="hljs-type">int</span> maximumPoolSize, <span class="hljs-type">long</span> keepAliveTime, TimeUnit unit, BlockingQueue&lt;Runnable&gt; workQueue, RejectedExecutionHandler handler) <br></code></pre></td></tr></table></figure>
 
 <p>这几个核心参数的作用：</p>
 <ul>
@@ -422,11 +381,11 @@
 </ul>
 <p>了解了这几个参数再来看看实际的运用。</p>
 <p>通常我们都是使用:</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">threadPool.execute(<span class="keyword">new</span> <span class="title class_">Job</span>());</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java">threadPool.execute(<span class="hljs-keyword">new</span> <span class="hljs-title class_">Job</span>());<br></code></pre></td></tr></table></figure>
 
 <p>这样的方式来提交一个任务到线程池中，所以核心的逻辑就是 <code>execute()</code> 函数了。</p>
 <p>在具体分析之前先了解下线程池中所定义的状态，这些状态都和线程的执行密切相关：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d2a9bc566.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2a9bc566.jpg" srcset="/img/loading.gif" lazyload></p>
 <ul>
 <li><code>RUNNING</code> 自然是运行状态，指可以接受任务执行队列里的任务</li>
 <li><code>SHUTDOWN</code> 指调用了 <code>shutdown()</code> 方法，不再接受新任务了，但是队列里的任务得执行完毕。</li>
@@ -435,9 +394,9 @@
 <li><code>TERMINATED</code> 终止状态，当执行 <code>terminated()</code> 后会更新为这个状态。</li>
 </ul>
 <p>用图表示为：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d2aa81655.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2aa81655.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>然后看看 <code>execute()</code> 方法是如何处理的：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d2ab921db.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2ab921db.jpg" srcset="/img/loading.gif" lazyload></p>
 <ol>
 <li>获取当前线程池的状态。</li>
 <li>当前线程数量小于 coreSize 时创建一个新的线程运行。</li>
@@ -447,7 +406,7 @@
 <li>如果在第三步的判断为非运行状态，尝试新建线程，如果失败则执行拒绝策略。</li>
 </ol>
 <p>这里借助《聊聊并发》的一张图来描述这个流程：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d2ac0936c.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2ac0936c.jpg" srcset="/img/loading.gif" lazyload></p>
 <h3 id="如何配置线程"><a href="#如何配置线程" class="headerlink" title="如何配置线程"></a>如何配置线程</h3><p>流程聊完了再来看看上文提到了几个核心参数应该如何配置呢？</p>
 <p>有一点是肯定的，线程池肯定是不是越大越好。</p>
 <p>通常我们是需要根据这批任务执行的性质来确定的。</p>
@@ -468,26 +427,26 @@
 </blockquote>
 <p><code>shutdownNow()</code> 要更简单粗暴，可以根据实际场景选择不同的方法。</p>
 <p>我通常是按照以下方式关闭线程池的：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">long</span> <span class="variable">start</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt;= <span class="number">5</span>; i++) &#123;</span><br><span class="line">    pool.execute(<span class="keyword">new</span> <span class="title class_">Job</span>());</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">pool.shutdown();</span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span> (!pool.awaitTermination(<span class="number">1</span>, TimeUnit.SECONDS)) &#123;</span><br><span class="line">    LOGGER.info(<span class="string">&quot;线程还在执行。。。&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="type">long</span> <span class="variable">end</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line">LOGGER.info(<span class="string">&quot;一共处理了【&#123;&#125;】&quot;</span>, (end - start));</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">long</span> <span class="hljs-variable">start</span> <span class="hljs-operator">=</span> System.currentTimeMillis();<br><span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> <span class="hljs-variable">i</span> <span class="hljs-operator">=</span> <span class="hljs-number">0</span>; i &lt;= <span class="hljs-number">5</span>; i++) &#123;<br>    pool.execute(<span class="hljs-keyword">new</span> <span class="hljs-title class_">Job</span>());<br>&#125;<br><br>pool.shutdown();<br><br><span class="hljs-keyword">while</span> (!pool.awaitTermination(<span class="hljs-number">1</span>, TimeUnit.SECONDS)) &#123;<br>    LOGGER.info(<span class="hljs-string">&quot;线程还在执行。。。&quot;</span>);<br>&#125;<br><span class="hljs-type">long</span> <span class="hljs-variable">end</span> <span class="hljs-operator">=</span> System.currentTimeMillis();<br>LOGGER.info(<span class="hljs-string">&quot;一共处理了【&#123;&#125;】&quot;</span>, (end - start));<br></code></pre></td></tr></table></figure>
 
 <p><code>pool.awaitTermination(1, TimeUnit.SECONDS)</code> 会每隔一秒钟检查一次是否执行完毕（状态为 <code>TERMINATED</code>），当从 while 循环退出时就表明线程池已经完全终止了。</p>
 <h2 id="SpringBoot-使用线程池"><a href="#SpringBoot-使用线程池" class="headerlink" title="SpringBoot 使用线程池"></a>SpringBoot 使用线程池</h2><p>2018 年了，SpringBoot 盛行；来看看在 SpringBoot 中应当怎么配置和使用线程池。</p>
 <p>既然用了 SpringBoot ，那自然得发挥 Spring 的特性，所以需要 Spring 来帮我们管理线程池：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">TreadPoolConfig</span> &#123;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 消费队列线程</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@Bean(value = &quot;consumerQueueThreadPool&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> ExecutorService <span class="title function_">buildConsumerQueueThreadPool</span><span class="params">()</span>&#123;</span><br><span class="line">        <span class="type">ThreadFactory</span> <span class="variable">namedThreadFactory</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ThreadFactoryBuilder</span>()</span><br><span class="line">                .setNameFormat(<span class="string">&quot;consumer-queue-thread-%d&quot;</span>).build();</span><br><span class="line"></span><br><span class="line">        <span class="type">ExecutorService</span> <span class="variable">pool</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ThreadPoolExecutor</span>(<span class="number">5</span>, <span class="number">5</span>, <span class="number">0L</span>, TimeUnit.MILLISECONDS,</span><br><span class="line">                <span class="keyword">new</span> <span class="title class_">ArrayBlockingQueue</span>&lt;Runnable&gt;(<span class="number">5</span>),namedThreadFactory,<span class="keyword">new</span> <span class="title class_">ThreadPoolExecutor</span>.AbortPolicy());</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> pool ;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Configuration</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">TreadPoolConfig</span> &#123;<br><br><br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * 消费队列线程</span><br><span class="hljs-comment">     * <span class="hljs-doctag">@return</span></span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-meta">@Bean(value = &quot;consumerQueueThreadPool&quot;)</span><br>    <span class="hljs-keyword">public</span> ExecutorService <span class="hljs-title function_">buildConsumerQueueThreadPool</span><span class="hljs-params">()</span>&#123;<br>        <span class="hljs-type">ThreadFactory</span> <span class="hljs-variable">namedThreadFactory</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">ThreadFactoryBuilder</span>()<br>                .setNameFormat(<span class="hljs-string">&quot;consumer-queue-thread-%d&quot;</span>).build();<br><br>        <span class="hljs-type">ExecutorService</span> <span class="hljs-variable">pool</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">ThreadPoolExecutor</span>(<span class="hljs-number">5</span>, <span class="hljs-number">5</span>, <span class="hljs-number">0L</span>, TimeUnit.MILLISECONDS,<br>                <span class="hljs-keyword">new</span> <span class="hljs-title class_">ArrayBlockingQueue</span>&lt;Runnable&gt;(<span class="hljs-number">5</span>),namedThreadFactory,<span class="hljs-keyword">new</span> <span class="hljs-title class_">ThreadPoolExecutor</span>.AbortPolicy());<br><br>        <span class="hljs-keyword">return</span> pool ;<br>    &#125;<br><br><br><br>&#125;<br></code></pre></td></tr></table></figure>
 
 <p>使用时：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Resource(name = &quot;consumerQueueThreadPool&quot;)</span></span><br><span class="line"><span class="keyword">private</span> ExecutorService consumerQueueThreadPool;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">execute</span><span class="params">()</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//消费队列</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">5</span>; i++) &#123;</span><br><span class="line">        consumerQueueThreadPool.execute(<span class="keyword">new</span> <span class="title class_">ConsumerQueueThread</span>());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Resource(name = &quot;consumerQueueThreadPool&quot;)</span><br><span class="hljs-keyword">private</span> ExecutorService consumerQueueThreadPool;<br><br><br><span class="hljs-meta">@Override</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">execute</span><span class="hljs-params">()</span> &#123;<br><br>    <span class="hljs-comment">//消费队列</span><br>    <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> <span class="hljs-variable">i</span> <span class="hljs-operator">=</span> <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">5</span>; i++) &#123;<br>        consumerQueueThreadPool.execute(<span class="hljs-keyword">new</span> <span class="hljs-title class_">ConsumerQueueThread</span>());<br>    &#125;<br><br>&#125;<br></code></pre></td></tr></table></figure>
 
 <p>其实也挺简单，就是创建了一个线程池的 bean，在使用时直接从 Spring 中取出即可。</p>
 <h2 id="监控线程池"><a href="#监控线程池" class="headerlink" title="监控线程池"></a>监控线程池</h2><p>谈到了 SpringBoot，也可利用它 actuator 组件来做线程池的监控。</p>
 <p>线程怎么说都是稀缺资源，对线程池的监控可以知道自己任务执行的状况、效率等。</p>
 <p>关于 actuator 就不再细说了，感兴趣的可以看看<a target="_blank" rel="noopener" href="http://t.cn/ReimM0o">这篇</a>，有详细整理过如何暴露监控端点。</p>
 <p>其实 ThreadPool 本身已经提供了不少 api 可以获取线程状态：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d2accbbcf.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2accbbcf.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>很多方法看名字就知道其含义，只需要将这些信息暴露到 SpringBoot 的监控端点中，我们就可以在可视化页面查看当前的线程池状态了。</p>
 <p>甚至我们可以继承线程池扩展其中的几个函数来自定义监控逻辑：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d2add4d31.jpg"></p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d2aeea439.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2add4d31.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2aeea439.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>看这些名称和定义都知道，这是让子类来实现的。</p>
 <p>可以在线程执行前、后、终止状态执行自定义逻辑。</p>
 <h2 id="线程池隔离"><a href="#线程池隔离" class="headerlink" title="线程池隔离"></a>线程池隔离</h2><blockquote>
@@ -507,16 +466,16 @@
 </blockquote>
 <p>下面来看看 <code>Hystrix</code> 简单的应用：</p>
 <p>首先需要定义两个线程池，分别用于执行订单、处理用户。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Function:订单服务</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> crossoverJie</span></span><br><span class="line"><span class="comment"> *         Date: 2018/7/28 16:43</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@since</span> JDK 1.8</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CommandOrder</span> <span class="keyword">extends</span> <span class="title class_">HystrixCommand</span>&lt;String&gt; &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> <span class="type">Logger</span> <span class="variable">LOGGER</span> <span class="operator">=</span> LoggerFactory.getLogger(CommandOrder.class);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> String orderName;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">CommandOrder</span><span class="params">(String orderName)</span> &#123;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        <span class="built_in">super</span>(Setter.withGroupKey(</span><br><span class="line">                <span class="comment">//服务分组</span></span><br><span class="line">                HystrixCommandGroupKey.Factory.asKey(<span class="string">&quot;OrderGroup&quot;</span>))</span><br><span class="line">                <span class="comment">//线程分组</span></span><br><span class="line">                .andThreadPoolKey(HystrixThreadPoolKey.Factory.asKey(<span class="string">&quot;OrderPool&quot;</span>))</span><br><span class="line"></span><br><span class="line">                <span class="comment">//线程池配置</span></span><br><span class="line">                .andThreadPoolPropertiesDefaults(HystrixThreadPoolProperties.Setter()</span><br><span class="line">                        .withCoreSize(<span class="number">10</span>)</span><br><span class="line">                        .withKeepAliveTimeMinutes(<span class="number">5</span>)</span><br><span class="line">                        .withMaxQueueSize(<span class="number">10</span>)</span><br><span class="line">                        .withQueueSizeRejectionThreshold(<span class="number">10000</span>))</span><br><span class="line"></span><br><span class="line">                .andCommandPropertiesDefaults(</span><br><span class="line">                        HystrixCommandProperties.Setter()</span><br><span class="line">                                .withExecutionIsolationStrategy(HystrixCommandProperties.ExecutionIsolationStrategy.THREAD))</span><br><span class="line">        )</span><br><span class="line">        ;</span><br><span class="line">        <span class="built_in">this</span>.orderName = orderName;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">run</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line"></span><br><span class="line">        LOGGER.info(<span class="string">&quot;orderName=[&#123;&#125;]&quot;</span>, orderName);</span><br><span class="line"></span><br><span class="line">        TimeUnit.MILLISECONDS.sleep(<span class="number">100</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;OrderName=&quot;</span> + orderName;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Function:用户服务</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> crossoverJie</span></span><br><span class="line"><span class="comment"> *         Date: 2018/7/28 16:43</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@since</span> JDK 1.8</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CommandUser</span> <span class="keyword">extends</span> <span class="title class_">HystrixCommand</span>&lt;String&gt; &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">static</span> <span class="type">Logger</span> <span class="variable">LOGGER</span> <span class="operator">=</span> LoggerFactory.getLogger(CommandUser.class);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> String userName;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">CommandUser</span><span class="params">(String userName)</span> &#123;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        <span class="built_in">super</span>(Setter.withGroupKey(</span><br><span class="line">                <span class="comment">//服务分组</span></span><br><span class="line">                HystrixCommandGroupKey.Factory.asKey(<span class="string">&quot;UserGroup&quot;</span>))</span><br><span class="line">                <span class="comment">//线程分组</span></span><br><span class="line">                .andThreadPoolKey(HystrixThreadPoolKey.Factory.asKey(<span class="string">&quot;UserPool&quot;</span>))</span><br><span class="line"></span><br><span class="line">                <span class="comment">//线程池配置</span></span><br><span class="line">                .andThreadPoolPropertiesDefaults(HystrixThreadPoolProperties.Setter()</span><br><span class="line">                        .withCoreSize(<span class="number">10</span>)</span><br><span class="line">                        .withKeepAliveTimeMinutes(<span class="number">5</span>)</span><br><span class="line">                        .withMaxQueueSize(<span class="number">10</span>)</span><br><span class="line">                        .withQueueSizeRejectionThreshold(<span class="number">10000</span>))</span><br><span class="line"></span><br><span class="line">                <span class="comment">//线程池隔离</span></span><br><span class="line">                .andCommandPropertiesDefaults(</span><br><span class="line">                        HystrixCommandProperties.Setter()</span><br><span class="line">                                .withExecutionIsolationStrategy(HystrixCommandProperties.ExecutionIsolationStrategy.THREAD))</span><br><span class="line">        )</span><br><span class="line">        ;</span><br><span class="line">        <span class="built_in">this</span>.userName = userName;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">run</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line"></span><br><span class="line">        LOGGER.info(<span class="string">&quot;userName=[&#123;&#125;]&quot;</span>, userName);</span><br><span class="line"></span><br><span class="line">        TimeUnit.MILLISECONDS.sleep(<span class="number">100</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;userName=&quot;</span> + userName;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * Function:订单服务</span><br><span class="hljs-comment"> *</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@author</span> crossoverJie</span><br><span class="hljs-comment"> *         Date: 2018/7/28 16:43</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@since</span> JDK 1.8</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">CommandOrder</span> <span class="hljs-keyword">extends</span> <span class="hljs-title class_">HystrixCommand</span>&lt;String&gt; &#123;<br><br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">static</span> <span class="hljs-type">Logger</span> <span class="hljs-variable">LOGGER</span> <span class="hljs-operator">=</span> LoggerFactory.getLogger(CommandOrder.class);<br><br>    <span class="hljs-keyword">private</span> String orderName;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-title function_">CommandOrder</span><span class="hljs-params">(String orderName)</span> &#123;<br><br><br>        <span class="hljs-built_in">super</span>(Setter.withGroupKey(<br>                <span class="hljs-comment">//服务分组</span><br>                HystrixCommandGroupKey.Factory.asKey(<span class="hljs-string">&quot;OrderGroup&quot;</span>))<br>                <span class="hljs-comment">//线程分组</span><br>                .andThreadPoolKey(HystrixThreadPoolKey.Factory.asKey(<span class="hljs-string">&quot;OrderPool&quot;</span>))<br><br>                <span class="hljs-comment">//线程池配置</span><br>                .andThreadPoolPropertiesDefaults(HystrixThreadPoolProperties.Setter()<br>                        .withCoreSize(<span class="hljs-number">10</span>)<br>                        .withKeepAliveTimeMinutes(<span class="hljs-number">5</span>)<br>                        .withMaxQueueSize(<span class="hljs-number">10</span>)<br>                        .withQueueSizeRejectionThreshold(<span class="hljs-number">10000</span>))<br><br>                .andCommandPropertiesDefaults(<br>                        HystrixCommandProperties.Setter()<br>                                .withExecutionIsolationStrategy(HystrixCommandProperties.ExecutionIsolationStrategy.THREAD))<br>        )<br>        ;<br>        <span class="hljs-built_in">this</span>.orderName = orderName;<br>    &#125;<br><br><br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> String <span class="hljs-title function_">run</span><span class="hljs-params">()</span> <span class="hljs-keyword">throws</span> Exception &#123;<br><br>        LOGGER.info(<span class="hljs-string">&quot;orderName=[&#123;&#125;]&quot;</span>, orderName);<br><br>        TimeUnit.MILLISECONDS.sleep(<span class="hljs-number">100</span>);<br>        <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;OrderName=&quot;</span> + orderName;<br>    &#125;<br><br><br>&#125;<br><br><br><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * Function:用户服务</span><br><span class="hljs-comment"> *</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@author</span> crossoverJie</span><br><span class="hljs-comment"> *         Date: 2018/7/28 16:43</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@since</span> JDK 1.8</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">CommandUser</span> <span class="hljs-keyword">extends</span> <span class="hljs-title class_">HystrixCommand</span>&lt;String&gt; &#123;<br><br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">static</span> <span class="hljs-type">Logger</span> <span class="hljs-variable">LOGGER</span> <span class="hljs-operator">=</span> LoggerFactory.getLogger(CommandUser.class);<br><br>    <span class="hljs-keyword">private</span> String userName;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-title function_">CommandUser</span><span class="hljs-params">(String userName)</span> &#123;<br><br><br>        <span class="hljs-built_in">super</span>(Setter.withGroupKey(<br>                <span class="hljs-comment">//服务分组</span><br>                HystrixCommandGroupKey.Factory.asKey(<span class="hljs-string">&quot;UserGroup&quot;</span>))<br>                <span class="hljs-comment">//线程分组</span><br>                .andThreadPoolKey(HystrixThreadPoolKey.Factory.asKey(<span class="hljs-string">&quot;UserPool&quot;</span>))<br><br>                <span class="hljs-comment">//线程池配置</span><br>                .andThreadPoolPropertiesDefaults(HystrixThreadPoolProperties.Setter()<br>                        .withCoreSize(<span class="hljs-number">10</span>)<br>                        .withKeepAliveTimeMinutes(<span class="hljs-number">5</span>)<br>                        .withMaxQueueSize(<span class="hljs-number">10</span>)<br>                        .withQueueSizeRejectionThreshold(<span class="hljs-number">10000</span>))<br><br>                <span class="hljs-comment">//线程池隔离</span><br>                .andCommandPropertiesDefaults(<br>                        HystrixCommandProperties.Setter()<br>                                .withExecutionIsolationStrategy(HystrixCommandProperties.ExecutionIsolationStrategy.THREAD))<br>        )<br>        ;<br>        <span class="hljs-built_in">this</span>.userName = userName;<br>    &#125;<br><br><br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> String <span class="hljs-title function_">run</span><span class="hljs-params">()</span> <span class="hljs-keyword">throws</span> Exception &#123;<br><br>        LOGGER.info(<span class="hljs-string">&quot;userName=[&#123;&#125;]&quot;</span>, userName);<br><br>        TimeUnit.MILLISECONDS.sleep(<span class="hljs-number">100</span>);<br>        <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;userName=&quot;</span> + userName;<br>    &#125;<br><br><br>&#125;<br></code></pre></td></tr></table></figure>
 
 <hr>
 <p><code>api</code> 特别简洁易懂，具体详情请查看官方文档。</p>
 <p>然后模拟运行：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    <span class="type">CommandOrder</span> <span class="variable">commandPhone</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">CommandOrder</span>(<span class="string">&quot;手机&quot;</span>);</span><br><span class="line">    <span class="type">CommandOrder</span> <span class="variable">command</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">CommandOrder</span>(<span class="string">&quot;电视&quot;</span>);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="comment">//阻塞方式执行</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">execute</span> <span class="operator">=</span> commandPhone.execute();</span><br><span class="line">    LOGGER.info(<span class="string">&quot;execute=[&#123;&#125;]&quot;</span>, execute);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//异步非阻塞方式</span></span><br><span class="line">    Future&lt;String&gt; queue = command.queue();</span><br><span class="line">    <span class="type">String</span> <span class="variable">value</span> <span class="operator">=</span> queue.get(<span class="number">200</span>, TimeUnit.MILLISECONDS);</span><br><span class="line">    LOGGER.info(<span class="string">&quot;value=[&#123;&#125;]&quot;</span>, value);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="type">CommandUser</span> <span class="variable">commandUser</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">CommandUser</span>(<span class="string">&quot;张三&quot;</span>);</span><br><span class="line">    <span class="type">String</span> <span class="variable">name</span> <span class="operator">=</span> commandUser.execute();</span><br><span class="line">    LOGGER.info(<span class="string">&quot;name=[&#123;&#125;]&quot;</span>, name);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">main</span><span class="hljs-params">(String[] args)</span> <span class="hljs-keyword">throws</span> Exception &#123;<br>    <span class="hljs-type">CommandOrder</span> <span class="hljs-variable">commandPhone</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">CommandOrder</span>(<span class="hljs-string">&quot;手机&quot;</span>);<br>    <span class="hljs-type">CommandOrder</span> <span class="hljs-variable">command</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">CommandOrder</span>(<span class="hljs-string">&quot;电视&quot;</span>);<br><br><br>    <span class="hljs-comment">//阻塞方式执行</span><br>    <span class="hljs-type">String</span> <span class="hljs-variable">execute</span> <span class="hljs-operator">=</span> commandPhone.execute();<br>    LOGGER.info(<span class="hljs-string">&quot;execute=[&#123;&#125;]&quot;</span>, execute);<br><br>    <span class="hljs-comment">//异步非阻塞方式</span><br>    Future&lt;String&gt; queue = command.queue();<br>    <span class="hljs-type">String</span> <span class="hljs-variable">value</span> <span class="hljs-operator">=</span> queue.get(<span class="hljs-number">200</span>, TimeUnit.MILLISECONDS);<br>    LOGGER.info(<span class="hljs-string">&quot;value=[&#123;&#125;]&quot;</span>, value);<br><br><br>    <span class="hljs-type">CommandUser</span> <span class="hljs-variable">commandUser</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">CommandUser</span>(<span class="hljs-string">&quot;张三&quot;</span>);<br>    <span class="hljs-type">String</span> <span class="hljs-variable">name</span> <span class="hljs-operator">=</span> commandUser.execute();<br>    LOGGER.info(<span class="hljs-string">&quot;name=[&#123;&#125;]&quot;</span>, name);<br>&#125;<br></code></pre></td></tr></table></figure>
 
 <hr>
 <p>运行结果：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d2b06ef2d.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2b06ef2d.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>可以看到两个任务分成了两个线程池运行，他们之间互不干扰。</p>
 <p>获取任务任务结果支持同步阻塞和异步非阻塞方式，可自行选择。</p>
 <p>它的实现原理其实容易猜到：</p>
@@ -524,7 +483,7 @@
 <p>利用一个 Map 来存放不同业务对应的线程池。</p>
 </blockquote>
 <p>通过刚才的构造函数也能证明：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d2b69cd32.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2b69cd32.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>还要注意的一点是：</p>
 <blockquote>
 <p>自定义的 Command 并不是一个单例，每次执行需要 new 一个实例，不然会报 <code> This instance can only be executed once. Please instantiate a new instance.</code> 异常。</p>
@@ -534,96 +493,203 @@
 <p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/Java-Interview/tree/master/src/main/java/com/crossoverjie/hystrix">https://github.com/crossoverJie/Java-Interview/tree/master/src/main/java/com/crossoverjie/hystrix</a></p>
 <p>最后插播个小广告：</p>
 <p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/Java-Interview">Java-Interview</a> 截止目前将近 8K star。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d2b777ec3.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2b777ec3.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>这次定个小目标：争取冲击 <code>1W star</code>。</p>
 <p>感谢各位老铁的支持与点赞。</p>
 <p><strong>欢迎关注公众号一起交流：</strong></p>
 
-    </div>
-
-    
-    
-    
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
       
 
-
-    <footer class="post-footer">
-          <div class="reward-container">
-  <div>Buy me a coffee</div>
-  <button>
-    Donate
-  </button>
-  <div class="post-reward">
-      <div>
-        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
-        <span>WeChat Pay</span>
-      </div>
-      <div>
-        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
-        <span>Alipay</span>
-      </div>
-
-  </div>
-</div>
-
-          
-
-<div class="post-copyright">
-<ul>
-  <li class="post-copyright-author">
-      <strong>Post author:  </strong>crossoverJie
-  </li>
-  <li class="post-copyright-link">
-      <strong>Post link: </strong>
-      <a href="http://crossoverjie.top/2018/07/29/java-senior/ThreadPool/" title="如何优雅的使用和理解线程池">http://crossoverjie.top/2018/07/29/java-senior/ThreadPool/</a>
-  </li>
-  <li class="post-copyright-license">
-    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
-  </li>
-</ul>
-</div>
-
-          <div class="followme">
-  <span>Welcome to my other publishing channels</span>
-
-  <div class="social-list">
-
-      <div class="social-item">
-        <a target="_blank" class="social-link" href="/atom.xml">
-          <span class="icon">
-            <i class="fa fa-rss"></i>
-          </span>
-
-          <span class="label">RSS</span>
-        </a>
-      </div>
-  </div>
-</div>
-
-          <div class="post-tags">
-              <a href="/tags/Java/" rel="tag"><i class="fa fa-tag"></i> Java</a>
-              <a href="/tags/SpringBoot/" rel="tag"><i class="fa fa-tag"></i> SpringBoot</a>
-              <a href="/tags/ThreadPool/" rel="tag"><i class="fa fa-tag"></i> ThreadPool</a>
-              <a href="/tags/Hystirx/" rel="tag"><i class="fa fa-tag"></i> Hystirx</a>
-          </div>
-
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
         
+  <a href="/categories/Java-%E8%BF%9B%E9%98%B6/" class="category-chain-item">Java 进阶</a>
+  
+  
 
-          <div class="post-nav">
-            <div class="post-nav-item">
-                <a href="/2018/07/23/java-senior/ConcurrentHashMap/" rel="prev" title="HashMap? ConcurrentHashMap? 相信看完这篇没人能难住你！">
-                  <i class="fa fa-chevron-left"></i> HashMap? ConcurrentHashMap? 相信看完这篇没人能难住你！
-                </a>
-            </div>
-            <div class="post-nav-item">
-                <a href="/2018/08/03/netty/Netty(3)TCP-Sticky/" rel="next" title="Netty(三) 什么是 TCP 拆、粘包？如何解决？">
-                  Netty(三) 什么是 TCP 拆、粘包？如何解决？ <i class="fa fa-chevron-right"></i>
-                </a>
-            </div>
-          </div>
-    </footer>
-  </article>
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
+      
+        <a href="/tags/SpringBoot/" class="print-no-link">#SpringBoot</a>
+      
+        <a href="/tags/ThreadPool/" class="print-no-link">#ThreadPool</a>
+      
+        <a href="/tags/Hystirx/" class="print-no-link">#Hystirx</a>
+      
+    </div>
+  
 </div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>如何优雅的使用和理解线程池</div>
+      <div>http://crossoverjie.top/2018/07/29/java-senior/ThreadPool/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>July 29, 2018</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2018/08/03/netty/Netty(3)TCP-Sticky/" title="Netty(三) 什么是 TCP 拆、粘包？如何解决？">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">Netty(三) 什么是 TCP 拆、粘包？如何解决？</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2018/07/23/java-senior/ConcurrentHashMap/" title="HashMap? ConcurrentHashMap? 相信看完这篇没人能难住你！">
+                        <span class="hidden-mobile">HashMap? ConcurrentHashMap? 相信看完这篇没人能难住你！</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2018/07/29/java-senior/ThreadPool/';
+          this.page.identifier = '/2018/07/29/java-senior/ThreadPool/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
 
 
 
@@ -631,71 +697,234 @@
 
 
     
-  <div class="comments" id="disqus_thread">
-    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
   </div>
-  
 </div>
+
+    
+
+    
   </main>
 
-  <footer class="footer">
+  <footer>
     <div class="footer-inner">
-
-
-<div class="copyright">
-  &copy; 2016 – 
-  <span itemprop="copyrightYear">2025</span>
-  <span class="with-love">
-    <i class="fa fa-heart"></i>
-  </span>
-  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
-</div>
-<div class="busuanzi-count">
-    <span class="post-meta-item" id="busuanzi_container_site_uv">
-      <span class="post-meta-item-icon">
-        <i class="fa fa-user"></i>
-      </span>
-      <span class="site-uv" title="Total Visitors">
-        <span id="busuanzi_value_site_uv"></span>
-      </span>
-    </span>
-    <span class="post-meta-item" id="busuanzi_container_site_pv">
-      <span class="post-meta-item-icon">
-        <i class="fa fa-eye"></i>
-      </span>
-      <span class="site-pv" title="Total Views">
-        <span id="busuanzi_value_site_pv"></span>
-      </span>
-    </span>
-</div>
-  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
-  </div>
-
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
     </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="leancloud-site-pv-container" style="display: none">
+        总访问量 
+        <span id="leancloud-site-pv"></span>
+         次
+      </span>
+    
+    
+      <span id="leancloud-site-uv-container" style="display: none">
+        总访客数 
+        <span id="leancloud-site-uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
   </footer>
 
+  <!-- Scripts -->
   
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
-<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
 
   
-<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
-<script src="/js/third-party/search/local-search.js"></script>
-
+    <script  src="/js/img-lazyload.js" ></script>
+  
 
 
 
 
   
-  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
 
 
-  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
-  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
 
 
-<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
-<script src="/js/third-party/comments/disqus.js"></script>
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
 
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
 </body>
 </html>
