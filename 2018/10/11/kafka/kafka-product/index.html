@@ -1,26 +1,24 @@
+
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-default-color-scheme=auto>
+
+
+
 <head>
   <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width">
-<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
 
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
 
-  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
-  <link rel="mask-icon" href="/images/logo.svg" color="#222">
-
-<link rel="stylesheet" href="/css/main.css">
-
-
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
-
-<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
-     crossorigin="anonymous"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
     <meta name="description" content="前言在上文 设计一个百万级的消息推送系统 中提到消息流转采用的是 Kafka 作为中间件。 其中有朋友咨询在大量消息的情况下 Kakfa 是如何保证消息的高效及一致性呢？ 正好以这个问题结合 Kakfa 的源码讨论下如何正确、高效的发送消息。  内容较多，对源码感兴趣的朋友请系好安全带😏(源码基于 v0.10.0.0 版本分析)。同时最好是有一定的 Kafka 使用经验，知晓基本的用法。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="从源码分析如何优雅的使用 Kafka 生产者">
@@ -59,348 +57,330 @@
 <meta property="article:modified_time" content="2019-05-07T18:42:06.004Z">
 <meta property="article:author" content="crossoverJie">
 <meta property="article:tag" content="Kafka">
-<meta name="twitter:card" content="summary">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1d10ebd53b.jpg">
-
-
-<link rel="canonical" href="http://crossoverjie.top/2018/10/11/kafka/kafka-product/">
-
-
-
-<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2018/10/11/kafka/kafka-product/","path":"2018/10/11/kafka/kafka-product/","title":"从源码分析如何优雅的使用 Kafka 生产者"}</script>
-
-<script class="next-config" data-name="calendar" type="application/json">""</script>
-<title>从源码分析如何优雅的使用 Kafka 生产者 | crossoverJie's Blog</title>
   
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
-  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
-  <script src="/js/third-party/analytics/google-analytics.js"></script>
+  
+  
+  <title>从源码分析如何优雅的使用 Kafka 生产者 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
 
 
 
 
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
 
 
-  <noscript>
-    <link rel="stylesheet" href="/css/noscript.css">
-  </noscript>
-<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
 </head>
 
-<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
-  <div class="headband"></div>
 
-  <main class="main">
-    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
-      <div class="header-inner"><div class="site-brand-container">
-  <div class="site-nav-toggle">
-    <div class="toggle" aria-label="Toggle navigation bar" role="button">
-        <span class="toggle-line"></span>
-        <span class="toggle-line"></span>
-        <span class="toggle-line"></span>
-    </div>
-  </div>
+<body>
+  
 
-  <div class="site-meta">
+  <header>
+    
 
-    <a href="/" class="brand" rel="start">
-      <i class="logo-line"></i>
-      <p class="site-title">crossoverJie's Blog</p>
-      <i class="logo-line"></i>
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
     </a>
-      <p class="site-subtitle" itemprop="description">baller</p>
-  </div>
 
-  <div class="site-nav-right">
-    <div class="toggle popup-trigger">
-        <i class="fa fa-search fa-fw fa-lg"></i>
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
     </div>
   </div>
-</div>
-
-
-
-<nav class="site-nav">
-  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">95</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">277</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">188</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
-      <li class="menu-item menu-item-search">
-        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
-        </a>
-      </li>
-  </ul>
 </nav>
 
+  
 
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="从源码分析如何优雅的使用 Kafka 生产者"></span>
+          
+        </div>
 
-  <div class="search-pop-overlay">
-    <div class="popup search-popup"><div class="search-header">
-  <span class="search-icon">
-    <i class="fa fa-search"></i>
-  </span>
-  <div class="search-input-container">
-    <input autocomplete="off" autocapitalize="off" maxlength="80"
-           placeholder="Searching..." spellcheck="false"
-           type="search" class="search-input">
-  </div>
-  <span class="popup-btn-close" role="button">
-    <i class="fa fa-times-circle"></i>
-  </span>
-</div>
-<div class="search-result-container no-result">
-  <div class="search-result-icon">
-    <i class="fa fa-spinner fa-pulse fa-5x"></i>
-  </div>
-</div>
-
-    </div>
-  </div>
-
-</div>
         
-  
-  <div class="toggle sidebar-toggle" role="button">
-    <span class="toggle-line"></span>
-    <span class="toggle-line"></span>
-    <span class="toggle-line"></span>
-  </div>
-
-  <aside class="sidebar">
-
-    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
-      <ul class="sidebar-nav">
-        <li class="sidebar-nav-toc">
-          Table of Contents
-        </li>
-        <li class="sidebar-nav-overview">
-          Overview
-        </li>
-      </ul>
-
-      <div class="sidebar-panel-container">
-        <!--noindex-->
-        <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%AE%80%E5%8D%95%E7%9A%84%E6%B6%88%E6%81%AF%E5%8F%91%E9%80%81"><span class="nav-number">2.</span> <span class="nav-text">简单的消息发送</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%8C%E6%AD%A5"><span class="nav-number">2.1.</span> <span class="nav-text">同步</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%82%E6%AD%A5"><span class="nav-number">2.2.</span> <span class="nav-text">异步</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">源码分析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B"><span class="nav-number">3.1.</span> <span class="nav-text">发送流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%AD%A5%E9%AA%A4%E8%A7%A3%E6%9E%90"><span class="nav-number">3.2.</span> <span class="nav-text">步骤解析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-number">3.2.1.</span> <span class="nav-text">初始化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BA%8F%E5%88%97%E5%8C%96%E6%B6%88%E6%81%AF"><span class="nav-number">3.2.2.</span> <span class="nav-text">序列化消息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B7%AF%E7%94%B1%E5%88%86%E5%8C%BA"><span class="nav-number">3.2.3.</span> <span class="nav-text">路由分区</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%8C%87%E5%AE%9A%E5%88%86%E5%8C%BA"><span class="nav-number">3.2.3.1.</span> <span class="nav-text">指定分区</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E8%B7%AF%E7%94%B1%E7%AD%96%E7%95%A5"><span class="nav-number">3.2.3.2.</span> <span class="nav-text">自定义路由策略</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%BB%98%E8%AE%A4%E7%AD%96%E7%95%A5"><span class="nav-number">3.2.3.3.</span> <span class="nav-text">默认策略</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%86%99%E5%85%A5%E5%86%85%E9%83%A8%E7%BC%93%E5%AD%98"><span class="nav-number">3.2.4.</span> <span class="nav-text">写入内部缓存</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B6%88%E8%B4%B9%E7%BC%93%E5%AD%98"><span class="nav-number">3.2.5.</span> <span class="nav-text">消费缓存</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Producer-%E5%8F%82%E6%95%B0%E8%A7%A3%E6%9E%90"><span class="nav-number">4.</span> <span class="nav-text">Producer 参数解析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#acks"><span class="nav-number">4.1.</span> <span class="nav-text">acks</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#batch-size"><span class="nav-number">4.2.</span> <span class="nav-text">batch.size</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#retries"><span class="nav-number">4.3.</span> <span class="nav-text">retries</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E9%AB%98%E6%95%88%E7%9A%84%E5%8F%91%E9%80%81%E6%96%B9%E5%BC%8F"><span class="nav-number">5.</span> <span class="nav-text">高效的发送方式</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%B3%E9%97%AD-Producer"><span class="nav-number">6.</span> <span class="nav-text">关闭 Producer</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li></ol></div>
-        </div>
-        <!--/noindex-->
-
-        <div class="site-overview-wrap sidebar-panel">
-          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
-    <img class="site-author-image" itemprop="image" alt="crossoverJie"
-      src="/uploads/iverson.gif">
-  <p class="site-author-name" itemprop="name">crossoverJie</p>
-  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
-</div>
-<div class="site-state-wrap site-overview-item animated">
-  <nav class="site-state">
-      <div class="site-state-item site-state-posts">
-        <a href="/archives">
-          <span class="site-state-item-count">277</span>
-          <span class="site-state-item-name">posts</span>
-        </a>
-      </div>
-      <div class="site-state-item site-state-categories">
-          <a href="/categories">
-        <span class="site-state-item-count">95</span>
-        <span class="site-state-item-name">categories</span></a>
-      </div>
-      <div class="site-state-item site-state-tags">
-          <a href="/tags">
-        <span class="site-state-item-count">188</span>
-        <span class="site-state-item-name">tags</span></a>
-      </div>
-  </nav>
-</div>
-  <div class="links-of-author site-overview-item animated">
-      <span class="links-of-author-item">
-        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
       </span>
-      <span class="links-of-author-item">
-        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2018-10-11 00:02" pubdate>
+          October 11, 2018 am
+        </time>
       </span>
-      <span class="links-of-author-item">
-        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.6k words
+        
       </span>
-  </div>
-  <div class="cc-license site-overview-item animated" itemprop="license">
-    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
-  </div>
-
-
-  <div class="links-of-blogroll site-overview-item animated">
-    <div class="links-of-blogroll-title"><i class="fa fa-globe fa-fw"></i>
-      Links
-    </div>
-    <ul class="links-of-blogroll-list">
-        <li class="links-of-blogroll-item">
-          <a href="http://wuchong.me/" title="http:&#x2F;&#x2F;wuchong.me" rel="noopener" target="_blank">Jark's Blog</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://tengj.top/" title="http:&#x2F;&#x2F;tengj.top" rel="noopener" target="_blank">嘟嘟独立博客</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://yemengying.com/" title="http:&#x2F;&#x2F;yemengying.com&#x2F;" rel="noopener" target="_blank">Giraffe Home</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://blog.jamespan.me/" title="https:&#x2F;&#x2F;blog.jamespan.me&#x2F;" rel="noopener" target="_blank">潘小鶸(ruò)</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://fangjian0423.github.io/" title="http:&#x2F;&#x2F;fangjian0423.github.io&#x2F;" rel="noopener" target="_blank">Format's Notes</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://yuzhouwan.com/" title="https:&#x2F;&#x2F;yuzhouwan.com&#x2F;" rel="noopener" target="_blank">Benedict Jin</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://blog.didispace.com/" title="http:&#x2F;&#x2F;blog.didispace.com&#x2F;" rel="noopener" target="_blank">程序猿DD</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://blog.52itstyle.vip/" title="https:&#x2F;&#x2F;blog.52itstyle.vip&#x2F;" rel="noopener" target="_blank">小柒博客</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://cmsblogs.com/" title="http:&#x2F;&#x2F;cmsblogs.com&#x2F;" rel="noopener" target="_blank">Java技术驿站</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://vim.ink/" title="https:&#x2F;&#x2F;vim.ink&#x2F;" rel="noopener" target="_blank">vim 教程网</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://www.jitwxs.cn/" title="https:&#x2F;&#x2F;www.jitwxs.cn" rel="noopener" target="_blank">jitwxs</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://www.javaboy.org/" title="http:&#x2F;&#x2F;www.javaboy.org" rel="noopener" target="_blank">江南一点雨</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="http://www.liangsonghua.me/" title="http:&#x2F;&#x2F;www.liangsonghua.me" rel="noopener" target="_blank">松花皮蛋的黑板报</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://www.fi-ads.com/" title="https:&#x2F;&#x2F;www.fi-ads.com" rel="noopener" target="_blank">Future iDeal</a>
-        </li>
-        <li class="links-of-blogroll-item">
-          <a href="https://dbarobin.com/" title="https:&#x2F;&#x2F;dbarobin.com&#x2F;" rel="noopener" target="_blank">Cryptospace</a>
-        </li>
-    </ul>
-  </div>
-
-        </div>
-      </div>
-    </div>
-  </aside>
-  <div class="sidebar-dimmer"></div>
-
-
-    </header>
+    
 
     
-  <div class="back-to-top" role="button" aria-label="Back to top">
-    <i class="fa fa-arrow-up"></i>
-    <span>0%</span>
-  </div>
-  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
-
-<noscript>
-  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
-</noscript>
-
-
-    <div class="main-inner post posts-expand">
-
-
-  
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2018/10/11/kafka/kafka-product/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/uploads/iverson.gif">
-      <meta itemprop="name" content="crossoverJie">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="crossoverJie's Blog">
-      <meta itemprop="description" content="You never know what you can do till you try.">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="从源码分析如何优雅的使用 Kafka 生产者 | crossoverJie's Blog">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h1 class="post-title" itemprop="name headline">
-          从源码分析如何优雅的使用 Kafka 生产者
-        </h1>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          22 mins
+        
       </span>
-      <span class="post-meta-item-text">Posted on</span>
+    
 
-      <time title="Created: 2018-10-11 00:02:24" itemprop="dateCreated datePublished" datetime="2018-10-11T00:02:24+08:00">2018-10-11</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">Edited on</span>
-      <time title="Modified: 2019-05-08 02:42:06" itemprop="dateModified" datetime="2019-05-08T02:42:06+08:00">2019-05-08</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">In</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/Kafka/" itemprop="url" rel="index"><span itemprop="name">Kafka</span></a>
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
         </span>
-          , 
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/Kafka/Java-%E8%BF%9B%E9%98%B6/" itemprop="url" rel="index"><span itemprop="name">Java 进阶</span></a>
-        </span>
-    </span>
+        
+      
+      
+    
+  </div>
 
-  
-    <span id="/2018/10/11/kafka/kafka-product/" class="post-meta-item leancloud_visitors" data-flag-title="从源码分析如何优雅的使用 Kafka 生产者" title="Views">
-      <span class="post-meta-item-icon">
-        <i class="far fa-eye"></i>
-      </span>
-      <span class="post-meta-item-text">Views: </span>
-      <span class="leancloud-visitors-count"></span>
-    </span>
-    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
-      <span class="post-meta-item-icon">
-        <i class="far fa-eye"></i>
-      </span>
-      <span class="post-meta-item-text">Views: </span>
-      <span id="busuanzi_value_page_pv"></span>
-    </span>
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus: </span>
-    
-    <a title="disqus" href="/2018/10/11/kafka/kafka-product/#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2018/10/11/kafka/kafka-product/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
+
+        
+      </div>
+
+      
+    </div>
+  </div>
 </div>
 
-        </div>
-      </header>
+</div>
 
+  </header>
+
+  <main>
     
-    
-    
-    <div class="post-body" itemprop="articleBody">
-        <p><img src="https://i.loli.net/2019/05/08/5cd1d10ebd53b.jpg"></p>
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">从源码分析如何优雅的使用 Kafka 生产者</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2019/05/08/5cd1d10ebd53b.jpg" srcset="/img/loading.gif" lazyload></p>
 <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>在上文 <a href="https://crossoverjie.top/2018/09/25/netty/million-sms-push/">设计一个百万级的消息推送系统</a> 中提到消息流转采用的是 <code>Kafka</code> 作为中间件。</p>
 <p>其中有朋友咨询在大量消息的情况下 <code>Kakfa</code> 是如何保证消息的高效及一致性呢？</p>
 <p>正好以这个问题结合 <code>Kakfa</code> 的源码讨论下如何正确、高效的发送消息。</p>
@@ -414,30 +394,30 @@
 <p>以下代码基于 SpringBoot 构建。</p>
 </blockquote>
 <p>首先创建一个 <code>org.apache.kafka.clients.producer.Producer</code> 的 bean。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d11527115.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d11527115.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>主要关注 <code>bootstrap.servers</code>，它是必填参数。指的是 Kafka 集群中的 broker 地址，例如 <code>127.0.0.1:9094</code>。</p>
 <blockquote>
 <p>其余几个参数暂时不做讨论，后文会有详细介绍。</p>
 </blockquote>
 <p>接着注入这个 bean 即可调用它的发送函数发送消息。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d1166034a.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d1166034a.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>这里我给某一个 Topic 发送了 10W 条数据，运行程序消息正常发送。</p>
 <p>但这仅仅只是做到了消息发送，对消息是否成功送达完全没管，等于是纯<code>异步</code>的方式。</p>
 <h2 id="同步"><a href="#同步" class="headerlink" title="同步"></a>同步</h2><p>那么我想知道消息到底发送成功没有该怎么办呢？</p>
 <p>其实 <code>Producer</code> 的 <code>API</code> 已经帮我们考虑到了，发送之后只需要调用它的 <code>get()</code> 方法即可同步获取发送结果。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d11748eb5.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d11748eb5.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>发送结果：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d118ac608.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d118ac608.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>这样的发送效率其实是比较低下的，因为每次都需要同步等待消息发送的结果。 </p>
 <h2 id="异步"><a href="#异步" class="headerlink" title="异步"></a>异步</h2><p>为此我们应当采取异步的方式发送，其实 <code>send()</code> 方法默认则是异步的，只要不手动调用  <code>get()</code> 方法。</p>
 <p>但这样就没法获知发送结果。</p>
 <p>所以查看 <code>send()</code> 的 API 可以发现还有一个参数。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Future&lt;RecordMetadata&gt; <span class="title function_">send</span><span class="params">(ProducerRecord&lt;K, V&gt; producer, Callback callback)</span>;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java">Future&lt;RecordMetadata&gt; <span class="hljs-title function_">send</span><span class="hljs-params">(ProducerRecord&lt;K, V&gt; producer, Callback callback)</span>;<br></code></pre></td></tr></table></figure>
 
 <p><code>Callback</code> 是一个回调接口，在消息发送完成之后可以回调我们自定义的实现。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d119c9164.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d119c9164.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>执行之后的结果：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d11badd71.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d11badd71.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>同样的也能获取结果，同时发现回调的线程并不是上文同步时的<code>主线程</code>，这样也能证明是异步回调的。</p>
 <p>同时回调的时候会传递两个参数：</p>
 <ul>
@@ -446,14 +426,14 @@
 </ul>
 <p>但是这两个参数并不会同时都有数据，只有发送失败才会有异常信息，同时发送元数据为空。</p>
 <p>所以正确的写法应当是：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d1216d13b.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d1216d13b.jpg" srcset="/img/loading.gif" lazyload></p>
 <blockquote>
 <p>至于为什么会只有参数一个有值，在下文的源码分析中会一一解释。</p>
 </blockquote>
 <h1 id="源码分析"><a href="#源码分析" class="headerlink" title="源码分析"></a>源码分析</h1><p>现在只掌握了基本的消息发送，想要深刻的理解发送中的一些参数配置还是得源码说了算。</p>
 <p>首先还是来谈谈消息发送时的整个流程是怎么样的，<code>Kafka</code> 并不是简单的把消息通过网络发送到了 <code>broker</code> 中，在 Java 内部还是经过了许多优化和设计。</p>
 <h2 id="发送流程"><a href="#发送流程" class="headerlink" title="发送流程"></a>发送流程</h2><p>为了直观的了解发送的流程，简单的画了几个在发送过程中关键的步骤。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d12228c9b.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d12228c9b.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>从上至下依次是：</p>
 <ul>
 <li>初始化以及真正发送消息的 <code>kafka-producer-network-thread</code> IO 线程。</li>
@@ -463,38 +443,38 @@
 <li>初始化的 IO 线程不断的消费这个缓存来发送消息。</li>
 </ul>
 <h2 id="步骤解析"><a href="#步骤解析" class="headerlink" title="步骤解析"></a>步骤解析</h2><p>接下来详解每个步骤。</p>
-<h3 id="初始化"><a href="#初始化" class="headerlink" title="初始化"></a>初始化</h3><p><img src="https://i.loli.net/2019/05/08/5cd1d12331873.jpg"></p>
+<h3 id="初始化"><a href="#初始化" class="headerlink" title="初始化"></a>初始化</h3><p><img src="https://i.loli.net/2019/05/08/5cd1d12331873.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>调用该构造方法进行初始化时，不止是简单的将基本参数写入 <code>KafkaProducer</code>。比较麻烦的是初始化 <code>Sender</code> 线程进行缓冲区消费。</p>
 <p>初始化 IO 线程处：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d1242d911.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d1242d911.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>可以看到 Sender 线程有需要成员变量，比如：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">acks,retries,requestTimeout</span><br></pre></td></tr></table></figure>
+<figure class="highlight autohotkey"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs autohotkey"><span class="hljs-built_in">acks,</span>retries,requestTimeout<br></code></pre></td></tr></table></figure>
 
 <p>等，这些参数会在后文分析。</p>
 <h3 id="序列化消息"><a href="#序列化消息" class="headerlink" title="序列化消息"></a>序列化消息</h3><p>在调用 <code>send()</code> 函数后其实第一步就是序列化，毕竟我们的消息需要通过网络才能发送到 Kafka。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d12561bc2.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d12561bc2.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>其中的 <code>valueSerializer.serialize(record.topic(), record.value());</code> 是一个接口，我们需要在初始化时候指定序列化实现类。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d12b5da80.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d12b5da80.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>我们也可以自己实现序列化，只需要实现 <code>org.apache.kafka.common.serialization.Serializer</code> 接口即可。</p>
 <h3 id="路由分区"><a href="#路由分区" class="headerlink" title="路由分区"></a>路由分区</h3><p>接下来就是路由分区，通常我们使用的 <code>Topic</code> 为了实现扩展性以及高性能都会创建多个分区。</p>
 <p>如果是一个分区好说，所有消息都往里面写入即可。</p>
 <p>但多个分区就不可避免需要知道写入哪个分区。</p>
 <p>通常有三种方式。</p>
 <h4 id="指定分区"><a href="#指定分区" class="headerlink" title="指定分区"></a>指定分区</h4><p>可以在构建 <code>ProducerRecord</code> 为每条消息指定分区。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d12c3c202.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d12c3c202.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>这样在路由时会判断是否有指定，有就直接使用该分区。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d12d27034.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d12d27034.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>这种一般在特殊场景下会使用。</p>
-<h4 id="自定义路由策略"><a href="#自定义路由策略" class="headerlink" title="自定义路由策略"></a>自定义路由策略</h4><p><img src="https://i.loli.net/2019/05/08/5cd1d12e065fd.jpg"></p>
+<h4 id="自定义路由策略"><a href="#自定义路由策略" class="headerlink" title="自定义路由策略"></a>自定义路由策略</h4><p><img src="https://i.loli.net/2019/05/08/5cd1d12e065fd.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>如果没有指定分区，则会调用 <code>partitioner.partition</code> 接口执行自定义分区策略。</p>
 <p>而我们也只需要自定义一个类实现 <code>org.apache.kafka.clients.producer.Partitioner</code> 接口，同时在创建 <code>KafkaProducer</code> 实例时配置 <code>partitioner.class</code> 参数。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d135e046c.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d135e046c.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>通常需要自定义分区一般是在想尽量的保证消息的顺序性。</p>
 <p>或者是写入某些特有的分区，由特别的消费者来进行处理等。</p>
 <h4 id="默认策略"><a href="#默认策略" class="headerlink" title="默认策略"></a>默认策略</h4><p>最后一种则是默认的路由策略，如果我们啥都没做就会执行该策略。</p>
 <p>该策略也会使得消息分配的比较均匀。</p>
 <p>来看看它的实现：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d13759e66.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d13759e66.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>简单的来说分为以下几步：</p>
 <ul>
 <li>获取 Topic 分区数。</li>
@@ -503,21 +483,21 @@
 </ul>
 <p>其实这就是很典型的轮询算法，所以只要分区数不频繁变动这种方式也会比较均匀。</p>
 <h3 id="写入内部缓存"><a href="#写入内部缓存" class="headerlink" title="写入内部缓存"></a>写入内部缓存</h3><p>在 <code>send()</code> 方法拿到分区后会调用一个 <code>append()</code> 函数：</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d138711e9.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d138711e9.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>该函数中会调用一个 <code>getOrCreateDeque()</code> 写入到一个内部缓存中 <code>batches</code>。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d1394ac36.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d1394ac36.jpg" srcset="/img/loading.gif" lazyload></p>
 <h3 id="消费缓存"><a href="#消费缓存" class="headerlink" title="消费缓存"></a>消费缓存</h3><p>在最开始初始化的 IO 线程其实是一个守护线程，它会一直消费这些数据。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d13fc139d.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d13fc139d.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>通过图中的几个函数会获取到之前写入的数据。这块内容可以不必深究，但其中有个 <code>completeBatch</code> 方法却非常关键。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d141d52c5.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d141d52c5.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>调用该方法时候肯定已经是消息发送完毕了，所以会调用 <code>batch.done()</code> 来完成之前我们在 <code>send()</code> 方法中定义的回调接口。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d14327d87.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d14327d87.jpg" srcset="/img/loading.gif" lazyload></p>
 <blockquote>
 <p>从这里也可以看出为什么之前说发送完成后元数据和异常信息只会出现一个。</p>
 </blockquote>
 <h1 id="Producer-参数解析"><a href="#Producer-参数解析" class="headerlink" title="Producer 参数解析"></a>Producer 参数解析</h1><p>发送流程讲完了再来看看 <code>Producer</code> 中比较重要的几个参数。</p>
 <h2 id="acks"><a href="#acks" class="headerlink" title="acks"></a>acks</h2><p><code>acks</code> 是一个影响消息吞吐量的一个关键参数。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d14413679.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d14413679.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>主要有 <code>[all、-1, 0, 1]</code> 这几个选项，默认为 1。</p>
 <p>由于 <code>Kafka</code> 不是采取的主备模式，而是采用类似于 Zookeeper 的主备模式。</p>
 <blockquote>
@@ -536,8 +516,8 @@
 <p>一旦 Leader 挂掉消息就会丢失。但性能和消息安全性都得到了一定的保证。</p>
 <h2 id="batch-size"><a href="#batch-size" class="headerlink" title="batch.size"></a>batch.size</h2><p>这个参数看名称就知道是内部缓存区的大小限制，对他适当的调大可以提高吞吐量。</p>
 <p>但也不能极端，调太大会浪费内存。小了也发挥不了作用，也是一个典型的时间和空间的权衡。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d1453fc23.jpg"></p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d1464d1b3.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d1453fc23.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d1464d1b3.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>上图是几个使用的体现。</p>
 <h2 id="retries"><a href="#retries" class="headerlink" title="retries"></a>retries</h2><p><code>retries</code> 该参数主要是来做重试使用，当发生一些网络抖动都会造成重试。</p>
 <p>这个参数也就是限制重试次数。</p>
@@ -555,7 +535,7 @@
 </ul>
 <p>这样在大量、频繁的消息发送场景中可以提高发送效率减轻单个 <code>producer</code> 的压力。</p>
 <h1 id="关闭-Producer"><a href="#关闭-Producer" class="headerlink" title="关闭 Producer"></a>关闭 Producer</h1><p>最后则是 <code>Producer</code> 的关闭，Producer 在使用过程中消耗了不少资源（线程、内存、网络等）因此需要显式的关闭从而回收这些资源。</p>
-<p><img src="https://i.loli.net/2019/05/08/5cd1d14dd3792.jpg"></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d14dd3792.jpg" srcset="/img/loading.gif" lazyload></p>
 <p>默认的 <code>close()</code> 方法和带有超时时间的方法都是在一定的时间后强制关闭。</p>
 <p>但在过期之前都会处理完剩余的任务。</p>
 <p>所以使用哪一个得视情况而定。</p>
@@ -567,88 +547,199 @@
 </blockquote>
 <p><strong>欢迎关注公众号一起交流：</strong></p>
 
-    </div>
-
-    
-    
-    
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
       
 
-
-    <footer class="post-footer">
-          <div class="reward-container">
-  <div>Buy me a coffee</div>
-  <button>
-    Donate
-  </button>
-  <div class="post-reward">
-      <div>
-        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
-        <span>WeChat Pay</span>
-      </div>
-      <div>
-        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
-        <span>Alipay</span>
-      </div>
-
-  </div>
-</div>
-
-          
-
-<div class="post-copyright">
-<ul>
-  <li class="post-copyright-author">
-      <strong>Post author:  </strong>crossoverJie
-  </li>
-  <li class="post-copyright-link">
-      <strong>Post link: </strong>
-      <a href="http://crossoverjie.top/2018/10/11/kafka/kafka-product/" title="从源码分析如何优雅的使用 Kafka 生产者">http://crossoverjie.top/2018/10/11/kafka/kafka-product/</a>
-  </li>
-  <li class="post-copyright-license">
-    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
-  </li>
-</ul>
-</div>
-
-          <div class="followme">
-  <span>Welcome to my other publishing channels</span>
-
-  <div class="social-list">
-
-      <div class="social-item">
-        <a target="_blank" class="social-link" href="/atom.xml">
-          <span class="icon">
-            <i class="fa fa-rss"></i>
-          </span>
-
-          <span class="label">RSS</span>
-        </a>
-      </div>
-  </div>
-</div>
-
-          <div class="post-tags">
-              <a href="/tags/Kafka/" rel="tag"><i class="fa fa-tag"></i> Kafka</a>
-          </div>
-
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
         
+  <a href="/categories/Kafka/" class="category-chain-item">Kafka</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/Kafka/Java-%E8%BF%9B%E9%98%B6/" class="category-chain-item">Java 进阶</a>
+  
+  
 
-          <div class="post-nav">
-            <div class="post-nav-item">
-                <a href="/2018/10/09/wheel/cicada4/" rel="prev" title="「造个轮子」——cicada 设计全局上下文">
-                  <i class="fa fa-chevron-left"></i> 「造个轮子」——cicada 设计全局上下文
-                </a>
-            </div>
-            <div class="post-nav-item">
-                <a href="/2018/10/15/SpringBoot/SpringBoot-tips/" rel="next" title="分享几个 SpringBoot 实用的小技巧">
-                  分享几个 SpringBoot 实用的小技巧 <i class="fa fa-chevron-right"></i>
-                </a>
-            </div>
-          </div>
-    </footer>
-  </article>
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Kafka/" class="print-no-link">#Kafka</a>
+      
+    </div>
+  
 </div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>从源码分析如何优雅的使用 Kafka 生产者</div>
+      <div>http://crossoverjie.top/2018/10/11/kafka/kafka-product/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>October 11, 2018</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2018/10/15/SpringBoot/SpringBoot-tips/" title="分享几个 SpringBoot 实用的小技巧">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">分享几个 SpringBoot 实用的小技巧</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2018/10/09/wheel/cicada4/" title="「造个轮子」——cicada 设计全局上下文">
+                        <span class="hidden-mobile">「造个轮子」——cicada 设计全局上下文</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2018/10/11/kafka/kafka-product/';
+          this.page.identifier = '/2018/10/11/kafka/kafka-product/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
 
 
 
@@ -656,71 +747,234 @@
 
 
     
-  <div class="comments" id="disqus_thread">
-    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
   </div>
-  
 </div>
+
+    
+
+    
   </main>
 
-  <footer class="footer">
+  <footer>
     <div class="footer-inner">
-
-
-<div class="copyright">
-  &copy; 2016 – 
-  <span itemprop="copyrightYear">2025</span>
-  <span class="with-love">
-    <i class="fa fa-heart"></i>
-  </span>
-  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
-</div>
-<div class="busuanzi-count">
-    <span class="post-meta-item" id="busuanzi_container_site_uv">
-      <span class="post-meta-item-icon">
-        <i class="fa fa-user"></i>
-      </span>
-      <span class="site-uv" title="Total Visitors">
-        <span id="busuanzi_value_site_uv"></span>
-      </span>
-    </span>
-    <span class="post-meta-item" id="busuanzi_container_site_pv">
-      <span class="post-meta-item-icon">
-        <i class="fa fa-eye"></i>
-      </span>
-      <span class="site-pv" title="Total Views">
-        <span id="busuanzi_value_site_pv"></span>
-      </span>
-    </span>
-</div>
-  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
-  </div>
-
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
     </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="leancloud-site-pv-container" style="display: none">
+        总访问量 
+        <span id="leancloud-site-pv"></span>
+         次
+      </span>
+    
+    
+      <span id="leancloud-site-uv-container" style="display: none">
+        总访客数 
+        <span id="leancloud-site-uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
   </footer>
 
+  <!-- Scripts -->
   
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
-<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
 
   
-<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
-<script src="/js/third-party/search/local-search.js"></script>
-
+    <script  src="/js/img-lazyload.js" ></script>
+  
 
 
 
 
   
-  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
 
 
-  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
-  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
 
 
-<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
-<script src="/js/third-party/comments/disqus.js"></script>
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
 
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
 </body>
 </html>
