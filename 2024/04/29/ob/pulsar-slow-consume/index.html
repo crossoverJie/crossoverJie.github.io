@@ -1,24 +1,26 @@
-
-
 <!DOCTYPE html>
-<html lang="en" data-default-color-scheme=auto>
-
-
-
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.3.0">
 
-  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
-  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
-  
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
-  <meta http-equiv="x-ua-compatible" content="ie=edge">
-  
-  <meta name="theme-color" content="#2f4154">
-  <meta name="author" content="crossoverJie">
-  <meta name="keywords" content="">
-  
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha256-AbA177XfpSnFEvgpYu1jMygiLabzPCJCRIBtR5jGc0k=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"crossoverjie.top","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.13.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}}</script><script src="/js/config.js"></script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8986563914842168"
+     crossorigin="anonymous"></script>
     <meta name="description" content="背景前两天收到业务反馈有一个 topic 的分区消息堆积了：根据之前的经验来看，要么是业务消费逻辑出现问题导致消费过慢，当然也有小概率是消息队列的 Bug（我们使用的是 pulsar）。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="一次消息队列异常堆积的排查">
@@ -46,325 +48,346 @@
 <meta property="article:modified_time" content="2024-04-29T02:24:24.167Z">
 <meta property="article:author" content="crossoverJie">
 <meta property="article:tag" content="Pulsar">
-<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="https://s2.loli.net/2024/03/24/Ckb3MRswVAvjXfn.png">
+
+
+<link rel="canonical" href="http://crossoverjie.top/2024/04/29/ob/pulsar-slow-consume/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"http://crossoverjie.top/2024/04/29/ob/pulsar-slow-consume/","path":"2024/04/29/ob/pulsar-slow-consume/","title":"一次消息队列异常堆积的排查"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>一次消息队列异常堆积的排查 | crossoverJie's Blog</title>
   
-  
-  
-  <title>一次消息队列异常堆积的排查 - crossoverJie&#39;s Blog</title>
-
-  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
-
-
-
-  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
-
-  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
-
-  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
-
-
-
-<!-- 主题依赖的图标库，不要自行修改 -->
-<!-- Do not modify the link that theme dependent icons -->
-
-<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
-
-
-
-<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
-
-
-<link  rel="stylesheet" href="/css/main.css" />
-
-
-  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
-  
-    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
-  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-930V538KP1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-930V538KP1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
 
 
 
 
-  <script id="fluid-configs">
-    var Fluid = window.Fluid || {};
-    Fluid.ctx = Object.assign({}, Fluid.ctx)
-    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
-
-    if (CONFIG.web_analytics.follow_dnt) {
-      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
-      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
-    }
-  </script>
-  <script  src="/js/utils.js" ></script>
-  <script  src="/js/color-schema.js" ></script>
-  
 
 
-  
-<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+<link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
 </head>
 
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
 
-<body>
-  
-
-  <header>
-    
-
-<div class="header-inner" style="height: 70vh;">
-  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
-  <div class="container">
-    <a class="navbar-brand" href="/">
-      <strong>crossoverJie&#39;s Blog</strong>
-    </a>
-
-    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
-            data-target="#navbarSupportedContent"
-            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-      <div class="animated-icon"><span></span><span></span><span></span></div>
-    </button>
-
-    <!-- Collapsible content -->
-    <div class="collapse navbar-collapse" id="navbarSupportedContent">
-      <ul class="navbar-nav ml-auto text-center">
-        
-          
-          
-          
-          
-            <li class="nav-item">
-              <a class="nav-link" href="/" target="_self">
-                <i class="iconfont icon-home-fill"></i>
-                <span>Home</span>
-              </a>
-            </li>
-          
-        
-          
-          
-          
-          
-            <li class="nav-item">
-              <a class="nav-link" href="/archives/" target="_self">
-                <i class="iconfont icon-archive-fill"></i>
-                <span>Archives</span>
-              </a>
-            </li>
-          
-        
-          
-          
-          
-          
-            <li class="nav-item">
-              <a class="nav-link" href="/categories/" target="_self">
-                <i class="iconfont icon-category-fill"></i>
-                <span>Categories</span>
-              </a>
-            </li>
-          
-        
-          
-          
-          
-          
-            <li class="nav-item">
-              <a class="nav-link" href="/tags/" target="_self">
-                <i class="iconfont icon-tags-fill"></i>
-                <span>Tags</span>
-              </a>
-            </li>
-          
-        
-          
-          
-          
-          
-            <li class="nav-item">
-              <a class="nav-link" href="/about/" target="_self">
-                <i class="iconfont icon-user-fill"></i>
-                <span>About</span>
-              </a>
-            </li>
-          
-        
-          
-          
-          
-          
-            <li class="nav-item">
-              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
-                <i class="iconfont icon-github-fill"></i>
-                <span>github</span>
-              </a>
-            </li>
-          
-        
-          
-          
-          
-          
-            <li class="nav-item">
-              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
-                <i class="iconfont icon-code"></i>
-                <span>gscript</span>
-              </a>
-            </li>
-          
-        
-          
-          
-          
-          
-            <li class="nav-item">
-              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
-                <i class="iconfont icon-telegram-fill"></i>
-                <span>cim</span>
-              </a>
-            </li>
-          
-        
-          
-          
-          
-          
-            <li class="nav-item">
-              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
-                <i class="iconfont icon-bilibili-fill"></i>
-                <span>vlog</span>
-              </a>
-            </li>
-          
-        
-        
-          <li class="nav-item" id="search-btn">
-            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
-              <i class="iconfont icon-search"></i>
-            </a>
-          </li>
-          
-        
-        
-          <li class="nav-item" id="color-toggle-btn">
-            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
-              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
-            </a>
-          </li>
-        
-      </ul>
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
     </div>
   </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">crossoverJie's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">baller</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-categories"><a href="/categories" rel="section"><i class="fa fa-th fa-fw"></i>Categories<span class="badge">95</span></a></li><li class="menu-item menu-item-about"><a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-archives"><a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>Archives<span class="badge">277</span></a></li><li class="menu-item menu-item-tags"><a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>Tags<span class="badge">188</span></a></li><li class="menu-item menu-item-gscript"><a href="https://github.com/crossoverjie/gscript" rel="noopener" target="_blank"><i class="fa fa-code fa-fw"></i>GScript</a></li><li class="menu-item menu-item-playground"><a href="https://gscript.crossoverjie.top/" rel="noopener" target="_blank"><i class="fa fa-bug fa-fw"></i>playground</a></li><li class="menu-item menu-item-photo"><a href="/favourite" rel="section"><i class="fa fa-image fa-fw"></i>photo</a></li><li class="menu-item menu-item-jcsprout"><a href="https://crossoverjie.top/JCSprout/#/" rel="section"><i class="fa fa-leaf fa-fw"></i>JCSprout</a></li><li class="menu-item menu-item-cicada"><a href="https://github.com/TogetherOS/cicada" rel="noopener" target="_blank"><i class="fa fa-gears fa-fw"></i>cicada</a></li><li class="menu-item menu-item-cim"><a href="https://github.com/crossoverjie/cim" rel="noopener" target="_blank"><i class="far fa-comment fa-fw"></i>cim</a></li><li class="menu-item menu-item-vlog"><a href="https://space.bilibili.com/42339430" rel="noopener" target="_blank"><i class="fa fa-play fa-fw"></i>vlog</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
 </nav>
 
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%8E%92%E6%9F%A5"><span class="nav-number">2.</span> <span class="nav-text">排查</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Arthas-%E6%8E%92%E6%9F%A5"><span class="nav-number">2.1.</span> <span class="nav-text">Arthas 排查</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9B%B4%E5%A4%9A%E5%A5%BD%E7%94%A8%E6%8A%80%E5%B7%A7"><span class="nav-number">3.</span> <span class="nav-text">更多好用技巧</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%81%AB%E7%84%B0%E5%9B%BE"><span class="nav-number">3.1.</span> <span class="nav-text">火焰图</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8A%A8%E6%80%81%E4%BF%AE%E6%94%B9%E5%86%85%E5%AD%98%E6%95%B0%E6%8D%AE"><span class="nav-number">3.2.</span> <span class="nav-text">动态修改内存数据</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Arthas-Tunnel-amp-Web-Console"><span class="nav-number">3.3.</span> <span class="nav-text">Arthas Tunnel &amp; Web Console</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CPU-%E4%BD%BF%E7%94%A8%E8%BF%87%E5%A4%9A"><span class="nav-number">3.4.</span> <span class="nav-text">CPU 使用过多</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="crossoverJie"
+      src="/uploads/iverson.gif">
+  <p class="site-author-name" itemprop="name">crossoverJie</p>
+  <div class="site-description" itemprop="description">You never know what you can do till you try.</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives">
+          <span class="site-state-item-count">277</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories">
+        <span class="site-state-item-count">95</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags">
+        <span class="site-state-item-count">188</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/crossoverJie" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;crossoverJie" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://juejin.im/user/576d4aaf7db2a20054ea4544" title="掘金 → https:&#x2F;&#x2F;juejin.im&#x2F;user&#x2F;576d4aaf7db2a20054ea4544" rel="noopener" target="_blank">掘金</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/crossoverJie" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;crossoverJie" rel="noopener" target="_blank">Twitter</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="https://cdnjs.cloudflare.com/ajax/libs/creativecommons-vocabulary/2020.11.3/assets/license_badges/small/by_nc_sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll site-overview-item animated">
+    <div class="links-of-blogroll-title"><i class="fa fa-globe fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://wuchong.me/" title="http:&#x2F;&#x2F;wuchong.me" rel="noopener" target="_blank">Jark's Blog</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://tengj.top/" title="http:&#x2F;&#x2F;tengj.top" rel="noopener" target="_blank">嘟嘟独立博客</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://yemengying.com/" title="http:&#x2F;&#x2F;yemengying.com&#x2F;" rel="noopener" target="_blank">Giraffe Home</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.jamespan.me/" title="https:&#x2F;&#x2F;blog.jamespan.me&#x2F;" rel="noopener" target="_blank">潘小鶸(ruò)</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://fangjian0423.github.io/" title="http:&#x2F;&#x2F;fangjian0423.github.io&#x2F;" rel="noopener" target="_blank">Format's Notes</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yuzhouwan.com/" title="https:&#x2F;&#x2F;yuzhouwan.com&#x2F;" rel="noopener" target="_blank">Benedict Jin</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.didispace.com/" title="http:&#x2F;&#x2F;blog.didispace.com&#x2F;" rel="noopener" target="_blank">程序猿DD</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.52itstyle.vip/" title="https:&#x2F;&#x2F;blog.52itstyle.vip&#x2F;" rel="noopener" target="_blank">小柒博客</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://cmsblogs.com/" title="http:&#x2F;&#x2F;cmsblogs.com&#x2F;" rel="noopener" target="_blank">Java技术驿站</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://vim.ink/" title="https:&#x2F;&#x2F;vim.ink&#x2F;" rel="noopener" target="_blank">vim 教程网</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.jitwxs.cn/" title="https:&#x2F;&#x2F;www.jitwxs.cn" rel="noopener" target="_blank">jitwxs</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://www.javaboy.org/" title="http:&#x2F;&#x2F;www.javaboy.org" rel="noopener" target="_blank">江南一点雨</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://www.liangsonghua.me/" title="http:&#x2F;&#x2F;www.liangsonghua.me" rel="noopener" target="_blank">松花皮蛋的黑板报</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.fi-ads.com/" title="https:&#x2F;&#x2F;www.fi-ads.com" rel="noopener" target="_blank">Future iDeal</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://dbarobin.com/" title="https:&#x2F;&#x2F;dbarobin.com&#x2F;" rel="noopener" target="_blank">Cryptospace</a>
+        </li>
+    </ul>
+  </div>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
   
 
-<div id="banner" class="banner" parallax=true
-     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
-  <div class="full-bg-img">
-    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
-      <div class="banner-text text-center fade-in-up">
-        <div class="h2">
-          
-            <span id="subtitle" data-typed-text="一次消息队列异常堆积的排查"></span>
-          
-        </div>
 
-        
-          
-  <div class="mt-3">
-    
-      <span class="post-meta mr-2">
-        <i class="iconfont icon-author" aria-hidden="true"></i>
-        crossoverJie
-      </span>
-    
-    
-      <span class="post-meta">
-        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2024-04-29 15:47" pubdate>
-          April 29, 2024 pm
-        </time>
-      </span>
-    
-  </div>
+<div class="post-block">
+  
+  
 
-  <div class="mt-1">
-    
-      <span class="post-meta mr-2">
-        <i class="iconfont icon-chart"></i>
-        
-          1.6k words
-        
-      </span>
-    
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://crossoverjie.top/2024/04/29/ob/pulsar-slow-consume/">
 
-    
-      <span class="post-meta mr-2">
-        <i class="iconfont icon-clock-fill"></i>
-        
-        
-        
-          14 mins
-        
-      </span>
-    
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/iverson.gif">
+      <meta itemprop="name" content="crossoverJie">
+    </span>
 
-    
-    
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="crossoverJie's Blog">
+      <meta itemprop="description" content="You never know what you can do till you try.">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="一次消息队列异常堆积的排查 | crossoverJie's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          一次消息队列异常堆积的排查
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
       
-        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
-          <i class="iconfont icon-eye" aria-hidden="true"></i>
-          <span id="leancloud-page-views"></span> views
+
+      <time title="Created: 2024-04-29 15:47:10 / Modified: 10:24:24" itemprop="dateCreated datePublished" datetime="2024-04-29T15:47:10+08:00">2024-04-29</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">In</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/OB/" itemprop="url" rel="index"><span itemprop="name">OB</span></a>
         </span>
-        
-      
-      
+    </span>
+
+  
+    <span id="/2024/04/29/ob/pulsar-slow-consume/" class="post-meta-item leancloud_visitors" data-flag-title="一次消息队列异常堆积的排查" title="Views">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+  
+  <span class="post-meta-item">
     
-  </div>
-
-
-        
-      </div>
-
-      
-    </div>
-  </div>
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/2024/04/29/ob/pulsar-slow-consume/#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2024/04/29/ob/pulsar-slow-consume/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
 </div>
 
-</div>
+        </div>
+      </header>
 
-  </header>
-
-  <main>
     
-      
-
-<div class="container-fluid nopadding-x">
-  <div class="row nomargin-x">
-    <div class="side-col d-none d-lg-block col-lg-2">
-      
-
-    </div>
-
-    <div class="col-lg-8 nopadding-x-md">
-      <div class="container nopadding-x-md" id="board-ctn">
-        <div id="board">
-          <article class="post-content mx-auto">
-            <h1 id="seo-header">一次消息队列异常堆积的排查</h1>
-            
-            
-              <div class="markdown-body">
-                
-                <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前两天收到业务反馈有一个 topic 的分区消息堆积了：<br><img src="https://s2.loli.net/2024/03/24/Ckb3MRswVAvjXfn.png" srcset="/img/loading.gif" lazyload><br>根据之前的经验来看，要么是业务消费逻辑出现问题导致消费过慢，当然也有小概率是消息队列的 Bug（我们使用的是 pulsar）。</p>
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>前两天收到业务反馈有一个 topic 的分区消息堆积了：<br><img src="https://s2.loli.net/2024/03/24/Ckb3MRswVAvjXfn.png"><br>根据之前的经验来看，要么是业务消费逻辑出现问题导致消费过慢，当然也有小概率是消息队列的 Bug（我们使用的是 pulsar）。</p>
 <span id="more"></span>
-<h1 id="排查"><a href="#排查" class="headerlink" title="排查"></a>排查</h1><p><img src="https://s2.loli.net/2024/03/24/6TBk2Jo9sWZpRGe.png" srcset="/img/loading.gif" lazyload><br>通过排查，发现确实是在一点多的时候消息堆积了（后面是修复之后堆积开始下降）。</p>
-<p>于是我在刚才堆积处查看了一条堆积消息的列表：<br><img src="https://s2.loli.net/2024/03/24/UeizjIc3brVfnNy.png" srcset="/img/loading.gif" lazyload></p>
+<h1 id="排查"><a href="#排查" class="headerlink" title="排查"></a>排查</h1><p><img src="https://s2.loli.net/2024/03/24/6TBk2Jo9sWZpRGe.png"><br>通过排查，发现确实是在一点多的时候消息堆积了（后面是修复之后堆积开始下降）。</p>
+<p>于是我在刚才堆积处查看了一条堆积消息的列表：<br><img src="https://s2.loli.net/2024/03/24/UeizjIc3brVfnNy.png"></p>
 <p>获取到其中一条消息的 <code>messageId</code>.</p>
 <blockquote>
 <p>这里本质上使用的是 pulsar-admin 的 API。<br><a target="_blank" rel="noopener" href="https://pulsar.apache.org/docs/3.2.x/admin-api-topics/#peek-messages"><code>org.apache.pulsar.client.admin.Topics#peekMessages</code></a></p>
 </blockquote>
-<p><img src="https://s2.loli.net/2024/03/24/IEGwRWphsFf6xk2.png" srcset="/img/loading.gif" lazyload><br>再通过这条消息的 id （为了演示，这里的 messageId 可能不一样）在我们的 pulsar 消息链路系统中找到了消息的发送链路：<br><img src="https://s2.loli.net/2024/03/24/CwQRAWXMu8Hxq5y.png" srcset="/img/loading.gif" lazyload><br>通过这个链路会发现消息一直在推送，但就是没有收到客户端的 ACK 响应。</p>
+<p><img src="https://s2.loli.net/2024/03/24/IEGwRWphsFf6xk2.png"><br>再通过这条消息的 id （为了演示，这里的 messageId 可能不一样）在我们的 pulsar 消息链路系统中找到了消息的发送链路：<br><img src="https://s2.loli.net/2024/03/24/CwQRAWXMu8Hxq5y.png"><br>通过这个链路会发现消息一直在推送，但就是没有收到客户端的 ACK 响应。</p>
 <blockquote>
 <p>相关的消息链路埋点可以参考这里：<a href="https://crossoverjie.top/2023/12/11/ob/Pulsar-Broker-Interceptor/">如何编写一个 Pulsar Broker Interceptor 插件</a></p>
 </blockquote>
@@ -378,54 +401,54 @@
 <p>首先排查了 JVM 内存、CPU 等监控情况，发现一切都挺正常的，这段时间没有明显的尖刺。</p>
 <h2 id="Arthas-排查"><a href="#Arthas-排查" class="headerlink" title="Arthas 排查"></a>Arthas 排查</h2><p>于是便准备使用 arthas 查看下线程的运行情况。</p>
 <p>我们进入到对应 Pod 的容器，执行：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">java -jar arthas-boot.jar<br></code></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">java -jar arthas-boot.jar</span><br></pre></td></tr></table></figure>
 
-<p>因为 JVM 内存都没有啥异常，所以先看看 thread 的运行堆栈，考虑到是 pulsar 消费线程卡住了，所以我们需要加上线程状态已经过滤下线程的名称：<br><img src="https://s2.loli.net/2024/03/24/brPcepjMFKaC9d8.png" srcset="/img/loading.gif" lazyload></p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">thread --state WAITING | grep pulsar<br></code></pre></td></tr></table></figure>
+<p>因为 JVM 内存都没有啥异常，所以先看看 thread 的运行堆栈，考虑到是 pulsar 消费线程卡住了，所以我们需要加上线程状态已经过滤下线程的名称：<br><img src="https://s2.loli.net/2024/03/24/brPcepjMFKaC9d8.png"></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">thread --state WAITING | grep pulsar</span><br></pre></td></tr></table></figure>
 <p>此时就会列出当前 Java 进程中状态为 WATING 并且线程名称以 pulsar 开头的线程。</p>
 <blockquote>
 <p>我在之前的文章 <a href="https://crossoverjie.top/2023/08/03/ob/Pulsar-Client/">从 Pulsar Client 的原理到它的监控面板</a> 中分析过客户端的原理。</p>
 </blockquote>
-<p><img src="https://s2.loli.net/2023/08/02/vweWVR8fkJgrSMI.png" srcset="/img/loading.gif" lazyload alt="20230802224400.png"><br><img src="https://s2.loli.net/2024/03/24/h7KQXueLySHYotW.png" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://s2.loli.net/2023/08/02/vweWVR8fkJgrSMI.png" alt="20230802224400.png"><br><img src="https://s2.loli.net/2024/03/24/h7KQXueLySHYotW.png"></p>
 <p>可以知道 pulsar 客户端在其中使用的是 <code>pulsar-</code>打头的线程名称，所以这样就列出了我们需要重点关注的线程。</p>
 <p>我们以图中列出的线程 Id：320 为例：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">thread 320<br></code></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">thread 320</span><br></pre></td></tr></table></figure>
 
-<p><img src="https://s2.loli.net/2024/03/24/cT1Eylp6aXd5QeZ.png" srcset="/img/loading.gif" lazyload><br>此时便会打印当前线程的堆栈。</p>
+<p><img src="https://s2.loli.net/2024/03/24/cT1Eylp6aXd5QeZ.png"><br>此时便会打印当前线程的堆栈。</p>
 <p>从上述堆栈中会发现线程一直处于 IO 操作中，看起来是在操作数据库。</p>
-<p>我们再往下翻一翻，会发现上层调用的业务代码：<br><img src="https://s2.loli.net/2024/03/24/BhFGeJ7X6DLbC1s.png" srcset="/img/loading.gif" lazyload><br>查阅代码得知这是一个数据库的写入操作，看起来是在这个环节数据库响应过慢导致的 pulsar 线程被阻塞了；从而导致消息没有及时 ACK。</p>
-<p>为了最终确认是否由数据库引起的，于是继续查询了当前应用的慢 SQL 情况：<br><img src="https://s2.loli.net/2024/03/24/vcYDGapUVms82Jl.png" srcset="/img/loading.gif" lazyload></p>
+<p>我们再往下翻一翻，会发现上层调用的业务代码：<br><img src="https://s2.loli.net/2024/03/24/BhFGeJ7X6DLbC1s.png"><br>查阅代码得知这是一个数据库的写入操作，看起来是在这个环节数据库响应过慢导致的 pulsar 线程被阻塞了；从而导致消息没有及时 ACK。</p>
+<p>为了最终确认是否由数据库引起的，于是继续查询了当前应用的慢 SQL 情况：<br><img src="https://s2.loli.net/2024/03/24/vcYDGapUVms82Jl.png"></p>
 <p>发现其中有一个查询语句调用频次和平均耗时都比较高，而且正好这个表也是刚才在堆栈里操作的那张表。</p>
 <p>经过业务排查发现这个慢 SQL 是由一个定时任务触发的，而这个定时任务由于某些原因一直也没有停止，所以为了快速解决这个问题，我们先尝试将这个定时任务停掉。</p>
-<p>果然停掉没多久后消息就开始快速消费了：<br><img src="https://s2.loli.net/2024/03/24/wlDtCeBZL6IjkRM.png" srcset="/img/loading.gif" lazyload><br>从这个时间线也可以看得出来了，在服务端推送了多次之后终于收到了 ACK。</p>
+<p>果然停掉没多久后消息就开始快速消费了：<br><img src="https://s2.loli.net/2024/03/24/wlDtCeBZL6IjkRM.png"><br>从这个时间线也可以看得出来了，在服务端推送了多次之后终于收到了 ACK。</p>
 <p>修复之后业务再去排查优化这个慢 SQL，这样这个问题就得到根本的解决了。</p>
 <h1 id="更多好用技巧"><a href="#更多好用技巧" class="headerlink" title="更多好用技巧"></a>更多好用技巧</h1><p>当然 arthas 好用的功能还远不止此，我觉得还有以下功能比较好用：</p>
-<h2 id="火焰图"><a href="#火焰图" class="headerlink" title="火焰图"></a>火焰图</h2><p>profile：可以输出火焰图，在做性能分析的时候非常有用。<br><img src="https://s2.loli.net/2024/03/24/2qsjgQMCRhtxNdm.png" srcset="/img/loading.gif" lazyload></p>
+<h2 id="火焰图"><a href="#火焰图" class="headerlink" title="火焰图"></a>火焰图</h2><p>profile：可以输出火焰图，在做性能分析的时候非常有用。<br><img src="https://s2.loli.net/2024/03/24/2qsjgQMCRhtxNdm.png"></p>
 <h2 id="动态修改内存数据"><a href="#动态修改内存数据" class="headerlink" title="动态修改内存数据"></a>动态修改内存数据</h2><p>还记得之前我们碰到过一个 pulsar <a href="https://crossoverjie.top/2024/01/09/ob/Pulsar-Delete-Topic/">删除 topic 的 Bug</a>，虽然最终修复了问题，但是在发布修复版本的时候为了避免再次触发老版本的 bug，需要在内存中将某个关键字段的值修改掉。</p>
 <p>而且是不能重启应用的情况下修改，此时使用 arthas 就非常的方便：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">curl -O https://arthas.aliyun.com/arthas-boot.jar &amp;&amp; java -jar arthas-boot.jar 1 -c &quot;vmtool -x 3 --action getInstances --className org.apache.pulsar.broker.ServiceConfiguration  --express &#x27;instances[0].setTopicLevelPoliciesEnabled(false)&#x27;&quot;<br></code></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -O https://arthas.aliyun.com/arthas-boot.jar &amp;&amp; java -jar arthas-boot.jar 1 -c &quot;vmtool -x 3 --action getInstances --className org.apache.pulsar.broker.ServiceConfiguration  --express &#x27;instances[0].setTopicLevelPoliciesEnabled(false)&#x27;&quot;</span><br></pre></td></tr></table></figure>
 <p>这里使用的是 <code>vmtool</code> 这个子命令来获取对象，最终再使用 <code>express</code> 表达式将其中的值改为了 false。</p>
 <p>当然这是一个高危操作，不到万不得已不推荐这么使用。</p>
-<h2 id="Arthas-Tunnel-amp-Web-Console"><a href="#Arthas-Tunnel-amp-Web-Console" class="headerlink" title="Arthas Tunnel &amp; Web Console"></a>Arthas Tunnel &amp; Web Console</h2><p>这是一个方便开发者通过网页就可以连接到 arthas 的功能，避免直接登录到服务器进行操作。<br><img src="https://s2.loli.net/2024/03/24/d38vNUbylAhSKxP.png" srcset="/img/loading.gif" lazyload><br><img src="https://s2.loli.net/2024/03/24/w8RomB4UVOyErvf.png" srcset="/img/loading.gif" lazyload></p>
+<h2 id="Arthas-Tunnel-amp-Web-Console"><a href="#Arthas-Tunnel-amp-Web-Console" class="headerlink" title="Arthas Tunnel &amp; Web Console"></a>Arthas Tunnel &amp; Web Console</h2><p>这是一个方便开发者通过网页就可以连接到 arthas 的功能，避免直接登录到服务器进行操作。<br><img src="https://s2.loli.net/2024/03/24/d38vNUbylAhSKxP.png"><br><img src="https://s2.loli.net/2024/03/24/w8RomB4UVOyErvf.png"></p>
 <p>我们在研效普通也内置了该功能，让开发排查问题更加方便。</p>
 <h2 id="CPU-使用过多"><a href="#CPU-使用过多" class="headerlink" title="CPU 使用过多"></a>CPU 使用过多</h2><p>cpu 异常使用排查也是一个非常有用的功能，虽然我们可以通过监控得知 JVM 的 cpu 使用情况，但是没法知道具体是哪个线程以及哪行代码造成的 cpu 过高。</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">thread -n 3<br></code></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">thread -n 3</span><br></pre></td></tr></table></figure>
 
-<p><img src="https://s2.loli.net/2024/03/24/SGTLjp8uBOHtJea.png" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://s2.loli.net/2024/03/24/SGTLjp8uBOHtJea.png"></p>
 <p>使用以上命令就可以将 cpu 排名前三的线程打印出来，并且列出他的堆栈情况，这样可以很直观的得知 cpu 消耗了在哪些地方了。</p>
 <p>当然还有一些 trace 查询：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">trace demo.MathGame run &#x27;#cost &gt; 10&#x27;<br></code></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">trace demo.MathGame run &#x27;#cost &gt; 10&#x27;</span><br></pre></td></tr></table></figure>
 <p>比如这是将调用超过 10ms 的函数打印出来，不过如果我们接入了可观测系统（OpenTelemetry、skywalking等）这个功能就用不太上了。</p>
 <hr>
 <p> 还可以在运行的时候不停机修改日志级别，这种在线上排查一些疑难杂症的时候非常好用（通常情况下 debug 日志是不打印的），我们可以将日志级别调整为 debug 打印出更加详细的信息：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs shell"><span class="hljs-meta prompt_">[arthas@2062]$ </span><span class="language-bash">logger --name ROOT --level debug</span><br>update logger level success.<br></code></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">[arthas@2062]$ </span><span class="language-bash">logger --name ROOT --level debug</span></span><br><span class="line">update logger level success.</span><br></pre></td></tr></table></figure>
 
 <hr>
 <p>如果是在 kubernetes 环境中执行也有可能碰到 Java 进程启动后没有在磁盘中写入 PID 的情况：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs shell"><span class="hljs-meta prompt_">$ </span><span class="language-bash">java -jar arthas-boot.jar</span>  <br>[INFO] arthas-boot version: 3.6.7  <br>[INFO] Can not find java process. Try to pass &lt;pid&gt; in command line.  <br>Please select an available pid.<br></code></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">java -jar arthas-boot.jar</span>  </span><br><span class="line">[INFO] arthas-boot version: 3.6.7  </span><br><span class="line">[INFO] Can not find java process. Try to pass &lt;pid&gt; in command line.  </span><br><span class="line">Please select an available pid.</span><br></pre></td></tr></table></figure>
 
 <p>导致直接运行的时候无法找到 Java 进程；此时就需要先 ps 拿到 PID 之后再传入 PID 连入 arthas：</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell"><span class="hljs-meta prompt_">$ </span><span class="language-bash">java -jar arthas-boot.jar 1</span><br></code></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">java -jar arthas-boot.jar 1</span></span><br></pre></td></tr></table></figure>
 
 <p>更多关于 arthas 的用法可以参考官网。</p>
 <p>参考链接：</p>
@@ -436,427 +459,160 @@
 <li><a href="https://crossoverjie.top/2024/01/09/ob/Pulsar-Delete-Topic/">https://crossoverjie.top/2024/01/09/ob/Pulsar-Delete-Topic/</a></li>
 </ul>
 
-                
-              </div>
-            
-            <hr/>
-            <div>
-              <div class="post-metas my-3">
-  
-    <div class="post-meta mr-3 d-flex align-items-center">
-      <i class="iconfont icon-category"></i>
-      
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/OB/" class="category-chain-item">OB</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
     </div>
-  
-  
-    <div class="post-meta">
-      <i class="iconfont icon-tags"></i>
+
+    
+    
+    
       
-        <a href="/tags/Pulsar/" class="print-no-link">#Pulsar</a>
-      
-    </div>
-  
+
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>Buy me a coffee</div>
+  <button>
+    Donate
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/weixin-reward-image.jpg" alt="crossoverJie WeChat Pay">
+        <span>WeChat Pay</span>
+      </div>
+      <div>
+        <img src="/alipay-reward-image.jpg" alt="crossoverJie Alipay">
+        <span>Alipay</span>
+      </div>
+
+  </div>
 </div>
 
+          
 
-              
-  
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>Post author:  </strong>crossoverJie
+  </li>
+  <li class="post-copyright-link">
+      <strong>Post link: </strong>
+      <a href="http://crossoverjie.top/2024/04/29/ob/pulsar-slow-consume/" title="一次消息队列异常堆积的排查">http://crossoverjie.top/2024/04/29/ob/pulsar-slow-consume/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> unless stating additionally.
+  </li>
+</ul>
+</div>
 
-  <div class="license-box my-3">
-    <div class="license-title">
-      <div>一次消息队列异常堆积的排查</div>
-      <div>http://crossoverjie.top/2024/04/29/ob/pulsar-slow-consume/</div>
-    </div>
-    <div class="license-meta">
-      
-        <div class="license-meta-item">
-          <div>Author</div>
-          <div>crossoverJie</div>
-        </div>
-      
-      
-        <div class="license-meta-item license-meta-date">
-          <div>Posted on</div>
-          <div>April 29, 2024</div>
-        </div>
-      
-      
-      
-        <div class="license-meta-item">
-          <div>Licensed under</div>
-          <div>
-            
-              
-              
-                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
-                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
-                    <i class="iconfont icon-cc-by"></i>
-                  </span>
-                </a>
-              
-            
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+        <a target="_blank" class="social-link" href="/atom.xml">
+          <span class="icon">
+            <i class="fa fa-rss"></i>
+          </span>
+
+          <span class="label">RSS</span>
+        </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Pulsar/" rel="tag"><i class="fa fa-tag"></i> Pulsar</a>
           </div>
-        </div>
-      
-    </div>
-    <div class="license-icon iconfont"></div>
-  </div>
 
+        
 
-
-              
-                <div class="post-prevnext my-3">
-                  <article class="post-prev col-6">
-                    
-                    
-                      <a href="/2024/05/05/ob/operator-e2e-test/" title="如何对 kubernetes 应用做 e2e(端到端) 测试">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">如何对 kubernetes 应用做 e2e(端到端) 测试</span>
-                        <span class="visible-mobile">Previous</span>
-                      </a>
-                    
-                  </article>
-                  <article class="post-next col-6">
-                    
-                    
-                      <a href="/2024/04/21/ob/k8s-log-collect/" title="在 kubernetes 环境下如何采集日志">
-                        <span class="hidden-mobile">在 kubernetes 环境下如何采集日志</span>
-                        <span class="visible-mobile">Next</span>
-                        <i class="iconfont icon-arrowright"></i>
-                      </a>
-                    
-                  </article>
-                </div>
-              
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/04/21/ob/k8s-log-collect/" rel="prev" title="在 kubernetes 环境下如何采集日志">
+                  <i class="fa fa-chevron-left"></i> 在 kubernetes 环境下如何采集日志
+                </a>
             </div>
-
-            
-  
-  
-    <article id="comments" lazyload>
-      
-  <div class="disqus" style="width:100%">
-    <div id="disqus_thread"></div>
-    
-      <script type="text/javascript">
-        var disqus_config = function() {
-          this.page.url = 'http://crossoverjie.top/2024/04/29/ob/pulsar-slow-consume/';
-          this.page.identifier = '/2024/04/29/ob/pulsar-slow-consume/';
-        };
-        Fluid.utils.loadComments('#disqus_thread', function() {
-          var d = document, s = d.createElement('script');
-          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
-          s.setAttribute('data-timestamp', new Date());
-          (d.head || d.body).appendChild(s);
-        });
-      </script>
-    
-    <noscript>Please enable JavaScript to view the comments</noscript>
-  </div>
-
-
-    </article>
-  
-
-
-          </article>
-        </div>
-      </div>
-    </div>
-
-    <div class="side-col d-none d-lg-block col-lg-2">
-      
-  <aside class="sidebar" style="margin-left: -1rem">
-    <div id="toc">
-  <p class="toc-header">
-    <i class="iconfont icon-list"></i>
-    <span>Table of Contents</span>
-  </p>
-  <div class="toc-body" id="toc-body"></div>
-</div>
-
-
-
-  </aside>
-
-
-    </div>
-  </div>
+            <div class="post-nav-item">
+                <a href="/2024/05/05/ob/operator-e2e-test/" rel="next" title="如何对 kubernetes 应用做 e2e(端到端) 测试">
+                  如何对 kubernetes 应用做 e2e(端到端) 测试 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
 </div>
 
 
 
 
 
-  
-
-
-
-  
-
-
-
-  
-
-
-
-  
-
-
-
-  
-
-
-
-
-
-
 
     
-
-    
-      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
-        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
-      </a>
-    
-
-    
-      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
-     aria-hidden="true">
-  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
-    <div class="modal-content">
-      <div class="modal-header text-center">
-        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
-        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body mx-3">
-        <div class="md-form mb-5">
-          <input type="text" id="local-search-input" class="form-control validate">
-          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
-        </div>
-        <div class="list-group" id="local-search-result"></div>
-      </div>
-    </div>
+  <div class="comments" id="disqus_thread">
+    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
   </div>
+  
 </div>
-
-    
-
-    
   </main>
 
-  <footer>
+  <footer class="footer">
     <div class="footer-inner">
-  
-    <div class="footer-content">
-       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">crossoverJie</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
     </div>
-  
-  
-    <div class="statistics">
-  
-  
-
-  
-    
-      <span id="leancloud-site-pv-container" style="display: none">
-        总访问量 
-        <span id="leancloud-site-pv"></span>
-         次
-      </span>
-    
-    
-      <span id="leancloud-site-uv-container" style="display: none">
-        总访客数 
-        <span id="leancloud-site-uv"></span>
-         人
-      </span>
-    
-    
-
-  
-
-</div>
-
-  
-  
-</div>
-
   </footer>
 
-  <!-- Scripts -->
   
-  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
-  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
 
-  <script>
-    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
-    NProgress.start()
-    window.addEventListener('load', function() {
-      NProgress.done();
-    })
-  </script>
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.0/search.js" integrity="sha256-vXZMYLEqsROAXkEw93GGIvaB2ab+QW6w3+1ahD9nXXA=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
 
-
-<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
-<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
-<script  src="/js/events.js" ></script>
-<script  src="/js/plugins.js" ></script>
-
-
-  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
-  <script>
-    (function (window, document) {
-      var typing = Fluid.plugins.typing;
-      var subtitle = document.getElementById('subtitle');
-      if (!subtitle || !typing) {
-        return;
-      }
-      var text = subtitle.getAttribute('data-typed-text');
-      
-        typing(text);
-      
-    })(window, document);
-  </script>
 
 
 
 
   
-    <script  src="/js/img-lazyload.js" ></script>
-  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
 
 
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
 
 
-  
-<script>
-  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
-    var toc = jQuery('#toc');
-    if (toc.length === 0 || !window.tocbot) { return; }
-    var boardCtn = jQuery('#board-ctn');
-    var boardTop = boardCtn.offset().top;
+<script class="next-config" data-name="disqus" type="application/json">{"enable":true,"shortname":"crossoverjie","count":true,"i18n":{"disqus":"disqus"}}</script>
+<script src="/js/third-party/comments/disqus.js"></script>
 
-    window.tocbot.init(Object.assign({
-      tocSelector     : '#toc-body',
-      contentSelector : '.markdown-body',
-      linkClass       : 'tocbot-link',
-      activeLinkClass : 'tocbot-active-link',
-      listClass       : 'tocbot-list',
-      isCollapsedClass: 'tocbot-is-collapsed',
-      collapsibleClass: 'tocbot-is-collapsible',
-      scrollSmooth    : true,
-      includeTitleTags: true,
-      headingsOffset  : -boardTop,
-    }, CONFIG.toc));
-    if (toc.find('.toc-list-item').length > 0) {
-      toc.css('visibility', 'visible');
-    }
-
-    Fluid.events.registerRefreshCallback(function() {
-      if ('tocbot' in window) {
-        tocbot.refresh();
-        var toc = jQuery('#toc');
-        if (toc.length === 0 || !tocbot) {
-          return;
-        }
-        if (toc.find('.toc-list-item').length > 0) {
-          toc.css('visibility', 'visible');
-        }
-      }
-    });
-  });
-</script>
-
-
-  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
-
-  <script>Fluid.plugins.codeWidget();</script>
-
-
-  
-<script>
-  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
-    window.anchors.options = {
-      placement: CONFIG.anchorjs.placement,
-      visible  : CONFIG.anchorjs.visible
-    };
-    if (CONFIG.anchorjs.icon) {
-      window.anchors.options.icon = CONFIG.anchorjs.icon;
-    }
-    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
-    var res = [];
-    for (var item of el) {
-      res.push('.markdown-body > ' + item.trim());
-    }
-    if (CONFIG.anchorjs.placement === 'left') {
-      window.anchors.options.class = 'anchorjs-link-left';
-    }
-    window.anchors.add(res.join(', '));
-
-    Fluid.events.registerRefreshCallback(function() {
-      if ('anchors' in window) {
-        anchors.removeAll();
-        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
-        var res = [];
-        for (var item of el) {
-          res.push('.markdown-body > ' + item.trim());
-        }
-        if (CONFIG.anchorjs.placement === 'left') {
-          anchors.options.class = 'anchorjs-link-left';
-        }
-        anchors.add(res.join(', '));
-      }
-    });
-  });
-</script>
-
-
-  
-<script>
-  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
-    Fluid.plugins.fancyBox();
-  });
-</script>
-
-
-  <script>Fluid.plugins.imageCaption();</script>
-
-  <script  src="/js/local-search.js" ></script>
-
-  <script defer src="/js/leancloud.js" ></script>
-
-
-
-
-
-<!-- 主题的启动项，将它保持在最底部 -->
-<!-- the boot of the theme, keep it at the bottom -->
-<script  src="/js/boot.js" ></script>
-
-
-  
-
-  <noscript>
-    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
-  </noscript>
 </body>
 </html>
