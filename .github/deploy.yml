@@ -1,0 +1,43 @@
+name: Deploy
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Branch
+        uses: actions/checkout@v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v1
+        with:
+          node-version: "14.x"
+
+      - name: Install NodeModules
+        run: |
+          rm -f .yarnclean yarn.lock
+          yarn --non-interactive --silent
+          yarn list --depth=0
+
+      - name: Install Pandoc
+        run: sudo apt-get install -y pandoc
+
+      - name: Hexo Generate
+        run: |
+          rm -rf ./public
+          yarn run hexo clean
+          yarn run hexo generate
+
+      - name: Deploy to external repo gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          personal_token: ${{ secrets.GH_TOKEN }}
+          external_repository: crossoverJie/crossoverJie.github.io
+          publish_branch: master
+          publish_dir: ./public
+          commit_message: "chore: deploy from ${{ github.repository }}@${{ github.sha }}"
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"
