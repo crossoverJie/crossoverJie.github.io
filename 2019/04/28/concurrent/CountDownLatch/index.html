@@ -1,0 +1,887 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言在面试过程中聊到并发相关的内容时，不少面试官都喜欢问这类问题：  当 N 个线程同时完成某项任务时，如何知道他们都已经执行完毕了。  这也是本次讨论的话题之一，所以本篇为『并发包入坑指北』的第二篇；来聊聊常见的并发工具。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="『并发包入坑指北』之向大佬汇报任务">
+<meta property="og:url" content="http://crossoverjie.top/2019/04/28/concurrent/CountDownLatch/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言在面试过程中聊到并发相关的内容时，不少面试官都喜欢问这类问题：  当 N 个线程同时完成某项任务时，如何知道他们都已经执行完毕了。  这也是本次讨论的话题之一，所以本篇为『并发包入坑指北』的第二篇；来聊聊常见的并发工具。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/04/28/5cc5660ef23f4.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/04/28/5cc58f10f1f2e.png">
+<meta property="og:image" content="https://i.loli.net/2019/04/28/5cc5b7d4a3543.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/04/28/5cc5b961066e3.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/04/28/5cc5b9f111d92.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/04/28/5cc5c2b5e0cc8.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/04/28/5cc5ccff8cd90.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/04/29/5cc5cede72d06.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/04/29/5cc5d0253614a.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/04/29/5cc5d04480d58.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/04/29/5cc5d34d2d1c0.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/04/29/5cc5d3d9cd0fe.jpg">
+<meta property="article:published_time" content="2019-04-28T08:20:00.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.265Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="concurrent">
+<meta property="article:tag" content="CountDownLatch">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2019/04/28/5cc5660ef23f4.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>『并发包入坑指北』之向大佬汇报任务 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="『并发包入坑指北』之向大佬汇报任务"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2019-04-28 08:20" pubdate>
+          April 28, 2019 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.7k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          14 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">『并发包入坑指北』之向大佬汇报任务</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2019/04/28/5cc5660ef23f4.jpg" srcset="/img/loading.gif" lazyload></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>在面试过程中聊到并发相关的内容时，不少面试官都喜欢问这类问题：</p>
+<blockquote>
+<p>当 N 个线程同时完成某项任务时，如何知道他们都已经执行完毕了。</p>
+</blockquote>
+<p>这也是本次讨论的话题之一，所以本篇为『并发包入坑指北』的第二篇；来聊聊常见的并发工具。</p>
+<span id="more"></span>
+
+<h1 id="自己实现"><a href="#自己实现" class="headerlink" title="自己实现"></a>自己实现</h1><p>其实这类问题的核心论点都是：如何在一个线程中得知其他线程是否执行完毕。</p>
+<p>假设现在有 3 个线程在运行，需要在主线程中得知他们的运行结果；可以分为以下几步：</p>
+<ul>
+<li>定义一个计数器为 3。</li>
+<li>每个线程完成任务后计数减一。</li>
+<li>一旦计数器减为 0 则通知等待的线程。</li>
+</ul>
+<p>所以也很容易想到可以利用等待通知机制来实现，和上文的<a href="https://crossoverjie.top/2019/04/09/concurrent/ArrayBlockingQueue/">『并发包入坑指北』之阻塞队列</a>的类似。</p>
+<p>按照这个思路自定义了一个 <code>MultipleThreadCountDownKit</code> 工具，构造函数如下：</p>
+<p><img src="https://i.loli.net/2019/04/28/5cc58f10f1f2e.png" srcset="/img/loading.gif" lazyload></p>
+<p>考虑到并发的前提，这个计数器自然需要保证线程安全，所以采用了 <code>AtomicInteger</code>。</p>
+<p>所以在初始化时需要根据线程数量来构建对象。</p>
+<h2 id="计数器减一"><a href="#计数器减一" class="headerlink" title="计数器减一"></a>计数器减一</h2><p>当其中一个业务线程完成后需要将这个计数器减一，直到减为0为止。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * 线程完成后计数 -1</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">countDown</span><span class="hljs-params">()</span>&#123;<br><br>    <span class="hljs-keyword">if</span> (counter.get() &lt;= <span class="hljs-number">0</span>)&#123;<br>        <span class="hljs-keyword">return</span>;<br>    &#125;<br><br>    <span class="hljs-type">int</span> <span class="hljs-variable">count</span> <span class="hljs-operator">=</span> <span class="hljs-built_in">this</span>.counter.decrementAndGet();<br>    <span class="hljs-keyword">if</span> (count &lt; <span class="hljs-number">0</span>)&#123;<br>        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">RuntimeException</span>(<span class="hljs-string">&quot;concurrent error&quot;</span>) ;<br>    &#125;<br><br>    <span class="hljs-keyword">if</span> (count == <span class="hljs-number">0</span>)&#123;<br>        <span class="hljs-keyword">synchronized</span> (notify)&#123;<br>            notify.notify();<br>        &#125;<br>    &#125;<br><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>利用 <code>counter.decrementAndGet()</code> 来保证多线程的原子性，当减为 0 时则利用等待通知机制来 <code>notify</code> 其他线程。</p>
+<h2 id="等待所有线程完成"><a href="#等待所有线程完成" class="headerlink" title="等待所有线程完成"></a>等待所有线程完成</h2><p>而需要知道业务线程执行完毕的其他线程则需要在未完成之前一直处于等待状态，直到上文提到的在计数器变为 0 时得到通知。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * 等待所有的线程完成</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@throws</span> InterruptedException</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">await</span><span class="hljs-params">()</span> <span class="hljs-keyword">throws</span> InterruptedException &#123;<br>    <span class="hljs-keyword">synchronized</span> (notify)&#123;<br>        <span class="hljs-keyword">while</span> (counter.get() &gt; <span class="hljs-number">0</span>)&#123;<br>            notify.wait();<br>        &#125;<br><br>        <span class="hljs-keyword">if</span> (notifyListen != <span class="hljs-literal">null</span>)&#123;<br>            notifyListen.notifyListen();<br>        &#125;<br><br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>原理也很简单，一旦计数器还存在时则会利用 <code>notify</code> 对象进行等待，直到被业务线程唤醒。</p>
+<p>同时这里新增了一个通知接口可以自定义实现唤醒后的一些业务逻辑，后文会做演示。</p>
+<h2 id="并发测试"><a href="#并发测试" class="headerlink" title="并发测试"></a>并发测试</h2><p>主要就是这两个函数，下面来做一个演示。</p>
+<p><img src="https://i.loli.net/2019/04/28/5cc5b7d4a3543.jpg" srcset="/img/loading.gif" lazyload></p>
+<ul>
+<li>初始化了三个计数器的并发工具 <code>MultipleThreadCountDownKit</code></li>
+<li>创建了三个线程分别执行业务逻辑，完毕后执行 <code>countDown()</code>。</li>
+<li>线程 3 休眠了 2s 用于模拟业务耗时。</li>
+<li>主线程执行 <code>await()</code> 等待他们三个线程执行完毕。</li>
+</ul>
+<p><img src="https://i.loli.net/2019/04/28/5cc5b961066e3.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>通过执行结果可以看出主线程会等待最后一个线程完成后才会退出；从而达到了主线程等待其余线程的效果。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">MultipleThreadCountDownKit</span> <span class="hljs-variable">multipleThreadKit</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">MultipleThreadCountDownKit</span>(<span class="hljs-number">3</span>);<br>multipleThreadKit.setNotify(() -&gt; LOGGER.info(<span class="hljs-string">&quot;三个线程完成了任务&quot;</span>));<br></code></pre></td></tr></table></figure>
+
+<p>也可以在初始化的时候指定一个回调接口，用于接收业务线程执行完毕后的通知。</p>
+<p><img src="https://i.loli.net/2019/04/28/5cc5b9f111d92.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>当然和在主线程中执行这段逻辑效果是一样的（和执行 <code>await()</code> 方法处于同一个线程）。</p>
+<h1 id="CountDownLatch"><a href="#CountDownLatch" class="headerlink" title="CountDownLatch"></a>CountDownLatch</h1><p>当然我们自己实现的代码没有经过大量生产环境的验证，所以主要的目的还是尝试窥探官方的实现原理。</p>
+<p>所以我们现在来看看 <code>juc</code> 下的 <code>CountDownLatch</code> 是如何实现的。</p>
+<p><img src="https://i.loli.net/2019/04/28/5cc5c2b5e0cc8.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>通过构造函数会发现有一个 内部类 <code>Sync</code>，他是继承于 <code>AbstractQueuedSynchronizer</code> ；这是 Java 并发包中的基础框架，都可以单独拿来讲了，所以这次重点不是它，今后我们再着重介绍。</p>
+<blockquote>
+<p>这里就可以把他简单理解为提供了和上文类似的一个计数器及线程通知工具就行了。</p>
+</blockquote>
+<h2 id="countDown"><a href="#countDown" class="headerlink" title="countDown"></a>countDown</h2><p>其实他的核心逻辑和我们自己实现的区别不大。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">countDown</span><span class="hljs-params">()</span> &#123;<br>    sync.releaseShared(<span class="hljs-number">1</span>);<br>&#125;<br><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">releaseShared</span><span class="hljs-params">(<span class="hljs-type">int</span> arg)</span> &#123;<br>    <span class="hljs-keyword">if</span> (tryReleaseShared(arg)) &#123;<br>        doReleaseShared();<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>利用这个内部类的 <code>releaseShared</code> 方法，我们可以理解为他想要将计数器减一。</p>
+<p><img src="https://i.loli.net/2019/04/28/5cc5ccff8cd90.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>看到这里有没有似曾相识的感觉。</p>
+<p><img src="https://i.loli.net/2019/04/29/5cc5cede72d06.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>没错，在 <code>JDK1.7</code> 中的 <code>AtomicInteger</code> 自减就是这样实现的（利用 CAS 保证了线程安全）。</p>
+<p>只是一旦计数器减为 0 时则会执行 <code>doReleaseShared</code> 唤醒其他的线程。</p>
+<p><img src="https://i.loli.net/2019/04/29/5cc5d0253614a.jpg" srcset="/img/loading.gif" lazyload><br><img src="https://i.loli.net/2019/04/29/5cc5d04480d58.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>这里我们只需要关心红框部分（其他的暂时不用关心，这里涉及到了 AQS 中的队列相关），最终会调用 <code>LockSupport.unpark</code> 来唤醒线程；就相当于上文调用 <code>object.notify()</code>。</p>
+<p>所以其实本质上还是相同的。</p>
+<h2 id="await"><a href="#await" class="headerlink" title="await"></a>await</h2><p>其中的 <code>await()</code> 也是借用 <code>Sync</code> 对象的方法实现的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">await</span><span class="hljs-params">()</span> <span class="hljs-keyword">throws</span> InterruptedException &#123;<br>    sync.acquireSharedInterruptibly(<span class="hljs-number">1</span>);<br>&#125;<br><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">acquireSharedInterruptibly</span><span class="hljs-params">(<span class="hljs-type">int</span> arg)</span><br>        <span class="hljs-keyword">throws</span> InterruptedException &#123;<br>    <span class="hljs-keyword">if</span> (Thread.interrupted())<br>        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">InterruptedException</span>();<br>    <span class="hljs-comment">//判断计数器是否还未完成    </span><br>    <span class="hljs-keyword">if</span> (tryAcquireShared(arg) &lt; <span class="hljs-number">0</span>)<br>        doAcquireSharedInterruptibly(arg);<br>&#125;<br><br><span class="hljs-keyword">protected</span> <span class="hljs-type">int</span> <span class="hljs-title function_">tryAcquireShared</span><span class="hljs-params">(<span class="hljs-type">int</span> acquires)</span> &#123;<br>    <span class="hljs-keyword">return</span> (getState() == <span class="hljs-number">0</span>) ? <span class="hljs-number">1</span> : -<span class="hljs-number">1</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>一旦还存在未完成的线程时，则会调用 <code>doAcquireSharedInterruptibly</code> 进入阻塞状态。</p>
+<p><img src="https://i.loli.net/2019/04/29/5cc5d34d2d1c0.jpg" srcset="/img/loading.gif" lazyload></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">parkAndCheckInterrupt</span><span class="hljs-params">()</span> &#123;<br>    LockSupport.park(<span class="hljs-built_in">this</span>);<br>    <span class="hljs-keyword">return</span> Thread.interrupted();<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>同样的由于这也是 <code>AQS</code> 中的方法，我们只需要关心红框部分；其实最终就是调用了 <code>LockSupport.park</code> 方法，也就相当于执行了 <code>object.wait()</code> 。</p>
+<ul>
+<li>所有的业务线程执行完毕后会在计数器减为 0 时调用 <code>LockSupport.unpark</code> 来唤醒线程。</li>
+<li>等待线程一旦计数器 &gt; 0 时则会利用 <code>LockSupport.park</code> 来等待唤醒。</li>
+</ul>
+<p>这样整个流程也就串起来了，它的使用方法也和上文的类似。</p>
+<p><img src="https://i.loli.net/2019/04/29/5cc5d3d9cd0fe.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>就不做过多介绍了。</p>
+<h1 id="实际案例"><a href="#实际案例" class="headerlink" title="实际案例"></a>实际案例</h1><p>同样的来看一个实际案例。</p>
+<p>在上一篇<a href="https://crossoverjie.top/2019/04/16/framework-design/sharding-db/">《一次分表踩坑实践的探讨》</a>提到了对于全表扫描的情况下，需要利用多线程来提高查询效率。</p>
+<p>比如我们这里分为了 64 张表，计划利用 8 个线程来分别处理这些表的数据，伪代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">CountDownLatch</span> <span class="hljs-variable">count</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">CountDownLatch</span>(<span class="hljs-number">64</span>);<br><span class="hljs-type">ConcurrentHashMap</span> <span class="hljs-variable">total</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">ConcurrentHashMap</span>();<br><span class="hljs-keyword">for</span>(Integer i=<span class="hljs-number">0</span>;i&lt;=<span class="hljs-number">63</span>;i++)&#123;<br>	executor.execute(<span class="hljs-keyword">new</span> <span class="hljs-title class_">Runnable</span>()&#123;<br>		<span class="hljs-meta">@Override</span><br>		<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">run</span><span class="hljs-params">()</span>&#123;<br>			<span class="hljs-type">List</span> <span class="hljs-variable">value</span> <span class="hljs-operator">=</span> queryTable(i);<br>			total.put(value,NULL);<br>			count.countDown();<br>		&#125;<br>	&#125;) ;<br>	<br>&#125;<br><br>count.await();<br>System.out.println(<span class="hljs-string">&quot;查询完毕&quot;</span>);<br></code></pre></td></tr></table></figure>
+
+<p>这样就可以实现所有数据都查询完毕后再做统一汇总；代码挺简单，也好理解（当然也可以使用线程池的 API）。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>CountDownLatch</code> 算是 <code>juc</code> 中一个高频使用的工具，学会和理解他的使用会帮助我们更容易编写并发应用。</p>
+<p>文中涉及到的源码：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/concurrent/communication/MultipleThreadCountDownKit.java">https://github.com/crossoverJie/JCSprout/blob/master/src/main/java/com/crossoverjie/concurrent/communication/MultipleThreadCountDownKit.java</a></p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/%E5%B9%B6%E5%8F%91/" class="category-chain-item">并发</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/concurrent/" class="print-no-link">#concurrent</a>
+      
+        <a href="/tags/CountDownLatch/" class="print-no-link">#CountDownLatch</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>『并发包入坑指北』之向大佬汇报任务</div>
+      <div>http://crossoverjie.top/2019/04/28/concurrent/CountDownLatch/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>April 28, 2019</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2019/05/08/tools/blog-toolbox/" title="图床失效了？也许你应该试试这个工具">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">图床失效了？也许你应该试试这个工具</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2019/04/21/vlog/Basketball%20Day%20one/" title="VLOG-008:Basketball Day One">
+                        <span class="hidden-mobile">VLOG-008:Basketball Day One</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2019/04/28/concurrent/CountDownLatch/';
+          this.page.identifier = '/2019/04/28/concurrent/CountDownLatch/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

@@ -1,0 +1,880 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言之前不少人问我“能否分享一些分库分表相关的实践”，其实不是我不分享，而是真的经验不多🤣；和大部分人一样都是停留在理论阶段。 不过这次多少有些可以说道了。 先谈谈背景，我们生产数据库随着业务发展量也逐渐起来；好几张单表已经突破亿级数据，并且保持每天 200+W 的数据量增加。 而我们有些业务需要进行关联查询、或者是报表统计；在这样的背景下大表的问题更加突出（比如一个查询功能需要跑好几分钟）。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一次分表踩坑实践的探讨">
+<meta property="og:url" content="http://crossoverjie.top/2019/04/16/framework-design/sharding-db/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言之前不少人问我“能否分享一些分库分表相关的实践”，其实不是我不分享，而是真的经验不多🤣；和大部分人一样都是停留在理论阶段。 不过这次多少有些可以说道了。 先谈谈背景，我们生产数据库随着业务发展量也逐渐起来；好几张单表已经突破亿级数据，并且保持每天 200+W 的数据量增加。 而我们有些业务需要进行关联查询、或者是报表统计；在这样的背景下大表的问题更加突出（比如一个查询功能需要跑好几分钟）。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/04/29/5cc65343e8bc4.jpg">
+<meta property="article:published_time" content="2019-04-16T08:20:00.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.266Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="db">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2019/04/29/5cc65343e8bc4.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>一次分表踩坑实践的探讨 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="一次分表踩坑实践的探讨"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2019-04-16 08:20" pubdate>
+          April 16, 2019 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          3.1k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          26 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">一次分表踩坑实践的探讨</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2019/04/29/5cc65343e8bc4.jpg" srcset="/img/loading.gif" lazyload></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>之前不少人问我“能否分享一些分库分表相关的实践”，其实不是我不分享，而是真的经验不多🤣；和大部分人一样都是停留在理论阶段。</p>
+<p>不过这次多少有些可以说道了。</p>
+<p>先谈谈背景，我们生产数据库随着业务发展量也逐渐起来；好几张单表已经突破<strong>亿级</strong>数据，并且保持每天 200+W 的数据量增加。</p>
+<p>而我们有些业务需要进行关联查询、或者是报表统计；在这样的背景下大表的问题更加突出（比如一个查询功能需要跑好几分钟）。</p>
+<span id="more"></span>
+
+<blockquote>
+<p>可能很多人会说：为啥单表都过亿了才想方案解决？其实不是不想，而是由于历史原因加上错误预估了数据增长才导致这个局面。总之原因比较复杂，也不是本次讨论的重点。</p>
+</blockquote>
+<h1 id="临时方案"><a href="#临时方案" class="headerlink" title="临时方案"></a>临时方案</h1><p>由于需求紧、人手缺的情况下，整个处理的过程分为几个阶段。</p>
+<p>第一阶段应该是去年底，当时运维反应 <code>MySQL</code> 所在的主机内存占用很高，整体负载也居高不下，导致整个 MySQL 的吞吐量明显降低（写入、查询数据都明显减慢）。</p>
+<p>为此我们找出了数据量最大的几张表，发现大部分数据量在7&#x2F;8000W 左右，少数的已经突破一亿。</p>
+<p>通过业务层面进行分析发现，这些数据多数都是用户产生的一些<strong>日志型数据</strong>，而且这些数据在业务上并不是强相关的，甚至两三个月前的数据其实已经不需要实时查询了。</p>
+<p>因为接近年底，尽可能的不想去动应用，考虑是否可以在运维层面缓解压力；主要的目的就是把单表的数据量降低。</p>
+<p>原本是想把两个月之前的数据直接迁移出来放到备份表中，但在准备实施的过程中发现一个大坑。</p>
+<blockquote>
+<p>表中没有一个可以排序的索引，导致我们无法快速的筛选出一部分数据！这真是一个深坑，为后面的一些优化埋了个地雷；即便是加索引也需要花几个小时（具体多久没敢在生产测试）。</p>
+</blockquote>
+<p>如果我们强行按照时间进行筛选，可能查询出 4000W 的数据就得花上好几个小时；这显然是行不通的。</p>
+<p>于是我们便想到了一个大胆的想法：这部分数据是否可以直接不要了？</p>
+<p>这可能是最有效及最快的方式了，和产品沟通后得知这部分数据真的只是日志型的数据，即便是报表出不来今后补上也是可以的。</p>
+<p>于是我们就简单粗暴的做了以下事情：</p>
+<ul>
+<li>修改原有表的表名，比如加上(<code>_190416bak</code>)。</li>
+<li>再新建一张和原有表名称相同的表。</li>
+</ul>
+<p>这样新的数据就写到了新表，同时业务上也是使用的这个数据量较小的新表。</p>
+<p>虽说过程不太优雅，但至少是解决了问题同时也给我们做技术改造预留了时间。</p>
+<h1 id="分表方案"><a href="#分表方案" class="headerlink" title="分表方案"></a>分表方案</h1><p>之前的方案虽说可以缓解压力，但不能根本解决问题。</p>
+<p>有些业务必须得查询之前的数据，导致之前那招行不通了，所以正好我们就借助这个机会把表分了。</p>
+<p>我相信大部分人虽说没有做过实际做过分表，但也见过猪跑；网上一搜各种方案层出不穷。</p>
+<p>我认为最重要的一点是要结合实际业务找出需要 sharding 的字段，同时还有上线阶段的数据迁移也非常重要。</p>
+<h2 id="时间"><a href="#时间" class="headerlink" title="时间"></a>时间</h2><p>可能大家都会说用 hash 的方式分配得最均匀，但我认为这还是需要使用历史数据的场景才用哈希分表。</p>
+<p>而对于不需要历史数据的场景，比如业务上只查询近三个月的数据。</p>
+<p>这类需求完成可以采取时间分表，按照月份进行划分，这样改动简单，同时对历史数据也比较好迁移。</p>
+<p>于是我们首先将这类需求的表筛选出来，按照月份进行拆分，只是在查询的时候拼接好表名即可；也比较好理解。</p>
+<h2 id="哈希"><a href="#哈希" class="headerlink" title="哈希"></a>哈希</h2><p>刚才也提到了：需要根据业务需求进行分表策略。</p>
+<p>而一旦所有的数据都有可能查询时，按照时间分表也就行不通了。（也能做，只是如果不是按照时间进行查询时需要遍历所有的表）</p>
+<p>因此我们计划采用 <code>hash</code> 的方式分表，这算是业界比较主流的方式就不再赘述。</p>
+<p>采用哈希时需要将 <code>sharding</code> 字段选好，由于我们的业务比较单纯；是一个物联网应用，所有的数据都包含有物联网设备的唯一标识（IMEI），并且这个字段天然的就保持了唯一性；大多数的业务也都是根据这个字段来的，所以它非常适合来做这个 <code>sharding</code> 字段。</p>
+<p>在做分表之前也调研过 <code>MyCAT</code> 及 <code>sharding-jdbc</code>(现已升级为 <code>shardingsphere</code>)，最终考虑到对开发的友好性及不增加运维复杂度还是决定在 jdbc 层 sharding 的方式。</p>
+<p>但由于历史原因我们并不太好集成 <code>sharding-jdbc</code>，但基于 <code>sharding</code> 的特点自己实现了一个分表策略。</p>
+<p>这个简单也好理解：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">int</span> <span class="hljs-variable">index</span> <span class="hljs-operator">=</span> hash(sharding字段) % 分表数量 ;<br><br>select xx from <span class="hljs-string">&#x27;busy_&#x27;</span>+index where sharding字段 = xxx;<br></code></pre></td></tr></table></figure>
+
+<p>其实就是算出了表名，然后路由过去查询即可。</p>
+<p>只是我们实现的非常简单：修改了所有的底层查询方法，每个方法都里都做了这样的一个判断。</p>
+<p>并没有像 <code>sharding-jdbc</code> 一样，代理了数据库的查询方法；其中还要做 <code>SQL解析--&gt;SQL路由--&gt;执行SQL--&gt;合并结果</code> 这一系列的流程。</p>
+<p>如果自己再做一遍无异于重新造了一个轮子，并且并不专业，只是在现有的技术条件下选择了一个快速实现达成效果的方法。</p>
+<p>不过这个过程中我们节省了将 sharding 字段哈希的过程，因为每一个 IMEI 号其实都是一个唯一的整型，直接用它做 mod 运算即可。</p>
+<p>还有一个是需要一个统一的主键生成规则，分表后不能再依赖于单表的字段自增了；方法还是挺多的：</p>
+<ul>
+<li>比如时间戳+随机数可满足大部分业务。</li>
+<li>UUID，生成简单，但没法做排序。</li>
+<li>雪花算法统一生成主键ID。</li>
+</ul>
+<p>大家可以根据自己的实际情况做选择。</p>
+<h1 id="业务调整"><a href="#业务调整" class="headerlink" title="业务调整"></a>业务调整</h1><p>因为我们并没有使用第三方的 sharding-jdbc 组件，所以没有办法做到对代码的低侵入性；每个涉及到分表的业务代码都需要做底层方法的改造（也就是路由到正确的表）。</p>
+<p>考虑到后续业务的发展，我们决定将拆分的表分为 64 张；加上后续引入大数据平台足以应对几年的数据增长。</p>
+<blockquote>
+<p>这里还有个小细节需要注意：分表的数量需要为 2∧N 次方，因为在取模的这种分表方式下，即便是今后再需要分表影响的数据也会尽量的小。</p>
+</blockquote>
+<p>再修改时只能将表名称进行全局搜索，然后加以修改，同时根据修改的方法倒推到表现的业务并记录下来，方便后续回归测试。</p>
+<hr>
+<p>当然无法避免查询时利用非 sharding 字段导致的全表扫描，这是所有分片后都会遇到的问题。</p>
+<p>因此我们在修改分表方法的底层查询时同时也会查看是否有走分片字段，如果不是，那是否可以调整业务。</p>
+<p>比如对于一个上亿的数据是否还有必要存在按照分页查询、日期查询？这样的业务是否真的具有意义？</p>
+<p>我们尽可能的引导产品按照这样的方式来设计产品或者做出调整。</p>
+<p>但对于报表这类的需求确实也没办法，比如统计表中某种类型的数据；这种我们也可以利用多线程的方式去并行查询然后汇总统计来提高查询效率。</p>
+<p>有时也有一些另类场景：</p>
+<blockquote>
+<p>比如一个千万表中有某一特殊类型的数据只占了很小一部分，比如说几千上万条。</p>
+</blockquote>
+<p>这时页面上需要对它进行分页查询是比较正常的（比如某种投诉消息，客户需要一条一条的单独处理），但如果我们按照 IMEI 号或者是主键进行分片后再分页查询那就比较蛋疼了。</p>
+<p>所以这类型的数据建议单独新建一张表来维护，不要和其他数据混合在一起，这样不管是做分页还是 like 都比较简单和独立。</p>
+<h2 id="验证"><a href="#验证" class="headerlink" title="验证"></a>验证</h2><p>代码改完，开发也单测完成后怎么来验证分表的业务是否正常也比较麻烦。</p>
+<p>一个是测试麻烦，再一个是万一哪里改漏了还是查询的原表，但这样在测试环境并不会有异常，一旦上线产生了生产数据到新的 64 张表后想要再修复就比较麻烦了。</p>
+<p>所以我们取了个巧，直接将原表的表名修改，比如加一个后缀；这样在测试过程中观察前后台有无报错就比较容易提前发现这个问题。</p>
+<h1 id="上线流程"><a href="#上线流程" class="headerlink" title="上线流程"></a>上线流程</h1><p>测试验收通过后只是分表这个需求的80%，剩下如何上线也是比较头疼。</p>
+<p>一旦应用上线后所有的查询、写入、删除都会先走路由然后到达新表；而老数据在原表里是不会发生改变的。</p>
+<h2 id="数据迁移"><a href="#数据迁移" class="headerlink" title="数据迁移"></a>数据迁移</h2><p>所以我们上线前的第一步自然是需要将原有的数据进行迁移，迁移的目的是要分片到新的 64 张表中，这样才会对原有的业务无影响。</p>
+<p>因此我们需要额外准备一个程序，它需要将老表里的数据按照分片规则复制到新表中；</p>
+<p>在我们这个场景下，生产数据有些已经上亿了，这个迁移过程我们在测试环境模拟发现耗时是非常久的。而且我们老表中对于 <code>create_time</code> 这样用于筛选数据的字段没有索引（以前的技术债），所以查询起来就更加慢了。</p>
+<p>最后没办法，我们只能和产品协商告知用户对于之前产生的数据短期可能会查询不到，这个时间最坏可能会持续几天（我们只能在凌晨迁移，白天会影响到数据库负载）。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这便是我们这次的分表实践，虽说不少过程都不优雅，但受限于条件也只能折中处理。</p>
+<p>但我们后续的计划是，修改我们底层的数据连接（目前是自己封装的一个 jar 包，导致集成 sharding-jdbc 比较麻烦）最终逐渐迁移到 <code>sharding-jdbc</code> .</p>
+<p>最后得出了几个结论：</p>
+<ul>
+<li>一个好的产品规划非常有必要，可以在合理的时间对数据处理（不管是分表还是切入归档）。</li>
+<li>每张表都需要一个可以用于排序查询的字段（自增ID、创建时间），整个过程由于没有这个字段导致耽搁了很长时间。</li>
+<li>分表字段需要谨慎，要全盘的考虑业务情况，尽量避免出现查询扫表的情况。</li>
+</ul>
+<p>最后欢迎留言讨论。</p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/%E6%9E%B6%E6%9E%84/" class="category-chain-item">架构</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/db/" class="print-no-link">#db</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>一次分表踩坑实践的探讨</div>
+      <div>http://crossoverjie.top/2019/04/16/framework-design/sharding-db/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>April 16, 2019</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2019/04/21/vlog/Basketball%20Day%20one/" title="VLOG-008:Basketball Day One">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">VLOG-008:Basketball Day One</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2019/04/09/concurrent/ArrayBlockingQueue/" title="『并发包入坑指北』之阻塞队列">
+                        <span class="hidden-mobile">『并发包入坑指北』之阻塞队列</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2019/04/16/framework-design/sharding-db/';
+          this.page.identifier = '/2019/04/16/framework-design/sharding-db/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

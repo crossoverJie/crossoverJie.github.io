@@ -1,0 +1,915 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言 上一篇简单入门了SpringBoot+SpringCloud 构建微服务。但只能算是一个demo级别的应用。这次会按照实际生产要求来搭建这套服务。  Swagger应用上次提到我们调用自己的http接口的时候采用的是PostMan来模拟请求，这个在平时调试时自然没有什么问题，但当我们需要和前端联调开发的时候效率就比较低了。 通常来说现在前后端分离的项目一般都是后端接口先行。 后端大大们先把">
+<meta property="og:type" content="article">
+<meta property="og:title" content="sbc(二)高可用Eureka+声明式服务调用">
+<meta property="og:url" content="http://crossoverjie.top/2017/07/19/sbc2/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言 上一篇简单入门了SpringBoot+SpringCloud 构建微服务。但只能算是一个demo级别的应用。这次会按照实际生产要求来搭建这套服务。  Swagger应用上次提到我们调用自己的http接口的时候采用的是PostMan来模拟请求，这个在平时调试时自然没有什么问题，但当我们需要和前端联调开发的时候效率就比较低了。 通常来说现在前后端分离的项目一般都是后端接口先行。 后端大大们先把">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2017/07/20/596f9bc03c484.jpeg">
+<meta property="og:image" content="https://i.loli.net/2017/07/20/596fa125406dd.png">
+<meta property="og:image" content="https://ooo.0o0.ooo/2017/07/21/5970d89b629d4.jpg">
+<meta property="og:image" content="https://ooo.0o0.ooo/2017/07/21/5970dcda3315c.jpg">
+<meta property="og:image" content="https://ooo.0o0.ooo/2017/07/21/5970dcda3c724.jpg">
+<meta property="og:image" content="https://i.loli.net/2017/07/21/5970ea9544a8c.jpg">
+<meta property="og:image" content="https://i.loli.net/2017/07/21/5970f0629211c.jpg">
+<meta property="og:image" content="https://i.loli.net/2017/07/21/5970f0ae20e1f.jpg">
+<meta property="article:published_time" content="2017-07-19T22:10:05.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.280Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="SpringBoot">
+<meta property="article:tag" content="SpringCloud">
+<meta property="article:tag" content="swagger">
+<meta property="article:tag" content="Eureka">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2017/07/20/596f9bc03c484.jpeg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>sbc(二)高可用Eureka+声明式服务调用 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="sbc(二)高可用Eureka+声明式服务调用"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2017-07-19 22:10" pubdate>
+          July 19, 2017 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.2k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          19 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">sbc(二)高可用Eureka+声明式服务调用</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2017/07/20/596f9bc03c484.jpeg" srcset="/img/loading.gif" lazyload alt="pexels-photo-516961.jpeg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><blockquote>
+<p>上一篇简单入门了<a href="http://crossoverjie.top/2017/06/15/sbc1/">SpringBoot+SpringCloud</a> 构建微服务。但只能算是一个<code>demo</code>级别的应用。<br>这次会按照实际生产要求来搭建这套服务。</p>
+</blockquote>
+<h1 id="Swagger应用"><a href="#Swagger应用" class="headerlink" title="Swagger应用"></a>Swagger应用</h1><p>上次提到我们调用自己的<code>http</code>接口的时候采用的是<code>PostMan</code>来模拟请求，这个在平时调试时自然没有什么问题，但当我们需要和前端联调开发的时候效率就比较低了。</p>
+<p><strong>通常来说现在前后端分离的项目一般都是后端接口先行。</strong></p>
+<p>后端大大们先把接口定义好(入参和出参),前端大大们来确定是否满足要求，可以了之后后端才开始着手写实现，这样整体效率要高上许多。</p>
+<p>但也会带来一个问题:在接口定义阶段频繁变更接口定义而没有一个文档或类似的东西来记录，那么双方的沟通加上前端的调试都是比较困难的。</p>
+<p>基于这个需求网上有各种解决方案，比如阿里的<a target="_blank" rel="noopener" href="http://rapapi.org/">rap</a>就是一个不错的例子。</p>
+<p>但是<code>springCould</code>为我们在提供了一种在开发<code>springCloud</code>项目下更方便的工具<code>swagger</code>。</p>
+<p>实际效果如下:</p>
+<p><img src="https://i.loli.net/2017/07/20/596fa125406dd.png" srcset="/img/loading.gif" lazyload alt="01.png"></p>
+<span id="more"></span>
+
+
+<h2 id="配置swagger"><a href="#配置swagger" class="headerlink" title="配置swagger"></a>配置swagger</h2><p>以<code>sbc-order</code>为例我将项目分为了三个模块:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java">├── order                                    <span class="hljs-comment">// Order服务实现  </span><br>│   ├── src/main<br>├── order-api                                <span class="hljs-comment">// 对内API</span><br>│   ├── src/main<br>├── order-client                             <span class="hljs-comment">// 对外的clientAPI</span><br>│   ├── src/main<br>├── .gitignore                               <br>├── LICENSE                <br>├── README.md               <br><br><br></code></pre></td></tr></table></figure>
+
+<p>因为实现都写在<code>order</code>模块中，所以只需要在该模块中配置即可。</p>
+<p>首先需要加入依赖，由于我在<code>order</code>模块中依赖了:</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.crossoverJie<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>order-api<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>$&#123;target.version&#125;<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p><code>order-api</code>又依赖了：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>io.springfox<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>springfox-swagger2<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">scope</span>&gt;</span>compile<span class="hljs-tag">&lt;/<span class="hljs-name">scope</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>io.springfox<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>springfox-swagger-ui<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">scope</span>&gt;</span>compile<span class="hljs-tag">&lt;/<span class="hljs-name">scope</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p>接着需要配置一个<code>SwaggerConfig</code></p>
+<figure class="highlight less"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><code class="hljs less"><span class="hljs-variable">@Configuration</span><br><span class="hljs-variable">@EnableSwagger2</span><br><span class="hljs-comment">/** 是否打开swagger **/</span><br><span class="hljs-variable">@ConditionalOnExpression</span>(<span class="hljs-string">&quot;&#x27;$&#123;swagger.enable&#125;&#x27; == &#x27;true&#x27;&quot;</span>)<br>public class SwaggerConfig &#123;<br>	<br>    <br>	<span class="hljs-variable">@Bean</span><br>    public Docket <span class="hljs-built_in">createRestApi</span>() &#123;<br>        <span class="hljs-selector-tag">return</span> <span class="hljs-selector-tag">new</span> <span class="hljs-selector-tag">Docket</span>(DocumentationType.SWAGGER_2)<br>                <span class="hljs-selector-class">.apiInfo</span>(<span class="hljs-built_in">apiInfo</span>())<br>                <span class="hljs-selector-class">.select</span>()<br>                <span class="hljs-selector-class">.apis</span>(RequestHandlerSelectors.<span class="hljs-built_in">basePackage</span>(<span class="hljs-string">&quot;com.crossoverJie.sbcorder.controller&quot;</span>))<br>                <span class="hljs-selector-class">.paths</span>(PathSelectors.<span class="hljs-built_in">any</span>())<br>                <span class="hljs-selector-class">.build</span>();<br>    &#125;<br>	<br>    <span class="hljs-selector-tag">private</span> <span class="hljs-selector-tag">ApiInfo</span> <span class="hljs-selector-tag">apiInfo</span>() &#123;<br>        <span class="hljs-selector-tag">return</span> <span class="hljs-selector-tag">new</span> <span class="hljs-selector-tag">ApiInfoBuilder</span>()<br>                <span class="hljs-selector-class">.title</span>(<span class="hljs-string">&quot;sbc order api&quot;</span>)<br>                <span class="hljs-selector-class">.description</span>(<span class="hljs-string">&quot;sbc order api&quot;</span>)<br>                <span class="hljs-selector-class">.termsOfServiceUrl</span>(<span class="hljs-string">&quot;http://crossoverJie.top&quot;</span>)<br>                <span class="hljs-selector-class">.contact</span>(<span class="hljs-string">&quot;crossoverJie&quot;</span>)<br>                <span class="hljs-selector-class">.version</span>(<span class="hljs-string">&quot;1.0.0&quot;</span>)<br>                <span class="hljs-selector-class">.build</span>();<br>    &#125;<br>    <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>其实就是配置<code>swagger</code>的一些基本信息。<br>之后启动项目，在地址栏输入<code>http://ip:port/swagger-ui.html#/</code>即可进入。<br>可以看到如上图所示的接口列表,点击如下图所示的参数例子即可进行接口调用。</p>
+<p><img src="https://ooo.0o0.ooo/2017/07/21/5970d89b629d4.jpg" srcset="/img/loading.gif" lazyload alt="02.jpg"></p>
+<h2 id="自定义开关Swagger"><a href="#自定义开关Swagger" class="headerlink" title="自定义开关Swagger"></a>自定义开关Swagger</h2><blockquote>
+<p><code>swagger</code>的便利能给我们带来很多好处，但稍有不慎也可能出现问题。</p>
+</blockquote>
+<p>比如如果在生产环境还能通过IP访问<code>swagger</code>的话那后果可是不堪设想的。<br>所以我们需要灵活控制<code>swagger</code>的开关。</p>
+<p>这点可以利用<code>spring的条件化配置(条件化配置可以配置存在于应用中,一旦满足一些特定的条件时就取消这些配置)</code>来实现这一功能:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@ConditionalOnExpression(&quot;&#x27;$&#123;swagger.enable&#125;&#x27; == &#x27;true&#x27;&quot;)</span><br></code></pre></td></tr></table></figure>
+
+<p>该注解的意思是<code>给定的SpEL表达式计算结果为true</code>时才会创建<code>swagger</code>的<code>bean</code>。</p>
+<p><code>swagger.enable</code>这个配置则是配置在<code>application.properties</code>中:</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs xml"># 是否打开swagger<br>swagger.enable = true<br></code></pre></td></tr></table></figure>
+
+<p>这样当我们在生产环境时只需要将该配置改为<code>false</code>即可。</p>
+<p>ps:更多<code>spring条件化配置</code>:</p>
+<figure class="highlight less"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs less"><span class="hljs-variable">@ConditionalOnBean</span>                 <span class="hljs-comment">//配置了某个特定Bean</span><br><span class="hljs-variable">@ConditionalOnMissingBean</span>          <span class="hljs-comment">//没有配置特定的Bean</span><br><span class="hljs-variable">@ConditionalOnClass</span>                <span class="hljs-comment">//Classpath里有指定的类</span><br><span class="hljs-variable">@ConditionalOnMissingClass</span>         <span class="hljs-comment">//Classpath里缺少指定的类</span><br><span class="hljs-variable">@ConditionalOnExpression</span>           <span class="hljs-comment">//给定的Spring Expression Language(SpEL)表达式计算结果为true</span><br><span class="hljs-variable">@ConditionalOnJava</span>                 <span class="hljs-comment">//Java的版本匹配特定值或者一个范围值</span><br><span class="hljs-variable">@ConditionalOnJndi</span>                 <span class="hljs-comment">//参数中给定的JNDI位置必须存在一个，如果没有给参数，则要有JNDI InitialContext</span><br><span class="hljs-variable">@ConditionalOnProperty</span>             <span class="hljs-comment">//指定的配置属性要有一个明确的值</span><br><span class="hljs-variable">@ConditionalOnResource</span>             <span class="hljs-comment">//Classpath里有指定的资源</span><br><span class="hljs-variable">@ConditionalOnWebApplication</span>       <span class="hljs-comment">//这是一个Web应用程序</span><br><span class="hljs-variable">@ConditionalOnNotWebApplication</span>    <span class="hljs-comment">//这不是一个Web应用程序</span><br>(参考SpringBoot实战)<br></code></pre></td></tr></table></figure>
+
+<h1 id="高可用Eureka"><a href="#高可用Eureka" class="headerlink" title="高可用Eureka"></a>高可用Eureka</h1><p>在上一篇中是用<code>Eureka </code>来做了服务注册中心，所有的生产者都往它注册服务，消费者又通过它来获取服务。</p>
+<p><em>但是之前讲到的都是单节点，这在生产环境风险巨大，我们必须做到注册中心的高可用，搭建<code>Eureka </code>集群。</em></p>
+<p>这里简单起见就搭建两个<code>Eureka </code>,思路则是这两个Eureka都把自己当成应用向对方注册，这样就可以构成一个高可用的服务注册中心。</p>
+<p>在实际生产环节中会是每个注册中心一台服务器，为了演示起见，我就在本地启动两个注册中心，但是端口不一样。</p>
+<p>首先需要在本地配置一个<code>host</code>:</p>
+<figure class="highlight accesslog"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs accesslog"><span class="hljs-number">127.0.0.1</span> node1 node2<br></code></pre></td></tr></table></figure>
+
+<p>这样不论是访问<code>node1 </code>还是<code>node2</code>都可以在本机调用的到(<code>当然不配置host也可以，只是需要通过IP来访问，这样看起来不是那么明显</code>)。</p>
+<p>并给<code>sbc-service</code>新增了两个配置文件:</p>
+<p>application-node1.properties:</p>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs ini"><span class="hljs-attr">spring.application.name</span>=sbc-service<br><span class="hljs-attr">server.port</span>=<span class="hljs-number">8888</span><br><span class="hljs-attr">eureka.instance.hostname</span>=node1<br><br><span class="hljs-comment">## 不向注册中心注册自己</span><br><span class="hljs-comment">#eureka.client.register-with-eureka=false</span><br><span class="hljs-comment">#</span><br><span class="hljs-comment">## 不需要检索服务</span><br><span class="hljs-comment">#eureka.client.fetch-registry=false</span><br><span class="hljs-attr">eureka.client.serviceUrl.defaultZone</span>=http://node2:<span class="hljs-number">9999</span>/eureka/<br><br></code></pre></td></tr></table></figure>
+
+<p>application-node2.properties:</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs xml">spring.application.name=sbc-service<br>server.port=9999<br>eureka.instance.hostname=node2<br><br>## 不向注册中心注册自己<br>#eureka.client.register-with-eureka=false<br>#<br>## 不需要检索服务<br>#eureka.client.fetch-registry=false<br>eureka.client.serviceUrl.defaultZone=http://node1:8888/eureka/<br><br></code></pre></td></tr></table></figure>
+
+<p>其中最重要的就是:</p>
+<figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs stylus">eureka<span class="hljs-selector-class">.client</span><span class="hljs-selector-class">.serviceUrl</span>.defaultZone=http:<span class="hljs-comment">//node2:9999/eureka/</span><br>eureka<span class="hljs-selector-class">.client</span><span class="hljs-selector-class">.serviceUrl</span>.defaultZone=http:<span class="hljs-comment">//node1:8888/eureka/</span><br></code></pre></td></tr></table></figure>
+<p>两个应用互相注册。</p>
+<p>启动的时候我们按照:<br><code>java -jar sbc-service-1.0.0-SNAPSHOT.jar --spring.profiles.active=node1</code>启动，就会按照传入的node1或者是node2去读取<code>application-node1.properties,application-node2.properties</code>这两个配置文件(<code>配置文件必须按照application-&#123;name&#125;.properties的方式命名</code>)。</p>
+<p>分别启动两个注册中心可以看到以下:<br><img src="https://ooo.0o0.ooo/2017/07/21/5970dcda3315c.jpg" srcset="/img/loading.gif" lazyload alt="03.jpg"></p>
+<hr>
+<p><img src="https://ooo.0o0.ooo/2017/07/21/5970dcda3c724.jpg" srcset="/img/loading.gif" lazyload alt="04.jpg"></p>
+<p>可以看到两个注册中心以及互相注册了。<br>在服务注册的时候只需要将两个地址都加上即可:<br><code>eureka.client.serviceUrl.defaultZone=http://node1:8888/eureka/,http://node2:9999/eureka/ </code></p>
+<p>在服务调用的时候可以尝试关闭其中一个，正常情况下依然是可以调用到服务的。</p>
+<h1 id="Feign声明式调用"><a href="#Feign声明式调用" class="headerlink" title="Feign声明式调用"></a>Feign声明式调用</h1><p>接下来谈谈服务调用，上次提到可以用<code>ribbon </code>来进行服务调用，但是明显很不方便，不如像之前<code>rpc</code>调用那样简单直接。</p>
+<p>为此这次使用<code>Feign</code>来进行声明式调用，就像调用一个普通方法那样简单。</p>
+<h2 id="order-client"><a href="#order-client" class="headerlink" title="order-client"></a>order-client</h2><p>片头说到我将应用分成了三个模块<code>order、order-api、order-client</code>，其中的<code>client</code>模块就是关键。</p>
+<p>来看看其中的内容,只有一个接口:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@RequestMapping(value=&quot;/orderService&quot;)</span><br><span class="hljs-meta">@FeignClient(name=&quot;sbc-order&quot;)</span><br><span class="hljs-meta">@RibbonClient</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> <span class="hljs-title class_">OrderServiceClient</span> <span class="hljs-keyword">extends</span> <span class="hljs-title class_">OrderService</span>&#123;<br><br><br>    <span class="hljs-meta">@ApiOperation(&quot;获取订单号&quot;)</span><br>    <span class="hljs-meta">@RequestMapping(value = &quot;/getOrderNo&quot;, method = RequestMethod.POST)</span><br>    BaseResponse&lt;OrderNoResVO&gt; <span class="hljs-title function_">getOrderNo</span><span class="hljs-params">(<span class="hljs-meta">@RequestBody</span> OrderNoReqVO orderNoReq)</span> ;<br>&#125;<br></code></pre></td></tr></table></figure>
+<p><code>@FeignClient</code>这个注解要注意下，其中的name的是自己应用的应用名称，在<br><code>application.properties中的spring.application.name配置</code>。</p>
+<p>其中继承了一个<code>OrderService</code>在<code>order-api</code>模块中，来看看<code>order-api</code>中的内容。</p>
+<h2 id="order-api"><a href="#order-api" class="headerlink" title="order-api"></a>order-api</h2><p>其中也只有一个接口:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@RestController</span><br><span class="hljs-meta">@Api(&quot;订单服务API&quot;)</span><br><span class="hljs-meta">@RequestMapping(value = &quot;/orderService&quot;)</span><br><span class="hljs-meta">@Validated</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> <span class="hljs-title class_">OrderService</span> &#123;<br><br>    <span class="hljs-meta">@ApiOperation(&quot;获取订单号&quot;)</span><br>    <span class="hljs-meta">@RequestMapping(value = &quot;/getOrderNo&quot;, method = RequestMethod.POST)</span><br>    BaseResponse&lt;OrderNoResVO&gt; <span class="hljs-title function_">getOrderNo</span><span class="hljs-params">(<span class="hljs-meta">@RequestBody</span> OrderNoReqVO orderNoReq)</span> ;<br>&#125;<br><br></code></pre></td></tr></table></figure>
+
+<p>这个接口有两个目的。</p>
+<ol>
+<li>给真正的<code>controller</code>来进行实现。</li>
+<li>给<code>client</code>接口进行继承。</li>
+</ol>
+<p>类关系如下:</p>
+<p><img src="https://i.loli.net/2017/07/21/5970ea9544a8c.jpg" srcset="/img/loading.gif" lazyload alt="05.jpg"></p>
+<p>注解这些都没什么好说的，一看就懂。</p>
+<h2 id="order"><a href="#order" class="headerlink" title="order"></a>order</h2><p><code>order</code>则是具体接口实现的模块，就和平时写<code>controller</code>一样。<br>来看看如何使用<code>client</code>进行声明式调用:</p>
+<p>这次看看<code>sbc-user</code>这个项目，在里边调用了<code>sbc-order</code>的服务。<br>其中的<code>user模块</code>依赖了<code>order-client</code>:</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.crossoverJie<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>order-client<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p>具体调用:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Autowired</span><br><span class="hljs-keyword">private</span> OrderServiceClient orderServiceClient ;<br><br><span class="hljs-meta">@Override</span><br><span class="hljs-keyword">public</span> BaseResponse&lt;UserResVO&gt; <span class="hljs-title function_">getUserByFeign</span><span class="hljs-params">(<span class="hljs-meta">@RequestBody</span> UserReqVO userReq)</span> &#123;<br>    <span class="hljs-comment">//调用远程服务</span><br>    <span class="hljs-type">OrderNoReqVO</span> <span class="hljs-variable">vo</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">OrderNoReqVO</span>() ;<br>    vo.setReqNo(userReq.getReqNo());<br>    BaseResponse&lt;OrderNoResVO&gt; orderNo = orderServiceClient.getOrderNo(vo);<br><br>    logger.info(<span class="hljs-string">&quot;远程返回:&quot;</span>+JSON.toJSONString(orderNo));<br><br>    <span class="hljs-type">UserRes</span> <span class="hljs-variable">userRes</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">UserRes</span>() ;<br>    userRes.setUserId(<span class="hljs-number">123</span>);<br>    userRes.setUserName(<span class="hljs-string">&quot;张三&quot;</span>);<br><br>    userRes.setReqNo(userReq.getReqNo());<br>    userRes.setCode(StatusEnum.SUCCESS.getCode());<br>    userRes.setMessage(<span class="hljs-string">&quot;成功&quot;</span>);<br><br>    <span class="hljs-keyword">return</span> userRes ;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>可以看到只需要将<code>order-client</code>包中的Order服务注入进来即可。</p>
+<p>在<code>sbc-client</code>的<code>swagger</code>中进行调用:</p>
+<p><img src="https://i.loli.net/2017/07/21/5970f0629211c.jpg" srcset="/img/loading.gif" lazyload alt="06.jpg"></p>
+<hr>
+<p><img src="https://i.loli.net/2017/07/21/5970f0ae20e1f.jpg" srcset="/img/loading.gif" lazyload alt="07.jpg"></p>
+<p>由于我并没传<code>appId</code>所以<code>order</code>服务返回的错误。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><blockquote>
+<p>当一个应用需要对外暴露接口时着需要按照以上方式提供一个<code>client</code>包更消费者使用。</p>
+</blockquote>
+<p>其实应用本身也是需要做高可用的，和<code>Eureka</code>高可用一样，再不同的服务器上再启一个或多个服务并注册到<code>Eureka</code>集群中即可。</p>
+<p>后续还会继续谈到<code>zuul网关，容错，断路器</code>等内容，欢迎拍砖讨论。</p>
+<blockquote>
+<p>项目：<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/springboot-cloud">https://github.com/crossoverJie/springboot-cloud</a></p>
+</blockquote>
+<blockquote>
+<p>博客：<a href="http://crossoverjie.top/">http://crossoverjie.top</a>。</p>
+</blockquote>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/sbc/" class="category-chain-item">sbc</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
+      
+        <a href="/tags/SpringBoot/" class="print-no-link">#SpringBoot</a>
+      
+        <a href="/tags/SpringCloud/" class="print-no-link">#SpringCloud</a>
+      
+        <a href="/tags/swagger/" class="print-no-link">#swagger</a>
+      
+        <a href="/tags/Eureka/" class="print-no-link">#Eureka</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>sbc(二)高可用Eureka+声明式服务调用</div>
+      <div>http://crossoverjie.top/2017/07/19/sbc2/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>July 19, 2017</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2017/08/01/sbc3/" title="sbc(三)自定义Starter-SpringBoot重构去重插件">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">sbc(三)自定义Starter-SpringBoot重构去重插件</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2017/07/09/SSM15/" title="SSM(十五) 乐观锁与悲观锁的实际应用">
+                        <span class="hidden-mobile">SSM(十五) 乐观锁与悲观锁的实际应用</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2017/07/19/sbc2/';
+          this.page.identifier = '/2017/07/19/sbc2/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

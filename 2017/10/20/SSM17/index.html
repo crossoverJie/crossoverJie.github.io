@@ -1,0 +1,885 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言写这篇文章的起因是由于之前的一篇关于Kafka异常消费，当时为了解决问题不得不使用临时的方案。 总结起来归根结底还是对Kafka不熟悉导致的，加上平时工作的需要，之后就花些时间看了Kafka相关的资料。 何时使用MQ谈到Kafka就不得不提到MQ，是属于消息队列的一种。作为一种基础中间件在互联网项目中有着大量的使用。 一种技术的产生自然是为了解决某种需求，通常来说是以下场景：   需要跨进程">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SSM(十七) MQ应用">
+<meta property="og:url" content="http://crossoverjie.top/2017/10/20/SSM17/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言写这篇文章的起因是由于之前的一篇关于Kafka异常消费，当时为了解决问题不得不使用临时的方案。 总结起来归根结底还是对Kafka不熟悉导致的，加上平时工作的需要，之后就花些时间看了Kafka相关的资料。 何时使用MQ谈到Kafka就不得不提到MQ，是属于消息队列的一种。作为一种基础中间件在互联网项目中有着大量的使用。 一种技术的产生自然是为了解决某种需求，通常来说是以下场景：   需要跨进程">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba77119c6.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba7910bc2.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba7c8876f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba8705aac.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba8b41500.jpg">
+<meta property="article:published_time" content="2017-10-20T01:01:54.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.261Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Kafka">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1ba77119c6.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>SSM(十七) MQ应用 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="SSM(十七) MQ应用"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2017-10-20 01:01" pubdate>
+          October 20, 2017 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.7k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          23 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">SSM(十七) MQ应用</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2019/05/08/5cd1ba77119c6.jpg" srcset="/img/loading.gif" lazyload></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>写这篇文章的起因是由于之前的一篇关于<code>Kafka</code><a href="http://crossoverjie.top/2017/09/05/SSM16/">异常消费</a>，当时为了解决问题不得不使用临时的方案。</p>
+<p>总结起来归根结底还是对Kafka不熟悉导致的，加上平时工作的需要，之后就花些时间看了<code>Kafka</code>相关的资料。</p>
+<h1 id="何时使用MQ"><a href="#何时使用MQ" class="headerlink" title="何时使用MQ"></a>何时使用MQ</h1><p>谈到<code>Kafka</code>就不得不提到MQ，是属于消息队列的一种。作为一种基础中间件在互联网项目中有着大量的使用。</p>
+<p>一种技术的产生自然是为了解决某种需求，通常来说是以下场景：</p>
+<blockquote>
+<ul>
+<li>需要跨进程通信：B系统需要A系统的输出作为输入参数。</li>
+<li>当A系统的输出能力远远大于B系统的处理能力。</li>
+</ul>
+</blockquote>
+<p>针对于第一种情况有两种方案:</p>
+<ul>
+<li>使用<code>RPC</code>远程调用,A直接调用B。</li>
+<li>使用<code>MQ</code>,A发布消息到<code>MQ</code>,B订阅该消息。</li>
+</ul>
+<p>当我们的需求是:A调用B实时响应，并且实时关心响应结果则使用<code>RPC</code>，这种情况就得使用同步调用。</p>
+<span id="more"></span>
+
+<p>反之当我们并不关心调用之后的执行结果，并且有可能被调用方的执行非常耗时，这种情况就非常适合用<code>MQ</code>来达到异步调用目的。</p>
+<p>比如常见的登录场景就只能用同步调用的方式，因为这个过程需要实时的响应结果，总不能在用户点了登录之后排除网络原因之外再额外的等几秒吧。</p>
+<p>但类似于用户登录需要奖励积分的情况则使用<code>MQ</code>会更好，因为登录并不关系积分的情况，只需要发个消息到<code>MQ</code>,处理积分的服务订阅处理即可，这样还可以解决积分系统故障带来的雪崩效应。</p>
+<p><code>MQ</code>还有一个基础功能则是<strong>限流削峰</strong>，这对于大流量的场景如果将请求直接调用到B系统则非常有可能使B系统出现不可用的情况。这种场景就非常适合将请求放入<code>MQ</code>，不但可以利用<code>MQ</code>削峰还尽可能的保证系统的高可用。</p>
+<h1 id="Kafka简介"><a href="#Kafka简介" class="headerlink" title="Kafka简介"></a>Kafka简介</h1><p>本次重点讨论下<code>Kafka</code>。<br>简单来说<code>Kafka</code>是一个支持水平扩展，高吞吐率的分布式消息系统。</p>
+<p><code>Kafka</code>的常用知识:</p>
+<ul>
+<li><p><code>Topic</code>:生产者和消费者的交互都是围绕着一个<code>Topic</code>进行的，通常来说是由业务来进行区分，由生产消费者协商之后进行创建。</p>
+</li>
+<li><p><code>Partition</code>(分区):是<code>Topic</code>下的组成，通常一个<code>Topic</code>下有一个或多个分区，消息生产之后会按照一定的算法负载到每个分区，所以分区也是<code>Kafka</code>性能的关键。当发现性能不高时便可考虑新增分区。</p>
+</li>
+</ul>
+<p>结构图如下:<br><img src="https://i.loli.net/2019/05/08/5cd1ba7910bc2.jpg" srcset="/img/loading.gif" lazyload></p>
+<h1 id="创建Topic"><a href="#创建Topic" class="headerlink" title="创建Topic"></a>创建<code>Topic</code></h1><p><code>Kafka</code>的安装官网有非常详细的讲解。这里谈一下在日常开发中常见的一些操作，比如创建<code>Topic</code>：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">sh bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 3 --topic `test`<br></code></pre></td></tr></table></figure>
+<p>创建了三个分区的<code>test</code>主题。</p>
+<p>使用</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">sh bin/kafka-topics.sh --list --zookeeper localhost:2181<br></code></pre></td></tr></table></figure>
+<p>可以列出所有的<code>Topic</code>。</p>
+<h1 id="Kafka生产者"><a href="#Kafka生产者" class="headerlink" title="Kafka生产者"></a>Kafka生产者</h1><p>使用<code>kafka</code>官方所提供的<code>Java API</code>来进行消息生产，实际使用中编码实现更为常用:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/** Kafka生产者</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@author</span> crossoverJie</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">Producer</span> &#123;<br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-type">Logger</span> <span class="hljs-variable">LOGGER</span> <span class="hljs-operator">=</span> LoggerFactory.getLogger(Producer.class);<br><br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * 消费配置文件</span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> String consumerProPath;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">main</span><span class="hljs-params">(String[] args)</span> <span class="hljs-keyword">throws</span> IOException &#123;<br>        <span class="hljs-comment">// set up the producer</span><br>        consumerProPath = System.getProperty(<span class="hljs-string">&quot;product_path&quot;</span>);<br>        KafkaProducer&lt;String, String&gt; producer = <span class="hljs-literal">null</span>;<br>        <span class="hljs-keyword">try</span> &#123;<br>            <span class="hljs-type">FileInputStream</span> <span class="hljs-variable">inputStream</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">FileInputStream</span>(<span class="hljs-keyword">new</span> <span class="hljs-title class_">File</span>(consumerProPath));<br>            <span class="hljs-type">Properties</span> <span class="hljs-variable">properties</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Properties</span>();<br>            properties.load(inputStream);<br>            producer = <span class="hljs-keyword">new</span> <span class="hljs-title class_">KafkaProducer</span>&lt;String, String&gt;(properties);<br><br>        &#125; <span class="hljs-keyword">catch</span> (IOException e) &#123;<br>            LOGGER.error(<span class="hljs-string">&quot;load config error&quot;</span>, e);<br>        &#125;<br><br>        <span class="hljs-keyword">try</span> &#123;<br>            <span class="hljs-comment">// send lots of messages</span><br>            <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> i=<span class="hljs-number">0</span> ;i&lt;<span class="hljs-number">100</span> ; i++)&#123;<br>                producer.send(<span class="hljs-keyword">new</span> <span class="hljs-title class_">ProducerRecord</span>&lt;String, String&gt;(<br>                        <span class="hljs-string">&quot;topic_optimization&quot;</span>, i+<span class="hljs-string">&quot;&quot;</span>, i+<span class="hljs-string">&quot;&quot;</span>));<br><br>            &#125;<br>        &#125; <span class="hljs-keyword">catch</span> (Throwable throwable) &#123;<br>            System.out.printf(<span class="hljs-string">&quot;%s&quot;</span>, throwable.getStackTrace());<br>        &#125; <span class="hljs-keyword">finally</span> &#123;<br>            producer.close();<br>        &#125;<br><br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+<p>再配合以下启动参数即可发送消息:</p>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs ini"><span class="hljs-attr">-Dproduct_path</span>=/xxx/producer.properties<br></code></pre></td></tr></table></figure>
+<p>以及生产者的配置文件:</p>
+<figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs properties"><span class="hljs-comment">#集群地址，可以多个</span><br><span class="hljs-attr">bootstrap.servers</span>=<span class="hljs-string">10.19.13.51:9094</span><br><span class="hljs-attr">acks</span>=<span class="hljs-string">all</span><br><span class="hljs-attr">retries</span>=<span class="hljs-string">0</span><br><span class="hljs-attr">batch.size</span>=<span class="hljs-string">16384</span><br><span class="hljs-attr">auto.commit.interval.ms</span>=<span class="hljs-string">1000</span><br><span class="hljs-attr">linger.ms</span>=<span class="hljs-string">0</span><br><span class="hljs-attr">key.serializer</span>=<span class="hljs-string">org.apache.kafka.common.serialization.StringSerializer</span><br><span class="hljs-attr">value.serializer</span>=<span class="hljs-string">org.apache.kafka.common.serialization.StringSerializer</span><br><span class="hljs-attr">block.on.buffer.full</span>=<span class="hljs-string">true</span><br></code></pre></td></tr></table></figure>
+<p>具体的配置说明详见此处:<a target="_blank" rel="noopener" href="https://kafka.apache.org/0100/documentation.html#theproducer">https://kafka.apache.org/0100/documentation.html#theproducer</a></p>
+<p>流程非常简单，其实就是一些<code>API</code>的调用。</p>
+<p>消息发完之后可以通过以下命令查看队列内的情况:</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">sh kafka-consumer-groups.sh --bootstrap-server localhost:9094 --describe --group group1 <br></code></pre></td></tr></table></figure>
+<p><img src="https://i.loli.net/2019/05/08/5cd1ba7c8876f.jpg" srcset="/img/loading.gif" lazyload><br>其中的<code>lag</code>便是队列里的消息数量。</p>
+<h1 id="Kafka消费者"><a href="#Kafka消费者" class="headerlink" title="Kafka消费者"></a>Kafka消费者</h1><p>有了生产者自然也少不了消费者，这里首先针对单线程消费:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * Function:kafka官方消费</span><br><span class="hljs-comment"> *</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@author</span> crossoverJie</span><br><span class="hljs-comment"> *         Date: 2017/10/19 01:11</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@since</span> JDK 1.8</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">KafkaOfficialConsumer</span> &#123;<br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-type">Logger</span> <span class="hljs-variable">LOGGER</span> <span class="hljs-operator">=</span> LoggerFactory.getLogger(KafkaOfficialConsumer.class);<br><br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * 日志文件地址</span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> String logPath;<br><br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * 主题名称</span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> String topic;<br><br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * 消费配置文件</span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> String consumerProPath ;<br><br><br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * 初始化参数校验</span><br><span class="hljs-comment">     * <span class="hljs-doctag">@return</span></span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">initCheck</span><span class="hljs-params">()</span> &#123;<br>        topic = System.getProperty(<span class="hljs-string">&quot;topic&quot;</span>) ;<br>        logPath = System.getProperty(<span class="hljs-string">&quot;log_path&quot;</span>) ;<br>        consumerProPath = System.getProperty(<span class="hljs-string">&quot;consumer_pro_path&quot;</span>) ;<br>        <span class="hljs-keyword">if</span> (StringUtil.isEmpty(topic) || logPath.isEmpty()) &#123;<br>            LOGGER.error(<span class="hljs-string">&quot;system property topic ,consumer_pro_path, log_path is required !&quot;</span>);<br>            <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;<br>        &#125;<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;<br>    &#125;<br><br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * 初始化kafka配置</span><br><span class="hljs-comment">     * <span class="hljs-doctag">@return</span></span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> KafkaConsumer&lt;String, String&gt; <span class="hljs-title function_">initKafkaConsumer</span><span class="hljs-params">()</span> &#123;<br>        KafkaConsumer&lt;String, String&gt; consumer = <span class="hljs-literal">null</span>;<br>        <span class="hljs-keyword">try</span> &#123;<br>            <span class="hljs-type">FileInputStream</span> <span class="hljs-variable">inputStream</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">FileInputStream</span>(<span class="hljs-keyword">new</span> <span class="hljs-title class_">File</span>(consumerProPath)) ;<br>            <span class="hljs-type">Properties</span> <span class="hljs-variable">properties</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Properties</span>();<br>            properties.load(inputStream);<br>            consumer = <span class="hljs-keyword">new</span> <span class="hljs-title class_">KafkaConsumer</span>&lt;String, String&gt;(properties);<br>            consumer.subscribe(Arrays.asList(topic));<br><br>        &#125; <span class="hljs-keyword">catch</span> (IOException e) &#123;<br>            LOGGER.error(<span class="hljs-string">&quot;加载consumer.props文件出错&quot;</span>, e);<br>        &#125;<br>        <span class="hljs-keyword">return</span> consumer;<br>    &#125;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">main</span><span class="hljs-params">(String[] args)</span> &#123;<br>        <span class="hljs-keyword">if</span> (initCheck())&#123;<br>            <span class="hljs-keyword">return</span>;<br>        &#125;<br><br>        <span class="hljs-type">int</span> <span class="hljs-variable">totalCount</span> <span class="hljs-operator">=</span> <span class="hljs-number">0</span> ;<br>        <span class="hljs-type">long</span> <span class="hljs-variable">totalMin</span> <span class="hljs-operator">=</span> <span class="hljs-number">0L</span> ;<br>        <span class="hljs-type">int</span> <span class="hljs-variable">count</span> <span class="hljs-operator">=</span> <span class="hljs-number">0</span>;<br>        KafkaConsumer&lt;String, String&gt; consumer = initKafkaConsumer();<br><br>        <span class="hljs-type">long</span> <span class="hljs-variable">startTime</span> <span class="hljs-operator">=</span> System.currentTimeMillis() ;<br>        <span class="hljs-comment">//消费消息</span><br>        <span class="hljs-keyword">while</span> (<span class="hljs-literal">true</span>) &#123;<br>            ConsumerRecords&lt;String, String&gt; records = consumer.poll(<span class="hljs-number">200</span>);<br>            <span class="hljs-keyword">if</span> (records.count() &lt;= <span class="hljs-number">0</span>)&#123;<br>                <span class="hljs-keyword">continue</span> ;<br>            &#125;<br>            LOGGER.debug(<span class="hljs-string">&quot;本次获取:&quot;</span>+records.count());<br>            count += records.count() ;<br><br>            <span class="hljs-type">long</span> <span class="hljs-variable">endTime</span> <span class="hljs-operator">=</span> System.currentTimeMillis() ;<br>            LOGGER.debug(<span class="hljs-string">&quot;count=&quot;</span> +count) ;<br>            <span class="hljs-keyword">if</span> (count &gt;= <span class="hljs-number">10000</span> )&#123;<br>                totalCount += count ;<br>                LOGGER.info(<span class="hljs-string">&quot;this consumer &#123;&#125; record，use &#123;&#125; milliseconds&quot;</span>,count,endTime-startTime);<br>                totalMin += (endTime-startTime) ;<br>                startTime = System.currentTimeMillis() ;<br>                count = <span class="hljs-number">0</span> ;<br>            &#125;<br>            LOGGER.debug(<span class="hljs-string">&quot;end totalCount=&#123;&#125;,min=&#123;&#125;&quot;</span>,totalCount,totalMin);<br><br>            <span class="hljs-comment">/*for (ConsumerRecord&lt;String, String&gt; record : records) &#123;</span><br><span class="hljs-comment">                record.value() ;</span><br><span class="hljs-comment">                JsonNode msg = null;</span><br><span class="hljs-comment">                try &#123;</span><br><span class="hljs-comment">                    msg = mapper.readTree(record.value());</span><br><span class="hljs-comment">                &#125; catch (IOException e) &#123;</span><br><span class="hljs-comment">                    LOGGER.error(&quot;消费消息出错&quot;, e);</span><br><span class="hljs-comment">                &#125;</span><br><span class="hljs-comment">                LOGGER.info(&quot;kafka receive = &quot;+msg.toString());</span><br><span class="hljs-comment">            &#125;*/</span><br><br><br>        &#125;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+<p>配合以下启动参数:</p>
+<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs routeros"><span class="hljs-attribute">-Dlog_path</span>=/log/consumer.log <span class="hljs-attribute">-Dtopic</span>=test <span class="hljs-attribute">-Dconsumer_pro_path</span>=consumer.properties<br></code></pre></td></tr></table></figure>
+<p>其中采用了轮询的方式获取消息，并且记录了消费过程中的数据。</p>
+<p>消费者采用的配置:</p>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs ini"><span class="hljs-attr">bootstrap.servers</span>=<span class="hljs-number">192.168</span>.<span class="hljs-number">1.2</span>:<span class="hljs-number">9094</span><br><span class="hljs-attr">group.id</span>=group1<br><br><span class="hljs-comment"># 自动提交</span><br><span class="hljs-attr">enable.auto.commit</span>=<span class="hljs-literal">true</span><br><span class="hljs-attr">key.deserializer</span>=org.apache.kafka.common.serialization.StringDeserializer<br><span class="hljs-attr">value.deserializer</span>=org.apache.kafka.common.serialization.StringDeserializer<br><br><span class="hljs-comment"># fast session timeout makes it more fun to play with failover</span><br><span class="hljs-attr">session.timeout.ms</span>=<span class="hljs-number">10000</span><br><br><span class="hljs-comment"># These buffer sizes seem to be needed to avoid consumer switching to</span><br><span class="hljs-comment"># a mode where it processes one bufferful every 5 seconds with multiple</span><br><span class="hljs-comment"># timeouts along the way.  No idea why this happens.</span><br><span class="hljs-attr">fetch.min.bytes</span>=<span class="hljs-number">50000</span><br><span class="hljs-attr">receive.buffer.bytes</span>=<span class="hljs-number">262144</span><br><span class="hljs-attr">max.partition.fetch.bytes</span>=<span class="hljs-number">2097152</span><br></code></pre></td></tr></table></figure>
+<p>为了简便我采用的是自动提交<code>offset</code>。</p>
+<h2 id="消息存放机制"><a href="#消息存放机制" class="headerlink" title="消息存放机制"></a>消息存放机制</h2><p>谈到<code>offset</code>就必须得谈谈Kafka的消息存放机制.</p>
+<p><code>Kafka</code>的消息不会因为消费了就会立即删除，所有的消息都会持久化到日志文件，并配置有过期时间，到了时间会自动删除过期数据，<em>并且不会管其中的数据是否被消费过。</em></p>
+<p>由于这样的机制就必须的有一个标志来表明哪些数据已经被消费过了，<code>offset(偏移量)</code>就是这样的作用，它类似于指针指向某个数据，当消费之后<code>offset</code>就会线性的向前移动，这样一来的话消息是可以被任意消费的，只要我们修改<code>offset</code>的值即可。</p>
+<p>消费过程中还有一个值得注意的是:</p>
+<blockquote>
+<p>同一个consumer group(group.id相等)下只能有一个消费者可以消费，这个刚开始确实会让很多人踩坑。</p>
+</blockquote>
+<h1 id="多线程消费"><a href="#多线程消费" class="headerlink" title="多线程消费"></a>多线程消费</h1><p>针对于单线程消费实现起来自然是比较简单，但是效率也是要大打折扣的。</p>
+<p>为此我做了一个测试，使用之前的单线程消费120009条数据的结果如下:</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1ba8705aac.jpg" srcset="/img/loading.gif" lazyload><br>总共花了12450毫秒。</p>
+<p>那么换成多线程消费怎么实现呢？</p>
+<p>我们可以利用<code>partition</code>的分区特性来提高消费能力，单线程的时候等于是一个线程要把所有分区里的数据都消费一遍，如果换成多线程就可以让一个线程只消费一个分区,这样效率自然就提高了，所以线程数<code>coreSize&lt;=partition</code>。</p>
+<p>首先来看下入口:</p>
+<figure class="highlight arduino"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs arduino"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">ConsumerThreadMain</span> &#123;<br>    <span class="hljs-keyword">private</span> <span class="hljs-type">static</span> <span class="hljs-type">String</span> brokerList = <span class="hljs-string">&quot;localhost:9094&quot;</span>;<br>    <span class="hljs-keyword">private</span> <span class="hljs-type">static</span> <span class="hljs-type">String</span> groupId = <span class="hljs-string">&quot;group1&quot;</span>;<br>    <span class="hljs-keyword">private</span> <span class="hljs-type">static</span> <span class="hljs-type">String</span> topic = <span class="hljs-string">&quot;test&quot;</span>;<br><br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * 线程数量</span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-keyword">private</span> <span class="hljs-type">static</span> <span class="hljs-type">int</span> threadNum = <span class="hljs-number">3</span>;<br><br>    <span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-type">static</span> <span class="hljs-type">void</span> <span class="hljs-title">main</span><span class="hljs-params">(<span class="hljs-type">String</span>[] args)</span> </span>&#123;<br><br><br>        ConsumerGroup consumerGroup = <span class="hljs-keyword">new</span> <span class="hljs-built_in">ConsumerGroup</span>(threadNum, groupId, topic, brokerList);<br>        consumerGroup.<span class="hljs-built_in">execute</span>();<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+<p>其中的<code>ConsumerGroup</code>类:</p>
+<figure class="highlight arduino"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><code class="hljs arduino"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">ConsumerGroup</span> &#123;<br>    <span class="hljs-keyword">private</span> <span class="hljs-type">static</span> Logger LOGGER = LoggerFactory.<span class="hljs-built_in">getLogger</span>(ConsumerGroup.<span class="hljs-keyword">class</span>);<br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * 线程池</span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-keyword">private</span> ExecutorService threadPool;<br><br>    <span class="hljs-keyword">private</span> List&lt;ConsumerCallable&gt; consumers ;<br><br>    <span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-title">ConsumerGroup</span><span class="hljs-params">(<span class="hljs-type">int</span> threadNum, <span class="hljs-type">String</span> groupId, <span class="hljs-type">String</span> topic, <span class="hljs-type">String</span> brokerList)</span> </span>&#123;<br>        ThreadFactory namedThreadFactory = <span class="hljs-keyword">new</span> <span class="hljs-built_in">ThreadFactoryBuilder</span>()<br>                .<span class="hljs-built_in">setNameFormat</span>(<span class="hljs-string">&quot;consumer-pool-%d&quot;</span>).<span class="hljs-built_in">build</span>();<br><br>        threadPool = <span class="hljs-keyword">new</span> <span class="hljs-built_in">ThreadPoolExecutor</span>(threadNum, threadNum,<br>                <span class="hljs-number">0L</span>, TimeUnit.MILLISECONDS,<br>                <span class="hljs-keyword">new</span> <span class="hljs-built_in">LinkedBlockingQueue</span>&lt;Runnable&gt;(<span class="hljs-number">1024</span>), namedThreadFactory, <span class="hljs-keyword">new</span> ThreadPoolExecutor.<span class="hljs-built_in">AbortPolicy</span>());<br><br><br>        consumers = <span class="hljs-keyword">new</span> <span class="hljs-built_in">ArrayList</span>&lt;ConsumerCallable&gt;(threadNum);<br>        <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> i = <span class="hljs-number">0</span>; i &lt; threadNum; i++) &#123;<br>            ConsumerCallable consumerThread = <span class="hljs-keyword">new</span> <span class="hljs-built_in">ConsumerCallable</span>(brokerList, groupId, topic);<br>            consumers.<span class="hljs-built_in">add</span>(consumerThread);<br>        &#125;<br>    &#125;<br><br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * 执行任务</span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-type">void</span> <span class="hljs-title">execute</span><span class="hljs-params">()</span> </span>&#123;<br>        <span class="hljs-type">long</span> startTime = System.<span class="hljs-built_in">currentTimeMillis</span>() ;<br>        <span class="hljs-keyword">for</span> (ConsumerCallable runnable : consumers) &#123;<br>            Future&lt;ConsumerFuture&gt; future = threadPool.<span class="hljs-built_in">submit</span>(runnable) ;<br>        &#125;<br>        <span class="hljs-keyword">if</span> (threadPool.<span class="hljs-built_in">isShutdown</span>())&#123;<br>            <span class="hljs-type">long</span> endTime = System.<span class="hljs-built_in">currentTimeMillis</span>() ;<br>            LOGGER.<span class="hljs-built_in">info</span>(<span class="hljs-string">&quot;main thread use &#123;&#125; Millis&quot;</span> ,endTime -startTime) ;<br>        &#125;<br>        threadPool.<span class="hljs-built_in">shutdown</span>();<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+<p>最后真正的执行逻辑<code>ConsumerCallable</code>:</p>
+<figure class="highlight gradle"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br></pre></td><td class="code"><pre><code class="hljs gradle"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> ConsumerCallable <span class="hljs-keyword">implements</span> Callable&lt;ConsumerFuture&gt; &#123;<br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> Logger LOGGER = LoggerFactory.getLogger(ConsumerCallable.<span class="hljs-keyword">class</span>);<br><br>    <span class="hljs-keyword">private</span> AtomicInteger totalCount = <span class="hljs-keyword">new</span> AtomicInteger() ;<br>    <span class="hljs-keyword">private</span> AtomicLong totalTime = <span class="hljs-keyword">new</span> AtomicLong() ;<br><br>    <span class="hljs-keyword">private</span> AtomicInteger <span class="hljs-keyword">count</span> = <span class="hljs-keyword">new</span> AtomicInteger() ;<br><br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * 每个线程维护KafkaConsumer实例</span><br><span class="hljs-comment">     */</span><br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> KafkaConsumer&lt;String, String&gt; consumer;<br><br>    <span class="hljs-keyword">public</span> ConsumerCallable(String brokerList, String groupId, String topic) &#123;<br>        Properties props = <span class="hljs-keyword">new</span> Properties();<br>        props.put(<span class="hljs-string">&quot;bootstrap.servers&quot;</span>, brokerList);<br>        props.put(<span class="hljs-string">&quot;group.id&quot;</span>, groupId);<br>        <span class="hljs-comment">//自动提交位移</span><br>        props.put(<span class="hljs-string">&quot;enable.auto.commit&quot;</span>, <span class="hljs-string">&quot;true&quot;</span>);<br>        props.put(<span class="hljs-string">&quot;auto.commit.interval.ms&quot;</span>, <span class="hljs-string">&quot;1000&quot;</span>);<br>        props.put(<span class="hljs-string">&quot;session.timeout.ms&quot;</span>, <span class="hljs-string">&quot;30000&quot;</span>);<br>        props.put(<span class="hljs-string">&quot;key.deserializer&quot;</span>, <span class="hljs-string">&quot;org.apache.kafka.common.serialization.StringDeserializer&quot;</span>);<br>        props.put(<span class="hljs-string">&quot;value.deserializer&quot;</span>, <span class="hljs-string">&quot;org.apache.kafka.common.serialization.StringDeserializer&quot;</span>);<br>        <span class="hljs-keyword">this</span>.consumer = <span class="hljs-keyword">new</span> KafkaConsumer&lt;&gt;(props);<br>        consumer.subscribe(Arrays.<span class="hljs-keyword">asList</span>(topic));<br>    &#125;<br><br><br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * Computes a result, or throws an exception if unable to do so.</span><br><span class="hljs-comment">     *</span><br><span class="hljs-comment">     * @return computed result</span><br><span class="hljs-comment">     * @throws Exception if unable to compute a result</span><br><span class="hljs-comment">     */</span><br>    @Override<br>    <span class="hljs-keyword">public</span> ConsumerFuture <span class="hljs-keyword">call</span>() <span class="hljs-keyword">throws</span> Exception &#123;<br>        <span class="hljs-keyword">boolean</span> flag = <span class="hljs-keyword">true</span>;<br>        <span class="hljs-keyword">int</span> failPollTimes = <span class="hljs-number">0</span> ;<br>        <span class="hljs-keyword">long</span> startTime = System.currentTimeMillis() ;<br>        <span class="hljs-keyword">while</span> (flag) &#123;<br>            <span class="hljs-comment">// 使用200ms作为获取超时时间</span><br>            ConsumerRecords&lt;String, String&gt; records = consumer.poll(<span class="hljs-number">200</span>);<br>            <span class="hljs-keyword">if</span> (records.<span class="hljs-keyword">count</span>() &lt;= <span class="hljs-number">0</span>)&#123;<br>                failPollTimes ++ ;<br><br>                <span class="hljs-keyword">if</span> (failPollTimes &gt;= <span class="hljs-number">20</span>)&#123;<br>                    LOGGER.debug(<span class="hljs-string">&quot;达到&#123;&#125;次数，退出 &quot;</span>,failPollTimes);<br>                    flag = <span class="hljs-keyword">false</span> ;<br>                &#125;<br><br>                <span class="hljs-keyword">continue</span> ;<br>            &#125;<br><br>            <span class="hljs-comment">//获取到之后则清零</span><br>            failPollTimes = <span class="hljs-number">0</span> ;<br><br>            LOGGER.debug(<span class="hljs-string">&quot;本次获取:&quot;</span>+records.<span class="hljs-keyword">count</span>());<br>            <span class="hljs-keyword">count</span>.addAndGet(records.<span class="hljs-keyword">count</span>()) ;<br>            totalCount.addAndGet(<span class="hljs-keyword">count</span>.get()) ;<br>            <span class="hljs-keyword">long</span> endTime = System.currentTimeMillis() ;<br>            <span class="hljs-keyword">if</span> (<span class="hljs-keyword">count</span>.get() &gt;= <span class="hljs-number">10000</span> )&#123;<br>                LOGGER.info(<span class="hljs-string">&quot;this consumer &#123;&#125; record，use &#123;&#125; milliseconds&quot;</span>,<span class="hljs-keyword">count</span>,endTime-startTime);<br>                totalTime.addAndGet(endTime-startTime) ;<br>                startTime = System.currentTimeMillis() ;<br>                <span class="hljs-keyword">count</span> = <span class="hljs-keyword">new</span> AtomicInteger();<br>            &#125;<br>            LOGGER.debug(<span class="hljs-string">&quot;end totalCount=&#123;&#125;,min=&#123;&#125;&quot;</span>,totalCount,totalTime);<br><br>            <span class="hljs-comment">/*for (ConsumerRecord&lt;String, String&gt; record : records) &#123;</span><br><span class="hljs-comment">                // 简单地打印消息</span><br><span class="hljs-comment">                LOGGER.debug(record.value() + &quot; consumed &quot; + record.partition() +</span><br><span class="hljs-comment">                        &quot; message with offset: &quot; + record.offset());</span><br><span class="hljs-comment">            &#125;*/</span><br>        &#125;<br><br>        ConsumerFuture consumerFuture = <span class="hljs-keyword">new</span> ConsumerFuture(totalCount.get(),totalTime.get()) ;<br>        <span class="hljs-keyword">return</span> consumerFuture ;<br><br>    &#125;<br>&#125;<br><br></code></pre></td></tr></table></figure>
+<p>理一下逻辑:</p>
+<blockquote>
+<p>其实就是初始化出三个消费者实例，用于三个线程消费。其中加入了一些统计，最后也是消费120009条数据结果如下。</p>
+</blockquote>
+<p><img src="https://i.loli.net/2019/05/08/5cd1ba8b41500.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>由于是并行运行，可见消费120009条数据可以提高2秒左右，当数据以更高的数量级提升后效果会更加明显。</p>
+<p>但这也有一些弊端:</p>
+<ul>
+<li>灵活度不高，当分区数量变更之后不能自适应调整。</li>
+<li>消费逻辑和处理逻辑在同一个线程，如果处理逻辑较为复杂会影响效率，耦合也较高。当然这个处理逻辑可以再通过一个内部队列发出去由另外的程序来处理也是可以的。</li>
+</ul>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>Kafka</code>的知识点还是较多，<code>Kafka</code>的使用也远不这些。之后会继续分享一些关于<code>Kafka</code>监控等相关内容。</p>
+<blockquote>
+<p>项目地址：<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/SSM.git">https://github.com/crossoverJie/SSM.git</a></p>
+</blockquote>
+<blockquote>
+<p>个人博客：<a href="http://crossoverjie.top/">http://crossoverjie.top</a>。</p>
+</blockquote>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/SSM/" class="category-chain-item">SSM</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
+      
+        <a href="/tags/Kafka/" class="print-no-link">#Kafka</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>SSM(十七) MQ应用</div>
+      <div>http://crossoverjie.top/2017/10/20/SSM17/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>October 20, 2017</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2017/11/05/translation1-12%20cool%20things%20you%20can%20do%20with%20GitHub/" title="【译】你可以用GitHub做的12件 Cool 事情">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">【译】你可以用GitHub做的12件 Cool 事情</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2017/09/20/sbc5/" title="sbc(五)Hystrix-服务容错与保护">
+                        <span class="hidden-mobile">sbc(五)Hystrix-服务容错与保护</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2017/10/20/SSM17/';
+          this.page.identifier = '/2017/10/20/SSM17/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

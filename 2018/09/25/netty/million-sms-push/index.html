@@ -1,0 +1,992 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言首先迟到的祝大家中秋快乐。 最近一周多没有更新了。其实我一直想憋一个大招，分享一些大家感兴趣的干货。 鉴于最近我个人的工作内容，于是利用这三天小长假憋了一个出来（其实是玩了两天🤣）。  先简单说下本次的主题，由于我最近做的是物联网相关的开发工作，其中就不免会遇到和设备的交互。 最主要的工作就是要有一个系统来支持设备的接入、向设备推送消息；同时还得满足大量设备接入的需求。 所以本次分享的内容">
+<meta property="og:type" content="article">
+<meta property="og:title" content="设计一个百万级的消息推送系统">
+<meta property="og:url" content="http://crossoverjie.top/2018/09/25/netty/million-sms-push/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言首先迟到的祝大家中秋快乐。 最近一周多没有更新了。其实我一直想憋一个大招，分享一些大家感兴趣的干货。 鉴于最近我个人的工作内容，于是利用这三天小长假憋了一个出来（其实是玩了两天🤣）。  先简单说下本次的主题，由于我最近做的是物联网相关的开发工作，其中就不免会遇到和设备的交互。 最主要的工作就是要有一个系统来支持设备的接入、向设备推送消息；同时还得满足大量设备接入的需求。 所以本次分享的内容">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2018/09/23/5ba7ae180e8eb.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d1370be06.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d12d78ed4.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d12e1b5d7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d12ecbb45.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d1350fb4b.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d1365b83e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d1370be06.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d1380b0c9.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d138d15b4.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d139d90f4.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d14032c0d.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d14187619.jpg">
+<meta property="article:published_time" content="2018-09-25T00:01:14.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.272Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Kafka">
+<meta property="article:tag" content="Redis">
+<meta property="article:tag" content="Zookeeper">
+<meta property="article:tag" content="推送">
+<meta property="article:tag" content="路由策略">
+<meta property="article:tag" content="注册发现">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2018/09/23/5ba7ae180e8eb.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>设计一个百万级的消息推送系统 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="设计一个百万级的消息推送系统"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2018-09-25 00:01" pubdate>
+          September 25, 2018 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          3.9k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          33 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">设计一个百万级的消息推送系统</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2018/09/23/5ba7ae180e8eb.jpg" srcset="/img/loading.gif" lazyload alt="business-communication-computer-261706.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>首先迟到的祝大家中秋快乐。</p>
+<p>最近一周多没有更新了。其实我一直想憋一个大招，分享一些大家感兴趣的干货。</p>
+<p>鉴于最近我个人的工作内容，于是利用这三天小长假憋了一个出来（其实是玩了两天🤣）。</p>
+<hr>
+<p>先简单说下本次的主题，由于我最近做的是物联网相关的开发工作，其中就不免会遇到和设备的交互。</p>
+<p>最主要的工作就是要有一个系统来支持设备的接入、向设备推送消息；同时还得满足大量设备接入的需求。</p>
+<p>所以本次分享的内容不但可以满足物联网领域同时还支持以下场景：</p>
+<ul>
+<li>基于 <code>WEB</code> 的聊天系统（点对点、群聊）。</li>
+<li><code>WEB</code> 应用中需求服务端推送的场景。</li>
+<li>基于 SDK 的消息推送平台。</li>
+</ul>
+<h1 id="技术选型"><a href="#技术选型" class="headerlink" title="技术选型"></a>技术选型</h1><p>要满足大量的连接数、同时支持双全工通信，并且性能也得有保障。</p>
+<p>在 Java 技术栈中进行选型首先自然是排除掉了传统 <code>IO</code>。</p>
+<p>那就只有选 NIO 了，在这个层面其实选择也不多，考虑到社区、资料维护等方面最终选择了 Netty。</p>
+<p>最终的架构图如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d1370be06.jpg" srcset="/img/loading.gif" lazyload></p>
+<span id="more"></span>
+
+<p>现在看着蒙没关系，下文一一介绍。</p>
+<h1 id="协议解析"><a href="#协议解析" class="headerlink" title="协议解析"></a>协议解析</h1><p>既然是一个消息系统，那自然得和客户端定义好双方的协议格式。</p>
+<p>常见和简单的是 HTTP 协议，但我们的需求中有一项需要是双全工的交互方式，同时 HTTP 更多的是服务于浏览器。我们需要的是一个更加精简的协议，减少许多不必要的数据传输。</p>
+<p>因此我觉得最好是在满足业务需求的情况下定制自己的私有协议，在我这个场景下其实有标准的物联网协议。</p>
+<p>如果是其他场景可以借鉴现在流行的 <code>RPC</code> 框架定制私有协议，使得双方通信更加高效。</p>
+<p>不过根据这段时间的经验来看，不管是哪种方式都得在协议中预留安全相关的位置。</p>
+<p>协议相关的内容就不过讨论了，更多介绍具体的应用。</p>
+<h1 id="简单实现"><a href="#简单实现" class="headerlink" title="简单实现"></a>简单实现</h1><p>首先考虑如何实现功能，再来思考百万连接的情况。</p>
+<h2 id="注册鉴权"><a href="#注册鉴权" class="headerlink" title="注册鉴权"></a>注册鉴权</h2><p>在做真正的消息上、下行之前首先要考虑的就是鉴权问题。</p>
+<p>就像你使用微信一样，第一步怎么也得是登录吧，不能无论是谁都可以直接连接到平台。</p>
+<p>所以第一步得是注册才行。</p>
+<p>如上面架构图中的 <code>注册/鉴权</code> 模块。通常来说都需要客户端通过 <code>HTTP</code> 请求传递一个唯一标识，后台鉴权通过之后会响应一个 <code>token</code>，并将这个 <code>token</code> 和客户端的关系维护到 <code>Redis</code> 或者是 DB 中。</p>
+<p>客户端将这个 token 也保存到本地，今后的每一次请求都得带上这个 token。一旦这个 token 过期，客户端需要再次请求获取 token。</p>
+<p>鉴权通过之后客户端会直接通过<code>TCP 长连接</code>到图中的 <code>push-server</code> 模块。</p>
+<p>这个模块就是真正处理消息的上、下行。</p>
+<h2 id="保存通道关系"><a href="#保存通道关系" class="headerlink" title="保存通道关系"></a>保存通道关系</h2><p>在连接接入之后，真正处理业务之前需要将当前的客户端和 Channel 的关系维护起来。</p>
+<p>假设客户端的唯一标识是手机号码，那就需要把手机号码和当前的 Channel 维护到一个 Map 中。</p>
+<p>这点和之前 <a target="_blank" rel="noopener" href="http://t.cn/EPcNHFZ">SpringBoot 整合长连接心跳机制</a> 类似。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d12d78ed4.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>同时为了可以通过 Channel 获取到客户端唯一标识（手机号码），还需要在 Channel 中设置对应的属性：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">putClientId</span><span class="hljs-params">(Channel channel, String clientId)</span> &#123;<br>    channel.attr(CLIENT_ID).set(clientId);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>获取时手机号码时：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> String <span class="hljs-title function_">getClientId</span><span class="hljs-params">(Channel channel)</span> &#123;<br>    <span class="hljs-keyword">return</span> (String)getAttribute(channel, CLIENT_ID);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这样当我们客户端下线的时便可以记录相关日志：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">String</span> <span class="hljs-variable">telNo</span> <span class="hljs-operator">=</span> NettyAttrUtil.getClientId(ctx.channel());<br>NettySocketHolder.remove(telNo);<br>log.info(<span class="hljs-string">&quot;客户端下线，TelNo=&quot;</span> +  telNo);<br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这里有一点需要注意：存放客户端与 Channel 关系的 Map 最好是预设好大小（避免经常扩容），因为它将是使用最为频繁同时也是占用内存最大的一个对象。</p>
+</blockquote>
+<h2 id="消息上行"><a href="#消息上行" class="headerlink" title="消息上行"></a>消息上行</h2><p>接下来则是真正的业务数据上传，通常来说第一步是需要判断上传消息输入什么业务类型。</p>
+<p>在聊天场景中，有可能上传的是文本、图片、视频等内容。</p>
+<p>所以我们得进行区分，来做不同的处理；这就和客户端协商的协议有关了。</p>
+<ul>
+<li>可以利用消息头中的某个字段进行区分。</li>
+<li>更简单的就是一个 <code>JSON</code> 消息，拿出一个字段用于区分不同消息。</li>
+</ul>
+<p>不管是哪种只有可以区分出来即可。</p>
+<h3 id="消息解析与业务解耦"><a href="#消息解析与业务解耦" class="headerlink" title="消息解析与业务解耦"></a>消息解析与业务解耦</h3><p>消息可以解析之后便是处理业务，比如可以是写入数据库、调用其他接口等。</p>
+<p>我们都知道在 Netty 中处理消息一般是在 <code>channelRead()</code> 方法中。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d12e1b5d7.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>在这里可以解析消息，区分类型。</p>
+<p>但如果我们的业务逻辑也写在里面，那这里的内容将是巨多无比。</p>
+<p>甚至我们分为好几个开发来处理不同的业务，这样将会出现许多冲突、难以维护等问题。</p>
+<p>所以非常有必要将消息解析与业务处理完全分离开来。</p>
+<blockquote>
+<p>这时面向接口编程就发挥作用了。</p>
+</blockquote>
+<p>这里的核心代码和 <a href="https://crossoverjie.top/2018/09/03/wheel/cicada1/#%E9%85%8D%E7%BD%AE%E4%B8%9A%E5%8A%A1-Action">「造个轮子」——cicada(轻量级 WEB 框架)</a> 是一致的。</p>
+<p>都是先定义一个接口用于处理业务逻辑，然后在解析消息之后通过反射创建具体的对象执行其中的<code>处理函数</code>即可。</p>
+<p>这样不同的业务、不同的开发人员只需要实现这个接口同时实现自己的业务逻辑即可。</p>
+<p>伪代码如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d12ecbb45.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d1350fb4b.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>想要了解 cicada 的具体实现请点击这里：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/TogetherOS/cicada">https://github.com/TogetherOS/cicada</a></p>
+<p>上行还有一点需要注意；由于是基于长连接，所以客户端需要定期发送心跳包用于维护本次连接。同时服务端也会有相应的检查，N 个时间间隔没有收到消息之后将会主动断开连接节省资源。</p>
+<p>这点使用一个 <code>IdleStateHandler</code> 就可实现，更多内容可以查看 <a target="_blank" rel="noopener" href="http://t.cn/EPcNHFZ">Netty(一) SpringBoot 整合长连接心跳机制</a>。</p>
+<h2 id="消息下行"><a href="#消息下行" class="headerlink" title="消息下行"></a>消息下行</h2><p>有了上行自然也有下行。比如在聊天的场景中，有两个客户端连上了 <code>push-server</code>,他们直接需要点对点通信。</p>
+<p>这时的流程是：</p>
+<ul>
+<li>A 将消息发送给服务器。</li>
+<li>服务器收到消息之后，得知消息是要发送给 B，需要在内存中找到 B 的 Channel。</li>
+<li>通过 B 的 Channel 将 A 的消息转发下去。</li>
+</ul>
+<p>这就是一个下行的流程。</p>
+<p>甚至管理员需要给所有在线用户发送系统通知也是类似：</p>
+<p>遍历保存通道关系的 Map，挨个发送消息即可。这也是之前需要存放到 Map 中的主要原因。</p>
+<p>伪代码如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d1365b83e.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>具体可以参考：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/netty-action/">https://github.com/crossoverJie/netty-action/</a></p>
+<h1 id="分布式方案"><a href="#分布式方案" class="headerlink" title="分布式方案"></a>分布式方案</h1><p>单机版的实现了，现在着重讲讲如何实现百万连接。</p>
+<p>百万连接其实只是一个形容词，更多的是想表达如何来实现一个分布式的方案，可以灵活的水平拓展从而能支持更多的连接。</p>
+<p>再做这个事前首先得搞清楚我们单机版的能支持多少连接。影响这个的因素就比较多了。</p>
+<ul>
+<li>服务器自身配置。内存、CPU、网卡、Linux 支持的最大文件打开数等。</li>
+<li>应用自身配置，因为 Netty 本身需要依赖于堆外内存，但是 JVM 本身也是需要占用一部分内存的，比如存放通道关系的大 <code>Map</code>。这点需要结合自身情况进行调整。</li>
+</ul>
+<p>结合以上的情况可以测试出单个节点能支持的最大连接数。</p>
+<p>单机无论怎么优化都是有上限的，这也是分布式主要解决的问题。</p>
+<h2 id="架构介绍"><a href="#架构介绍" class="headerlink" title="架构介绍"></a>架构介绍</h2><p>在将具体实现之前首先得讲讲上文贴出的整体架构图。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d1370be06.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>先从左边开始。</p>
+<p>上文提到的 <code>注册鉴权</code> 模块也是集群部署的，通过前置的 Nginx 进行负载。之前也提过了它主要的目的是来做鉴权并返回一个 token 给客户端。</p>
+<p>但是 <code>push-server</code> 集群之后它又多了一个作用。那就是得返回一台可供当前客户端使用的 <code>push-server</code>。</p>
+<p>右侧的 <code>平台</code> 一般指管理平台，它可以查看当前的实时在线数、给指定客户端推送消息等。</p>
+<p>推送消息则需要经过一个推送路由（<code>push-server</code>）找到真正的推送节点。</p>
+<p>其余的中间件如：Redis、Zookeeper、Kafka、MySQL 都是为了这些功能所准备的，具体看下面的实现。</p>
+<h2 id="注册发现"><a href="#注册发现" class="headerlink" title="注册发现"></a>注册发现</h2><p>首先第一个问题则是 <code>注册发现</code>，<code>push-server</code> 变为多台之后如何给客户端选择一台可用的节点是第一个需要解决的。</p>
+<p>这块的内容其实已经在 <a href="https://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/">分布式(一) 搞定服务注册与发现</a> 中详细讲过了。</p>
+<p>所有的 <code>push-server</code> 在启动时候需要将自身的信息注册到 Zookeeper 中。</p>
+<p><code>注册鉴权</code> 模块会订阅 Zookeeper 中的节点，从而可以获取最新的服务列表。结构如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d1380b0c9.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>以下是一些伪代码：</p>
+<p>应用启动注册 Zookeeper。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d138d15b4.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d139d90f4.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>对于<code>注册鉴权</code>模块来说只需要订阅这个 Zookeeper 节点：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d14032c0d.jpg" srcset="/img/loading.gif" lazyload></p>
+<h3 id="路由策略"><a href="#路由策略" class="headerlink" title="路由策略"></a>路由策略</h3><p>既然能获取到所有的服务列表，那如何选择一台刚好合适的 <code>push-server</code> 给客户端使用呢？</p>
+<p>这个过程重点要考虑以下几点：</p>
+<ul>
+<li>尽量保证各个节点的连接均匀。</li>
+<li>增删节点是否要做 Rebalance。</li>
+</ul>
+<p>首先保证均衡有以下几种算法：</p>
+<ul>
+<li>轮询。挨个将各个节点分配给客户端。但会出现新增节点分配不均匀的情况。</li>
+<li>Hash 取模的方式。类似于 HashMap，但也会出现轮询的问题。当然也可以像 HashMap 那样做一次 Rebalance，让所有的客户端重新连接。不过这样会导致所有的连接出现中断重连，代价有点大。</li>
+<li>由于 Hash 取模方式的问题带来了<a href="https://crossoverjie.top/%2F2018%2F01%2F08%2FConsistent-Hash%2F"><code>一致性 Hash</code>算法</a>，但依然会有一部分的客户端需要 Rebalance。</li>
+<li>权重。可以手动调整各个节点的负载情况，甚至可以做成自动的，基于监控当某些节点负载较高就自动调低权重，负载较低的可以提高权重。</li>
+</ul>
+<p>还有一个问题是：</p>
+<blockquote>
+<p>当我们在重启部分应用进行升级时，在该节点上的客户端怎么处理？</p>
+</blockquote>
+<p>由于我们有心跳机制，当心跳不通之后就可以认为该节点出现问题了。那就得重新请求<code>注册鉴权</code>模块获取一个可用的节点。在弱网情况下同样适用。</p>
+<p>如果这时客户端正在发送消息，则需要将消息保存到本地等待获取到新的节点之后再次发送。</p>
+<h2 id="有状态连接"><a href="#有状态连接" class="headerlink" title="有状态连接"></a>有状态连接</h2><p>在这样的场景中不像是 HTTP 那样是无状态的，我们得明确的知道各个客户端和连接的关系。</p>
+<p>在上文的单机版中我们将这个关系保存到本地的缓存中，但在分布式环境中显然行不通了。</p>
+<p>比如在平台向客户端推送消息的时候，它得首先知道这个客户端的通道保存在哪台节点上。</p>
+<p>借助我们以前的经验，这样的问题自然得引入一个第三方中间件用来存放这个关系。</p>
+<p>也就是架构图中的存放<code>路由关系的 Redis</code>，在客户端接入 <code>push-server</code> 时需要将当前客户端唯一标识和服务节点的 <code>ip+port</code> 存进 <code>Redis</code>。</p>
+<p>同时在客户端下线时候得在 Redis 中删掉这个连接关系。</p>
+<blockquote>
+<p>这样在理想情况下各个节点内存中的 map 关系加起来应该正好等于 Redis 中的数据。</p>
+</blockquote>
+<p>伪代码如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d14187619.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>这里存放路由关系的时候会有并发问题，最好是换为一个 <code>lua</code> 脚本。</p>
+<h2 id="推送路由"><a href="#推送路由" class="headerlink" title="推送路由"></a>推送路由</h2><p>设想这样一个场景：管理员需要给最近注册的客户端推送一个系统消息会怎么做？</p>
+<blockquote>
+<p>结合架构图</p>
+</blockquote>
+<p>假设这批客户端有 10W 个，首先我们需要将这批号码通过<code>平台</code>下的 <code>Nginx</code> 下发到一个推送路由中。</p>
+<p>为了提高效率甚至可以将这批号码再次分散到每个 <code>push-route</code> 中。</p>
+<p>拿到具体号码之后再根据号码的数量启动多线程的方式去之前的路由 Redis 中获取客户端所对应的 <code>push-server</code>。</p>
+<p>再通过 HTTP 的方式调用 <code>push-server</code> 进行真正的消息下发（Netty 也很好的支持 HTTP 协议）。</p>
+<p>推送成功之后需要将结果更新到数据库中，不在线的客户端可以根据业务再次推送等。</p>
+<h2 id="消息流转"><a href="#消息流转" class="headerlink" title="消息流转"></a>消息流转</h2><p>也许有些场景对于客户端上行的消息非常看重，需要做持久化，并且消息量非常大。</p>
+<p>在 <code>push-sever</code> 做业务显然不合适，这时完全可以选择 Kafka 来解耦。</p>
+<p>将所有上行的数据直接往 Kafka 里丢后就不管了。</p>
+<p>再由消费程序将数据取出写入数据库中即可。</p>
+<p>其实这块内容也很值得讨论，可以先看这篇了解下：<a href="https://crossoverjie.top/2018/08/29/java-senior/OOM-Disruptor/">强如 Disruptor 也发生内存溢出？</a></p>
+<p>后续谈到 Kafka 再做详细介绍。</p>
+<h1 id="分布式问题"><a href="#分布式问题" class="headerlink" title="分布式问题"></a>分布式问题</h1><p>分布式解决了性能问题但却带来了其他麻烦。</p>
+<h2 id="应用监控"><a href="#应用监控" class="headerlink" title="应用监控"></a>应用监控</h2><p>比如如何知道线上几十个 <code>push-server</code> 节点的健康状况？</p>
+<p>这时就得监控系统发挥作用了，我们需要知道各个节点当前的内存使用情况、GC。</p>
+<p>以及操作系统本身的内存使用，毕竟 Netty 大量使用了堆外内存。</p>
+<p>同时需要监控各个节点当前的在线数，以及 Redis 中的在线数。理论上这两个数应该是相等的。</p>
+<p>这样也可以知道系统的使用情况，可以灵活的维护这些节点数量。</p>
+<h2 id="日志处理"><a href="#日志处理" class="headerlink" title="日志处理"></a>日志处理</h2><p>日志记录也变得异常重要了，比如哪天反馈有个客户端一直连不上，你得知道问题出在哪里。</p>
+<p>最好是给每次请求都加上一个 traceID 记录日志，这样就可以通过这个日志在各个节点中查看到底是卡在了哪里。</p>
+<p>以及 ELK 这些工具都得用起来才行。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本次是结合我日常经验得出的，有些坑可能在工作中并没有踩到，所有还会有一些遗漏的地方。</p>
+<p>就目前来看想做一个稳定的推送系统其实是比较麻烦的，其中涉及到的点非常多，只有真正做过之后才会知道。</p>
+<p>看完之后觉得有帮助的还请不吝转发分享。</p>
+<p><strong>欢迎关注公众号一起交流：</strong></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/Netty/" class="category-chain-item">Netty</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Kafka/" class="print-no-link">#Kafka</a>
+      
+        <a href="/tags/Redis/" class="print-no-link">#Redis</a>
+      
+        <a href="/tags/Zookeeper/" class="print-no-link">#Zookeeper</a>
+      
+        <a href="/tags/%E6%8E%A8%E9%80%81/" class="print-no-link">#推送</a>
+      
+        <a href="/tags/%E8%B7%AF%E7%94%B1%E7%AD%96%E7%95%A5/" class="print-no-link">#路由策略</a>
+      
+        <a href="/tags/%E6%B3%A8%E5%86%8C%E5%8F%91%E7%8E%B0/" class="print-no-link">#注册发现</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>设计一个百万级的消息推送系统</div>
+      <div>http://crossoverjie.top/2018/09/25/netty/million-sms-push/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>September 25, 2018</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2018/10/09/wheel/cicada4/" title="「造个轮子」——cicada 设计全局上下文">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">「造个轮子」——cicada 设计全局上下文</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2018/09/14/wheel/cicada3/" title="「造个轮子」——cicada 设计一个配置模块">
+                        <span class="hidden-mobile">「造个轮子」——cicada 设计一个配置模块</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2018/09/25/netty/million-sms-push/';
+          this.page.identifier = '/2018/09/25/netty/million-sms-push/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

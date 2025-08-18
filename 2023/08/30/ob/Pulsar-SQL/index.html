@@ -1,0 +1,862 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="背景为了让业务团队可以更好的跟踪自己消息的生产和消费状态，需要一个类似于表格视图的消息列表，用户可以直观的看到发送的消息；同时点击详情后也能查到消息的整个轨迹。   消息列表">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用 SQL 的方式查询消息队列数据以及踩坑指南">
+<meta property="og:url" content="http://crossoverjie.top/2023/08/30/ob/Pulsar-SQL/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景为了让业务团队可以更好的跟踪自己消息的生产和消费状态，需要一个类似于表格视图的消息列表，用户可以直观的看到发送的消息；同时点击详情后也能查到消息的整个轨迹。   消息列表">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2023/08/30/3iz9yqfuSCn18xk.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/02/l9uvSnqAOxfPer7.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/02/H7pjinzQ5EWR2tF.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/30/1YEtorbwaZAXylL.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/30/u6gc3YxvH94ZDPG.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/30/vr7ED6BYgOsoqxz.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/30/Np2XD7T9cJAwxQC.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/30/UBqocsjFvC2yXEe.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/30/RqtIvwy5HNsr27M.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/30/MswBlVXi12DICr9.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/30/vG83bleTf1EcCPp.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/30/nYestcQqRax1NVv.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/30/MPamvyduxrTZRkY.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/30/UBl6OPGzASnfqT2.png">
+<meta property="og:image" content="https://s2.loli.net/2023/08/30/XZfWG2EYHpj5QJb.png">
+<meta property="article:published_time" content="2023-08-30T09:31:53.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.274Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="SQL">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2023/08/30/3iz9yqfuSCn18xk.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>使用 SQL 的方式查询消息队列数据以及踩坑指南 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="使用 SQL 的方式查询消息队列数据以及踩坑指南"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2023-08-30 09:31" pubdate>
+          August 30, 2023 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.4k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          12 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">使用 SQL 的方式查询消息队列数据以及踩坑指南</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://s2.loli.net/2023/08/30/3iz9yqfuSCn18xk.png" srcset="/img/loading.gif" lazyload alt="Pulsar-sql.png"></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>为了让业务团队可以更好的跟踪自己消息的生产和消费状态，需要一个类似于表格视图的消息列表，用户可以直观的看到发送的消息；同时点击详情后也能查到消息的整个轨迹。</p>
+<blockquote>
+<p> 消息列表<br><img src="https://s2.loli.net/2023/08/02/l9uvSnqAOxfPer7.png" srcset="/img/loading.gif" lazyload alt="20230802234405.png"></p>
+</blockquote>
+<span id="more"></span>
+
+<blockquote>
+<p>点击详情后查看轨迹<br><img src="https://s2.loli.net/2023/08/02/H7pjinzQ5EWR2tF.png" srcset="/img/loading.gif" lazyload alt="20230802234058.png"></p>
+</blockquote>
+<h1 id="原理介绍"><a href="#原理介绍" class="headerlink" title="原理介绍"></a>原理介绍</h1><p>由于 <code>Pulsar</code> 并没有关系型数据库中表的概念，所有的数据都是存储在 <code>Bookkeeper</code> 中，为了模拟使用 SQL 查询的效果 Pulsar 提供了 <code>Presto</code> (现在已经更名为 <code>Trino</code>)的插件。</p>
+<blockquote>
+<p>Trino 是一个分布式的 SQL 查询引擎，它也提供了插件能力，如果我们想通过 SQL 从自定义数据源查询数据时，基于它的 SPI 编写一个插件是很方便的。</p>
+</blockquote>
+<p>这样便可以类似于查询数据库一样查询 <code>Pulsar</code> 数据：<br><img src="https://s2.loli.net/2023/08/30/1YEtorbwaZAXylL.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<hr>
+<p><img src="https://s2.loli.net/2023/08/30/u6gc3YxvH94ZDPG.png" srcset="/img/loading.gif" lazyload alt="image.png"><br>Pulsar 插件的运行流程如上图所示：</p>
+<ul>
+<li>启动的时候通过 <code>Pulsar-Admin</code> 接口获取一些元数据，比如 Scheme，topic 分区信息等。</li>
+<li>然后会创建一个只读的 Bookkeeper 客户端，用于获取数据。</li>
+<li>之后根据 SQL 条件过滤数据即可。</li>
+</ul>
+<p>相关代码：<br><img src="https://s2.loli.net/2023/08/30/vr7ED6BYgOsoqxz.png" srcset="/img/loading.gif" lazyload alt="image.png"><br><img src="https://s2.loli.net/2023/08/30/Np2XD7T9cJAwxQC.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<h1 id="使用-Pulsar-SQL"><a href="#使用-Pulsar-SQL" class="headerlink" title="使用 Pulsar-SQL"></a>使用 Pulsar-SQL</h1><p><img src="https://s2.loli.net/2023/08/30/UBqocsjFvC2yXEe.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<p>使用起来也很简单，官方提供了两个命令：</p>
+<ul>
+<li>sql-worker: 会启动一个 trino 服务端同时运行了 Pulsar 插件</li>
+<li>sql: 就是一个 SQL 命令行终端。</li>
+</ul>
+<h2 id="遇到的问题"><a href="#遇到的问题" class="headerlink" title="遇到的问题"></a>遇到的问题</h2><p>自己在本地运行的时候自然是没问题，可是一旦想在生产运行，同时如果你的 <code>Pulsar</code> 集群是运行再 <code>k8s</code> 环境中时就会碰到一些问题。</p>
+<h3 id="无法使用现有-Trino-集群"><a href="#无法使用现有-Trino-集群" class="headerlink" title="无法使用现有 Trino 集群"></a>无法使用现有 Trino 集群</h3><p>首先第一个问题是如果生产环境已经有了一个 <code>Trino</code> 集群想要复用的时候就会碰到问题，常规流程是将 <code>Pulsar</code> 的插件复制到 <code>Trino</code> 的 <code>Plugin</code> 目录，然后重启 <code>Trino</code> 后就能使用该插件。</p>
+<p>当然社区也是支持这么做的：<br><img src="https://s2.loli.net/2023/08/30/RqtIvwy5HNsr27M.png" srcset="/img/loading.gif" lazyload alt="image.png"><br>但是当我将 Pulsar-plugin 复制到 Trino 中运行的时候却失败了，整体的流程可以参考这个 issue：<br><a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/discussions/20941">https://github.com/apache/pulsar/discussions/20941</a></p>
+<p>简单来说 <code>Trino</code> 的官方镜像和 <code>pulsar-plugin</code> 并不能兼容，这个问题直接影响到我们是否可以在生产环境使用它。</p>
+<p>但是手动编译出来的 <code>Trino</code> 服务和插件是兼容的，可以直接运行。</p>
+<p><img src="https://s2.loli.net/2023/08/30/MswBlVXi12DICr9.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<p>因此我只能在本地编译出 Trino 服务端和 <code>pulsar-plugin</code> 然后打包成一个镜像来运行了，当然这样的坏处就是无法利用到我们现有的 <code>Trino</code> 集群，又得重新部署一个了。</p>
+<p><img src="https://s2.loli.net/2023/08/30/vG83bleTf1EcCPp.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<p>流程也比较麻烦：</p>
+<ul>
+<li>首先是本地编译 <code>Pulsar-SQL</code> 模块</li>
+<li>将生成物复制到当前目录</li>
+<li>执行 <code>make docker</code> 打出 docker 镜像并上传到私服</li>
+<li>再执行 <code>kubectl</code> 将 trino 部署到 <code>k8s</code> 环境中</li>
+</ul>
+<p>整个流程做下来加上和社区的沟通，更加确定这个功能应该是很少有人在生产环境使用的，毕竟第一个坑就很麻烦，更别提后续的问题了😂。</p>
+<h3 id="Presto-插件不支持-AuthToken"><a href="#Presto-插件不支持-AuthToken" class="headerlink" title="Presto 插件不支持 AuthToken"></a>Presto 插件不支持 AuthToken</h3><p>第二个问题也是个深坑，当我把 Trino 部署好查询数据的时候直接抛了一个调用 <code>pulsar-admin</code>  接口连接超时的异常。</p>
+<p>结果排查了半天发现原来是 <code>pulsar-plugin</code> 里没有提供 <code>JWT</code> 的验证方式，而我们的 Pulsar 集群恰好是打开了 <code>JWT</code> 验证的。</p>
+<p>为此我只能先在本地修复了这个问题，同时也提交了 PR，预计会在下一个大版本合并吧：<br><a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/pull/20860">https://github.com/apache/pulsar/pull/20860</a></p>
+<h3 id="新创建的-topic-查询失败"><a href="#新创建的-topic-查询失败" class="headerlink" title="新创建的 topic 查询失败"></a>新创建的 topic 查询失败</h3><p>第二个问题是当查询一个新创建的 topic 时，客户端会直接 block，相关的复现流程在这里：<br><a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/issues/20910">https://github.com/apache/pulsar/issues/20910</a></p>
+<p><img src="https://s2.loli.net/2023/08/30/nYestcQqRax1NVv.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<p>这个问题还好，不是很致命，是我在本地测试的时候无意间发现的。</p>
+<p>本地我已经修复了，后面也提交了一个 PR，目前还在讨论中：<br><a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/pull/20911">https://github.com/apache/pulsar/pull/20911</a></p>
+<h3 id="查询消息会丢失最后一条"><a href="#查询消息会丢失最后一条" class="headerlink" title="查询消息会丢失最后一条"></a>查询消息会丢失最后一条</h3><p>这个问题也不是很严重，数据量少的时候会发现，就是在指定了消息发送时间的查询条件时，最后一条消息会被过滤掉，相关 issue 在这里：<br><a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/issues/20919">https://github.com/apache/pulsar/issues/20919</a><br><img src="https://s2.loli.net/2023/08/30/MPamvyduxrTZRkY.png" srcset="/img/loading.gif" lazyload alt="image.png"><br>这个我只是定位到了原因，但不太清楚 为什么要这么做(-1)，影响也不是很大，就放在这里搁置了。</p>
+<h3 id="Schema-不兼容"><a href="#Schema-不兼容" class="headerlink" title="Schema 不兼容"></a>Schema 不兼容</h3><p>最后发现的一个问题是我们线上某些 topic 查询数据的时候会抛出 <code>Not a record: &quot;string&quot;</code>的异常，但只是部分 topic，也排查了很久，整个源码中没有任何一个地方有这个异常。</p>
+<p><a href="!%5B%5D(https://s2.loli.net/2023/08/30/UBl6OPGzASnfqT2.png)">https://github.com/apache/pulsar/issues/20945</a></p>
+<p><img src="https://s2.loli.net/2023/08/30/UBl6OPGzASnfqT2.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<p>根本原因是生产者生成的 schema 有问题，类型已经是 JSON 了，但是 schema 却是 string，这样导致 <code>pulsar-plugin</code>  在反序列化 schema 的时候抛出了异常，由于是 pb 反序列化抛出的异常，所以源码中都搜索不到。</p>
+<blockquote>
+<p>没有问题的 topic 使用了正确的 schema</p>
+</blockquote>
+<p>后续我也在本地修复了这个问题，当抛出异常后就将 schema 降级为基本类型进行解析。<br><img src="https://s2.loli.net/2023/08/30/XZfWG2EYHpj5QJb.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<p>不过本质问题还是客户端使用有误，如果对 <code>schema</code> 理解不准确的话还是建议使用 <code>byte[]</code> 吧，这样至少兼容性不会有问题。<br>相关 PR：<br><a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/pull/20955">https://github.com/apache/pulsar/pull/20955</a></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>Pulsar-SQL</code> 是一个非常有用的功能，只是我们使用过程中确实发现了一些问题，大部分都已经修复了；<br>希望对后续使用该功能的朋友有所帮助。<br>#Pulsar </p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/Pulsar/" class="category-chain-item">Pulsar</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/SQL/" class="print-no-link">#SQL</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>使用 SQL 的方式查询消息队列数据以及踩坑指南</div>
+      <div>http://crossoverjie.top/2023/08/30/ob/Pulsar-SQL/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>August 30, 2023</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2023/08/31/ob/k8s-0-start/" title="k8s 入门到实战--部署应用到 k8s">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">k8s 入门到实战--部署应用到 k8s</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2023/08/23/ob/VictoriaLogs-Intro/" title="VictoriaLogs：一款超低占用的 ElasticSearch 替代方案">
+                        <span class="hidden-mobile">VictoriaLogs：一款超低占用的 ElasticSearch 替代方案</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2023/08/30/ob/Pulsar-SQL/';
+          this.page.identifier = '/2023/08/30/ob/Pulsar-SQL/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

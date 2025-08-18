@@ -1,0 +1,915 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="背景Pulsar 有提供一个查询 Broker 负载的接口： 1234567891011121314151617181920    &#x2F;**     * Get load for this broker.     *     * @return     * @throws PulsarAdminException     *&#x2F;LoadManagerReport getLoadReport() thr">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分布式系统如何做负载均衡">
+<meta property="og:url" content="http://crossoverjie.top/2024/07/15/ob/Pulsar-loadbalance/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景Pulsar 有提供一个查询 Broker 负载的接口： 1234567891011121314151617181920    &#x2F;**     * Get load for this broker.     *     * @return     * @throws PulsarAdminException     *&#x2F;LoadManagerReport getLoadReport() thr">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/06/07/ephIgndx54sFlLa.png">
+<meta property="og:image" content="https://s2.loli.net/2024/06/07/UN8gpW915RfcODb.png">
+<meta property="og:image" content="https://s2.loli.net/2024/06/12/ASoLedKVlgRbCFO.png">
+<meta property="og:image" content="https://s2.loli.net/2024/06/12/hg751LtwZMrUyFb.png">
+<meta property="article:published_time" content="2024-07-15T10:22:14.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.274Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Pulsar">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2024/06/07/ephIgndx54sFlLa.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>分布式系统如何做负载均衡 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="分布式系统如何做负载均衡"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-07-15 10:22" pubdate>
+          July 15, 2024 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.8k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          24 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">分布式系统如何做负载均衡</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>Pulsar 有提供一个查询 Broker 负载的接口：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs java">    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * Get load for this broker.</span><br><span class="hljs-comment">     *</span><br><span class="hljs-comment">     * <span class="hljs-doctag">@return</span></span><br><span class="hljs-comment">     * <span class="hljs-doctag">@throws</span> PulsarAdminException</span><br><span class="hljs-comment">     */</span><br>LoadManagerReport <span class="hljs-title function_">getLoadReport</span><span class="hljs-params">()</span> <span class="hljs-keyword">throws</span> PulsarAdminException;<br><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> <span class="hljs-title class_">LoadManagerReport</span> <span class="hljs-keyword">extends</span> <span class="hljs-title class_">ServiceLookupData</span> &#123;  <br>  <br>    ResourceUsage <span class="hljs-title function_">getCpu</span><span class="hljs-params">()</span>;  <br>  <br>    ResourceUsage <span class="hljs-title function_">getMemory</span><span class="hljs-params">()</span>;  <br>  <br>    ResourceUsage <span class="hljs-title function_">getDirectMemory</span><span class="hljs-params">()</span>;  <br>  <br>    ResourceUsage <span class="hljs-title function_">getBandwidthIn</span><span class="hljs-params">()</span>;  <br>  <br>    ResourceUsage <span class="hljs-title function_">getBandwidthOut</span><span class="hljs-params">()</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>可以返回一些 broker 的负载数据，比如 CPU、内存、流量之类的数据。</p>
+<span id="more"></span>
+
+<blockquote>
+<p>我目前碰到的问题是目前会遇到部分节点的负债不平衡，导致资源占用不均衡，所以想要手动查询所有节点的负载数据，然后人工进行负载。</p>
+</blockquote>
+<p>理论上这些数据是在运行时实时计算的数据，如果对于单机的倒还好说，每次请求这个接口直接实时计算一次就可以了。</p>
+<p>但对于集群的服务来说会有多个节点，目前 Pulsar 提供的这个接口只能查询指定节点的负载数据，也就是说每次得传入目标节点的 IP 和端口。</p>
+<p><img src="https://s2.loli.net/2024/06/07/ephIgndx54sFlLa.png" srcset="/img/loading.gif" lazyload></p>
+<p>所以我的预期是可以提供一个查询所有节点负载的接口，已经提了 <code>issue</code>，最近准备写 Purpose 把这个需求解决了。</p>
+<p>实现这个需求的方案有两种：</p>
+<ol>
+<li>拿到所有 broker 也就是服务节点信息，依次遍历调用接口，然后自己组装信息。</li>
+<li>从 zookeeper 中获取负载信息。</li>
+</ol>
+<p>理论上第二种更好，第一种实现虽然更简单，但每次都发起一次 http 请求，多少有些浪费。</p>
+<p>第二种方案直接从源头获取负载信息，只需要请求一次就可以了。</p>
+<p>而正好社区提供了一个命令行工具可以直接打印所有的 <code>broker</code> 负载数据：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">pulsar-perf monitor-brokers --connect-string &lt;zookeeper host:port&gt;<br></code></pre></td></tr></table></figure>
+
+<p><img src="https://s2.loli.net/2024/06/07/UN8gpW915RfcODb.png" srcset="/img/loading.gif" lazyload></p>
+<h1 id="分布式系统常用组件"><a href="#分布式系统常用组件" class="headerlink" title="分布式系统常用组件"></a>分布式系统常用组件</h1><p>提供的命令行工具其实就是直接从 zookeeper 中查询的数据。</p>
+<p>在分布式系统中需要一个集中的组件来管理各种数据，比如：</p>
+<ol>
+<li>可以利用该组件来选举 leader 节点</li>
+<li>使用该组件来做分布式锁</li>
+<li>为分布式系统同步数据</li>
+<li>统一的存放和读取某些数据</li>
+</ol>
+<p>可以提供该功能的组件其实也不少：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://zookeeper.apache.org/">zookeeper</a></li>
+<li><a target="_blank" rel="noopener" href="https://etcd.io/">etcd</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/streamnative/oxia">oxia</a></li>
+</ul>
+<p>Zookeeper 是老牌的分布式协调组件，可以做 leader 选举、配置中心、分布式锁、服务注册与发现等功能。</p>
+<p>在许多中间件和系统中都有应用，比如：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/apache/pulsar">Apache Pulsar</a> 中作为协调中心</li>
+<li><a target="_blank" rel="noopener" href="https://github.com/apache/kafka">Kafka</a> 中也有类似的作用。</li>
+<li>在 <a target="_blank" rel="noopener" href="https://github.com/apache/dubbo">Dubbo</a> 中作为服务注册发现组件。</li>
+</ul>
+<hr>
+<p>etcd 的功能与 zookeeper 类似，可以用作服务注册发现，也可以作为 Key Value 键值对存储系统；在 kubernetes 中扮演了巨大作用，经历了各种考验，稳定性已经非常可靠了。</p>
+<hr>
+<p><a target="_blank" rel="noopener" href="https://github.com/streamnative/oxia">Oxia</a> 则是 StreamNative 开发的一个用于替换 Zookeeper 的中间件，功能也与 Zookeeper 类似；目前已经可以在 Pulsar 中替换 Zookeeper，只是还没有大规模的使用。</p>
+<h1 id="Pulsar-中的应用"><a href="#Pulsar-中的应用" class="headerlink" title="Pulsar 中的应用"></a>Pulsar 中的应用</h1><p>下面以 Pulsar 为例（使用 zookeeper），看看在这类大型分布式系统中是如何处理负载均衡的。</p>
+<p>再开始之前先明确下负载均衡大体上会做哪些事情。</p>
+<ol>
+<li>首先上报自己节点的负载数据</li>
+<li>Leader 节点需要定时收集所有节点的负载数据。<ol>
+<li>这些负载数据中包括：<ol>
+<li><code>CPU</code>、堆内存、堆外内存等通用数据的使用量</li>
+<li>流出、流入流量</li>
+<li>一些系统特有的数据，比如在 <code>Pulsar</code> 中就是：<ol>
+<li>每个 <code>broker</code> 中的 <code>topic</code>、<code>consumer</code>、<code>producer</code>、<code>bundle</code> 等数据。</li>
+</ol>
+</li>
+</ol>
+</li>
+</ol>
+</li>
+<li>再由 leader 节点读取到这些数据后选择负载较高的节点，将数据迁移到负载较低的节点。</li>
+</ol>
+<p>以上就是一个完整的负载均衡的流程，下面我们依次看看在 <code>Pulsar</code> 中是如何实现这些逻辑的。</p>
+<p>在 Pulsar 中提供了多种负载均衡策略，以下是加载负载均衡器的逻辑：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">static</span> LoadManager <span class="hljs-title function_">create</span><span class="hljs-params">(<span class="hljs-keyword">final</span> PulsarService pulsar)</span> &#123;  <br>    <span class="hljs-keyword">try</span> &#123;  <br>        <span class="hljs-keyword">final</span> <span class="hljs-type">ServiceConfiguration</span> <span class="hljs-variable">conf</span> <span class="hljs-operator">=</span> pulsar.getConfiguration();  <br>        <span class="hljs-comment">// Assume there is a constructor with one argument of PulsarService.  </span><br>        <span class="hljs-keyword">final</span> <span class="hljs-type">Object</span> <span class="hljs-variable">loadManagerInstance</span> <span class="hljs-operator">=</span> Reflections.createInstance(conf.getLoadManagerClassName(),  <br>                Thread.currentThread().getContextClassLoader());  <br>        <span class="hljs-keyword">if</span> (loadManagerInstance <span class="hljs-keyword">instanceof</span> LoadManager) &#123;  <br>            <span class="hljs-keyword">final</span> <span class="hljs-type">LoadManager</span> <span class="hljs-variable">casted</span> <span class="hljs-operator">=</span> (LoadManager) loadManagerInstance;  <br>            casted.initialize(pulsar);  <br>            <span class="hljs-keyword">return</span> casted;  <br>        &#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (loadManagerInstance <span class="hljs-keyword">instanceof</span> ModularLoadManager) &#123;  <br>            <span class="hljs-keyword">final</span> <span class="hljs-type">LoadManager</span> <span class="hljs-variable">casted</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">ModularLoadManagerWrapper</span>((ModularLoadManager) loadManagerInstance);  <br>            casted.initialize(pulsar);  <br>            <span class="hljs-keyword">return</span> casted;  <br>        &#125;  <br>    &#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;  <br>        LOG.warn(<span class="hljs-string">&quot;Error when trying to create load manager: &quot;</span>, e);  <br>    &#125;  <br>    <span class="hljs-comment">// If we failed to create a load manager, default to SimpleLoadManagerImpl.  </span><br>    <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">SimpleLoadManagerImpl</span>(pulsar);  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>默认使用的是 <code>ModularLoadManagerImpl</code>， 如果出现异常那就会使用 <code>SimpleLoadManagerImpl</code> 作为兜底。</p>
+<p>他们两个的区别是 <code>ModularLoadManagerImpl</code> 的功能更全，可以做更为细致的负载策略。</p>
+<p>接下来以默认的 <code>ModularLoadManagerImpl</code> 为例讲解上述的流程。</p>
+<h2 id="上报负载数据"><a href="#上报负载数据" class="headerlink" title="上报负载数据"></a>上报负载数据</h2><p>在负载均衡器启动的时候就会收集节点数据然后进行上报：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs java">   <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">start</span><span class="hljs-params">()</span> <span class="hljs-keyword">throws</span> PulsarServerException &#123;<br>     <span class="hljs-keyword">try</span> &#123;<br><br>         <span class="hljs-type">String</span> <span class="hljs-variable">brokerId</span> <span class="hljs-operator">=</span> pulsar.getBrokerId();<br>         brokerZnodePath = LoadManager.LOADBALANCE_BROKERS_ROOT + <span class="hljs-string">&quot;/&quot;</span> + brokerId;<br>         <span class="hljs-comment">// 收集本地负载数据</span><br>         updateLocalBrokerData();<br><br><span class="hljs-comment">// 上报 zookeeper</span><br>         brokerDataLock = brokersData.acquireLock(brokerZnodePath, localData).join();<br>     &#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;<br>         log.error(<span class="hljs-string">&quot;Unable to acquire lock for broker: [&#123;&#125;]&quot;</span>, brokerZnodePath, e);<br>         <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">PulsarServerException</span>(e);<br>     &#125;<br> &#125;<br></code></pre></td></tr></table></figure>
+
+
+
+<p>首先获取到当前 broker 的 Id 然后拼接一个 zookeeper 节点的路径，将生成的 localData 上传到 zookeeper 中。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs shell">// 存放 broker 的节点信息<br>ls /loadbalance/brokers<br><br>[broker-1:8080, broker-2:8080]<br><br>// 根据节点信息查询负载数据<br>get /loadbalance/brokers/broker-1:8080<br></code></pre></td></tr></table></figure>
+<p>上报的数据：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;webServiceUrl&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-string">&quot;http://broker-1:8080&quot;</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;pulsarServiceUrl&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-string">&quot;pulsar://broker-1:6650&quot;</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;persistentTopicsEnabled&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;nonPersistentTopicsEnabled&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;cpu&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;usage&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">7.311714728372232</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;limit&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">800.0</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;memory&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;usage&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">124.0</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;limit&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">2096.0</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;directMemory&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;usage&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">36.0</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;limit&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">256.0</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;bandwidthIn&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;usage&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0.8324254085661579</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;limit&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">1.0E7</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;bandwidthOut&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;usage&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0.7155446715644209</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;limit&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">1.0E7</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;msgThroughputIn&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;msgThroughputOut&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;msgRateIn&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;msgRateOut&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;lastUpdate&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">1690979816792</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;lastStats&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;my-tenant/my-namespace/0x4ccccccb_0x66666664&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;msgRateIn&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;msgThroughputIn&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;msgRateOut&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;msgThroughputOut&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;consumerCount&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">2</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;producerCount&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;topics&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">1</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;cacheSize&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;numTopics&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">1</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;numBundles&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">1</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;numConsumers&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">2</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;numProducers&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;bundles&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">[</span><span class="hljs-string">&quot;my-tenant/my-namespace/0x4ccccccb_0x66666664&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;lastBundleGains&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;lastBundleLosses&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;brokerVersionString&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-string">&quot;3.1.0-SNAPSHOT&quot;</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;protocols&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">&#123;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;advertisedListeners&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;internal&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;brokerServiceUrl&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-string">&quot;pulsar://broker-1:6650&quot;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;loadManagerClassName&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-string">&quot;org.apache.pulsar.broker.loadbalance.impl.ModularLoadManagerImpl&quot;</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;startTimestamp&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">1690940955211</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;maxResourceUsage&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-number">0.140625</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;loadReportType&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-string">&quot;LocalBrokerData&quot;</span><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+
+<h3 id="采集数据"><a href="#采集数据" class="headerlink" title="采集数据"></a>采集数据</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> SystemResourceUsage <span class="hljs-title function_">getSystemResourceUsage</span><span class="hljs-params">(<span class="hljs-keyword">final</span> BrokerHostUsage brokerHostUsage)</span> &#123;  <br>    <span class="hljs-type">SystemResourceUsage</span> <span class="hljs-variable">systemResourceUsage</span> <span class="hljs-operator">=</span> brokerHostUsage.getBrokerHostUsage();  <br>  <br>    <span class="hljs-comment">// Override System memory usage and limit with JVM heap usage and limit  </span><br>    <span class="hljs-type">double</span> <span class="hljs-variable">maxHeapMemoryInBytes</span> <span class="hljs-operator">=</span> Runtime.getRuntime().maxMemory();  <br>    <span class="hljs-type">double</span> <span class="hljs-variable">memoryUsageInBytes</span> <span class="hljs-operator">=</span> Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();  <br>    <span class="hljs-type">double</span> <span class="hljs-variable">memoryUsage</span> <span class="hljs-operator">=</span> memoryUsageInBytes / MIBI;  <br>    <span class="hljs-type">double</span> <span class="hljs-variable">memoryLimit</span> <span class="hljs-operator">=</span> maxHeapMemoryInBytes / MIBI;  <br>    systemResourceUsage.setMemory(<span class="hljs-keyword">new</span> <span class="hljs-title class_">ResourceUsage</span>(memoryUsage, memoryLimit));  <br>  <br>    <span class="hljs-comment">// Collect JVM direct memory  </span><br>    systemResourceUsage.setDirectMemory(<span class="hljs-keyword">new</span> <span class="hljs-title class_">ResourceUsage</span>((<span class="hljs-type">double</span>) (getJvmDirectMemoryUsed() / MIBI),  <br>            (<span class="hljs-type">double</span>) (DirectMemoryUtils.jvmMaxDirectMemory() / MIBI)));  <br>  <br>    <span class="hljs-keyword">return</span> systemResourceUsage;  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>会在运行时获取一些 JVM 和 堆外内存的数据。</p>
+<h2 id="收集所有节点数据"><a href="#收集所有节点数据" class="headerlink" title="收集所有节点数据"></a>收集所有节点数据</h2><p>作为 <code>leader</code> 节点还需要收集所有节点的负载数据，然后根据一些规则选择将负载较高的节点移动到负债较低的节点中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">updateAllBrokerData</span><span class="hljs-params">()</span> &#123;<br> <span class="hljs-comment">// 从 zookeeper 中获取所有节点</span><br>    <span class="hljs-keyword">final</span> Set&lt;String&gt; activeBrokers = getAvailableBrokers();<br>    <span class="hljs-keyword">final</span> Map&lt;String, BrokerData&gt; brokerDataMap = loadData.getBrokerData();<br>    <span class="hljs-keyword">for</span> (String broker : activeBrokers) &#123;<br>        <span class="hljs-keyword">try</span> &#123;<br>            <span class="hljs-type">String</span> <span class="hljs-variable">key</span> <span class="hljs-operator">=</span> String.format(<span class="hljs-string">&quot;%s/%s&quot;</span>, LoadManager.LOADBALANCE_BROKERS_ROOT, broker);<br>            <span class="hljs-comment">// 依次读取各个节点的负载数据</span><br>            Optional&lt;LocalBrokerData&gt; localData = brokersData.readLock(key).get();<br>            <span class="hljs-keyword">if</span> (!localData.isPresent()) &#123;<br>                brokerDataMap.remove(broker);<br>                log.info(<span class="hljs-string">&quot;[&#123;&#125;] Broker load report is not present&quot;</span>, broker);<br>                <span class="hljs-keyword">continue</span>;<br>            &#125;<br><br>            <span class="hljs-keyword">if</span> (brokerDataMap.containsKey(broker)) &#123;<br>                <span class="hljs-comment">// Replace previous local broker data.</span><br>                brokerDataMap.get(broker).setLocalData(localData.get());<br>            &#125; <span class="hljs-keyword">else</span> &#123;<br>                <span class="hljs-comment">// Initialize BrokerData object for previously unseen</span><br>                <span class="hljs-comment">// brokers.</span><br>                <span class="hljs-comment">// 将数据写入到本地缓存</span><br>                brokerDataMap.put(broker, <span class="hljs-keyword">new</span> <span class="hljs-title class_">BrokerData</span>(localData.get()));<br>            &#125;<br>        &#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;<br>            log.warn(<span class="hljs-string">&quot;Error reading broker data from cache for broker - [&#123;&#125;], [&#123;&#125;]&quot;</span>, broker, e.getMessage());<br>        &#125;<br>    &#125;<br>    <span class="hljs-comment">// Remove obsolete brokers.</span><br>    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">final</span> String broker : brokerDataMap.keySet()) &#123;<br>        <span class="hljs-keyword">if</span> (!activeBrokers.contains(broker)) &#123;<br>            brokerDataMap.remove(broker);<br>        &#125;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>会从 zookeeper 的节点中获取到所有的 broker 列表（broker 会在启动时将自身的信息注册到 zookeeper 中。）</p>
+<p>然后依次读取各自节点的负载数据，也就是在负载均衡器启动的时候上报的数据。</p>
+<h2 id="筛选出所有-broker-中需要-unload-的-bundle"><a href="#筛选出所有-broker-中需要-unload-的-bundle" class="headerlink" title="筛选出所有 broker 中需要 unload 的 bundle"></a>筛选出所有 broker 中需要 unload 的 bundle</h2><p>在 Pulsar 中 topic 是最核心的概念，而为了方便管理大量 topic，提出了一个 Bundle 的概念； Bundle 是一批 topic 的集合，管理 Bundle 自然会比 topic 更佳容易。</p>
+<p>所以在 Pulsar 中做负载均衡最主要的就是将负载较高节点中的 bundle 转移到低负载的 broker 中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">updateAllBrokerData</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-keyword">final</span> Set&lt;String&gt; activeBrokers = getAvailableBrokers();<br>    <span class="hljs-keyword">final</span> Map&lt;String, BrokerData&gt; brokerDataMap = loadData.getBrokerData();<br>    <span class="hljs-keyword">for</span> (String broker : activeBrokers) &#123;<br>        <span class="hljs-keyword">try</span> &#123;<br>            <span class="hljs-type">String</span> <span class="hljs-variable">key</span> <span class="hljs-operator">=</span> String.format(<span class="hljs-string">&quot;%s/%s&quot;</span>, LoadManager.LOADBALANCE_BROKERS_ROOT, broker);<br>            Optional&lt;LocalBrokerData&gt; localData = brokersData.readLock(key).get();<br>            <span class="hljs-keyword">if</span> (!localData.isPresent()) &#123;<br>                brokerDataMap.remove(broker);<br>                log.info(<span class="hljs-string">&quot;[&#123;&#125;] Broker load report is not present&quot;</span>, broker);<br>                <span class="hljs-keyword">continue</span>;<br>            &#125;<br><br>            <span class="hljs-keyword">if</span> (brokerDataMap.containsKey(broker)) &#123;<br>                <span class="hljs-comment">// Replace previous local broker data.</span><br>                brokerDataMap.get(broker).setLocalData(localData.get());<br>            &#125; <span class="hljs-keyword">else</span> &#123;<br>                <span class="hljs-comment">// Initialize BrokerData object for previously unseen</span><br>                <span class="hljs-comment">// brokers.</span><br>                brokerDataMap.put(broker, <span class="hljs-keyword">new</span> <span class="hljs-title class_">BrokerData</span>(localData.get()));<br>            &#125;<br>        &#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;<br>            log.warn(<span class="hljs-string">&quot;Error reading broker data from cache for broker - [&#123;&#125;], [&#123;&#125;]&quot;</span>, broker, e.getMessage());<br>        &#125;<br>    &#125;<br>    <span class="hljs-comment">// Remove obsolete brokers.</span><br>    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">final</span> String broker : brokerDataMap.keySet()) &#123;<br>        <span class="hljs-keyword">if</span> (!activeBrokers.contains(broker)) &#123;<br>            brokerDataMap.remove(broker);<br>        &#125;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>负载均衡器在启动的时候就会查询所有节点的数据，然后写入到 <code>brokerDataMap</code> 中。</p>
+<p><img src="https://s2.loli.net/2024/06/12/ASoLedKVlgRbCFO.png" srcset="/img/loading.gif" lazyload><br>同时也会注册相关的 zookeeper 事件，当注册的节点发生变化时（一般是新增或者删减了 broker 节点）就会更新内存中缓存的负载数据。</p>
+<p>之后 leader 节点会定期调用 <code>org.apache.pulsar.broker.loadbalance.impl.ModularLoadManagerImpl#doLoadShedding</code> 函数查询哪些数据需要卸载，然后进行重新负载。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">final</span> Multimap&lt;String, String&gt; bundlesToUnload = loadSheddingStrategy.findBundlesForUnloading(loadData, conf);<br></code></pre></td></tr></table></figure>
+<p>最核心的就是调用这个 <code>findBundlesForUnloading</code> 函数，会返回需要卸载 bundle 集合，最终会遍历这个集合调用 admin API 进行卸载和重平衡。</p>
+<p>而这个函数会有多种实现，本质上就是根据传入的各个节点的负载数据，然后根据自定义的规则返回一批需要卸载的数据。</p>
+<p>以默认的 <code>org.apache.pulsar.broker.loadbalance.impl.ThresholdShedder</code> 规则为例：</p>
+<p><img src="https://s2.loli.net/2024/06/12/hg751LtwZMrUyFb.png" srcset="/img/loading.gif" lazyload><br>它是根据带宽、内存、流量等各个指标的权重算出每个节点的负载值，之后为整个集群计算出一个平均负载值。</p>
+<p>以上图为例：超过 <code>ShedBundles</code> 的数据就需要被卸载掉，然后转移到低负载的节点中。</p>
+<p>所以最左边节点和超出的 bundle 部分就需要被返回。</p>
+<p>具体的计算逻辑如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">filterAndSelectBundle</span><span class="hljs-params">(LoadData loadData, Map&lt;String, Long&gt; recentlyUnloadedBundles, String broker,</span><br><span class="hljs-params">                                   LocalBrokerData localData, <span class="hljs-type">double</span> minimumThroughputToOffload)</span> &#123;<br>    <span class="hljs-type">MutableDouble</span> <span class="hljs-variable">trafficMarkedToOffload</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">MutableDouble</span>(<span class="hljs-number">0</span>);<br>    <span class="hljs-type">MutableBoolean</span> <span class="hljs-variable">atLeastOneBundleSelected</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">MutableBoolean</span>(<span class="hljs-literal">false</span>);<br>    loadData.getBundleDataForLoadShedding().entrySet().stream()<br>            .map((e) -&gt; &#123;<br>                <span class="hljs-type">String</span> <span class="hljs-variable">bundle</span> <span class="hljs-operator">=</span> e.getKey();<br>                <span class="hljs-type">BundleData</span> <span class="hljs-variable">bundleData</span> <span class="hljs-operator">=</span> e.getValue();<br>                <span class="hljs-type">TimeAverageMessageData</span> <span class="hljs-variable">shortTermData</span> <span class="hljs-operator">=</span> bundleData.getShortTermData();<br>                <span class="hljs-type">double</span> <span class="hljs-variable">throughput</span> <span class="hljs-operator">=</span> shortTermData.getMsgThroughputIn() + shortTermData.getMsgThroughputOut();<br>                <span class="hljs-keyword">return</span> Pair.of(bundle, throughput);<br>            &#125;).filter(e -&gt;<br>                    !recentlyUnloadedBundles.containsKey(e.getLeft())<br>            ).filter(e -&gt;<br>                    localData.getBundles().contains(e.getLeft())<br>            ).sorted((e1, e2) -&gt;<br>                    Double.compare(e2.getRight(), e1.getRight())<br>            ).forEach(e -&gt; &#123;<br>                <span class="hljs-keyword">if</span> (trafficMarkedToOffload.doubleValue() &lt; minimumThroughputToOffload<br>                        || atLeastOneBundleSelected.isFalse()) &#123;<br>                    selectedBundlesCache.put(broker, e.getLeft());<br>                    trafficMarkedToOffload.add(e.getRight());<br>                    atLeastOneBundleSelected.setTrue();<br>                &#125;<br>            &#125;);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>从代码里看的出来就是在一个备选集合中根据各种阈值和判断条件筛选出需要卸载的 bundle。</p>
+<hr>
+<p>而 <code>SimpleLoadManagerImpl</code> 的实现如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">synchronized</span> (currentLoadReports) &#123;<br>	<span class="hljs-keyword">for</span> (Map.Entry&lt;ResourceUnit, LoadReport&gt; entry : currentLoadReports.entrySet()) &#123;<br>		<span class="hljs-type">ResourceUnit</span> <span class="hljs-variable">overloadedRU</span> <span class="hljs-operator">=</span> entry.getKey();<br>		<span class="hljs-type">LoadReport</span> <span class="hljs-variable">lr</span> <span class="hljs-operator">=</span> entry.getValue();<br>		<span class="hljs-comment">// 所有数据做一个简单的筛选，超过阈值的数据需要被 unload</span><br>		<span class="hljs-keyword">if</span> (isAboveLoadLevel(lr.getSystemResourceUsage(), overloadThreshold)) &#123;<br>			<span class="hljs-type">ResourceType</span> <span class="hljs-variable">bottleneckResourceType</span> <span class="hljs-operator">=</span> lr.getBottleneckResourceType();<br>			Map&lt;String, NamespaceBundleStats&gt; bundleStats = lr.getSortedBundleStats(bottleneckResourceType);<br>			<span class="hljs-keyword">if</span> (bundleStats == <span class="hljs-literal">null</span>) &#123;<br>				log.warn(<span class="hljs-string">&quot;Null bundle stats for bundle &#123;&#125;&quot;</span>, lr.getName());<br>				<span class="hljs-keyword">continue</span>;<br><br>			&#125;<br></code></pre></td></tr></table></figure>
+
+<p>就是很简单的通过将判断节点的负载是否超过了阈值 <code>isAboveLoadLevel</code>，然后做一个简单的排序就返回了。</p>
+<p>从这里也看得出来 <code>SimpleLoadManagerImpl</code> 和 <code>ModularLoadManager</code> 的区别，<code>SimpleLoadManagerImpl</code> 更简单，并没有提供多个 <code>doLoadShedding</code> 的筛选实现。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>总的来说对于无状态的服务来说，理论上我们只需要做好负载算法即可（轮训、一致性哈希、低负载优先等）就可以很好的平衡各个节点之间的负载。</p>
+<p>而对于有状态的服务来说，负载均衡就是将负载较高节点中的数据转移到负载低的节点中。</p>
+<p>其中的关键就是需要存储各个节点的负载数据（业界常用的是存储到 zookeeper 中），然后再由一个 leader 节点从这些节点中根据某种负载算法选择出负载较高的节点以及负载较低的节点，最终把数据迁移过去即可。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/OB/" class="category-chain-item">OB</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/OB/Pulsar/" class="category-chain-item">Pulsar</a>
+  
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Pulsar/" class="print-no-link">#Pulsar</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>分布式系统如何做负载均衡</div>
+      <div>http://crossoverjie.top/2024/07/15/ob/Pulsar-loadbalance/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>July 15, 2024</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/07/23/ob/how-to-monitoring-nginx/" title="如何监控 Nginx">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">如何监控 Nginx</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/07/11/ob/%F0%9F%8E%89how-to-be-committer/" title="🎉我是如何从零到成为 Apache 顶级项目的 Committer">
+                        <span class="hidden-mobile">🎉我是如何从零到成为 Apache 顶级项目的 Committer</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2024/07/15/ob/Pulsar-loadbalance/';
+          this.page.identifier = '/2024/07/15/ob/Pulsar-loadbalance/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

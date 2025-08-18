@@ -1,0 +1,892 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="在上一篇 Pulsar3.0新功能介绍中提到，在升级到 3.0 的过程中碰到一个致命的问题，就是升级之后 topic 被删除了。 正好最近社区也补充了相关细节，本次也接着这个机会再次复盘一下，毕竟这是一个非常致命的 Bug。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="请注意，你的 Pulsar 集群可能有删除数据的风险">
+<meta property="og:url" content="http://crossoverjie.top/2024/01/09/ob/Pulsar-Delete-Topic/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="在上一篇 Pulsar3.0新功能介绍中提到，在升级到 3.0 的过程中碰到一个致命的问题，就是升级之后 topic 被删除了。 正好最近社区也补充了相关细节，本次也接着这个机会再次复盘一下，毕竟这是一个非常致命的 Bug。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/01/08/MKFhYVL95C8qtHR.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/08/My6KVsTkRaF3SwQ.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/08/rWRdnbmXkisMvLB.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/08/s3BhMvLCOR7ES2k.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/08/OfazoZRUt8W2ypk.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/08/emZ7BGkcbiS2dpM.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/08/9Rb1AyHfpGcPqZO.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/08/2ry5Ife4aTvwxGM.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/08/wYSoGHDc7Arp13j.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/08/15iyVmOFe72X6tl.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/08/nVrWLYjzs5e9UXw.png">
+<meta property="og:image" content="https://s2.loli.net/2024/01/08/q4OjXGPtibF8csU.png">
+<meta property="article:published_time" content="2024-01-09T23:04:58.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.274Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Pulsar">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2024/01/08/MKFhYVL95C8qtHR.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>请注意，你的 Pulsar 集群可能有删除数据的风险 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="请注意，你的 Pulsar 集群可能有删除数据的风险"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-01-09 23:04" pubdate>
+          January 9, 2024 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.1k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          18 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">请注意，你的 Pulsar 集群可能有删除数据的风险</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>在上一篇 <a href="https://crossoverjie.top/2024/01/03/ob/Pulsar3.0-new-feature/#topic%E8%A2%AB%E5%88%A0%E9%99%A4">Pulsar3.0新功能介绍</a>中提到，在升级到 3.0 的过程中碰到一个致命的问题，就是升级之后 topic 被删除了。</p>
+<p>正好最近社区也补充了相关细节，本次也接着这个机会再次复盘一下，毕竟这是一个非常致命的 Bug。</p>
+<span id="more"></span>
+
+<p><img src="https://s2.loli.net/2024/01/08/MKFhYVL95C8qtHR.png" srcset="/img/loading.gif" lazyload></p>
+<h1 id="现象"><a href="#现象" class="headerlink" title="现象"></a>现象</h1><p>先来回顾下当时的情况：升级当晚没有出现啥问题，各个流量指标、生产者、消费者数量都是在正常范围内波动。</p>
+<blockquote>
+<p>事后才知道，因为只是删除了很少一部分的 topic，所以从监控中反应不出来。</p>
+</blockquote>
+<p>早上上班后陆续有部分业务反馈应用连不上 topic，提示 <code>topic nof found</code>.</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java">org.springframework.beans.factory.BeanCreationException: Error creating bean with name <span class="hljs-string">&#x27;Producer&#x27;</span>: Invocation of init method failed; nested exception is org.apache.pulsar.client.api.PulsarClientException$TopicDoesNotExistException: Topic Not Found.<br></code></pre></td></tr></table></figure>
+
+<p>因为只是部分应用在反馈，所以起初怀疑是 broker 升级之后导致老版本的 pulsar-client 存在兼容性问题。</p>
+<p>所以我就拿了平时测试用的 topic 再配合多个老版本的 sdk 进行测试，发现没有问题。</p>
+<blockquote>
+<p>直到这一步还好，至少证明是小范故障。</p>
+</blockquote>
+<p>因为提示的是 topic 不存在，所以就准备查一下 topic 的元数据是否正常。</p>
+<p><img src="https://s2.loli.net/2024/01/08/My6KVsTkRaF3SwQ.png" srcset="/img/loading.gif" lazyload><br>查询后发现元数据是存在的。</p>
+<p>之后我便想看看提示了 topic 不存在的 topic 的归属，然后再看看那个 broker 中是否有异常日志。</p>
+<p><img src="https://s2.loli.net/2024/01/08/rWRdnbmXkisMvLB.png" srcset="/img/loading.gif" lazyload><br>发现查看归属的接口也是提示 topic 不存在，此时我便怀疑是 topic 的负载出现了问题，导致这些 topic 没有绑定到具体的 broker。</p>
+<p>于是便重启了 broker，结果依然没有解决问题。<br><img src="https://s2.loli.net/2024/01/08/s3BhMvLCOR7ES2k.png" srcset="/img/loading.gif" lazyload><br>之后我们查询了 topic 的 internal state 发现元数据中会少一个分区。</p>
+<h1 id="紧急恢复"><a href="#紧急恢复" class="headerlink" title="紧急恢复"></a>紧急恢复</h1><p>我们尝试将这个分区数恢复后，发现这个 topic 就可以正常连接了。</p>
+<p>于是再挑选了几个异常的 topic 发现都是同样的问题，恢复分区数之后也可以正常连接了。</p>
+<p>所以我写了一个工具遍历了所有的 topic，检测分区数是否正常，不正常时便修复。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">void</span> <span class="hljs-title function_">checkPartition</span><span class="hljs-params">()</span> &#123;  <br>    <span class="hljs-type">String</span> <span class="hljs-variable">namespace</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;tenant/ns&quot;</span>;  <br>    List&lt;String&gt; topicList = pulsarAdmin.topics().getPartitionedTopicList(namespace);  <br>    <span class="hljs-keyword">for</span> (String topic : topicList) &#123;  <br>        <span class="hljs-type">PartitionedTopicStats</span> <span class="hljs-variable">stats</span> <span class="hljs-operator">=</span> pulsarAdmin.topics().getPartitionedStats(topic, <span class="hljs-literal">true</span>);  <br>        <span class="hljs-type">int</span> <span class="hljs-variable">partitions</span> <span class="hljs-operator">=</span> stats.getMetadata().partitions;  <br>        <span class="hljs-type">int</span> <span class="hljs-variable">size</span> <span class="hljs-operator">=</span> stats.getPartitions().size();  <br>        <span class="hljs-keyword">if</span> (partitions != size) &#123;  <br>            log.info(<span class="hljs-string">&quot;topic=&#123;&#125;,partitions=&#123;&#125;,size=&#123;&#125;&quot;</span>, topic, partitions, size);  <br>            pulsarAdmin.topics().updatePartitionedTopic(topic, partitions);  <br>        &#125;    <br>	&#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h1 id="排查"><a href="#排查" class="headerlink" title="排查"></a>排查</h1><p>修复好所有 topic 之后便开始排查根因，因为看到的是元数据不一致所以怀疑是 zk 里的数据和 broker 内存中的数据不同导致的这个问题。</p>
+<p>但我们查看了 zookeeper 中的数据发现一切又是正常的，所以只能转变思路。</p>
+<p>之后我们通过有问题的 topic 在日志中找到了一个关键日志：<br><img src="https://s2.loli.net/2024/01/08/OfazoZRUt8W2ypk.png" srcset="/img/loading.gif" lazyload><br><img src="https://s2.loli.net/2024/01/08/emZ7BGkcbiS2dpM.png" srcset="/img/loading.gif" lazyload><br>以及具体的堆栈。</p>
+<p>此时具体的原因已经很明显了，元数据这些自然是没问题；根本原因是 topic 被删除了，但被删除的 topic 只是某个分区，所以我们在查询 <code>internalState</code> 时才发发现少一个 topic。</p>
+<p>通过这个删除日志定位到具体的删除代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java">org.apache.pulsar.broker.service.persistent.PersistentTopic#checkReplication<br></code></pre></td></tr></table></figure>
+<p><img src="https://s2.loli.net/2024/01/08/9Rb1AyHfpGcPqZO.png" srcset="/img/loading.gif" lazyload><br>原来是这里的  <code>configuredClusters</code> 值为空才导致的 topic 调用了 <code>deleteForcefully()</code>被删除。</p>
+<p>而这个值是从 topic 的 Policy 中获取的。</p>
+<h2 id="复现问题"><a href="#复现问题" class="headerlink" title="复现问题"></a>复现问题</h2><p>通过上图中的堆栈跟踪，怀疑是重启  broker 导致的 topic unload ，同时 broker 又在构建 topic 导致了对 topicPolicy 的读写。</p>
+<p>最终导致 topicPolicy 为空。</p>
+<p>只要写个单测可以复现这个问题就好办了：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Test</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">testCreateTopicAndUpdatePolicyConcurrent</span><span class="hljs-params">()</span> <span class="hljs-keyword">throws</span> Exception &#123;<br><br>    <span class="hljs-keyword">final</span> <span class="hljs-type">int</span> <span class="hljs-variable">topicNum</span> <span class="hljs-operator">=</span> <span class="hljs-number">100</span>;<br>    <span class="hljs-keyword">final</span> <span class="hljs-type">int</span> <span class="hljs-variable">partition</span> <span class="hljs-operator">=</span> <span class="hljs-number">10</span>;<br><br>    <span class="hljs-comment">// (1) Init topic</span><br>    admin.namespaces().createNamespace(<span class="hljs-string">&quot;public/retention&quot;</span>);<br>    <span class="hljs-keyword">final</span> <span class="hljs-type">String</span> <span class="hljs-variable">topicName</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;persistent://public/retention/policy_with_broker_restart&quot;</span>;<br>    <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> <span class="hljs-variable">i</span> <span class="hljs-operator">=</span> <span class="hljs-number">0</span>; i &lt; topicNum; i++) &#123;<br>        <span class="hljs-keyword">final</span> <span class="hljs-type">String</span> <span class="hljs-variable">shadowTopicNames</span> <span class="hljs-operator">=</span> topicName + <span class="hljs-string">&quot;_&quot;</span> + i;<br>        admin.topics().createPartitionedTopic(shadowTopicNames, partition);<br>    &#125;<br><br>    <span class="hljs-comment">// (2) Set Policy</span><br>    <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> <span class="hljs-variable">i</span> <span class="hljs-operator">=</span> <span class="hljs-number">90</span>; i &lt; <span class="hljs-number">100</span>; i++) &#123;<br>        <span class="hljs-keyword">final</span> <span class="hljs-type">String</span> <span class="hljs-variable">shadowTopicNames</span> <span class="hljs-operator">=</span> topicName + <span class="hljs-string">&quot;_&quot;</span> + i;<br>        CompletableFuture.runAsync(() -&gt; &#123;<br>            <span class="hljs-keyword">while</span> (<span class="hljs-literal">true</span>) &#123;<br>                <span class="hljs-type">PublishRate</span> <span class="hljs-variable">publishRate</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">PublishRate</span>();<br>                publishRate.publishThrottlingRateInMsg = <span class="hljs-number">100</span>;<br>                <span class="hljs-keyword">try</span> &#123;<br>                    admin.topicPolicies().setPublishRate(shadowTopicNames, publishRate);<br>                &#125; <span class="hljs-keyword">catch</span> (PulsarAdminException e) &#123;<br>                &#125;<br>            &#125;<br>        &#125;);<br>    &#125;<br><br>    <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> <span class="hljs-variable">i</span> <span class="hljs-operator">=</span> <span class="hljs-number">90</span>; i &lt; <span class="hljs-number">100</span>; i++) &#123;<br>        <span class="hljs-keyword">final</span> <span class="hljs-type">String</span> <span class="hljs-variable">shadowTopicNames</span> <span class="hljs-operator">=</span> topicName + <span class="hljs-string">&quot;_&quot;</span> + i;<br>        CompletableFuture.runAsync(() -&gt; &#123;<br>            <span class="hljs-keyword">while</span> (<span class="hljs-literal">true</span>) &#123;<br>                <span class="hljs-keyword">try</span> &#123;<br>                    admin.lookups().lookupPartitionedTopic(shadowTopicNames);<br>                &#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;<br>                &#125;<br>            &#125;<br>        &#125;);<br>    &#125;<br><br>    admin.namespaces().unload(<span class="hljs-string">&quot;public/retention&quot;</span>);<br>    admin.namespaces().unload(<span class="hljs-string">&quot;public/retention&quot;</span>);<br>    admin.namespaces().unload(<span class="hljs-string">&quot;public/retention&quot;</span>);<br>    Thread.sleep(<span class="hljs-number">1000</span>* <span class="hljs-number">5</span>);<br><br>    <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> <span class="hljs-variable">i</span> <span class="hljs-operator">=</span> <span class="hljs-number">0</span>; i &lt; topicNum; i++) &#123;<br>        <span class="hljs-keyword">final</span> <span class="hljs-type">String</span> <span class="hljs-variable">shadowTopicNames</span> <span class="hljs-operator">=</span> topicName + <span class="hljs-string">&quot;_&quot;</span> + i;<br>        log.info(<span class="hljs-string">&quot;check topic: &#123;&#125;&quot;</span>, shadowTopicNames);<br>        <span class="hljs-type">PartitionedTopicStats</span> <span class="hljs-variable">partitionedStats</span> <span class="hljs-operator">=</span> admin.topics().getPartitionedStats(shadowTopicNames, <span class="hljs-literal">true</span>);<br>        Assert.assertEquals(partitionedStats.getPartitions().size(), partition);<br>    &#125;<br><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>同时还得查询元数据有耗时才能复现：<br><img src="https://s2.loli.net/2024/01/08/2ry5Ife4aTvwxGM.png" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>只能手动 sleep 模拟这个耗时</p>
+</blockquote>
+<p>具体也可以参考这个 issue<br><a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/issues/21653#issuecomment-1842962452">https://github.com/apache/pulsar/issues/21653#issuecomment-1842962452</a></p>
+<p>此时就会发现有 topic 被删除了，而且是随机删除的，因为出现并发的几率本身也是随机的。</p>
+<p><img src="https://s2.loli.net/2024/01/08/wYSoGHDc7Arp13j.png" srcset="/img/loading.gif" lazyload></p>
+<p>这里画了一个流程图就比较清晰了，在 broker 重启的时候会有两个线程同时topicPolicy 进行操作。</p>
+<p>在 thread3 读取 topicPolicy 进行判断时，thread2 可能还没有把数据准备好，所以就导致了 topic 被删除。</p>
+<h1 id="修复"><a href="#修复" class="headerlink" title="修复"></a>修复</h1><p><img src="https://s2.loli.net/2024/01/08/15iyVmOFe72X6tl.png" srcset="/img/loading.gif" lazyload><br>既然知道了问题原因就好修复了，我们只需要把 thread3 和 thread2 修改为串行执行就好了。</p>
+<blockquote>
+<p>这也是处理并发最简单高效的方法，就是直接避免并发；加锁、队列啥的虽然也可以解决，但代码复杂度也高了很多，所以能不并发就尽量不要并发。</p>
+</blockquote>
+<p>但要把这个修复推送到社区上游主分支最好是要加上单测，这样即便是后续有其他的改动也能保证这个 bug 不会再次出现。</p>
+<p>之后在社区大佬的帮助下完善了单测，最终合并了这个修复。</p>
+<blockquote>
+<p>再次证明写单测往往比代码更复杂，也更花费时间。</p>
+</blockquote>
+<p>PR：<a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/pull/21704">https://github.com/apache/pulsar/pull/21704</a></p>
+<h2 id="使用修复镜像"><a href="#使用修复镜像" class="headerlink" title="使用修复镜像"></a>使用修复镜像</h2><p>因为社区合并代码再发版的周期较长，而我们又急于修复该问题；不然都不敢重启 broker，因为每重启一次都可能会导致不知道哪个 topic 就被删除了。</p>
+<p>所以我们自己在本地构建了一个修复的镜像，准备在线上进行替换。</p>
+<p>此时坑又来了，我们满怀信心的替换了一个镜像再观察日志发现居然还有删除的日志😱。</p>
+<p>冷静下来一分析，原来是当前替换进行的 broker 没有问题了，但它处理的 topic 被转移到了其他 broker 中，而其他的 broker 并没有替换为我们最新的镜像。</p>
+<p>所以导致 topic 在其他 broker 中依然被删除了。</p>
+<blockquote>
+<p>除非我们停机，将所有的镜像都替换之后再一起重启。</p>
+</blockquote>
+<p>但这样的成本太高了，最好是可以平滑发布。</p>
+<p>最终我们想到一个办法，使用 <code>arthas</code> 去关闭了一个 broker 的一个选项，之后就不会执行出现 bug 的那段代码了。</p>
+<p><img src="https://s2.loli.net/2024/01/08/nVrWLYjzs5e9UXw.png" srcset="/img/loading.gif" lazyload></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">curl -O https://arthas.aliyun.com/arthas-boot.jar &amp;&amp; java -jar arthas-boot.jar 1 -c &quot;vmtool -x 3 --action getInstances --className org.apache.pulsar.broker.ServiceConfiguration  --express &#x27;instances[0].setTopicLevelPoliciesEnabled(false)&#x27;&quot;<br></code></pre></td></tr></table></figure>
+
+<p>我也将操作方法贴到了对于 issue 的评论区。<br><a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/issues/21653#issuecomment-1857548997">https://github.com/apache/pulsar/issues/21653#issuecomment-1857548997</a><br>如果不幸碰到了这个 bug，可以参考修复。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>删除的这些 topic 的同时它的订阅者也被删除了，所以我们还需要修复订阅者：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">String</span> <span class="hljs-variable">topicName</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;persistent://tenant/ns/topicName&quot;</span>;  <br>pulsarTopicService.createSubscription(topicName, <span class="hljs-string">&quot;subName&quot;</span>, MessageId.latest);<br></code></pre></td></tr></table></figure>
+<p>之所以说这个 bug 非常致命，是因为这样会导致 topic 的数据丢失，同时这些 topic 上的数据也会被删除。</p>
+<hr>
+<p>后续 <a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/pull/21704#issuecomment-1878315926">https://github.com/apache/pulsar/pull/21704#issuecomment-1878315926</a>社区也补充了一些场景。</p>
+<p><img src="https://s2.loli.net/2024/01/08/q4OjXGPtibF8csU.png" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>其实场景 2 更容易出现复现，毕竟更容易出现并发；也就是我们碰到的场景</p>
+</blockquote>
+<p>说来也奇怪，结合社区的 issue 和其他大佬的反馈，这个问题只有我们碰到了，估计也是这个问题的触发条件也比较苛刻：</p>
+<ul>
+<li>开启 <code>systemTopic/topicLevelPolices</code><br>  systemTopicEnabled: “true”<br>  topicLevelPoliciesEnabled: “true”</li>
+<li>设置足够多的 topicPolicies</li>
+<li>重启 broker<ul>
+<li>重启过程中从 zk 中获取数据出现耗时</li>
+</ul>
+</li>
+</ul>
+<p>符合以上条件的集群就需要注意了。</p>
+<p>其实这个问题在这个 PR 就已经引入了<br><a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/pull/11021">https://github.com/apache/pulsar/pull/11021</a></p>
+<p>所以已经存在蛮久了，后续我们也将检测元数据作为升级流程之一了，确保升级后数据依然是完整的。</p>
+<p>相关的 issue 和 PR：<br><a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/issues/21653">https://github.com/apache/pulsar/issues/21653</a><br><a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/pull/21704">https://github.com/apache/pulsar/pull/21704</a></p>
+<p>#Blog #Pulsar </p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/OB/" class="category-chain-item">OB</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Pulsar/" class="print-no-link">#Pulsar</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>请注意，你的 Pulsar 集群可能有删除数据的风险</div>
+      <div>http://crossoverjie.top/2024/01/09/ob/Pulsar-Delete-Topic/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>January 9, 2024</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/01/12/ob/newsletter/Newsletter12-202401012/" title="技术阅读周刊第十四期：Golang 作者 Rob Pike 在 GopherConAU 上的分享">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">技术阅读周刊第十四期：Golang 作者 Rob Pike 在 GopherConAU 上的分享</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/01/05/ob/newsletter/Newsletter12-20240105/" title="技术阅读周刊第十三期：一些提高生产力的终端命令">
+                        <span class="hidden-mobile">技术阅读周刊第十三期：一些提高生产力的终端命令</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2024/01/09/ob/Pulsar-Delete-Topic/';
+          this.page.identifier = '/2024/01/09/ob/Pulsar-Delete-Topic/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

@@ -1,0 +1,895 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言标题没有看错，真的是让我写个 bug！ 刚接到这个需求时我内心没有丝毫波澜，甚至还有点激动。这可是我特长啊；终于可以光明正大的写 bug 了🙄。 先来看看具体是要干啥吧，其实主要就是要让一些负载很低的服务器额外消耗一些内存、CPU 等资源（至于背景就不多说了），让它的负载可以提高一些。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="没错，老板让我写个 BUG！">
+<meta property="og:url" content="http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言标题没有看错，真的是让我写个 bug！ 刚接到这个需求时我内心没有丝毫波澜，甚至还有点激动。这可是我特长啊；终于可以光明正大的写 bug 了🙄。 先来看看具体是要干啥吧，其实主要就是要让一些负载很低的服务器额外消耗一些内存、CPU 等资源（至于背景就不多说了），让它的负载可以提高一些。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c38cba7ec.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3c278c42.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c39bc036e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c39f7851e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3a9d62ef.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3b066f78.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3b2edd01.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3b7b078d.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3bad06b4.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3c278c42.jpg">
+<meta property="og:image" content="https://camo.githubusercontent.com/dc705fafcecd5df825706c0599a5993a1d8e4351/68747470733a2f2f75706c6f61642e77696b696d656469612e6f72672f77696b6970656469612f636f6d6d6f6e732f342f34612f416e696d6174696f6e5f6f665f7468655f4e616976655f4d61726b5f616e645f53776565705f476172626167655f436f6c6c6563746f725f416c676f726974686d2e676966">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3c5ab0af.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3c730526.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3ca2e8ae.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3cd20694.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3ceaf475.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3cfecdb7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3d7b8325.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3d9acf62.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3e0ac17a.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c3e398b1b.jpg">
+<meta property="article:published_time" content="2018-12-12T08:01:36.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.271Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="JVM">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1c38cba7ec.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>没错，老板让我写个 BUG！ - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="没错，老板让我写个 BUG！"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2018-12-12 08:01" pubdate>
+          December 12, 2018 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.7k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          14 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">没错，老板让我写个 BUG！</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2019/05/08/5cd1c38cba7ec.jpg" srcset="/img/loading.gif" lazyload></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>标题没有看错，真的是让我写个 <code>bug</code>！</p>
+<p>刚接到这个需求时我内心没有丝毫波澜，甚至还有点激动。这可是我特长啊；终于可以光明正大的写 <code>bug</code> 了🙄。</p>
+<p>先来看看具体是要干啥吧，其实主要就是要让一些负载很低的服务器额外消耗一些内存、CPU 等资源（至于背景就不多说了），让它的负载可以提高一些。</p>
+<span id="more"></span>
+<h1 id="JVM-内存分配回顾"><a href="#JVM-内存分配回顾" class="headerlink" title="JVM 内存分配回顾"></a>JVM 内存分配回顾</h1><p>于是我刷刷一把梭的就把代码写好了，大概如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3c278c42.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>写完之后我就在想一个问题，代码中的 <code>mem</code> 对象在方法执行完之后会不会被立即回收呢？我想肯定会有一部分人认为就是在方法执行完之后回收。</p>
+<p>我也正儿八经的去调研了下，问了一些朋友；果不其然确实有一部分认为是在方法执行完毕之后回收。</p>
+<p>那事实情况如何呢？我做了一个试验。</p>
+<p>我用以下的启动参数将刚才这个应用启动起来。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs java">java -Djava.rmi.server.hostname=<span class="hljs-number">10.</span>xx.xx.xx <br>-Djava.security.policy=jstatd.all.policy <br>-Dcom.sun.management.jmxremote.authenticate=<span class="hljs-literal">false</span> <br>-Dcom.sun.management.jmxremote.ssl=<span class="hljs-literal">false</span> <br>-Dcom.sun.management.jmxremote.port=<span class="hljs-number">8888</span>  <br>-Xms4g -Xmx4g  -jar bug-<span class="hljs-number">0.0</span><span class="hljs-number">.1</span>-SNAPSHOT.jar<br></code></pre></td></tr></table></figure>
+
+<p>这样我就可以通过 JMX 端口远程连接到这个应用观察内存、GC 情况了。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c39bc036e.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p>如果是方法执行完毕就回收 <code>mem</code> 对象，当我分配 <code>250M</code> 内存时；内存就会有一个明显的曲线，同时 GC 也会执行。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c39f7851e.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p>这时观察内存曲线。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3a9d62ef.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>会发现确实有明显的涨幅，但是之后并没有立即回收，而是一直保持在这个水位。同时左边的 GC 也没有任何的反应。</p>
+<p>用 <code>jstat</code> 查看内存布局也是同样的情况。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3b066f78.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>不管是 <code>YGC,FGC</code> 都没有，只是 Eden 区的使用占比有所增加，毕竟分配了 250M 内存嘛。</p>
+<p>那怎样才会回收呢？</p>
+<p>我再次分配了两个 250M 之后观察内存曲线。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3b2edd01.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3b7b078d.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>发现第三个 250M 的时候 <code>Eden</code> 区达到了 <code>98.83%</code> 于是再次分配时就需要回收 <code>Eden</code> 区产生了 <code>YGC</code>。</p>
+<p>同时内存曲线也得到了下降。</p>
+<p>整个的换算过程如图：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3bad06b4.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>由于初始化的堆内存为 <code>4G</code>，所以算出来的 <code>Eden</code> 区大概为 <code>1092M</code> 内存。</p>
+<p>加上应用启动 <code>Spring</code> 之类消耗的大约 <code>20%</code> 内存，所以分配 3 次 250M 内存就会导致 <code>YGC</code>。</p>
+<p>再来回顾下刚才的问题：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3c278c42.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><code>mem</code> 对象既然在方法执行完毕后不会回收，那什么时候回收呢。</p>
+<p>其实只要记住一点即可：<strong>对象都需要垃圾回收器发生 <code>GC</code> 时才能回收；不管这个对象是局部变量还是全局变量。</strong></p>
+<p>通过刚才的实验也发现了，当 <code>Eden</code> 区空间不足产生 <code>YGC</code> 时才会回收掉我们创建的 <code>mem</code> 对象。</p>
+<p>但这里其实还有一个隐藏条件：那就是这个对象是<strong>局部变量</strong>。如果该对象是全局变量那依然不能被回收。</p>
+<p>也就是我们常说的<strong>对象不可达</strong>，这样不可达的对象在 <code>GC</code> 发生时就会被认为是需要回收的对象从而进行回收。</p>
+<p>在多考虑下，为什么有些人会认为方法执行完毕后局部变量会被回收呢？</p>
+<p>我想这应当是记混了，其实方法执行完毕后回收的是<code>栈帧</code>。</p>
+<p>它最直接的结果就是导致 <code>mem</code> 这个对象没有被引用了。但没有引用并不代表会被马上回收，也就是上面说到的需要产生 <code>GC</code> 才会回收。</p>
+<p>所以使用的是上面提到的对象不可达所采用的<strong>可达性分析算法</strong>来表明哪些对象需要被回收。</p>
+<p>当对象没有被引用后也就认为不可达了。</p>
+<p>这里有一张动图比较清晰：</p>
+<p><img src="https://camo.githubusercontent.com/dc705fafcecd5df825706c0599a5993a1d8e4351/68747470733a2f2f75706c6f61642e77696b696d656469612e6f72672f77696b6970656469612f636f6d6d6f6e732f342f34612f416e696d6174696f6e5f6f665f7468655f4e616976655f4d61726b5f616e645f53776565705f476172626167655f436f6c6c6563746f725f416c676f726974686d2e676966" srcset="/img/loading.gif" lazyload></p>
+<p>当方法执行完之后其中的 <code>mem</code> 对象就相当于图中的 <code>Object 5</code>，所以在 <code>GC</code> 时候就会回收掉。</p>
+<h2 id="优先在-Eden-区分配对象"><a href="#优先在-Eden-区分配对象" class="headerlink" title="优先在 Eden 区分配对象"></a>优先在 Eden 区分配对象</h2><p>其实从上面的例子中可以看出对象是优先分配在新生代中 Eden 区的，但有个前提就是对象不能太大。</p>
+<p>以前也写过相关的内容：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3c5ab0af.jpg" srcset="/img/loading.gif" lazyload></p>
+<h2 id="大对象直接进入老年代"><a href="#大对象直接进入老年代" class="headerlink" title="大对象直接进入老年代"></a>大对象直接进入老年代</h2><p>而大对象则是直接分配到老年代中（至于多大算大，可以通过参数配置）。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3c730526.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p>当我直接分配 1000M 内存时，由于 Eden 区不能直接装下，所以改为分配在老年代中。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3ca2e8ae.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3cd20694.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>可以看到 <code>Eden</code> 区几乎没有变动，但是老年代却涨了 37% ，根据之前计算的老年代内存 <code>2730M</code> 算出来也差不多是 <code>1000M</code> 的内存。</p>
+<h1 id="Linux-内存查看"><a href="#Linux-内存查看" class="headerlink" title="Linux 内存查看"></a>Linux 内存查看</h1><p>回到这次我需要完成的需求：增加服务器内存和 CPU 的消耗。</p>
+<p>CPU 还好，本身就有一定的使用，同时每创建一个对象也会消耗一些 CPU。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3ceaf475.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>主要是内存,先来看下没启动这个应用之前的内存情况。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3cfecdb7.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>大概只使用了 3G 的内存。</p>
+<p>启动应用之后大概只消耗了 600M 左右的内存。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3d7b8325.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>为了满足需求我需要分配一些内存，但这里有点需要讲究。</p>
+<p>不能一直分配内存，这样会导致 CPU 负载太高了，同时内存也会由于 GC 回收导致占用也不是特别多。</p>
+<p>所以我需要少量的分配，让大多数对象在新生代中，为了不被回收需要保持在百分之八九十。</p>
+<p>同时也需要分配一些大对象到老年代中，也要保持老年代的使用在百分之八九十。</p>
+<p>这样才能最大限度的利用这 4G 的堆内存。</p>
+<p>于是我做了以下操作：</p>
+<ul>
+<li>先分配一些小对象在新生代中（800M）保持新生代在90%</li>
+<li>接着又分配了<code>老年代内 *（100%-已使用的28%）；也就是 2730*60%=1638M</code> 让老年代也在 90% 左右。</li>
+</ul>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3d9acf62.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3e0ac17a.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>效果如上。</p>
+<p>最主要的是一次 <code>GC</code> 都没有发生这样也就达到了我的目的。</p>
+<p>最终内存消耗了 3.5G 左右。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c3e398b1b.jpg" srcset="/img/loading.gif" lazyload></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>虽说这次的需求是比较奇葩，但想要精确的控制 <code>JVM</code> 的内存分配还是没那么容易。</p>
+<p>需要对它的内存布局，回收都要有一定的了解，写这个 Bug 的过程确实也加深了印象，如果对你有所帮助请不要吝啬你的点赞与分享。</p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/Java-%E8%BF%9B%E9%98%B6/" class="category-chain-item">Java 进阶</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
+      
+        <a href="/tags/JVM/" class="print-no-link">#JVM</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>没错，老板让我写个 BUG！</div>
+      <div>http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>December 12, 2018</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2018/12/17/troubleshoot/cpu-percent-100/" title="一次生产 CPU 100% 排查优化实践">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">一次生产 CPU 100% 排查优化实践</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2018/11/26/guava/guava-bloom-filter/" title="如何判断一个元素在亿级数据中是否存在？">
+                        <span class="hidden-mobile">如何判断一个元素在亿级数据中是否存在？</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2018/12/12/java-senior/java-memary-allocation/';
+          this.page.identifier = '/2018/12/12/java-senior/java-memary-allocation/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

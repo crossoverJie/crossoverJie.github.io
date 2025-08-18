@@ -1,0 +1,974 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言 前段时间在某个第三方平台看到我写作字数居然突破了 10W 字，难以想象高中 800 字作文我都得巧妙的利用换行来完成(懂的人肯定也干过😏)。 干了这行养成了一个习惯：能撸码验证的事情都自己验证一遍。 于是在上周五通宵加班的空余时间写了一个工具： https:&#x2F;&#x2F;github.com&#x2F;crossoverJie&#x2F;NOWS 利用 SpringBoot 只需要一行命令即可统计自己写了多少个字。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一份针对于新手的多线程实践">
+<meta property="og:url" content="http://crossoverjie.top/2018/10/29/java-senior/concurrent-in-action/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言 前段时间在某个第三方平台看到我写作字数居然突破了 10W 字，难以想象高中 800 字作文我都得巧妙的利用换行来完成(懂的人肯定也干过😏)。 干了这行养成了一个习惯：能撸码验证的事情都自己验证一遍。 于是在上周五通宵加班的空余时间写了一个工具： https:&#x2F;&#x2F;github.com&#x2F;crossoverJie&#x2F;NOWS 利用 SpringBoot 只需要一行命令即可统计自己写了多少个字。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c697587d0.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c69801b99.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c69c8aeb9.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c69e73410.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c6a0cf61d.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c6a7b0f8f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c6a9c6546.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c6ac29d9f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c6ad47413.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c6b0c711c.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c6b2e840c.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c6bc142b3.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c6bfdb822.jpg">
+<meta property="article:published_time" content="2018-10-29T01:00:16.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.270Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="SpringBoot">
+<meta property="article:tag" content="ThreadPool">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1c697587d0.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>一份针对于新手的多线程实践 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="一份针对于新手的多线程实践"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2018-10-29 01:00" pubdate>
+          October 29, 2018 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.7k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          23 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">一份针对于新手的多线程实践</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2019/05/08/5cd1c697587d0.jpg" srcset="/img/loading.gif" lazyload></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p><img src="https://i.loli.net/2019/05/08/5cd1c69801b99.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>前段时间在某个第三方平台看到我写作字数居然突破了 10W 字，难以想象高中 800 字作文我都得巧妙的<strong>利用换行</strong>来完成(懂的人肯定也干过😏)。</p>
+<p>干了这行养成了一个习惯：能撸码验证的事情都自己验证一遍。</p>
+<p>于是在上周五通宵加班的空余时间写了一个工具：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/NOWS">https://github.com/crossoverJie/NOWS</a></p>
+<p>利用 <code>SpringBoot</code> 只需要一行命令即可统计自己写了多少个字。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">java -jar nows-0.0.1-SNAPSHOT.jar /xx/Hexo/source/_posts<br></code></pre></td></tr></table></figure>
+
+<span id="more"></span>
+
+<p>传入需要扫描的文章目录即可输出结果（目前只支持 <code>.md</code> 结尾 <code>Markdown</code> 文件）</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c69c8aeb9.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>当然结果看个乐就行（40 几万字），因为早期的博客我喜欢大篇的贴代码，还有一些英文单词也没有过滤，所以导致结果相差较大。</p>
+<blockquote>
+<p>如果仅仅只是中文文字统计肯定是准的，并且该工具内置灵活的扩展方式，使用者可以自定义统计策略，具体请看后文。</p>
+</blockquote>
+<p>其实这个工具挺简单的，代码量也少，没有多少可以值得拿出来讲的。但经过我回忆不管是面试还是和网友们交流都发现一个普遍的现象：</p>
+<blockquote>
+<p>大部分<strong>新手开发</strong>都会去看多线程、但几乎都没有相关的实践。甚至有些都不知道多线程拿来在实际开发中有什么用。</p>
+</blockquote>
+<p>为此我想基于这个简单的工具为这类朋友带来一个可实践、易理解的多线程案例。</p>
+<p>至少可以让你知道：</p>
+<ul>
+<li>为什么需要多线程？</li>
+<li>怎么实现一个多线程程序？</li>
+<li>多线程带来的问题及解决方案？</li>
+</ul>
+<h1 id="单线程统计"><a href="#单线程统计" class="headerlink" title="单线程统计"></a>单线程统计</h1><p>再谈多线程之前先来聊聊单线程如何实现。</p>
+<p>本次的需求也很简单，只是需要扫描一个目录读取下面的所有文件即可。</p>
+<p>所有我们的实现有以下几步：</p>
+<ul>
+<li>读取某个目录下的所有文件。</li>
+<li>将所有文件的路径保持到内存。</li>
+<li>遍历所有的文件挨个读取文本记录字数即可。</li>
+</ul>
+<p>先来看前两个如何实现，并且当扫描到目录时需要继续读取当前目录下的文件。</p>
+<p>这样的场景就非常适合递归：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs java">    <span class="hljs-keyword">public</span> List&lt;String&gt; <span class="hljs-title function_">getAllFile</span><span class="hljs-params">(String path)</span>&#123;<br><br>        <span class="hljs-type">File</span> <span class="hljs-variable">f</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">File</span>(path) ;<br>        File[] files = f.listFiles();<br>        <span class="hljs-keyword">for</span> (File file : files) &#123;<br>            <span class="hljs-keyword">if</span> (file.isDirectory())&#123;<br>                <span class="hljs-type">String</span> <span class="hljs-variable">directoryPath</span> <span class="hljs-operator">=</span> file.getPath();<br>                getAllFile(directoryPath);<br>            &#125;<span class="hljs-keyword">else</span> &#123;<br>                <span class="hljs-type">String</span> <span class="hljs-variable">filePath</span> <span class="hljs-operator">=</span> file.getPath();<br>                <span class="hljs-keyword">if</span> (!filePath.endsWith(<span class="hljs-string">&quot;.md&quot;</span>))&#123;<br>                    <span class="hljs-keyword">continue</span>;<br>                &#125;<br>                allFile.add(filePath) ;<br>            &#125;<br>        &#125;<br><br>        <span class="hljs-keyword">return</span> allFile ;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>读取之后将文件的路径保持到一个集合中。</p>
+<blockquote>
+<p>需要注意的是这个递归次数需要控制下，避免出现栈溢出(<code>StackOverflow</code>)。</p>
+</blockquote>
+<p>最后读取文件内容则是使用 <code>Java8</code> 中的流来进行读取，这样代码可以更简洁：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs java">Stream&lt;String&gt; stringStream = Files.lines(Paths.get(path), StandardCharsets.UTF_8);<br>List&lt;String&gt; collect = stringStream.collect(Collectors.toList());<br></code></pre></td></tr></table></figure>
+
+<p>接下来便是读取字数，同时要过滤一些特殊文本（比如我想过滤掉所有的空格、换行、超链接等）。</p>
+<h1 id="扩展能力"><a href="#扩展能力" class="headerlink" title="扩展能力"></a>扩展能力</h1><p>简单处理可在上面的代码中遍历 <code>collect</code> 然后把其中需要过滤的内容替换为空就行。</p>
+<p>但每个人的想法可能都不一样。比如我只想过滤掉<code>空格、换行、超链接</code>就行了，但有些人需要去掉其中所有的英文单词，甚至换行还得留着（就像写作文一样可以充字数）。</p>
+<p>所有这就需要一个比较灵活的处理方式。</p>
+<p>看过上文<a href="https://crossoverjie.top/2018/10/22/wheel/cicada5/">《利用责任链模式设计一个拦截器》</a>应该很容易想到这样的场景责任链模式再合适不过了。</p>
+<p>关于<code>责任链模式</code>具体的内容就不在详述了，感兴趣的可以查看<a href="https://crossoverjie.top/2018/10/22/wheel/cicada5/">上文</a>。</p>
+<p>这里直接看实现吧：</p>
+<p>定义责任链的抽象接口及处理方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> <span class="hljs-title class_">FilterProcess</span> &#123;<br>    <span class="hljs-comment">/**</span><br><span class="hljs-comment">     * 处理文本</span><br><span class="hljs-comment">     * <span class="hljs-doctag">@param</span> msg</span><br><span class="hljs-comment">     * <span class="hljs-doctag">@return</span></span><br><span class="hljs-comment">     */</span><br>    String <span class="hljs-title function_">process</span><span class="hljs-params">(String msg)</span> ;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<hr>
+<p>处理空格和换行的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">WrapFilterProcess</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">FilterProcess</span>&#123;<br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> String <span class="hljs-title function_">process</span><span class="hljs-params">(String msg)</span> &#123;<br>        msg = msg.replaceAll(<span class="hljs-string">&quot;\\s*&quot;</span>, <span class="hljs-string">&quot;&quot;</span>);<br>        <span class="hljs-keyword">return</span> msg ;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<hr>
+<p>处理超链接的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">HttpFilterProcess</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">FilterProcess</span>&#123;<br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> String <span class="hljs-title function_">process</span><span class="hljs-params">(String msg)</span> &#123;<br>        msg = msg.replaceAll(<span class="hljs-string">&quot;^((https|http|ftp|rtsp|mms)?:\\/\\/)[^\\s]+&quot;</span>,<span class="hljs-string">&quot;&quot;</span>);<br>        <span class="hljs-keyword">return</span> msg ;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<hr>
+<p>这样在初始化时需要将这些处理 <code>handle</code> 都加入责任链中，同时提供一个 <code>API</code> 供客户端执行即可。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c69e73410.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>这样一个简单的统计字数的工具就完成了。</p>
+<h1 id="多线程模式"><a href="#多线程模式" class="headerlink" title="多线程模式"></a>多线程模式</h1><p>在我本地一共就几十篇博客的条件下执行一次还是很快的，但如果我们的文件是几万、几十万甚至上百万呢。</p>
+<p>虽然功能可以实现，但可以想象这样的耗时绝对是成倍的增加。</p>
+<p>这时多线程就发挥优势了，由多个线程分别去读取文件最后汇总结果即可。</p>
+<p>这样实现的过程就变为：</p>
+<ul>
+<li>读取某个目录下的所有文件。</li>
+<li>将文件路径交由不同的线程自行处理。</li>
+<li>最终汇总结果。</li>
+</ul>
+<h2 id="多线程带来的问题"><a href="#多线程带来的问题" class="headerlink" title="多线程带来的问题"></a>多线程带来的问题</h2><p>也不是使用多线程就万事大吉了，先来看看第一个问题：共享资源。</p>
+<p>简单来说就是怎么保证多线程和单线程统计的总字数是一致的。</p>
+<p>基于我本地的环境先看看单线程运行的结果：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c6a0cf61d.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>总计为：414142 字。</p>
+<p>接下来换为多线程的方式：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><code class="hljs java">List&lt;String&gt; allFile = scannerFile.getAllFile(strings[<span class="hljs-number">0</span>]);<br>logger.info(<span class="hljs-string">&quot;allFile size=[&#123;&#125;]&quot;</span>,allFile.size());<br><span class="hljs-keyword">for</span> (String msg : allFile) &#123;<br>	executorService.execute(<span class="hljs-keyword">new</span> <span class="hljs-title class_">ScanNumTask</span>(msg,filterProcessManager));<br>&#125;<br><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">ScanNumTask</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">Runnable</span> &#123;<br><br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-type">Logger</span> <span class="hljs-variable">logger</span> <span class="hljs-operator">=</span> LoggerFactory.getLogger(ScanNumTask.class);<br><br>    <span class="hljs-keyword">private</span> String path;<br><br>    <span class="hljs-keyword">private</span> FilterProcessManager filterProcessManager;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-title function_">ScanNumTask</span><span class="hljs-params">(String path, FilterProcessManager filterProcessManager)</span> &#123;<br>        <span class="hljs-built_in">this</span>.path = path;<br>        <span class="hljs-built_in">this</span>.filterProcessManager = filterProcessManager;<br>    &#125;<br><br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">run</span><span class="hljs-params">()</span> &#123;<br>        Stream&lt;String&gt; stringStream = <span class="hljs-literal">null</span>;<br>        <span class="hljs-keyword">try</span> &#123;<br>            stringStream = Files.lines(Paths.get(path), StandardCharsets.UTF_8);<br>        &#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;<br>            logger.error(<span class="hljs-string">&quot;IOException&quot;</span>, e);<br>        &#125;<br><br>        List&lt;String&gt; collect = stringStream.collect(Collectors.toList());<br>        <span class="hljs-keyword">for</span> (String msg : collect) &#123;<br>            filterProcessManager.process(msg);<br>        &#125;<br>    &#125;<br>&#125;<br><br></code></pre></td></tr></table></figure>
+
+
+<blockquote>
+<p>使用线程池管理线程，更多线程池相关的内容请看这里：<a href="https://crossoverjie.top/2018/07/29/java-senior/ThreadPool/">《如何优雅的使用和理解线程池》</a></p>
+</blockquote>
+<p>执行结果：<br><img src="https://i.loli.net/2019/05/08/5cd1c6a7b0f8f.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>我们会发现无论执行多少次，这个值都会小于我们的预期值。</p>
+<p>来看看统计那里是怎么实现的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Component</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">TotalWords</span> &#123;<br>    <span class="hljs-keyword">private</span> <span class="hljs-type">long</span> <span class="hljs-variable">sum</span> <span class="hljs-operator">=</span> <span class="hljs-number">0</span> ;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">sum</span><span class="hljs-params">(<span class="hljs-type">int</span> count)</span>&#123;<br>        sum += count;<br>    &#125;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-type">long</span> <span class="hljs-title function_">total</span><span class="hljs-params">()</span>&#123;<br>        <span class="hljs-keyword">return</span> sum;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>可以看到就是对一个基本类型进行累加而已。那导致这个值比预期小的原因是什么呢？</p>
+<p>我想大部分人都会说：多线程运行时会导致有些线程把其他线程运算的值覆盖。</p>
+<blockquote>
+<p>但其实这只是导致这个问题的表象，根本原因还是没有讲清楚。</p>
+</blockquote>
+<h2 id="内存可见性"><a href="#内存可见性" class="headerlink" title="内存可见性"></a>内存可见性</h2><p>核心原因其实是由 Java 内存模型（<code>JMM</code>）的规定导致的。</p>
+<p>这里引用一段之前写的<a href="https://crossoverjie.top/2018/03/09/volatile/">《你应该知道的 volatile 关键字》</a>一段解释：</p>
+<blockquote>
+<p>由于 <code>Java</code> 内存模型(<code>JMM</code>)规定，所有的变量都存放在主内存中，而每个线程都有着自己的工作内存(高速缓存)。</p>
+</blockquote>
+<blockquote>
+<p>线程在工作时，需要将主内存中的数据拷贝到工作内存中。这样对数据的任何操作都是基于工作内存(效率提高)，并且不能直接操作主内存以及其他线程工作内存中的数据，之后再将更新之后的数据刷新到主内存中。</p>
+</blockquote>
+<blockquote>
+<blockquote>
+<p>这里所提到的主内存可以简单认为是<strong>堆内存</strong>，而工作内存则可以认为是<strong>栈内存</strong>。</p>
+</blockquote>
+</blockquote>
+<blockquote>
+<p>如下图所示：</p>
+</blockquote>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c6a9c6546.jpg" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>所以在并发运行时可能会出现线程 B 所读取到的数据是线程 A 更新之前的数据。</p>
+</blockquote>
+<p>更多相关内容就不再展开了，感兴趣的朋友可以翻翻以前的博文。</p>
+<p>直接来说如何解决这个问题吧，JDK 其实已经帮我们想到了这些问题。</p>
+<p>在 <code>java.util.concurrent</code> 并发包下有许多你可能会使用到的并发工具。</p>
+<p>这里就非常适合 <code>AtomicLong</code>，它可以原子性的对数据进行修改。</p>
+<p>来看看修改后的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Component</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">TotalWords</span> &#123;<br>    <span class="hljs-keyword">private</span> <span class="hljs-type">AtomicLong</span> <span class="hljs-variable">sum</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">AtomicLong</span>() ;<br>    <br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">sum</span><span class="hljs-params">(<span class="hljs-type">int</span> count)</span>&#123;<br>        sum.addAndGet(count) ;<br>    &#125;<br><br>    <span class="hljs-keyword">public</span>  <span class="hljs-type">long</span> <span class="hljs-title function_">total</span><span class="hljs-params">()</span>&#123;<br>        <span class="hljs-keyword">return</span> sum.get() ;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>只是使用了它的两个 <code>API</code> 而已。再来运行下程序会发现<strong>结果居然还是不对</strong>。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c6ac29d9f.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>甚至为 0 了。</p>
+<h2 id="线程间通信"><a href="#线程间通信" class="headerlink" title="线程间通信"></a>线程间通信</h2><p>这时又出现了一个新的问题，来看看获取总计数据是怎么实现的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs java">List&lt;String&gt; allFile = scannerFile.getAllFile(strings[<span class="hljs-number">0</span>]);<br>logger.info(<span class="hljs-string">&quot;allFile size=[&#123;&#125;]&quot;</span>,allFile.size());<br><span class="hljs-keyword">for</span> (String msg : allFile) &#123;<br>	executorService.execute(<span class="hljs-keyword">new</span> <span class="hljs-title class_">ScanNumTask</span>(msg,filterProcessManager));<br>&#125;<br><br>executorService.shutdown();<br><span class="hljs-type">long</span> <span class="hljs-variable">total</span> <span class="hljs-operator">=</span> totalWords.total();<br><span class="hljs-type">long</span> <span class="hljs-variable">end</span> <span class="hljs-operator">=</span> System.currentTimeMillis();<br>logger.info(<span class="hljs-string">&quot;total sum=[&#123;&#125;],[&#123;&#125;] ms&quot;</span>,total,end-start);<br></code></pre></td></tr></table></figure>
+
+<p>不知道大家看出问题没有，其实是在最后打印总数时并不知道其他线程是否已经执行完毕了。</p>
+<p>因为 <code>executorService.execute()</code> 会直接返回，所以当打印获取数据时还没有一个线程执行完毕，也就导致了这样的结果。</p>
+<p>关于线程间通信之前我也写过相关的内容：<a href="https://crossoverjie.top/2018/03/16/java-senior/thread-communication/">《深入理解线程通信》</a></p>
+<p>大概的方式有以下几种：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c6ad47413.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>这里我们使用线程池的方式：</p>
+<p>在停用线程池后加上一个判断条件即可：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java">executorService.shutdown();<br><span class="hljs-keyword">while</span> (!executorService.awaitTermination(<span class="hljs-number">100</span>, TimeUnit.MILLISECONDS)) &#123;<br>	logger.info(<span class="hljs-string">&quot;worker running&quot;</span>);<br>&#125;<br><span class="hljs-type">long</span> <span class="hljs-variable">total</span> <span class="hljs-operator">=</span> totalWords.total();<br><span class="hljs-type">long</span> <span class="hljs-variable">end</span> <span class="hljs-operator">=</span> System.currentTimeMillis();<br>logger.info(<span class="hljs-string">&quot;total sum=[&#123;&#125;],[&#123;&#125;] ms&quot;</span>,total,end-start);<br></code></pre></td></tr></table></figure>
+
+<p>这样我们再次尝试，发现无论多少次结果都是正确的了：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c6b0c711c.jpg" srcset="/img/loading.gif" lazyload></p>
+<h2 id="效率提升"><a href="#效率提升" class="headerlink" title="效率提升"></a>效率提升</h2><p>可能还会有朋友问，这样的方式也没见提升多少效率啊。</p>
+<p>这其实是由于我本地文件少，加上一个文件处理的耗时也比较短导致的。</p>
+<p>甚至线程数开的够多导致频繁的上下文切换还是让执行效率降低。</p>
+<p>为了模拟效率的提升，每处理一个文件我都让当前线程休眠 100 毫秒来模拟执行耗时。</p>
+<p>先看单线程运行需要耗时多久。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c6b2e840c.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>总共耗时：<code>[8404] ms</code></p>
+<p>接着在线程池大小为 4 的情况下耗时：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c6bc142b3.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c6bfdb822.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>总共耗时：<code>[2350] ms</code></p>
+<p>可见效率提升还是非常明显的。</p>
+<h1 id="更多思考"><a href="#更多思考" class="headerlink" title="更多思考"></a>更多思考</h1><p>这只是多线程其中的一个用法，相信看到这里的朋友应该多它的理解更进一步了。</p>
+<p>再给大家留个阅后练习，场景也是类似的：</p>
+<blockquote>
+<p>在 Redis 或者其他存储介质中存放有上千万的手机号码数据，每个号码都是唯一的，需要在最快的时间内把这些号码全部都遍历一遍。</p>
+</blockquote>
+<p>有想法感兴趣的朋友欢迎在文末留言参与讨论🤔🤨。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>希望看完的朋友心中能对文初的几个问题能有自己的答案：</p>
+<ul>
+<li>为什么需要多线程？</li>
+<li>怎么实现一个多线程程序？</li>
+<li>多线程带来的问题及解决方案？</li>
+</ul>
+<p>文中的代码都在此处。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/NOWS">https://github.com/crossoverJie/NOWS</a></p>
+<p><strong>你的点赞与转发是最大的支持。</strong></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/Java-%E8%BF%9B%E9%98%B6/" class="category-chain-item">Java 进阶</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
+      
+        <a href="/tags/SpringBoot/" class="print-no-link">#SpringBoot</a>
+      
+        <a href="/tags/ThreadPool/" class="print-no-link">#ThreadPool</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>一份针对于新手的多线程实践</div>
+      <div>http://crossoverjie.top/2018/10/29/java-senior/concurrent-in-action/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>October 29, 2018</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2018/10/31/java-senior/concurrent-in-action2/" title="一份针对于新手的多线程实践--进阶篇">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">一份针对于新手的多线程实践--进阶篇</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2018/10/22/wheel/cicada5/" title="利用责任链模式设计一个拦截器">
+                        <span class="hidden-mobile">利用责任链模式设计一个拦截器</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2018/10/29/java-senior/concurrent-in-action/';
+          this.page.identifier = '/2018/10/29/java-senior/concurrent-in-action/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

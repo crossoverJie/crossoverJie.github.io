@@ -1,0 +1,884 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言Google 出的 Guava 是 Java 核心增强的库，应用非常广泛。 我平时用的也挺频繁，这次就借助日常使用的 Cache 组件来看看 Google 大牛们是如何设计的。 缓存 本次主要讨论缓存。  缓存在日常开发中举足轻重，如果你的应用对某类数据有着较高的读取频次，并且改动较小时那就非常适合利用缓存来提高性能。 缓存之所以可以提高性能是因为它的读取效率很高，就像是 CPU 的 L1、">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Guava 源码分析（Cache 原理）">
+<meta property="og:url" content="http://crossoverjie.top/2018/06/13/guava/guava-cache/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言Google 出的 Guava 是 Java 核心增强的库，应用非常广泛。 我平时用的也挺频繁，这次就借助日常使用的 Cache 组件来看看 Google 大牛们是如何设计的。 缓存 本次主要讨论缓存。  缓存在日常开发中举足轻重，如果你的应用对某类数据有着较高的读取频次，并且改动较小时那就非常适合利用缓存来提高性能。 缓存之所以可以提高性能是因为它的读取效率很高，就像是 CPU 的 L1、">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2018/06/12/5b1fea79e07cb.jpeg">
+<meta property="og:image" content="https://i.loli.net/2018/06/13/5b2008f4c1003.png">
+<meta property="og:image" content="https://i.loli.net/2018/06/13/5b1ffe4eebae0.png">
+<meta property="og:image" content="https://i.loli.net/2018/06/13/5b1fffc88c3e6.png">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2f2b95ed.jpg">
+<meta property="og:image" content="https://i.loli.net/2018/06/13/5b20017f32ff0.png">
+<meta property="og:image" content="https://i.loli.net/2018/06/13/5b2001eeb40d5.png">
+<meta property="og:image" content="https://i.loli.net/2018/06/13/5b20040d257cb.png">
+<meta property="article:published_time" content="2018-06-13T01:20:42.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.270Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Cache">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2018/06/12/5b1fea79e07cb.jpeg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>Guava 源码分析（Cache 原理） - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Guava 源码分析（Cache 原理）"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2018-06-13 01:20" pubdate>
+          June 13, 2018 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.7k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          15 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">Guava 源码分析（Cache 原理）</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2018/06/12/5b1fea79e07cb.jpeg" srcset="/img/loading.gif" lazyload alt="1.jpeg"></p>
+<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>Google 出的 <a target="_blank" rel="noopener" href="https://github.com/google/guava">Guava</a> 是 Java 核心增强的库，应用非常广泛。</p>
+<p>我平时用的也挺频繁，这次就借助日常使用的 Cache 组件来看看 Google 大牛们是如何设计的。</p>
+<h2 id="缓存"><a href="#缓存" class="headerlink" title="缓存"></a>缓存</h2><blockquote>
+<p>本次主要讨论缓存。</p>
+</blockquote>
+<p>缓存在日常开发中举足轻重，如果你的应用对某类数据有着较高的读取频次，并且改动较小时那就非常适合利用缓存来提高性能。</p>
+<p>缓存之所以可以提高性能是因为它的读取效率很高，就像是 CPU 的 <code>L1、L2、L3</code> 缓存一样，级别越高相应的读取速度也会越快。</p>
+<p>但也不是什么好处都占，读取速度快了但是它的内存更小资源更宝贵，所以我们应当缓存真正需要的数据。</p>
+<blockquote>
+<p>其实也就是典型的空间换时间。</p>
+</blockquote>
+<p>下面谈谈 Java 中所用到的缓存。</p>
+<span id="more"></span>
+
+<h3 id="JVM-缓存"><a href="#JVM-缓存" class="headerlink" title="JVM 缓存"></a>JVM 缓存</h3><p>首先是 JVM 缓存，也可以认为是堆缓存。</p>
+<p>其实就是创建一些全局变量，如 <code>Map、List</code> 之类的容器用于存放数据。</p>
+<p>这样的优势是使用简单但是也有以下问题：</p>
+<ul>
+<li>只能显式的写入，清除数据。</li>
+<li>不能按照一定的规则淘汰数据，如 <code>LRU，LFU，FIFO</code> 等。</li>
+<li>清除数据时的回调通知。</li>
+<li>其他一些定制功能等。</li>
+</ul>
+<h3 id="Ehcache、Guava-Cache"><a href="#Ehcache、Guava-Cache" class="headerlink" title="Ehcache、Guava Cache"></a>Ehcache、Guava Cache</h3><p>所以出现了一些专门用作 JVM 缓存的开源工具出现了，如本文提到的 Guava Cache。</p>
+<p>它具有上文 JVM 缓存不具有的功能，如自动清除数据、多种清除算法、清除回调等。</p>
+<p>但也正因为有了这些功能，这样的缓存必然会多出许多东西需要额外维护，自然也就增加了系统的消耗。</p>
+<h3 id="分布式缓存"><a href="#分布式缓存" class="headerlink" title="分布式缓存"></a>分布式缓存</h3><p>刚才提到的两种缓存其实都是堆内缓存，只能在单个节点中使用，这样在分布式场景下就招架不住了。</p>
+<p>于是也有了一些缓存中间件，如 Redis、Memcached，在分布式环境下可以共享内存。</p>
+<p>具体不在本次的讨论范围。</p>
+<h2 id="Guava-Cache-示例"><a href="#Guava-Cache-示例" class="headerlink" title="Guava Cache 示例"></a>Guava Cache 示例</h2><p>之所以想到 Guava 的 Cache，也是最近在做一个需求，大体如下：</p>
+<blockquote>
+<p>从 Kafka 实时读取出应用系统的日志信息，该日志信息包含了应用的健康状况。<br>如果在时间窗口 N 内发生了 X 次异常信息，相应的我就需要作出反馈（报警、记录日志等）。</p>
+</blockquote>
+<p>对此 Guava 的 Cache 就非常适合，我利用了它的 N 个时间内不写入数据时缓存就清空的特点，在每次读取数据时判断异常信息是否大于 X 即可。</p>
+<p>伪代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><code class="hljs java"><br><span class="hljs-meta">@Value(&quot;$&#123;alert.in.time:2&#125;&quot;)</span><br><span class="hljs-keyword">private</span> <span class="hljs-type">int</span> time ;<br><br><span class="hljs-meta">@Bean</span><br><span class="hljs-keyword">public</span> LoadingCache <span class="hljs-title function_">buildCache</span><span class="hljs-params">()</span>&#123;<br>    <span class="hljs-keyword">return</span> CacheBuilder.newBuilder()<br>            .expireAfterWrite(time, TimeUnit.MINUTES)<br>            .build(<span class="hljs-keyword">new</span> <span class="hljs-title class_">CacheLoader</span>&lt;Long, AtomicLong&gt;() &#123;<br>                <span class="hljs-meta">@Override</span><br>                <span class="hljs-keyword">public</span> AtomicLong <span class="hljs-title function_">load</span><span class="hljs-params">(Long key)</span> <span class="hljs-keyword">throws</span> Exception &#123;<br>                    <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">AtomicLong</span>(<span class="hljs-number">0</span>);<br>                &#125;<br>            &#125;);<br>&#125;<br><br><br><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * 判断是否需要报警</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">checkAlert</span><span class="hljs-params">()</span> &#123;<br>    <span class="hljs-keyword">try</span> &#123;<br>        <span class="hljs-keyword">if</span> (counter.get(KEY).incrementAndGet() &gt;= limit) &#123;<br>            LOGGER.info(<span class="hljs-string">&quot;***********报警***********&quot;</span>);<br><br>            <span class="hljs-comment">//将缓存清空</span><br>            counter.get(KEY).getAndSet(<span class="hljs-number">0L</span>);<br>        &#125;<br>    &#125; <span class="hljs-keyword">catch</span> (ExecutionException e) &#123;<br>        LOGGER.error(<span class="hljs-string">&quot;Exception&quot;</span>, e);<br>    &#125;<br>&#125;   <br></code></pre></td></tr></table></figure>
+
+<p>首先是构建了 LoadingCache 对象，在 N 分钟内不写入数据时就回收缓存（当通过 Key 获取不到缓存时，默认返回 0）。</p>
+<p>然后在每次消费时候调用 <code>checkAlert()</code> 方法进行校验，这样就可以达到上文的需求。</p>
+<p>我们来设想下 Guava 它是如何实现过期自动清除数据，并且是可以按照 LRU 这样的方式清除的。</p>
+<p>大胆假设下：</p>
+<blockquote>
+<p>内部通过一个队列来维护缓存的顺序，每次访问过的数据移动到队列头部，并且额外开启一个线程来判断数据是否过期，过期就删掉。有点类似于我之前写过的 <a href="https://crossoverjie.top/%2F2018%2F04%2F07%2Falgorithm%2FLRU-cache%2F">动手实现一个 LRU cache</a></p>
+</blockquote>
+<p>胡适说过：大胆假设小心论证</p>
+<p>下面来看看 Guava 到底是怎么实现。</p>
+<h3 id="原理分析"><a href="#原理分析" class="headerlink" title="原理分析"></a>原理分析</h3><p>看原理最好不过是跟代码一步步走了：</p>
+<p>示例代码在这里：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/Java-Interview/blob/master/src/main/java/com/crossoverjie/guava/CacheLoaderTest.java">https://github.com/crossoverJie/Java-Interview/blob/master/src/main/java/com/crossoverjie/guava/CacheLoaderTest.java</a></p>
+<p><img src="https://i.loli.net/2018/06/13/5b2008f4c1003.png" srcset="/img/loading.gif" lazyload alt="8.png"></p>
+<p>为了能看出 Guava 是怎么删除过期数据的在获取缓存之前休眠了 5 秒钟，达到了超时条件。</p>
+<p><img src="https://i.loli.net/2018/06/13/5b1ffe4eebae0.png" srcset="/img/loading.gif" lazyload alt="2.png"></p>
+<p>最终会发现在 <code>com.google.common.cache.LocalCache</code> 类的 2187 行比较关键。</p>
+<p>再跟进去之前第 2182 行会发现先要判断 count 是否大于 0，这个 count 保存的是当前缓存的数量，并用 volatile 修饰保证了可见性。</p>
+<blockquote>
+<p>更多关于 volatile 的相关信息可以查看 <a href="https://crossoverjie.top/%2F2018%2F03%2F09%2Fvolatile%2F">你应该知道的 volatile 关键字</a></p>
+</blockquote>
+<p>接着往下跟到：</p>
+<p><img src="https://i.loli.net/2018/06/13/5b1fffc88c3e6.png" srcset="/img/loading.gif" lazyload alt="3.png"></p>
+<p>2761 行，根据方法名称可以看出是判断当前的 Entry 是否过期，该 entry 就是通过 key 查询到的。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2f2b95ed.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>这里就很明显的看出是根据根据构建时指定的过期方式来判断当前 key 是否过期了。</p>
+<p><img src="https://i.loli.net/2018/06/13/5b20017f32ff0.png" srcset="/img/loading.gif" lazyload alt="5.png"></p>
+<p>如果过期就往下走，尝试进行过期删除（需要加锁，后面会具体讨论）。</p>
+<p><img src="https://i.loli.net/2018/06/13/5b2001eeb40d5.png" srcset="/img/loading.gif" lazyload alt="6.png"></p>
+<p>到了这里也很清晰了：</p>
+<ul>
+<li>获取当前缓存的总数量</li>
+<li>自减一（前面获取了锁，所以线程安全）</li>
+<li>删除并将更新的总数赋值到 count。</li>
+</ul>
+<p>其实大体上就是这个流程，Guava 并没有按照之前猜想的另起一个线程来维护过期数据。</p>
+<p>应该是以下原因：</p>
+<ul>
+<li>新起线程需要资源消耗。</li>
+<li>维护过期数据还要获取额外的锁，增加了消耗。</li>
+</ul>
+<p>而在查询时候顺带做了这些事情，但是如果该缓存迟迟没有访问也会存在数据不能被回收的情况，不过这对于一个高吞吐的应用来说也不是问题。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>最后再来总结下 Guava 的 Cache。</p>
+<p>其实在上文跟代码时会发现通过一个 key 定位数据时有以下代码：</p>
+<p><img src="https://i.loli.net/2018/06/13/5b20040d257cb.png" srcset="/img/loading.gif" lazyload alt="7.png"></p>
+<p>如果有看过 <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/Java-Interview/blob/master/MD/ConcurrentHashMap.md">ConcurrentHashMap 的原理</a> 应该会想到这其实非常类似。</p>
+<p>其实 Guava Cache 为了满足并发场景的使用，核心的数据结构就是按照 ConcurrentHashMap 来的，这里也是一个 key 定位到一个具体位置的过程。</p>
+<blockquote>
+<p>先找到 Segment，再找具体的位置，等于是做了两次 Hash 定位。</p>
+</blockquote>
+<p>上文有一个假设是对的，它内部会维护两个队列 <code>accessQueue,writeQueue</code> 用于记录缓存顺序，这样才可以按照顺序淘汰数据（类似于利用 LinkedHashMap 来做 LRU 缓存）。</p>
+<p>同时从上文的构建方式来看，它也是<a href="https://crossoverjie.top/2018/04/28/sbc/sbc7-Distributed-Limit/">构建者模式</a>来创建对象的。</p>
+<p>因为作为一个给开发者使用的工具，需要有很多的自定义属性，利用构建则模式再合适不过了。</p>
+<p>Guava 其实还有很多东西没谈到，比如它利用 GC 来回收内存，移除数据时的回调通知等。之后再接着讨论。</p>
+<p>扫码关注微信公众号，第一时间获取消息。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/Guava/" class="category-chain-item">Guava</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Cache/" class="print-no-link">#Cache</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Guava 源码分析（Cache 原理）</div>
+      <div>http://crossoverjie.top/2018/06/13/guava/guava-cache/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>June 13, 2018</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2018/06/21/personal/Interview-experience/" title="一个学渣的阿里之路">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">一个学渣的阿里之路</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2018/06/07/distributed-lock/distributed-lock-redis-update/" title="分布式工具的一次小升级⏫">
+                        <span class="hidden-mobile">分布式工具的一次小升级⏫</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2018/06/13/guava/guava-cache/';
+          this.page.identifier = '/2018/06/13/guava/guava-cache/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

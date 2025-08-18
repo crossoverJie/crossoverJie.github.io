@@ -1,0 +1,895 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="背景最近时运不佳，几乎天天被线上问题骚扰。前几天刚解决了一个 HashSet 的并发问题，周六又来了一个性能问题。 大致的现象是：  我们提供出去的一个 OpenAPI 反应时快时慢，快的时候几十毫秒，慢的时候几秒钟才响应。  尝试解决由于这种也不是业务问题，不能直接定位。所以尝试在测试环境复现，但遗憾的测试环境贼快。 没办法只能硬着头皮上了。 中途有抱着侥幸心里让运维查看了 Nginx 里 O">
+<meta property="og:type" content="article">
+<meta property="og:title" content="不改一行代码定位线上性能问题">
+<meta property="og:url" content="http://crossoverjie.top/2018/11/12/java-senior/coding-online-analysis/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景最近时运不佳，几乎天天被线上问题骚扰。前几天刚解决了一个 HashSet 的并发问题，周六又来了一个性能问题。 大致的现象是：  我们提供出去的一个 OpenAPI 反应时快时慢，快的时候几十毫秒，慢的时候几秒钟才响应。  尝试解决由于这种也不是业务问题，不能直接定位。所以尝试在测试环境复现，但遗憾的测试环境贼快。 没办法只能硬着头皮上了。 中途有抱着侥幸心里让运维查看了 Nginx 里 O">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c65a7d9df.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c65c82a8f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c65e8d995.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c65f6352a.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c66074125.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c66707fb8.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c668a6d28.jpg">
+<meta property="article:published_time" content="2018-11-12T08:01:36.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.270Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Thread">
+<meta property="article:tag" content="Tprofile">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1c65a7d9df.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>不改一行代码定位线上性能问题 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="不改一行代码定位线上性能问题"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2018-11-12 08:01" pubdate>
+          November 12, 2018 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.7k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          14 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">不改一行代码定位线上性能问题</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2019/05/08/5cd1c65a7d9df.jpg" srcset="/img/loading.gif" lazyload></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>最近时运不佳，几乎天天被线上问题骚扰。前几天刚解决了一个 <a href="https://crossoverjie.top/2018/11/08/java-senior/JVM-concurrent-HashSet-problem/">HashSet 的并发</a>问题，周六又来了一个性能问题。</p>
+<p>大致的现象是：</p>
+<blockquote>
+<p>我们提供出去的一个 OpenAPI 反应时快时慢，快的时候几十毫秒，慢的时候几秒钟才响应。</p>
+</blockquote>
+<h1 id="尝试解决"><a href="#尝试解决" class="headerlink" title="尝试解决"></a>尝试解决</h1><p>由于这种也不是业务问题，不能直接定位。所以尝试在测试环境复现，但遗憾的测试环境贼快。</p>
+<p>没办法只能硬着头皮上了。</p>
+<p>中途有抱着侥幸心里让运维查看了 <code>Nginx</code> 里 <code>OpenAPI</code> 的响应时间，想把锅扔给网络。结果果然打脸了；<code>Nginx</code> 里的日志也表明确实响应时间确实有问题。</p>
+<span id="more"></span>
+
+<p>为了清晰的了解这个问题，我简单梳理了这个调用过程。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c65c82a8f.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>整个的流程算是比较常见的分层架构：</p>
+<ul>
+<li>客户端请求到 <code>Nginx</code>。</li>
+<li><code>Nginx</code> 负载了后端的 <code>web</code> 服务。</li>
+<li><code>web</code> 服务通过 <code>RPC</code> 调用后端的 <code>Service</code> 服务。</li>
+</ul>
+<h2 id="日志大法"><a href="#日志大法" class="headerlink" title="日志大法"></a>日志大法</h2><p>我们首先想到的是打日志，在可能会慢的方法或接口处记录处理时间来判断哪里有问题。</p>
+<p>但通过刚才的调用链来说，这个请求流程不短。加日志涉及的改动较多而且万一加漏了还有可能定位不到问题。</p>
+<p>再一个是改动代码之后还会涉及到发版上线。</p>
+<h2 id="工具分析"><a href="#工具分析" class="headerlink" title="工具分析"></a>工具分析</h2><p>所以最好的方式就是不改动一行代码把这个问题分析出来。</p>
+<p>这时就需要一个 <code>agent</code> 工具了。我们选用了阿里以前开源的  <a target="_blank" rel="noopener" href="https://github.com/alibaba/TProfiler">Tprofile</a> 来使用。</p>
+<p>只需要在启动参数中加入 <code>-javaagent:/xx/tprofiler.jar</code> 即可监控你想要监控的方法耗时，并且可以给你输出报告，非常方便。对代码没有任何侵入性同时性能影响也较小。</p>
+<h1 id="工具使用"><a href="#工具使用" class="headerlink" title="工具使用"></a>工具使用</h1><p>下面来简单展示下如何使用这个工具。</p>
+<p>首先第一步自然是 <code>clone</code> 源码然后打包，可以克隆我修改过的源码。</p>
+<blockquote>
+<p>因为这个项目阿里多年没有维护了，还残留一些 <code>bug</code>,我在它原有的基础上修复了个影响使用的 <code>bug</code>，同时做了一些优化。</p>
+</blockquote>
+<p>执行以下脚本即可。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs shell">git clone https://github.com/crossoverJie/TProfiler<br><br>mvn assembly:assembly<br></code></pre></td></tr></table></figure>
+
+<p>到这里之后会在项目的 <code>TProfiler/pkg/TProfiler/lib/tprofiler-1.0.1.jar</code> 中生成好我们要使用的 jar 包。</p>
+<p>接下来只需要将这个 jar 包配置到启动参数中，同时再配置一个配置文件路径即可。</p>
+<p>这个配置文件我 copy 官方的解释。</p>
+<figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><code class="hljs properties"><span class="hljs-comment">#log file name</span><br><span class="hljs-attr">logFileName</span> = <span class="hljs-string">tprofiler.log</span><br><span class="hljs-attr">methodFileName</span> = <span class="hljs-string">tmethod.log</span><br><span class="hljs-attr">samplerFileName</span> = <span class="hljs-string">tsampler.log</span><br><span class="hljs-comment"></span><br><span class="hljs-comment">#basic configuration items</span><br><span class="hljs-comment"># 开始取样时间</span><br><span class="hljs-attr">startProfTime</span> = <span class="hljs-string">1:00:00</span><br><span class="hljs-comment"></span><br><span class="hljs-comment"># 结束取样时间</span><br><span class="hljs-attr">endProfTime</span> = <span class="hljs-string">23:00:00</span><br><span class="hljs-comment"></span><br><span class="hljs-comment"># 取样的时间长度</span><br><span class="hljs-attr">eachProfUseTime</span> = <span class="hljs-string">10</span><br><span class="hljs-comment"></span><br><span class="hljs-comment"># 每次取样的时间间隔</span><br><span class="hljs-attr">eachProfIntervalTime</span> = <span class="hljs-string">1</span><br><br><span class="hljs-attr">samplerIntervalTime</span> = <span class="hljs-string">20</span><br><span class="hljs-comment"></span><br><span class="hljs-comment"># 端口，主要不要冲突了</span><br><span class="hljs-attr">port</span> = <span class="hljs-string">50000</span><br><span class="hljs-attr">debugMode</span> = <span class="hljs-string">false</span><br><span class="hljs-attr">needNanoTime</span> = <span class="hljs-string">false</span><br><span class="hljs-comment"></span><br><span class="hljs-comment"># 是否忽略 get set 方法</span><br><span class="hljs-attr">ignoreGetSetMethod</span> = <span class="hljs-string">true</span><br><span class="hljs-comment"></span><br><span class="hljs-comment">#file paths 日志路径</span><br><span class="hljs-attr">logFilePath</span> = <span class="hljs-string">/data/work/logs/tprofile/$&#123;logFileName&#125;</span><br><span class="hljs-attr">methodFilePath</span> =<span class="hljs-string">/data/work/logs/tprofile/$&#123;methodFileName&#125;</span><br><span class="hljs-attr">samplerFilePath</span> =<span class="hljs-string">/data/work/logs/tprofile/$&#123;samplerFileName&#125;</span><br><span class="hljs-comment"></span><br><span class="hljs-comment">#include &amp; excludes items</span><br><span class="hljs-attr">excludeClassLoader</span> = <span class="hljs-string">org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader</span><br><span class="hljs-comment"></span><br><span class="hljs-comment"># 需要监控的包</span><br><span class="hljs-attr">includePackageStartsWith</span> = <span class="hljs-string">top.crossoverjie.cicada.example.action</span><br><span class="hljs-comment"></span><br><span class="hljs-comment"># 不需要监控的包</span><br><span class="hljs-attr">excludePackageStartsWith</span> = <span class="hljs-string">com.taobao.sketch;org.apache.velocity;com.alibaba;com.taobao.forest.domain.dataobject</span><br></code></pre></td></tr></table></figure>
+
+<p>最终的启动参数如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs java">-javaagent:/TProfiler/lib/tprofiler-<span class="hljs-number">1.0</span><span class="hljs-number">.1</span>.jar<br>-Dprofile.properties=/TProfiler/profile.properties<br></code></pre></td></tr></table></figure>
+
+<p>为了模拟排查接口响应慢的问题，我用 <a target="_blank" rel="noopener" href="https://github.com/TogetherOS/cicada">cicada</a> 实现了一个 <code>HTTP</code> 接口。其中调用了两个耗时方法：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c65e8d995.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>这样当我启动应用时，<code>Tprofile</code> 就会在我配置的目录记录它所收集的方法信息。</p>
+<p>我访问接口 <code>http://127.0.0.1:5688/cicada-example/demoAction?name=test&amp;id=10</code> 几次后它就会把每个方法的明细响应写入 <code>tprofile.log</code>。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c65f6352a.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>由左到右每列分别代表为：</p>
+<p>线程ID、方法栈深度、方法编号、耗时（毫秒）。</p>
+<p>但 <code>tmethod.log</code> 还是空的；</p>
+<p>这时我们只需要执行这个命令即可把最新的方法采样信息刷到 <code>tmethod.log</code> 文件中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs java">java -cp /TProfiler/tprofiler.jar com.taobao.profile.client.TProfilerClient <span class="hljs-number">127.0</span><span class="hljs-number">.0</span><span class="hljs-number">.1</span> <span class="hljs-number">50000</span> flushmethod<br><br>flushmethod success<br></code></pre></td></tr></table></figure>
+
+<p>其实就是访问了 <code>Tprofile</code> 暴露出的一个服务，他会读取、解析 <code>tprofile.log</code> 同时写入 <code>tmethod.log</code>.</p>
+<blockquote>
+<p>其中的端口就是配置文件中的 port。</p>
+</blockquote>
+<p>再打开 <code>tmethod.log</code> ：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c66074125.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>其中会记录方法的信息。</p>
+<ul>
+<li>第一行数字为方法的编号。可以通过这个编号去 <code>tprofile.log</code>(明细)中查询每次的耗时情况。</li>
+<li>行末的数字则是这个方法在源码中最后一行的行号。</li>
+</ul>
+<p>其实大部分的性能分析都是统计某个方法的平均耗时。</p>
+<p>所以还需要执行下面的命令，通过 <code>tmethod.log tprofile.log </code>来生成每个方法的平均耗时。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs java">java -cp /TProfiler/tprofiler.jar com.taobao.profile.analysis.ProfilerLogAnalysis tprofiler.log tmethod.log topmethod.log topobject.log<br>print result success<br></code></pre></td></tr></table></figure>
+
+<p>打开 <code>topmethod.log</code> 就是所有方法的平均耗时。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c66707fb8.jpg" srcset="/img/loading.gif" lazyload></p>
+<ul>
+<li>4 为请求次数。</li>
+<li>205 为平均耗时。</li>
+<li>818 则为总耗时。</li>
+</ul>
+<p>和实际情况是相符的。</p>
+<h2 id="方法的明细耗时"><a href="#方法的明细耗时" class="headerlink" title="方法的明细耗时"></a>方法的明细耗时</h2><p>这是可能还会有其他需求；比如说我想查询某个方法所有的明细耗时怎么办呢？</p>
+<p>官方没有提供，但也是可以的，只是要麻烦一点。</p>
+<p>比如我想查看 <code>selectDB()</code> 的耗时明细：</p>
+<p>首先得知道这个方法的编号，在 <code>tmethod.log</code> 中可以看查到。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-number">2</span> top/crossoverjie/cicada/example/action/DemoAction:selectDB:<span class="hljs-number">84</span><br></code></pre></td></tr></table></figure>
+
+<p>编号为 2.</p>
+<p>之前我们就知道 <code>tprofile.log</code> 记录的是明细，所以通过下面的命令即可查看。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">grep 2 tprofiler.log<br></code></pre></td></tr></table></figure>
+
+<p><img src="https://i.loli.net/2019/05/08/5cd1c668a6d28.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>通过第三列方法编号为 2 的来查看每次执行的明细。</p>
+<p>但这样的方式显然不够友好，需要人为来过滤干扰，步骤也多；所以我也准备加上这样一个功能。</p>
+<p>只需要传入一个方法名称即可查询采集到的所有方法耗时明细。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>回到之前的问题；线上通过这个工具分析我们得到了如下结果。</p>
+<ul>
+<li>有些方法确实执行时快时慢，但都是和数据库相关的。由于目前数据库压力较大，准备在接下来进行冷热数据分离，以及分库分表。</li>
+<li>在第一步操作还没实施之前将部分写数据库的操作改为异步，减小响应时间。</li>
+<li>考虑接入 <code>pinpoint</code> 这样的 <code>APM工具</code>。</li>
+</ul>
+<p>类似于 <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/TProfiler">Tprofile</a> 的工具确实挺多的，找到适合自己的就好。</p>
+<p>在还没有使用类似于 <code>pinpoint</code> 这样的分布式跟踪工具之前应该会大量依赖于这个工具，所以后续说不定也会做一些定制，比如增加一些可视化界面等，可以提高排查效率。</p>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/Java-%E8%BF%9B%E9%98%B6/" class="category-chain-item">Java 进阶</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
+      
+        <a href="/tags/Thread/" class="print-no-link">#Thread</a>
+      
+        <a href="/tags/Tprofile/" class="print-no-link">#Tprofile</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>不改一行代码定位线上性能问题</div>
+      <div>http://crossoverjie.top/2018/11/12/java-senior/coding-online-analysis/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>November 12, 2018</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2018/11/15/wheel/cicada6/" title="设计一个可拔插的 IOC 容器">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">设计一个可拔插的 IOC 容器</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2018/11/08/java-senior/JVM-concurrent-HashSet-problem/" title="一次 HashSet 所引起的并发问题">
+                        <span class="hidden-mobile">一次 HashSet 所引起的并发问题</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2018/11/12/java-senior/coding-online-analysis/';
+          this.page.identifier = '/2018/11/12/java-senior/coding-online-analysis/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

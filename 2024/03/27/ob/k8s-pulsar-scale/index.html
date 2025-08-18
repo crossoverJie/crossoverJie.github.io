@@ -1,0 +1,942 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="背景在整个大环境的降本增效的熏陶下，我们也不得不做好应对方案。 根据对线上流量、存储以及系统资源的占用，发现我们的 Pulsar 集群有许多的冗余，所以考虑进行缩容从而减少资源浪费，最终也能省一些费用。 不过在缩容之前很有必要先聊聊扩容，Pulsar 一开始就是存算分离的架构（更多关于 Pulsar 架构的内容本文不做过多介绍，感兴趣的可以自行搜索），天然就非常适合 kubernetes 环境，也">
+<meta property="og:type" content="article">
+<meta property="og:title" content="在 kubernetes 环境下如何优雅扩缩容 Pulsar">
+<meta property="og:url" content="http://crossoverjie.top/2024/03/27/ob/k8s-pulsar-scale/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景在整个大环境的降本增效的熏陶下，我们也不得不做好应对方案。 根据对线上流量、存储以及系统资源的占用，发现我们的 Pulsar 集群有许多的冗余，所以考虑进行缩容从而减少资源浪费，最终也能省一些费用。 不过在缩容之前很有必要先聊聊扩容，Pulsar 一开始就是存算分离的架构（更多关于 Pulsar 架构的内容本文不做过多介绍，感兴趣的可以自行搜索），天然就非常适合 kubernetes 环境，也">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/02/27/qA89EUDHpxNmK7O.png">
+<meta property="og:image" content="https://s2.loli.net/2024/02/27/1SzKpNiACdZIbrq.png">
+<meta property="og:image" content="https://s2.loli.net/2024/02/27/QqtYUBvadWpDmnR.png">
+<meta property="og:image" content="https://s2.loli.net/2024/02/27/gi9JLdMmYxunHTE.png">
+<meta property="og:image" content="https://s2.loli.net/2024/02/27/FiWJ8b27QD6w5E1.png">
+<meta property="og:image" content="https://s2.loli.net/2024/02/27/TuK7FPXCm1fcgJS.png">
+<meta property="og:image" content="https://s2.loli.net/2024/02/27/bAx8nqeKQT7F4HV.png">
+<meta property="og:image" content="https://s2.loli.net/2024/02/27/GiVlDP2M85pafAO.png">
+<meta property="article:published_time" content="2024-03-27T16:13:42.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.277Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Pulsar">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2024/02/27/qA89EUDHpxNmK7O.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>在 kubernetes 环境下如何优雅扩缩容 Pulsar - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="在 kubernetes 环境下如何优雅扩缩容 Pulsar"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-03-27 16:13" pubdate>
+          March 27, 2024 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.7k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          23 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">在 kubernetes 环境下如何优雅扩缩容 Pulsar</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>在整个大环境的降本增效的熏陶下，我们也不得不做好应对方案。</p>
+<p>根据对线上流量、存储以及系统资源的占用，发现我们的 Pulsar 集群有许多的冗余，所以考虑进行缩容从而减少资源浪费，最终也能省一些费用。</p>
+<p>不过在缩容之前很有必要先聊聊扩容，Pulsar 一开始就是存算分离的架构（更多关于 Pulsar 架构的内容本文不做过多介绍，感兴趣的可以自行搜索），天然就非常适合 kubernetes 环境，也可以利用 <code>kubernetes</code> 的能力进行快速扩容。</p>
+<span id="more"></span>
+<h1 id="扩容"><a href="#扩容" class="headerlink" title="扩容"></a>扩容</h1><p>Pulsar 的扩容相对比较简单，在 kubernetes 环境下只需要修改副本即可。</p>
+<h2 id="Broker"><a href="#Broker" class="headerlink" title="Broker"></a>Broker</h2><p>当我们的 broker 层出现瓶颈时（比如 CPU、内存负载较高、GC 频繁时）可以考虑扩容。</p>
+<blockquote>
+<p>计算层都扩容了，也需要根据流量计算下存储层是否够用。</p>
+</blockquote>
+<p>如果我们使用的是 helm 安装的 Pulsar 集群，那只需要修改对于的副本数即可。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">broker:</span>  <br>  <span class="hljs-string">configuration</span>  <br>  <span class="hljs-attr">component:</span> <span class="hljs-string">broker</span>  <br>  <span class="hljs-attr">replicaCount:</span> <span class="hljs-number">3</span><span class="hljs-string">-&gt;5</span><br></code></pre></td></tr></table></figure>
+
+<p>当我们将副本数从 3 增加到 5 之后 kubernetes 会自动拉起新增的两个 Pod，之后我们啥也不需要做了。</p>
+<p>Pulsar 的负载均衡器会自动感知到新增两个 broker 的加入，从而帮我们将一些负载高的节点的流量迁移到新增的节点中。</p>
+<h2 id="Bookkeeper"><a href="#Bookkeeper" class="headerlink" title="Bookkeeper"></a>Bookkeeper</h2><p>在介绍 bookkeeper 扩容前先简单介绍些 Bookkeeper 的一些基本概念。</p>
+<ul>
+<li>Ensemble size (E)：当前 Bookkeeper 集群的节点数量</li>
+<li>Write quorum size (QW)：一条消息需要写入到几个 Bookkeeper 节点中</li>
+<li>ACK quorum size (QA)：有多少个 Bookkeeper 节点 ACK 之后表示写入成功</li>
+</ul>
+<p>对应到我们在 <code>broker.conf</code> 中的配置如下：</p>
+<figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs properties"><span class="hljs-attr">managedLedgerDefaultEnsembleSize</span>: <span class="hljs-string">&quot;2&quot;  </span><br><span class="hljs-attr">managedLedgerDefaultWriteQuorum</span>: <span class="hljs-string">&quot;2&quot;  </span><br><span class="hljs-attr">managedLedgerDefaultAckQuorum</span>: <span class="hljs-string">&quot;2&quot;</span><br></code></pre></td></tr></table></figure>
+<p>这个三个参数表示一条消息需要同时写入两个 Bookkeeper 节点，同时都返回 ACK 之后才能表示当前消息写入成功。</p>
+<p>从这个配置也可以看出，Bookkeeper 是多副本写入模型，适当的降低 QW 和 QA 的数量可以提高写入吞吐率。</p>
+<p>大部分场景下 Bookkeeper 有三个节点然后 E&#x2F;QW&#x2F;QA 都配置为 2 就可以满足消息多副本写入了。</p>
+<blockquote>
+<p>多副本可以保证当某个节点宕机后，这个节点的消息在其他节点依然有存放，消息读取不会出现问题。</p>
+</blockquote>
+<p>那什么情况下需要扩容 Bookkeeper 了，当然如果单个 Bookkeeper 的负载较高也是可以扩容的。</p>
+<p>但我们当时扩容 Bookkeeper 的场景是想利用 Pulsar 的资源隔离功能。</p>
+<p>因为有部分业务的消息量明显比高于其他的 topic，这样会导致某个 Broker 的负载较高，同时也可能影响到其他正常的 topic。</p>
+<p>最好的方式就将这部分数据用单独的 broker 和 Bookkeeper 来承载，从而实现硬件资源的隔离。</p>
+<p>这样的需求如果使用其他消息队列往往不太好实现，到后来可能就会部署多个集群来实现隔离，但这样也会增加运维的复杂度。</p>
+<p>好在 Pulsar 天然就支持资源隔离，只需要一个集群就可以实现不同 namespace 的流量隔离。</p>
+<p>此时就可以额外扩容几个 Bookkeeper 节点用于特定的 namespace 使用。<br><img src="https://s2.loli.net/2024/02/27/qA89EUDHpxNmK7O.png" srcset="/img/loading.gif" lazyload></p>
+<p>从上图可以看到：我们可以将 broker 和 Bookkeeper 分别进行分组，然后再配置对应的 namespace，这样就能实现资源隔离了。</p>
+<blockquote>
+<p>更多关于资源隔离的细节本文就不过多赘述了。</p>
+</blockquote>
+<p>铺垫了这么多，其实 Bookkeeper 的扩容也蛮简单的：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">bookkeeper:</span><br>  <span class="hljs-attr">component:</span> <span class="hljs-string">bookie</span><br>  <span class="hljs-attr">metadata:</span><br>    <span class="hljs-attr">resources:</span><br>    <span class="hljs-comment"># requests:</span><br>    <span class="hljs-comment"># memory: 4Gi</span><br>    <span class="hljs-comment"># cpu: 2</span><br>  <span class="hljs-attr">replicaCount:</span> <span class="hljs-number">3</span><span class="hljs-string">-&gt;5</span><br></code></pre></td></tr></table></figure>
+
+<p>和 broker 扩容类似，提高副本数量后，Pulsar 的元数据中心会感知到新的 Bookkeeper 节点加入，从而更新 broker 中的节点数据，这样就会根据我们配置的隔离策略分配流量。</p>
+<h1 id="缩容"><a href="#缩容" class="headerlink" title="缩容"></a>缩容</h1><p>其实本文的重点在于缩容，特别是 Bookkeeper 的缩容，这部分内容我在互联网上很少看到有人提及。</p>
+<h2 id="Broker-1"><a href="#Broker-1" class="headerlink" title="Broker"></a>Broker</h2><p>Broker 的缩容相对简单，因为存算分离的特点：broker 作为计算层是无状态的，并不承载任何的数据。</p>
+<blockquote>
+<p>其实是承载数据的，只是 Pulsar 会自动迁移数据，从而体感上觉得是无状态的。</p>
+</blockquote>
+<p>只是当一个 broker 下线后，它上面所绑定的 topic 会自动转移到其他在线的 broker 中。</p>
+<p>这个过程会导致连接了这个 broker 的 client 触发重连，从而短暂的影响业务。</p>
+<blockquote>
+<p>正因为 broker 的下线会导致 topic 的归属发生转移，所以在下线前最好是先通过监控面板观察需要下线的 broker topic 是否过多，如果过多则可以先手动 unload 一些数据，尽量避免一次性大批量的数据转移。</p>
+</blockquote>
+<p><img src="https://s2.loli.net/2024/02/27/1SzKpNiACdZIbrq.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<blockquote>
+<p>观察各个broker 的 topic 数量</p>
+</blockquote>
+<h2 id="Bookkeeper-1"><a href="#Bookkeeper-1" class="headerlink" title="Bookkeeper"></a>Bookkeeper</h2><p>而 Bookkeeper 的缩容则没那么容易了，由于它是作为存储层，本身是有状态的，下线后节点上存储的数据是需要迁移到其他的 Bookkeeper 节点中的。</p>
+<p>不然就无法满足之前提到的 Write quorum size (QW) 要求；因此缩容还有一个潜在条件需要满足：</p>
+<p>缩容后的 Bookkeeper 节点数量需要大于broker 中的配置：</p>
+<figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs properties"><span class="hljs-attr">managedLedgerDefaultEnsembleSize</span>: <span class="hljs-string">&quot;2&quot;  </span><br><span class="hljs-attr">managedLedgerDefaultWriteQuorum</span>: <span class="hljs-string">&quot;2&quot;  </span><br><span class="hljs-attr">managedLedgerDefaultAckQuorum</span>: <span class="hljs-string">&quot;2&quot;</span><br></code></pre></td></tr></table></figure>
+
+<p>不然写入会失败，整个集群将变得不可用。</p>
+<p>Pulsar 提供了两种 Bookkeeper 的下线方案：</p>
+<h3 id="不需要迁移数据"><a href="#不需要迁移数据" class="headerlink" title="不需要迁移数据"></a>不需要迁移数据</h3><p>其实两种方案主要区别在于是否需要迁移数据，第一种比较简单，就是不迁移数据的方案。</p>
+<p>首先需要将 Bookkeeper 设置为 read-only 状态，此时该节点将不会接受写请求，直到这个 Bookkeeper 上的数据全部过期被回收后，我们就可以手动下线该节点。</p>
+<p>使用 <code>forceReadOnlyBookie=true</code> 可以强制将 Bookkeeper 设置为只读。</p>
+<p>但这个方案存在几个问题：</p>
+<ul>
+<li>下线时间不确定，如果该 <code>Bookkeeper</code> 上存储的数据生命周期较长，则无法预估什么时候可以下线该节点。</li>
+<li>该配置修改后需要重启才能生效，在 kubernetes 环境中这些配置都是写在了 configmap 中，一旦刷新后所有节点都会读取到该配置，无法针对某一个节点生效；所以可能会出现将不该下线的节点设置为了只读状态。</li>
+</ul>
+<p>但该方案的好处是不需要迁移数据，人工介入的流程少，同样也就减少了出错的可能。</p>
+<p>比较适合于用虚拟机部署的集群。</p>
+<h3 id="迁移数据"><a href="#迁移数据" class="headerlink" title="迁移数据"></a>迁移数据</h3><p>第二种就是需要迁移数据的方案，更适用于 kubernetes 环境。</p>
+<h4 id="迁移原理"><a href="#迁移原理" class="headerlink" title="迁移原理"></a>迁移原理</h4><p>先来看看迁移的原理：</p>
+<ol>
+<li>当 bookkeeper 停机后，AutoRecovery Auditor 会检测到 zookeeper 节点<code>/ledger/available</code> 发生变化，将下线节点的 ledger 信息写入到 zookeeper 的 <code>/ledgers/underreplicated</code> 节点中。</li>
+<li>AutoRecovery ReplicationWorker 会检测 <code>/ledgers/underreplicated</code>节点信息，然后轮训这些 ledger 信息从其他在线的 BK 中复制数据到没有该数据的节点，保证 QW 数量不变。<ol>
+<li>每复制一条数据后都会删除 <code>/ledgers/underreplicated</code> 节点信息。</li>
+<li>所有 <code>/ledgers/underreplicated</code> 被删除后说明迁移任务完成。</li>
+</ol>
+</li>
+<li>执行 <code>bin/bookkeeper shell decommissionbookie</code> 下线命令：<ol>
+<li>会等待 <code>/ledgers/underreplicated</code> 全部删除</li>
+<li> 然后删除 zookeeper 中的元数据</li>
+<li>元数据删除后 bookkeeper 才是真正下线成功，此时 broker 才会感知到 Bookkeeper 下线。</li>
+</ol>
+</li>
+</ol>
+<p><code>AutoRecovery</code> 是 Bookkeeper 提供的一个自动恢复程序，他会在后台检测是否有数据需要迁移。</p>
+<blockquote>
+<p>简单来说就是当某个Bookkeeper 停机后，它上面所存储的 ledgerID 会被写入到元数据中心，此时会有一个单独的线程来扫描这些需要迁移的数据，最终将这些数据写入到其他在线的 Bookkeeper 节点。</p>
+</blockquote>
+<p>Bookkeeper 中的一些关键代码：<br><img src="https://s2.loli.net/2024/02/27/QqtYUBvadWpDmnR.png" srcset="/img/loading.gif" lazyload alt="image.png"><br><img src="https://s2.loli.net/2024/02/27/gi9JLdMmYxunHTE.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<h4 id="下线步骤"><a href="#下线步骤" class="headerlink" title="下线步骤"></a>下线步骤</h4><p>下面来看具体的下线流程：</p>
+<ol>
+<li>副本数-1<ol>
+<li><code>bin/bookkeeper shell listunderreplicated</code> 检测有多少 ledger 需要被迁移</li>
+</ol>
+</li>
+<li>执行远程下线元数据<ol>
+<li><code>nohup bin/bookkeeper shell decommissionbookie -bookieid bkid:3181 &gt; bk.log 2&gt;&amp;1 &amp;</code></li>
+<li>这个命令会一直后台运行等待数据迁移完成，比较耗时</li>
+</ol>
+</li>
+<li>查看下线节点是否已被剔除<ol>
+<li><code>bin/bookkeeper shell listbookies -a</code></li>
+</ol>
+</li>
+<li>循环第一步</li>
+</ol>
+<p>第一步是检测一些现在有多少数据需要迁移：<br><code>bin/bookkeeper shell listunderreplicated</code> 命令查看需要被迁移的 ledger 数据也是来自于 <code>/ledgers/underreplicated</code>节点<br><img src="https://s2.loli.net/2024/02/27/FiWJ8b27QD6w5E1.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<blockquote>
+<p>正常情况下是 0</p>
+</blockquote>
+<p>第二步的命令会等待数据迁移完成后从 zookeeper 中删除节点信息，这个进程退出后表示下线成功。</p>
+<p><img src="https://s2.loli.net/2024/02/27/TuK7FPXCm1fcgJS.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<blockquote>
+<p>这个命令最好是后台执行，并输出日志到专门的文件，因为周期较长，很有可能终端会话已经超时了。</p>
+</blockquote>
+<p>我们登录 zookeeper 可以看到需要迁移的 ledger 数据：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs shell">bin/pulsar zookeeper-shell -server pulsar-zookeeper:2181<br><br>get /ledgers/underreplication/ledgers/0000/0000/0000/0002/urL0000000002<br>replica: &quot;pulsar-test-2-bookie-0.pulsar-test-2-bookie.pulsar-test-2.svc.cluster.local:3181&quot;<br>ctime: 1708507296519<br></code></pre></td></tr></table></figure>
+
+<p>underreplication 的节点路径中存放了 ledgerId，通过 ledgerId 计算路径：<br><img src="https://s2.loli.net/2024/02/27/bAx8nqeKQT7F4HV.png" srcset="/img/loading.gif" lazyload><br><img src="https://s2.loli.net/2024/02/27/GiVlDP2M85pafAO.png" srcset="/img/loading.gif" lazyload></p>
+<h4 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h4><p>下线过程中我们可以查看 <code>nohup bin/bookkeeper shell decommissionbookie -bookieid bkid:3181 &gt; bk.log 2&gt;&amp;1 &amp;</code>这个命令写入的日志来确认迁移的进度，日志中会打印当前还有多少数量的 ledger 没有迁移。</p>
+<p>同时需要观察 zookeeper、Bookkeeper 的资源占用情况。</p>
+<p>因为迁移过程中写入大量数据到 zookeeper 节点，同时迁移数时也会有大量流量写入 Bookkeeper。</p>
+<p>不要让迁移过程影响到了正常的业务使用。</p>
+<p>根据我的迁移经验来看，通常 2w 的ledger 数据需要 2～3 小时不等的时间，具体情况还得根据你的集群来确认。</p>
+<h4 id="回滚方案"><a href="#回滚方案" class="headerlink" title="回滚方案"></a>回滚方案</h4><p>当然万一迁移比较耗时，或者影响了业务使用，所以还是要有一个回滚方案：</p>
+<p>这里有一个大的前提：<br><strong>只要 BK 节点元数据、PVC（也就是磁盘中的数据） 没有被删除就可以进行回滚。</strong></p>
+<p>所以只要上述的 decommissionbookie 命令没有完全执行完毕，我们就可以手动 kill 该进程，然后恢复副本数据。</p>
+<p>这样恢复的 Bookkeeper 节点依然可以提供服务，同时数据也还存在；只是浪费了一些 autorecovery 的资源。</p>
+<p>最后当 bookkeeper 成功下线后，我们需要删除 PVC，不然如果今后需要扩容的时候是无法启动 bookkeeper 的，因为在启动过程中会判断挂载的磁盘是否有数据。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>总的来说 Pulsar 的扩缩容还是非常简单的，只是对于有状态节点的数据迁移稍微复杂一些，但只要跟着流程走就不会有什么问题。</p>
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://pulsar.apache.org/docs/next/administration-isolation/">https://pulsar.apache.org/docs/next/administration-isolation/</a></li>
+<li><a target="_blank" rel="noopener" href="https://bookkeeper.apache.org/docs/4.13.0/admin/decomission">https://bookkeeper.apache.org/docs/4.13.0/admin/decomission</a></li>
+<li><a target="_blank" rel="noopener" href="https://bookkeeper.apache.org/docs/4.13.0/admin/autorecovery">https://bookkeeper.apache.org/docs/4.13.0/admin/autorecovery</a></li>
+</ul>
+<p>#Blog #Pulsar </p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/Pulsar/" class="category-chain-item">Pulsar</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/Pulsar/OB/" class="category-chain-item">OB</a>
+  
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Pulsar/" class="print-no-link">#Pulsar</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>在 kubernetes 环境下如何优雅扩缩容 Pulsar</div>
+      <div>http://crossoverjie.top/2024/03/27/ob/k8s-pulsar-scale/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>March 27, 2024</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/04/07/ob/otel-replace-sw/" title="实战：如何优雅的从 Skywalking 切换到 OpenTelemetry">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">实战：如何优雅的从 Skywalking 切换到 OpenTelemetry</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/03/20/ob/about-opensource-argument/" title="顶级开源社区都能吵起来？">
+                        <span class="hidden-mobile">顶级开源社区都能吵起来？</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2024/03/27/ob/k8s-pulsar-scale/';
+          this.page.identifier = '/2024/03/27/ob/k8s-pulsar-scale/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

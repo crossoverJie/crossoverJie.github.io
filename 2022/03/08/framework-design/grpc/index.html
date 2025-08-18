@@ -1,0 +1,909 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="介绍我猜测大部分长期使用 Java 的开发者应该较少会接触 gRPC，毕竟在 Java 圈子里大部分使用的还是 Dubbo&#x2F;SpringClound 这两类服务框架。 我也是近段时间有机会从零开始重构业务才接触到 gRPC 的，当时选择 gRPC 时也有几个原因：   基于云原生的思路开发部署项目，而在云原生中 gRPC 几乎已经是标准的通讯协议了。 开发语言选择了 Go，在 Go 圈子中 gR">
+<meta property="og:type" content="article">
+<meta property="og:title" content="5分钟学会 gRPC">
+<meta property="og:url" content="http://crossoverjie.top/2022/03/08/framework-design/grpc/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="介绍我猜测大部分长期使用 Java 的开发者应该较少会接触 gRPC，毕竟在 Java 圈子里大部分使用的还是 Dubbo&#x2F;SpringClound 这两类服务框架。 我也是近段时间有机会从零开始重构业务才接触到 gRPC 的，当时选择 gRPC 时也有几个原因：   基于云原生的思路开发部署项目，而在云原生中 gRPC 几乎已经是标准的通讯协议了。 开发语言选择了 Go，在 Go 圈子中 gR">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/EvoDe9JNqPLHwdF.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/XCYkMxjpUgvZE5L.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/r6w2Yvi9dkPqKEW.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/vAahTlgs54Pem7c.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/wWJQ7Rv5BnqPrjo.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/cxF2Xlj4BuWOEbz.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/jz2CwFvfR6iuTMt.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/zqTm3bgysJcMEeZ.gif">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/rkSeCNVEzJ26sMd.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/lZzfH8yq3MGwKa9.gif">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/Le2OdbBN1DGScg6.jpg">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/Lxy7dhbD8ewlpUf.gif">
+<meta property="og:image" content="https://s2.loli.net/2022/03/13/Gt2sRplIADyvTHg.jpg">
+<meta property="article:published_time" content="2022-03-08T08:12:16.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.266Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="gRPC">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2022/03/13/EvoDe9JNqPLHwdF.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>5分钟学会 gRPC - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="5分钟学会 gRPC"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2022-03-08 08:12" pubdate>
+          March 8, 2022 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          17 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">5分钟学会 gRPC</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://s2.loli.net/2022/03/13/EvoDe9JNqPLHwdF.jpg" srcset="/img/loading.gif" lazyload></p>
+<h1 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h1><p>我猜测大部分长期使用 <code>Java</code> 的开发者应该较少会接触 <code>gRPC</code>，毕竟在 <code>Java</code> 圈子里大部分使用的还是 <code>Dubbo/SpringClound</code> 这两类服务框架。</p>
+<p>我也是近段时间有机会从零开始重构业务才接触到 <code>gRPC</code> 的，当时选择 <code>gRPC</code> 时也有几个原因：</p>
+<p><img src="https://s2.loli.net/2022/03/13/XCYkMxjpUgvZE5L.jpg" srcset="/img/loading.gif" lazyload></p>
+<ul>
+<li>基于云原生的思路开发部署项目，而在云原生中 <code>gRPC</code> 几乎已经是标准的通讯协议了。</li>
+<li>开发语言选择了 Go，在 Go 圈子中 <code>gRPC</code> 显然是更好的选择。</li>
+<li>公司内部有部分业务使用的是 <code>Python</code> 开发，在多语言兼容性上 <code>gRPC</code> 支持的非常好。</li>
+</ul>
+<span id="more"></span>
+
+<p>经过线上一年多的平稳运行，可以看出 <code>gRPC</code> 还是非常稳定高效的；rpc 框架中最核心的几个要点：</p>
+<ul>
+<li>序列化</li>
+<li>通信协议</li>
+<li>IDL（接口描述语言）</li>
+</ul>
+<p>这些在 <code>gRPC</code> 中分别对应的是：</p>
+<ul>
+<li>基于 <code>Protocol Buffer</code> 序列化协议，性能高效。</li>
+<li>基于 <code>HTTP/2</code> 标准协议开发，自带 <code>stream</code>、多路复用等特性；同时由于是标准协议，第三方工具的兼容性会更好（比如负载均衡、监控等）</li>
+<li>编写一份 <code>.proto</code> 接口文件，便可生成常用语言代码。</li>
+</ul>
+<h1 id="HTTP-x2F-2"><a href="#HTTP-x2F-2" class="headerlink" title="HTTP&#x2F;2"></a>HTTP&#x2F;2</h1><p>学习 <code>gRPC</code> 之前首先得知道它是通过什么协议通信的，我们日常不管是开发还是应用基本上接触到最多的还是 <code>HTTP/1.1</code> 协议。</p>
+<p><img src="https://s2.loli.net/2022/03/13/r6w2Yvi9dkPqKEW.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>由于 <code>HTTP/1.1</code> 是一个文本协议，对人类非常友好，相反的对机器性能就比较低。</p>
+<p>需要反复对文本进行解析，效率自然就低了；要对机器更友好就得采用二进制，<code>HTTP/2</code> 自然做到了。</p>
+<p>除此之外还有其他优点：</p>
+<ul>
+<li>多路复用：可以并行的收发消息，互不影响</li>
+<li><code>HPACK</code> 节省 <code>header</code> 空间，避免 <code>HTTP1.1</code> 对相同的 <code>header</code> 反复发送。</li>
+</ul>
+<h1 id="Protocol"><a href="#Protocol" class="headerlink" title="Protocol"></a>Protocol</h1><p><code>gRPC</code> 采用的是 <code>Protocol</code> 序列化，发布时间比 <code>gRPC</code> 早一些，所以也不仅只用于 <code>gRPC</code>，任何需要序列化 IO 操作的场景都可以使用它。</p>
+<p>它会更加的省空间、高性能；之前在开发 <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/cim/blob/master/protocol/BaseRequestProto.proto">https://github.com/crossoverJie/cim</a> 时就使用它来做数据交互。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><code class="hljs proto">package order.v1;<br><br>service OrderService&#123;<br><br>  rpc Create(OrderApiCreate) returns (Order) &#123;&#125;<br><br>  rpc Close(CloseApiCreate) returns (Order) &#123;&#125;<br><br>  // 服务端推送<br>  rpc ServerStream(OrderApiCreate) returns (stream Order) &#123;&#125;<br><br>  // 客户端推送<br>  rpc ClientStream(stream OrderApiCreate) returns (Order) &#123;&#125;<br>  <br>  // 双向推送<br>  rpc BdStream(stream OrderApiCreate) returns (stream Order) &#123;&#125;<br>&#125;<br><br>message OrderApiCreate&#123;<br>  int64 order_id = 1;<br>  repeated int64 user_id = 2;<br>  string remark = 3;<br>  repeated int32 reason_id = 4;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>使用起来也是非常简单的，只需要定义自己的 <code>.proto</code> 文件，便可用命令行工具生成对应语言的 SDK。</p>
+<p>具体可以参考官方文档：<br><a target="_blank" rel="noopener" href="https://grpc.io/docs/languages/go/generated-code/">https://grpc.io/docs/languages/go/generated-code/</a></p>
+<h1 id="调用"><a href="#调用" class="headerlink" title="调用"></a>调用</h1><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs shell">protoc --go_out=. --go_opt=paths=source_relative \<br>   --go-grpc_out=. --go-grpc_opt=paths=source_relative \<br>   test.proto<br></code></pre></td></tr></table></figure>
+<p><img src="https://s2.loli.net/2022/03/13/vAahTlgs54Pem7c.jpg" srcset="/img/loading.gif" lazyload><br>生成代码之后编写服务端就非常简单了，只需要实现生成的接口即可。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-params">(o *Order)</span></span> Create(ctx context.Context, in *v1.OrderApiCreate) (*v1.Order, <span class="hljs-type">error</span>) &#123;<br>	<span class="hljs-comment">// 获取 metadata</span><br>	md, ok := metadata.FromIncomingContext(ctx)<br>	<span class="hljs-keyword">if</span> !ok &#123;<br>		<span class="hljs-keyword">return</span> <span class="hljs-literal">nil</span>, status.Errorf(codes.DataLoss, <span class="hljs-string">&quot;failed to get metadata&quot;</span>)<br>	&#125;<br>	fmt.Println(md)<br>	fmt.Println(in.OrderId)<br>	<span class="hljs-keyword">return</span> &amp;v1.Order&#123;<br>		OrderId: in.OrderId,<br>		Reason:  <span class="hljs-literal">nil</span>,<br>	&#125;, <span class="hljs-literal">nil</span><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><img src="https://s2.loli.net/2022/03/13/wWJQ7Rv5BnqPrjo.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>客户端也非常简单，只需要依赖服务端代码，创建一个 <code>connection</code> 然后就和调用本地方法一样了。</p>
+<p>这是经典的 <code>unary</code>(一元)调用，类似于 http 的请求响应模式，一个请求对应一次响应。</p>
+<p><img src="https://s2.loli.net/2022/03/13/cxF2Xlj4BuWOEbz.jpg" srcset="/img/loading.gif" lazyload></p>
+<h2 id="Server-stream"><a href="#Server-stream" class="headerlink" title="Server stream"></a>Server stream</h2><p><code>gRPC</code> 除了常规的 <code>unary</code> 调用之外还支持服务端推送，在一些特定场景下还是很有用的。</p>
+<p><img src="https://s2.loli.net/2022/03/13/jz2CwFvfR6iuTMt.jpg" srcset="/img/loading.gif" lazyload> </p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-params">(o *Order)</span></span> ServerStream(in *v1.OrderApiCreate, rs v1.OrderService_ServerStreamServer) <span class="hljs-type">error</span> &#123;<br>	<span class="hljs-keyword">for</span> i := <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">5</span>; i++ &#123;<br>		rs.Send(&amp;v1.Order&#123;<br>			OrderId: in.OrderId,<br>			Reason:  <span class="hljs-literal">nil</span>,<br>		&#125;)<br>	&#125;<br>	<span class="hljs-keyword">return</span> <span class="hljs-literal">nil</span><br>&#125;<br></code></pre></td></tr></table></figure>
+<p>服务端的推送如上所示，调用 <code>Send</code> 函数便可向客户端推送。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-keyword">for</span> &#123;<br>	msg, err := rpc.RecvMsg()<br>	<span class="hljs-keyword">if</span> err == io.EOF &#123;<br>		marshalIndent, _ := json.MarshalIndent(msgs, <span class="hljs-string">&quot;&quot;</span>, <span class="hljs-string">&quot;\t&quot;</span>)<br>		fmt.Println(msg)<br>		<span class="hljs-keyword">return</span><br>	&#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>客户端则通过一个循环判断当前接收到的数据包是否已经截止来获取服务端消息。</p>
+<p>为了能更直观的展示这个过程，优化了之前开发的一个 <code>gRPC</code> <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/ptg">客户端</a>，可以直观的调试 <code>stream</code> 调用。</p>
+<p><img src="https://s2.loli.net/2022/03/13/zqTm3bgysJcMEeZ.gif" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>上图便是一个服务端推送示例。</p>
+</blockquote>
+<h2 id="Client-Stream"><a href="#Client-Stream" class="headerlink" title="Client Stream"></a>Client Stream</h2><p><img src="https://s2.loli.net/2022/03/13/rkSeCNVEzJ26sMd.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>除了支持服务端推送之外，客户端也支持。</p>
+<blockquote>
+<p>客户端在同一个连接中一直向服务端发送数据，服务端可以并行处理消息。</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><code class="hljs go"><br><span class="hljs-comment">// 服务端代码</span><br><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-params">(o *Order)</span></span> ClientStream(rs v1.OrderService_ClientStreamServer) <span class="hljs-type">error</span> &#123;<br>	<span class="hljs-keyword">var</span> value []<span class="hljs-type">int64</span><br>	<span class="hljs-keyword">for</span> &#123;<br>		recv, err := rs.Recv()<br>		<span class="hljs-keyword">if</span> err == io.EOF &#123;<br>			rs.SendAndClose(&amp;v1.Order&#123;<br>				OrderId: <span class="hljs-number">100</span>,<br>				Reason:  <span class="hljs-literal">nil</span>,<br>			&#125;)<br>			log.Println(value)<br>			<span class="hljs-keyword">return</span> <span class="hljs-literal">nil</span><br>		&#125;<br>		value = <span class="hljs-built_in">append</span>(value, recv.OrderId)<br>		log.Printf(<span class="hljs-string">&quot;ClientStream receiv msg %v&quot;</span>, recv.OrderId)<br>	&#125;<br>	log.Println(<span class="hljs-string">&quot;ClientStream finish&quot;</span>)<br>	<span class="hljs-keyword">return</span> <span class="hljs-literal">nil</span><br>&#125;<br><br>	<span class="hljs-comment">// 客户端代码</span><br>	<span class="hljs-keyword">for</span> i := <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">5</span>; i++ &#123;<br>		messages, _ := GetMsg(data)<br>		rpc.SendMsg(messages[<span class="hljs-number">0</span>])<br>	&#125;<br>	receive, err := rpc.CloseAndReceive()<br></code></pre></td></tr></table></figure>
+
+<p>代码与服务端推送类似，只是角色互换了。</p>
+<p><img src="https://s2.loli.net/2022/03/13/lZzfH8yq3MGwKa9.gif" srcset="/img/loading.gif" lazyload></p>
+<h2 id="Bidirectional-Stream"><a href="#Bidirectional-Stream" class="headerlink" title="Bidirectional Stream"></a>Bidirectional Stream</h2><p><img src="https://s2.loli.net/2022/03/13/Le2OdbBN1DGScg6.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>同理，当客户端、服务端同时都在发送消息也是支持的。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-comment">// 服务端</span><br><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-params">(o *Order)</span></span> BdStream(rs v1.OrderService_BdStreamServer) <span class="hljs-type">error</span> &#123;<br>	<span class="hljs-keyword">var</span> value []<span class="hljs-type">int64</span><br>	<span class="hljs-keyword">for</span> &#123;<br>		recv, err := rs.Recv()<br>		<span class="hljs-keyword">if</span> err == io.EOF &#123;<br>			log.Println(value)<br>			<span class="hljs-keyword">return</span> <span class="hljs-literal">nil</span><br>		&#125;<br>		<span class="hljs-keyword">if</span> err != <span class="hljs-literal">nil</span> &#123;<br>			<span class="hljs-built_in">panic</span>(err)<br>		&#125;<br>		value = <span class="hljs-built_in">append</span>(value, recv.OrderId)<br>		log.Printf(<span class="hljs-string">&quot;BdStream receiv msg %v&quot;</span>, recv.OrderId)<br>		rs.SendMsg(&amp;v1.Order&#123;<br>			OrderId: recv.OrderId,<br>			Reason:  <span class="hljs-literal">nil</span>,<br>		&#125;)<br>	&#125;<br>	<span class="hljs-keyword">return</span> <span class="hljs-literal">nil</span><br>&#125;<br><span class="hljs-comment">// 客户端</span><br>	<span class="hljs-keyword">for</span> i := <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">5</span>; i++ &#123;<br>		messages, _ := GetMsg(data)<br>		<span class="hljs-comment">// 发送消息</span><br>		rpc.SendMsg(messages[<span class="hljs-number">0</span>])<br>		<span class="hljs-comment">// 接收消息</span><br>		receive, _ := rpc.RecvMsg()<br>		marshalIndent, _ := json.MarshalIndent(receive, <span class="hljs-string">&quot;&quot;</span>, <span class="hljs-string">&quot;\t&quot;</span>)<br>		fmt.Println(<span class="hljs-type">string</span>(marshalIndent))<br>	&#125;<br>	rpc.CloseSend()<br></code></pre></td></tr></table></figure>
+
+<p>其实就是将上诉两则合二为一。</p>
+<p><img src="https://s2.loli.net/2022/03/13/Lxy7dhbD8ewlpUf.gif" srcset="/img/loading.gif" lazyload></p>
+<p>通过调用示例很容易理解。</p>
+<h2 id="元数据"><a href="#元数据" class="headerlink" title="元数据"></a>元数据</h2><p><code>gRPC</code> 也支持元数据传输，类似于 <code>HTTP</code> 中的 <code>header</code>。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-comment">// 客户端写入</span><br>metaStr := <span class="hljs-string">`&#123;&quot;lang&quot;:&quot;zh&quot;&#125;`</span><br><span class="hljs-keyword">var</span> m <span class="hljs-keyword">map</span>[<span class="hljs-type">string</span>]<span class="hljs-type">string</span><br>err := json.Unmarshal([]<span class="hljs-type">byte</span>(metaStr), &amp;m)<br>md := metadata.New(m)<br><span class="hljs-comment">// 调用时将 ctx 传入即可</span><br>ctx := metadata.NewOutgoingContext(context.Background(), md)<br><br><span class="hljs-comment">// 服务端接收</span><br>md, ok := metadata.FromIncomingContext(ctx)<br><span class="hljs-keyword">if</span> !ok &#123;<br>	<span class="hljs-keyword">return</span> <span class="hljs-literal">nil</span>, status.Errorf(codes.DataLoss, <span class="hljs-string">&quot;failed to get metadata&quot;</span>)<br>&#125;<br>fmt.Println(md)	<br></code></pre></td></tr></table></figure>
+
+<h2 id="gRPC-gateway"><a href="#gRPC-gateway" class="headerlink" title="gRPC gateway"></a>gRPC gateway</h2><p><code>gRPC</code> 虽然功能强大使用也很简单，但对于浏览器、APP的支持还是不如 REST 应用广泛（浏览器也支持，但应用非常少）。</p>
+<p>为此社区便创建了 <a target="_blank" rel="noopener" href="https://github.com/grpc-ecosystem/grpc-gateway">https://github.com/grpc-ecosystem/grpc-gateway</a> 项目，可以将 gRPC 服务暴露为 RESTFUL API。</p>
+<p><img src="https://s2.loli.net/2022/03/13/Gt2sRplIADyvTHg.jpg" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>为了让测试可以习惯用 postman 进行接口测试，我们也将 gRPC 服务代理出去，更方便的进行测试。</p>
+</blockquote>
+<h2 id="反射调用"><a href="#反射调用" class="headerlink" title="反射调用"></a>反射调用</h2><p>作为一个 rpc 框架，泛化调用也是必须支持的，可以方便开发配套工具；gRPC 是通过反射支持的，通过拿到服务名称、pb 文件进行反射调用。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/jhump/protoreflect">https://github.com/jhump/protoreflect</a> 这个库封装了常见的反射操作。</p>
+<p>上图中看到的可视化 <code>stream</code> 调用也是通过这个库实现的。</p>
+<h1 id="负载均衡"><a href="#负载均衡" class="headerlink" title="负载均衡"></a>负载均衡</h1><p>由于 <code>gRPC</code> 是基于 <code>HTTP/2</code> 实现的，客户端和服务端会保持长连接；这时做负载均衡就不像是 <code>HTTP</code> 那样简单了。</p>
+<p>而我们使用 <code>gRPC</code> 想达到效果和 HTTP 是一样的，需要对请求进行负载均衡而不是连接。</p>
+<p>通常有两种做法：</p>
+<ul>
+<li>客户端负载均衡</li>
+<li>服务端负载均衡</li>
+</ul>
+<p>客户端负载均衡在 <code>rpc</code> 调用中应用广泛，比如 <code>Dubbo</code> 就是使用的客户端负载均衡。</p>
+<p><code>gRPC</code> 中也提供有相关接口，具体可以参考官方demo。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/grpc/grpc-go/blob/87eb5b7502/examples/features/load_balancing/README.md">https://github.com/grpc/grpc-go/blob/87eb5b7502/examples/features/load_balancing&#x2F;README.md</a></p>
+<p>客户端负载均衡相对来说对开发者更灵活（可以自定义适合自己的策略），但相对的也需要自己维护这块逻辑，如果有多种语言那就得维护多份。</p>
+<p>所以在云原生这个大基调下，更推荐使用服务端负载均衡。</p>
+<p>可选方案有：</p>
+<ul>
+<li>istio</li>
+<li>envoy</li>
+<li>apix</li>
+</ul>
+<p>这块我们也在研究，大概率会使用 <code>envoy/istio</code>。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>gRPC</code> 内容还是非常多的，本文只是作为一份入门资料希望能让不了解 <code>gRPC</code> 的能有一个基本认识；这在云原生时代确实是一门必备技能。</p>
+<blockquote>
+<p>对文中的 gRPC 客户端感兴趣的朋友，可以参考这里的源码：<br><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/ptg">https://github.com/crossoverJie/ptg</a></p>
+</blockquote>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/framework/" class="category-chain-item">framework</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Go/" class="print-no-link">#Go</a>
+      
+        <a href="/tags/gRPC/" class="print-no-link">#gRPC</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>5分钟学会 gRPC</div>
+      <div>http://crossoverjie.top/2022/03/08/framework-design/grpc/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>March 8, 2022</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2022/03/18/troubleshoot/pulsar-repeat-consume/" title="Pulsar 重复消费?">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">Pulsar 重复消费?</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2022/02/07/translation/new-developer-friendly-features-after-java-8/" title="【译】Java8 之后对新开发者非常友好的特性盘点">
+                        <span class="hidden-mobile">【译】Java8 之后对新开发者非常友好的特性盘点</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2022/03/08/framework-design/grpc/';
+          this.page.identifier = '/2022/03/08/framework-design/grpc/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

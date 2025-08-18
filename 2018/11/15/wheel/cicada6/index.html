@@ -1,0 +1,929 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言磨了许久，借助最近的一次通宵上线 cicada 终于更新了 v2.0.0 版本。 之所以大的版本号变为 2，确实是向下不兼容了；主要表现为：  修复了几个反馈的 bug。 灵活的路由方式。 可拔插的 IOC 容器选择。  其中重点是后面两个。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="设计一个可拔插的 IOC 容器">
+<meta property="og:url" content="http://crossoverjie.top/2018/11/15/wheel/cicada6/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言磨了许久，借助最近的一次通宵上线 cicada 终于更新了 v2.0.0 版本。 之所以大的版本号变为 2，确实是向下不兼容了；主要表现为：  修复了几个反馈的 bug。 灵活的路由方式。 可拔插的 IOC 容器选择。  其中重点是后面两个。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c63f1bd4a.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c64216f7d.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c647f3a27.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c64971c37.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c64ade749.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c64d6e772.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c65023d49.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c651de476.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c65811e8e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c65b97711.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c65e91a11.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c65f98cbb.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c666b4ec4.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c6680a66b.jpg">
+<meta property="article:published_time" content="2018-11-15T08:19:36.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.283Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="HTTP">
+<meta property="article:tag" content="Netty">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1c63f1bd4a.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>设计一个可拔插的 IOC 容器 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="设计一个可拔插的 IOC 容器"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2018-11-15 08:19" pubdate>
+          November 15, 2018 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.5k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          13 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">设计一个可拔插的 IOC 容器</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2019/05/08/5cd1c63f1bd4a.jpg" srcset="/img/loading.gif" lazyload></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>磨了许久，借助最近的一次通宵上线 <a target="_blank" rel="noopener" href="https://github.com/TogetherOS/cicada">cicada</a> 终于更新了 <code>v2.0.0</code> 版本。</p>
+<p>之所以大的版本号变为 2，确实是向下不兼容了；主要表现为：</p>
+<ul>
+<li>修复了几个反馈的 <code>bug</code>。</li>
+<li>灵活的路由方式。</li>
+<li>可拔插的 <code>IOC</code> 容器选择。</li>
+</ul>
+<p>其中重点是后面两个。</p>
+<span id="more"></span>
+
+<h1 id="新的路由方式"><a href="#新的路由方式" class="headerlink" title="新的路由方式"></a>新的路由方式</h1><p>先来看第一个：路由方式的更新。</p>
+<p>在之前的版本想要写一个接口必须的实现一个 <code>WorkAction</code>；而且最麻烦的是一个实现类只能做一个接口。</p>
+<p>因此也有朋友给我提过这个 <a target="_blank" rel="noopener" href="https://github.com/TogetherOS/cicada/issues/12">issue</a>。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c64216f7d.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p>于是改进后的使用方式如下：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c647f3a27.jpg" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>是否有点似曾相识的感觉😊。</p>
+</blockquote>
+<p>如上图所示，不需要实现某个特定的接口；只需要使用不同的注解即可。</p>
+<p>同时也支持自定义 <code>pojo</code>, <code>cicada</code> 会在调用过程中对参数进行实例化。</p>
+<p>拿这个 <code>getUser</code> 接口为例，当这样请求时这些参数就会被封装进 <code>DemoReq</code> 中.</p>
+<p><a target="_blank" rel="noopener" href="http://127.0.0.1:5688/cicada-example/routeAction/getUser?id=1234&name=zhangsan">http://127.0.0.1:5688/cicada-example/routeAction/getUser?id=1234&name=zhangsan</a></p>
+<p>同时得到响应：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-string">&quot;hello =zhangsan&quot;</span><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>实现过程也挺简单，大家查看源码便会发现；这里贴一点比较核心的步骤。</p>
+<ul>
+<li>扫描所有使用 <code>@CicadaAction</code> 注解的类。</li>
+<li>扫描所有使用 <code>@CicadaRoute</code> 注解的方法。</li>
+<li>将他们的映射关系存入 <code>Map</code> 中。</li>
+<li>请求时根据 <code>URL</code> 去 <code>Map</code> 中查找这个关系。</li>
+<li>反射构建参数及方法调用。</li>
+</ul>
+<p><strong>扫描类以及写入映射关系</strong></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c64971c37.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p><strong>请求时查询映射关系</strong></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c64ade749.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p><strong>反射调用这些方法</strong></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c64d6e772.jpg" srcset="/img/loading.gif" lazyload></p>
+<h1 id="是否需要-IOC-容器"><a href="#是否需要-IOC-容器" class="headerlink" title="是否需要 IOC 容器"></a>是否需要 IOC 容器</h1><p>上面那几个步骤其实我都是一把梭写完的，但当我写到执行具体方法时感觉<code>有点意思</code>了。</p>
+<p>大家都知道反射调用方法有两个重要的参数：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c65023d49.jpg" srcset="/img/loading.gif" lazyload></p>
+<ul>
+<li><code>obj</code> 方法执行的实例。</li>
+<li><code>args..</code> 自然是方法的参数。</li>
+</ul>
+<p>我第一次写的时候是这样的：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java">method.invoke(method.getDeclaringClass().newInstance(), object);<br></code></pre></td></tr></table></figure>
+
+<p>然后一测试，也没问题。</p>
+<p>当我写完之后 <code>review</code> 代码时发现不对：这样这里每次都会创建一个新的实例，而且反射调用 <code>newInstance()</code> 效率也不高。</p>
+<p>这时我不自觉的想到了 Spring 中 IOC 容器，和这里场景也非常的类似。</p>
+<blockquote>
+<p>在应用初始化时将所有的接口实例化并保存到 bean 容器中，当需要使用时只需要从容器中获取即可。</p>
+</blockquote>
+<p>这样只是会在启动时做很多加载工作，但造福后代啊。</p>
+<h1 id="可拔插的-IOC-容器"><a href="#可拔插的-IOC-容器" class="headerlink" title="可拔插的 IOC 容器"></a>可拔插的 IOC 容器</h1><p>于是我打算自己实现一个这样的 bean 容器。</p>
+<p>但在实现之前又想到一个 feature:</p>
+<blockquote>
+<p>不如把实现 bean 容器的方案交给使用者选择，可以选择使用 bean 容器，也可以就用之前的每次都创建新的实例，就像 Spring 中的 prototype 作用域一样。</p>
+</blockquote>
+<p>甚至可以自定义容器实现，比如将 bean 存放到数据库、Redis 都行；当然一般人也不会这么干。</p>
+<p>和 <code>SPI</code> 的机制也有点类似。</p>
+<p>要实现上述的需求大致需要以下步骤：</p>
+<ul>
+<li>一个通用的接口，包含了注册容器、从容器中获取实例等方法。</li>
+<li><code>BeanManager</code> 类，由它来管理具体使用哪种 <code>IOC</code> 容器。</li>
+</ul>
+<p>所以首先定义了一个接口；<code>CicadaBeanFactory</code>:</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c651de476.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>包含了注册和获取实例的接口。</p>
+<p>同时分别有两个不同的容器实现方案。</p>
+<p>默认实现；<code>CicadaDefaultBean</code>：<br><img src="https://i.loli.net/2019/05/08/5cd1c65811e8e.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>也就是文中说道的，每次都会创建实例；由于这种方式其实根本就没有 bean 容器，所以也不存在注册了。</p>
+<p>接下来是真正的 IOC 容器；<code>CicadaIoc</code>：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c65b97711.jpg" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>它将所有的实例都存放在一个 Map 中。</p>
+</blockquote>
+<p>当然也少不了刚才提到的 <code>CicadaBeanManager</code>，它会在应用启动的时候将所有的实例注册到 <code>bean</code> 容器中。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c65e91a11.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>重点是图中标红的部分：</p>
+<ul>
+<li>需要根据用户的选择实例化 <code>CicadaBeanFactory</code> 接口。</li>
+<li>将所有的实例注册到 CicadaBeanFactory 接口中。</li>
+</ul>
+<p>同时也提供了一个获取实例的方法：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c65f98cbb.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>就是直接调用 <code>CicadaBeanFactory</code> 接口的方法。</p>
+<hr>
+<p>然后在上文提到的反射调用方法处就变为：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c666b4ec4.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>从 <code>bean</code> 容器中获取实例了；获取的过程可以是每次都创建一个新的对象，也可以是直接从容器中获取实例。这点对于这里的调用者来说<strong>并不关心</strong>。</p>
+<p>所以这也实现了标题所说的：<code>可拔插</code>。</p>
+<p>为了实现这个目的，我将 <code>CicadaIoc</code> 的实现单独放到一个模块中，以 jar 包的形式提供实现。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c6680a66b.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>所以如果你想要使用 <code>IOC</code> 容器的方式获取实例时只需要在你的应用中额外加入这个 jar 包即可。</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>top.crossoverjie.opensource<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>cicada-ioc<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>2.0.0<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p>如果不使用则是默认的 <code>CicadaDefaultBean</code> 实现，也就是每次都会创建对象。</p>
+<p>这样有个好处：</p>
+<p>当你自己想实现一个 <code>IOC</code> 容器时；只需要实现 <code>cicada</code> 提供的 <code>CicadaBeanFactory</code> 接口，并在你的应用中只加入你的 <code>jar</code> 包即可。</p>
+<p><strong>其余所有的代码都不需要改变，便可随意切换不的容器。</strong></p>
+<blockquote>
+<p>当然我是推荐大家使用 <code>IOC</code> 容器的（其实就是单例），牺牲一点应用启动时间带来后续性能的提升是值得的。</p>
+</blockquote>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>cicada</code> 的大坑填的差不多了，后续也会做一些小功能的迭代。</p>
+<p>还没有关注的朋友赶紧关注一波：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/TogetherOS/cicada">https://github.com/TogetherOS/cicada</a></p>
+<blockquote>
+<p>PS：虽然没有仔细分析 Spring IOC 的实现，但相信看完此篇的朋友应该对 Spring IOC 以及 SpringMVC 会有一些自己的理解。</p>
+</blockquote>
+<p><strong>你的点赞与分享是对我最大的支持</strong></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/cicada/" class="category-chain-item">cicada</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/cicada/%E8%BD%AE%E5%AD%90/" class="category-chain-item">轮子</a>
+  
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
+      
+        <a href="/tags/HTTP/" class="print-no-link">#HTTP</a>
+      
+        <a href="/tags/Netty/" class="print-no-link">#Netty</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>设计一个可拔插的 IOC 容器</div>
+      <div>http://crossoverjie.top/2018/11/15/wheel/cicada6/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>November 15, 2018</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2018/11/20/kafka/kafka-consumer/" title="分享一些 Kafka 消费数据的小经验">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">分享一些 Kafka 消费数据的小经验</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2018/11/12/java-senior/coding-online-analysis/" title="不改一行代码定位线上性能问题">
+                        <span class="hidden-mobile">不改一行代码定位线上性能问题</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2018/11/15/wheel/cicada6/';
+          this.page.identifier = '/2018/11/15/wheel/cicada6/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

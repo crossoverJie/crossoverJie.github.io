@@ -1,0 +1,934 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="背景之前陆续写过一些和 OpenTelemetry 相关的文章：  实战：如何优雅的从 Skywalking 切换到 OpenTelemetry 实战：如何编写一个 OpenTelemetry Extensions 从一个 JDK21+OpenTelemetry 不兼容的问题讲起  这些内容的前提是最好有一些 OpenTelemetry 的背景知识，看起来就不会那么枯燥，为此这篇文章就来做一个入门">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenTelemetry 实践指南：历史、架构与基本概念">
+<meta property="og:url" content="http://crossoverjie.top/2024/05/21/ob/OpenTelemetry-getstart/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景之前陆续写过一些和 OpenTelemetry 相关的文章：  实战：如何优雅的从 Skywalking 切换到 OpenTelemetry 实战：如何编写一个 OpenTelemetry Extensions 从一个 JDK21+OpenTelemetry 不兼容的问题讲起  这些内容的前提是最好有一些 OpenTelemetry 的背景知识，看起来就不会那么枯燥，为此这篇文章就来做一个入门">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/04/15/VMLhpCWUGJmqn9z.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/16/RwsCUSM4fxTaBj6.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/16/Y5vprI1fsVNwjPC.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/16/3MsXIo7lEgnhyUZ.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/16/LMUtyG2ZqRbwYr8.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/16/pHON6Z3eun4IiJv.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/16/l8Jfcak9bsUCwTZ.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/16/WP46czTSAdYqKgb.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/16/JxyICv8wHb7paZW.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/16/XvOx5i9LImhDTe4.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/16/t3rWKEuHpTRjL7I.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/16/zWAVoHaZORI83js.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/16/Oea2KwgZYVS8qPf.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/17/kMDcrPwxJy4oZYe.png">
+<meta property="og:image" content="https://s2.loli.net/2024/04/16/2MaF7IwWvg9f1TS.png">
+<meta property="article:published_time" content="2024-05-21T21:46:00.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.273Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="OpenTelemetry">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2024/04/15/VMLhpCWUGJmqn9z.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>OpenTelemetry 实践指南：历史、架构与基本概念 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="OpenTelemetry 实践指南：历史、架构与基本概念"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-05-21 21:46" pubdate>
+          May 21, 2024 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.6k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          22 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">OpenTelemetry 实践指南：历史、架构与基本概念</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>之前陆续写过一些和 OpenTelemetry 相关的文章：</p>
+<ul>
+<li><a href="https://crossoverjie.top/2024/04/07/ob/otel-replace-sw/">实战：如何优雅的从 Skywalking 切换到 OpenTelemetry</a></li>
+<li><a href="https://crossoverjie.top/2024/04/15/ob/how-to-write-otel-extensions/">实战：如何编写一个 OpenTelemetry Extensions</a></li>
+<li><a target="_blank" rel="noopener" href="https://juejin.cn/post/7356138322367266854">从一个 JDK21+OpenTelemetry 不兼容的问题讲起</a></li>
+</ul>
+<p>这些内容的前提是最好有一些 OpenTelemetry 的背景知识，看起来就不会那么枯燥，为此这篇文章就来做一个入门科普，方便一些对 OpenTelemetry 不是那么熟的朋友快速掌握一些 OpenTelemetry 的基本概念。</p>
+<span id="more"></span>
+
+<hr>
+<h2 id="历史发展"><a href="#历史发展" class="headerlink" title="历史发展"></a>历史发展</h2><p>早在 <code>OpenTelemetry</code> 诞生之前可观测性这个概念就一直存在了，我记得我最早接触到这个概念是在 16 年当时的公司所使用的一个产品：<a target="_blank" rel="noopener" href="https://github.com/pinpoint-apm/pinpoint">pinpoint</a></p>
+<blockquote>
+<p>现如今这个项目依然比较活跃。</p>
+</blockquote>
+<p><img src="https://s2.loli.net/2024/04/15/VMLhpCWUGJmqn9z.png" srcset="/img/loading.gif" lazyload><br>依然还记得当时通过它可以直接看到项目调用的拓扑图，在时间坐标上框出高延迟的点就能列出这些请求，同时还能查看此时的运行日志。</p>
+<p>这样强大的功能对于一个刚工作一年的小白来说冲击力实属太大了一点。</p>
+<p>后来才了解到 pinpoint 属于 APM 这类产品，类似的产品还有：</p>
+<ul>
+<li>Apache SkyWalking</li>
+<li>美团的 CAT 等</li>
+</ul>
+<p>他们都是可以用于性能分析和链路追踪的产品，到后来公司的运维层面也接入过 Zabbix、open-falcon 之类的产品：<br><img src="https://s2.loli.net/2024/04/16/RwsCUSM4fxTaBj6.png" srcset="/img/loading.gif" lazyload></p>
+<p>17之后全面切换到 spring boot 时，也用过社区提供的 <a target="_blank" rel="noopener" href="https://github.com/codecentric/spring-boot-admin">spring-boot-admin</a> 项目：</p>
+<p><img src="https://s2.loli.net/2024/04/16/Y5vprI1fsVNwjPC.png" srcset="/img/loading.gif" lazyload><br>这就是一个简单的可以监控 spring boot 应用的产品，用于展示 JVM 指标，或者自己也可以定义一些健康指标。</p>
+<hr>
+<p>再之后进入云原生体系后可观测性的技术栈稍有变化。</p>
+<p><img src="https://s2.loli.net/2024/04/16/3MsXIo7lEgnhyUZ.png" srcset="/img/loading.gif" lazyload></p>
+<p>日志使用 Sidecar 代理的方式通过 Agent 将数据写入 ElasticSearch 中。<br>具体日志采集方式可以参考之前的文章：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://juejin.cn/post/7347000319983419411">在 kubernetes 环境下如何采集日志</a></li>
+</ul>
+<p>而链路追踪则是使用的 <code>skywalking</code>，在 trace 这个领域 skywalking 还是非常受大家喜爱的。</p>
+<p>不过最近也从 skywalking 切换到了我们本文所讲到的 OpenTelemetry，具体可以看之前的文章：</p>
+<ul>
+<li><a href="https://crossoverjie.top/2024/04/07/ob/otel-replace-sw/">实战：如何优雅的从 Skywalking 切换到 OpenTelemetry</a></li>
+</ul>
+<p>指标采集使用的是自然也是 Prometheus 的那一套技术栈，只是 Prometheus 换为了与它完全兼容的 VictoriaMetric 目前是为了更省资源。</p>
+<p>客户端使用则是直接使用 Prometheus 的库进行指标暴露：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>io.prometheus<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>prometheus-metrics-core<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>1.0.0<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>io.prometheus<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>prometheus-metrics-instrumentation-jvm<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>1.0.0<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>io.prometheus<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>prometheus-metrics-exporter-httpserver<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>1.0.0<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p>最终通过配置抓取策略，由 VictoriaMetrics 的 <code>scrape</code> 程序来抓取指标最终写入到它自己的存储中：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">apiVersion:</span> <span class="hljs-string">operator.victoriametrics.com/v1beta1</span>  <br><span class="hljs-attr">kind:</span> <span class="hljs-string">VMPodScrape</span>  <br><span class="hljs-attr">metadata:</span>  <br>  <span class="hljs-attr">name:</span> <span class="hljs-string">kubernetes-pod-scrape</span>  <br>  <span class="hljs-attr">namespace:</span> <span class="hljs-string">monitoring</span>  <br><span class="hljs-attr">spec:</span>  <br>  <span class="hljs-attr">podMetricsEndpoints:</span>  <br>    <span class="hljs-bullet">-</span> <span class="hljs-attr">scheme:</span> <span class="hljs-string">http</span>  <br>      <span class="hljs-attr">scrape_interval:</span> <span class="hljs-string">&quot;30s&quot;</span>  <br>      <span class="hljs-attr">path:</span> <span class="hljs-string">/metrics</span>  <br>      <span class="hljs-attr">relabelConfigs:</span>  <br>        <span class="hljs-bullet">-</span> <span class="hljs-attr">source_labels:</span> [<span class="hljs-string">__meta_kubernetes_pod_annotation_prometheus_io_scrape</span>]  <br>          <span class="hljs-attr">separator:</span> <span class="hljs-string">;</span>  <br>          <span class="hljs-attr">regex:</span> <span class="hljs-string">&quot;true&quot;</span>  <br>          <span class="hljs-attr">replacement:</span> <span class="hljs-string">$1</span>  <br>          <span class="hljs-attr">action:</span> <span class="hljs-string">keep</span>  <br>        <span class="hljs-comment"># 端口相同  </span><br>        <span class="hljs-bullet">-</span> <span class="hljs-attr">action:</span> <span class="hljs-string">keep_if_equal</span>  <br>          <span class="hljs-attr">source_labels:</span> [ <span class="hljs-string">__meta_kubernetes_pod_annotation_prometheus_io_port</span>, <span class="hljs-string">__meta_kubernetes_pod_container_port_number</span> ]  <br>        <span class="hljs-comment"># 过滤INIT容器  </span><br>        <span class="hljs-bullet">-</span> <span class="hljs-attr">action:</span> <span class="hljs-string">drop</span>  <br>          <span class="hljs-attr">source_labels:</span> [ <span class="hljs-string">__meta_kubernetes_pod_container_init</span> ]  <br>          <span class="hljs-attr">regex:</span> <span class="hljs-string">&quot;true&quot;</span>  <br>        <span class="hljs-bullet">-</span> <span class="hljs-attr">source_labels:</span> [<span class="hljs-string">__meta_kubernetes_pod_annotation_prometheus_io_path</span>]  <br>          <span class="hljs-attr">separator:</span> <span class="hljs-string">;</span>  <br>          <span class="hljs-attr">regex:</span> <span class="hljs-string">(.+)</span>  <br>          <span class="hljs-attr">target_label:</span> <span class="hljs-string">__metrics_path__</span>  <br>          <span class="hljs-attr">replacement:</span> <span class="hljs-string">$1</span>  <br>          <span class="hljs-attr">action:</span> <span class="hljs-string">replace</span>  <br>        <span class="hljs-bullet">-</span> <span class="hljs-attr">source_labels:</span> [<span class="hljs-string">__address__</span>, <span class="hljs-string">__meta_kubernetes_pod_annotation_prometheus_io_port</span>]  <br>          <span class="hljs-attr">separator:</span> <span class="hljs-string">;</span>  <br>          <span class="hljs-attr">regex:</span> <span class="hljs-string">([^:]+)(?::\d+)?;(\d+)</span>  <br>          <span class="hljs-attr">target_label:</span> <span class="hljs-string">__address__</span>  <br>          <span class="hljs-attr">replacement:</span> <span class="hljs-string">$1:$2</span>  <br>          <span class="hljs-attr">action:</span> <span class="hljs-string">replace</span>  <br>        <span class="hljs-bullet">-</span> <span class="hljs-attr">separator:</span> <span class="hljs-string">;</span>  <br>          <span class="hljs-attr">regex:</span> <span class="hljs-string">__meta_kubernetes_pod_label_(.+)</span>  <br>          <span class="hljs-attr">replacement:</span> <span class="hljs-string">$1</span>  <br>          <span class="hljs-attr">action:</span> <span class="hljs-string">labelmap</span>  <br>        <span class="hljs-bullet">-</span> <span class="hljs-attr">source_labels:</span> [<span class="hljs-string">__meta_kubernetes_namespace</span>]  <br>          <span class="hljs-attr">separator:</span> <span class="hljs-string">;</span>  <br>          <span class="hljs-attr">regex:</span> <span class="hljs-string">(.*)</span>  <br>          <span class="hljs-attr">target_label:</span> <span class="hljs-string">kubernetes_namespace</span>  <br>          <span class="hljs-attr">replacement:</span> <span class="hljs-string">$1</span>  <br>          <span class="hljs-attr">action:</span> <span class="hljs-string">replace</span>  <br>        <span class="hljs-bullet">-</span> <span class="hljs-attr">source_labels:</span> [<span class="hljs-string">__meta_kubernetes_pod_name</span>]  <br>          <span class="hljs-attr">separator:</span> <span class="hljs-string">;</span>  <br>          <span class="hljs-attr">regex:</span> <span class="hljs-string">(.*)</span>  <br>          <span class="hljs-attr">target_label:</span> <span class="hljs-string">kubernetes_pod_name</span>  <br>          <span class="hljs-attr">replacement:</span> <span class="hljs-string">$1</span>  <br>          <span class="hljs-attr">action:</span> <span class="hljs-string">replace</span>  <br>      <span class="hljs-attr">vm_scrape_params:</span>  <br>        <span class="hljs-attr">stream_parse:</span> <span class="hljs-literal">true</span>  <br>  <span class="hljs-attr">namespaceSelector:</span>  <br>    <span class="hljs-attr">any:</span> <span class="hljs-literal">true</span><br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p>以上是 VM 提供的 CRD</p>
+</blockquote>
+<h1 id="OpenTelemetry-诞生"><a href="#OpenTelemetry-诞生" class="headerlink" title="OpenTelemetry 诞生"></a>OpenTelemetry 诞生</h1><p>到此铺垫完成，不知道有没有发现在可观测性中关键的三个部分：日志、指标、trace 都是使用不同的开源产品，从而会导致技术栈较多，维护起来自然也是比较麻烦的。</p>
+<p>这么一个软件领域的核心能力自然需要提供一个完整方案的，将以上的不同技术栈都整合在一起，更加的方便开发者使用。</p>
+<p>在这之前也有两个社区想要做类似的事情：</p>
+<ul>
+<li>OpenTracing</li>
+<li>OpenCensus</li>
+</ul>
+<p>不过他们并没有统一整个可观测领域，直到 2019 年 CNCF 社区宣布成立 OpenTelemetry，并且将上述两个社区进行合并共同开发 OpenTelemetry。</p>
+<blockquote>
+<p>背靠 CNCF 云原生社区加上许多知名厂商的支持（Google、Amazon、Redhat 等），现在已经正式成为 CNCF 的顶级项目了。</p>
+</blockquote>
+<h1 id="OpenTelemetry-架构介绍"><a href="#OpenTelemetry-架构介绍" class="headerlink" title="OpenTelemetry 架构介绍"></a>OpenTelemetry 架构介绍</h1><p><img src="https://s2.loli.net/2024/04/16/LMUtyG2ZqRbwYr8.png" srcset="/img/loading.gif" lazyload></p>
+<p>但我们打开 OpenTelemetry 社区的 GitHub 首页时，会看到有许多项目；第一反应应该是比较蒙的，下面我会着重介绍一些比较重要的项目。</p>
+<p>在开始之前还是先简单介绍下 OpenTelemetry 的一些基础组件和概念：<br><img src="https://s2.loli.net/2024/04/16/pHON6Z3eun4IiJv.png" srcset="/img/loading.gif" lazyload></p>
+<p>整个 OpenTelemetry 系统其实可以简单分为三个部分：</p>
+<ul>
+<li>客户端</li>
+<li>OTel collector</li>
+<li>数据存储</li>
+</ul>
+<p>第一个客户端很好理解，也就是我们的业务应用；如果是 Java 应用只需要挂载一个 agent 就可以自动采集系统的指标、链路信息、日志等上传到 Collector 中。</p>
+<p>也就是上图的左边部分。</p>
+<p>之后就是非常关键的组件 collector，它可以通过 OTLP 协议接收刚才提到的客户端上传的数据，然后再内部进行处理，最终输出到后续的存储系统中。</p>
+<h2 id="Collector"><a href="#Collector" class="headerlink" title="Collector"></a>Collector</h2><p><img src="https://s2.loli.net/2024/04/16/l8Jfcak9bsUCwTZ.png" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>上图是 collector 的架构图</p>
+</blockquote>
+<p>由于 OpenTelemetry 设计之初就是要做到厂商无关，所以它就得做出更高层级的设计。</p>
+<p>关键点就是这里的 Receiver 和 Exporter 都是模块化的设计，第三方开发者可以基于它的标准开发不同组件从而兼容不同的产品。</p>
+<p>Receiver：用于接收客户端上报的数据，不止是自己 agent 上报的数据，也可能会来自不同的厂商，比如 kubernetes、Kafka 等。</p>
+<p>Exporter：同理，可以将 receiver 收到的数据进行处理之后输出到不同的组件中；比如 Kafka&#x2F;Pulsar&#x2F;Promethus&#x2F;Jaeger 等。</p>
+<p>比如我们可以使用 <a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/nginxreceiver">Nginx Receiver</a>接收来着 Nginx 上报的数据。</p>
+<p>使用 <a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/mysqlreceiver">MySQL Receiver</a>接收来自 MySQL 的数据。</p>
+<p>当然通常我们使用最多的还是 <a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-collector/tree/main/receiver/otlpreceiver">OTLP Receiver</a>，这是官方的 OTLP 协议的接收器，可以接受官方的一些指标，比如我们只使用了 Java Agent 进行数据上报时。<br><img src="https://s2.loli.net/2024/04/16/WP46czTSAdYqKgb.png" srcset="/img/loading.gif" lazyload><br><a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver">https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver</a></p>
+<p>在这里是可以看到目前支持的所有第三方的 Receiver。</p>
+<hr>
+<p><img src="https://s2.loli.net/2024/04/16/JxyICv8wHb7paZW.png" srcset="/img/loading.gif" lazyload></p>
+<p>OpenTelemetry 所支持的 Exporter 也很多，比如一些常见的存储：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/clickhouseexporter">clickhouse exporter</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/elasticsearchexporter">elasticsearch exporter</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/pulsarexporter">pulsar exporter</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/prometheusexporter">prometheus exporter</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter">otlp http exporter</a></li>
+</ul>
+<p>Exporter 的使用场景很多：如果是指标相关的数据可以直接写入 Prometheus，如果是日志数据也可以直接写入 ElasticSearch。</p>
+<p>如果还有其他的特殊需求（删减属性等）则可以写入消息队列，自行处理完之后再发往 collector 进行后续的处理。</p>
+<p>可能你已经发现了，由于 collector 非常的灵活，所以我们可以像搭积木一样组装我们的 receiver 和 exporter，它会以我们配置的流水线的方式进行调用，这样我们就可以实现任意可定制的处理逻辑。</p>
+<p>而这些流水线的组装对于客户端来说都是透明的，也就是说 collector 的更改完全不会影响到业务；业务只需要按照 OTLP 的格式上报数据即可。</p>
+<p>在之前的从 Skywalking 切换到 OpenTelemetry 的文章中有人问为什么要切换到 OpenTelemetry？</p>
+<p>从这里也能看得出来，OpenTelemetry 的灵活度非常高，借助于 Exporter 可以任意的更换后端存储，或者增加&#x2F;删减一些不需要的指标数据等。</p>
+<hr>
+<p>当然我们也可以统一的在这里进行搜索，可以列出所有的第三方集成的组件：<br><a target="_blank" rel="noopener" href="https://opentelemetry.io/ecosystem/registry/">https://opentelemetry.io/ecosystem/registry/</a></p>
+<p><img src="https://s2.loli.net/2024/04/16/XvOx5i9LImhDTe4.png" srcset="/img/loading.gif" lazyload></p>
+<h1 id="OpenTelemetry-项目介绍"><a href="#OpenTelemetry-项目介绍" class="headerlink" title="OpenTelemetry 项目介绍"></a>OpenTelemetry 项目介绍</h1><h2 id="opentelemetry-java"><a href="#opentelemetry-java" class="headerlink" title="opentelemetry-java"></a>opentelemetry-java</h2><p>介绍完基本的概念后，我们可以看看  OTel 社区的一些主要开源项目。<br><img src="https://s2.loli.net/2024/04/16/t3rWKEuHpTRjL7I.png" srcset="/img/loading.gif" lazyload></p>
+<p>这里我们还是以刚才的那个架构图从作往右讲起，也就是主要分为客户端和 collector 端。</p>
+<p><img src="https://s2.loli.net/2024/04/16/zWAVoHaZORI83js.png" srcset="/img/loading.gif" lazyload><br>目前官方支持的客户端语言已经非常齐全了，大部分的版本都已经是 Stable 稳定版，意味着可以进入生产环境。</p>
+<p>这里我们以 Java 客户端为例：<br><img src="https://s2.loli.net/2024/04/16/Oea2KwgZYVS8qPf.png" srcset="/img/loading.gif" lazyload><br>其中我们重点关注下 opentelemetry-java 和 opentelemetry-java-instrumentation 这两个项目。</p>
+<p>我们用的最多的会是 <code>opentelemetry-java-instrumentation</code>，它会给我们提供一个 java agent 的 JAR 包：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs shell">java -javaagent:path/to/opentelemetry-javaagent.jar \<br>     -jar myapp.jar<br></code></pre></td></tr></table></figure>
+<p>我们只需要在 Java 应用中加上该  agent 就可以实现日志、指标、trace 的自动上报。</p>
+<p>而且它还实现了不同框架、库的指标采集与 trace。</p>
+<p>在这里可以查到支持的库与框架列表：<br><img src="https://s2.loli.net/2024/04/17/kMDcrPwxJy4oZYe.png" srcset="/img/loading.gif" lazyload></p>
+<p><a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/main/docs/supported-libraries.md#libraries--frameworks">https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/main/docs/supported-libraries.md#libraries--frameworks</a></p>
+<blockquote>
+<p>总之几乎就是你能想到和不能想到的都支持了。</p>
+</blockquote>
+<p>而 opentelemetry-java 我们直接使用的几率会小一些，opentelemetry-java-instrumentation 本身也是基于它创建的，可以理解为是 Java 版本的核心基础库，一些社区支持的组件就可以移动到 <code>instrumentation</code> 这个库中。</p>
+<p>比如我在上篇文章：<a target="_blank" rel="noopener" href="https://juejin.cn/post/7356138322367266854">从一个 JDK21+OpenTelemetry 不兼容的问题讲起</a>中涉及到的 <code>HostResourceProvider</code> 资源加载就是从 <code>opentelemetry-java</code> 中移动到了 <code>opentelemetry-java-instrumentation</code>。</p>
+<p>具体可以参考：<a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-java/issues/4701">https://github.com/open-telemetry/opentelemetry-java/issues/4701</a></p>
+<h2 id="collector"><a href="#collector" class="headerlink" title="collector"></a>collector</h2><p><img src="https://s2.loli.net/2024/04/16/2MaF7IwWvg9f1TS.png" srcset="/img/loading.gif" lazyload></p>
+<p>之后就是 collector 的组件了，它同样的也有两个库：<br><strong>OpenTelemetry Collector</strong> 和 <strong>OpenTelemetry Collector Contrib</strong></p>
+<p>其实通过他们的名字也可以看得出来，他们的作用与刚才的 Java 库类似：</p>
+<ul>
+<li>opentelemetry-collector：由官方社区维护，提供了一些核心能力；比如只包含了最基本的 otlp 的 receiver 和 exporter。</li>
+<li>opentelemetry-collector-contrib：包含了官方的 collector，同时更多的维护了社区提供的各种 receiver 和 exporter；就如上文提到的，一些社区组件（pulsar、MySQL、Kafka）等都维护在这个仓库。</li>
+</ul>
+<p>而我们生产使用时通常也是直接使用 opentelemetry-collector-contrib，毕竟它所支持的社区组件更多。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>因为 OpenTelemetry 想要解决的是整个可观测领域的所有需求，所以仓库非常多，社区也很开放，感兴趣的朋友可以直接参与贡献，这么多 repo 总有一个适合你的。</p>
+<p>后续会继续讲解如何安装以及配置我们的 OpenTelemetry。</p>
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/pinpoint-apm/pinpoint">https://github.com/pinpoint-apm/pinpoint</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/codecentric/spring-boot-admin">https://github.com/codecentric/spring-boot-admin</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-java">https://github.com/open-telemetry/opentelemetry-java</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-java-instrumentation">https://github.com/open-telemetry/opentelemetry-java-instrumentation</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-java/issues/4701">https://github.com/open-telemetry/opentelemetry-java/issues/4701</a></li>
+</ul>
+<p>#Blog #OpenTelemetry </p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/OB/" class="category-chain-item">OB</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/OpenTelemetry/" class="print-no-link">#OpenTelemetry</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>OpenTelemetry 实践指南：历史、架构与基本概念</div>
+      <div>http://crossoverjie.top/2024/05/21/ob/OpenTelemetry-getstart/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>May 21, 2024</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/05/26/ob/OTel-demo/" title="实操 OpenTelemetry：通过 Demo 掌握微服务监控的艺术">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">实操 OpenTelemetry：通过 Demo 掌握微服务监控的艺术</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/05/13/ob/jdk21+springboot+OTel+SPI/" title="从一个 JDK21+OpenTelemetry 不兼容的问题讲起">
+                        <span class="hidden-mobile">从一个 JDK21+OpenTelemetry 不兼容的问题讲起</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2024/05/21/ob/OpenTelemetry-getstart/';
+          this.page.identifier = '/2024/05/21/ob/OpenTelemetry-getstart/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

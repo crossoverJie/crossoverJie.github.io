@@ -1,0 +1,897 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言最近在实现两个需求，由于两者之间并没有依赖关系，所以想利用队列进行解耦；但在 Go 的标准库中并没有现成可用并且并发安全的数据结构；但 Go 提供了一个更加优雅的解决方案，那就是 channel。 channel 应用Go 与 Java 的一个很大的区别就是并发模型不同，Go 采用的是 CSP(Communicating sequential processes) 模型；用 Go 官方的说法">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Go channel VS Java BlockingQueue">
+<meta property="og:url" content="http://crossoverjie.top/2021/07/02/go/go%20channel%20vs%20java%20BlockingQueue/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言最近在实现两个需求，由于两者之间并没有依赖关系，所以想利用队列进行解耦；但在 Go 的标准库中并没有现成可用并且并发安全的数据结构；但 Go 提供了一个更加优雅的解决方案，那就是 channel。 channel 应用Go 与 Java 的一个很大的区别就是并发模型不同，Go 采用的是 CSP(Communicating sequential processes) 模型；用 Go 官方的说法">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2021/07/03/PykYJp6qmdb2h1B.jpg">
+<meta property="article:published_time" content="2021-07-02T08:25:16.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.266Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="channel">
+<meta property="article:tag" content="BlockingQueue">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2021/07/03/PykYJp6qmdb2h1B.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>Go channel VS Java BlockingQueue - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Go channel VS Java BlockingQueue"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2021-07-02 08:25" pubdate>
+          July 2, 2021 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.8k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          16 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">Go channel VS Java BlockingQueue</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2021/07/03/PykYJp6qmdb2h1B.jpg" srcset="/img/loading.gif" lazyload></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近在实现两个需求，由于两者之间并没有依赖关系，所以想利用队列进行解耦；但在 <code>Go</code> 的标准库中并没有现成可用并且并发安全的数据结构；但 <code>Go</code> 提供了一个更加优雅的解决方案，那就是 <code>channel</code>。</p>
+<h1 id="channel-应用"><a href="#channel-应用" class="headerlink" title="channel 应用"></a>channel 应用</h1><p><code>Go</code> 与 <code>Java</code> 的一个很大的区别就是并发模型不同，Go 采用的是 <code>CSP(Communicating sequential processes)</code> 模型；用 Go 官方的说法：</p>
+<blockquote>
+<p>Do not communicate by sharing memory; instead, share memory by communicating.</p>
+</blockquote>
+<span id="more"></span>
+
+<p>翻译过来就是：不用使用共享内存来通信，而是用通信来共享内存。</p>
+<p>而这里所提到的<strong>通信</strong>，在 Go 里就是指代的 <code>channel</code>。</p>
+<p>只讲概念并不能快速的理解与应用，所以接下来会结合几个实际案例更方便理解。</p>
+<h2 id="futrue-task"><a href="#futrue-task" class="headerlink" title="futrue task"></a>futrue task</h2><p><code>Go</code> 官方没有提供类似于 <code>Java</code> 的 <code>FutureTask</code> 支持：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs java">    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">main</span><span class="hljs-params">(String[] args)</span> <span class="hljs-keyword">throws</span> InterruptedException, ExecutionException &#123;<br>        <span class="hljs-type">ExecutorService</span> <span class="hljs-variable">executorService</span> <span class="hljs-operator">=</span> Executors.newFixedThreadPool(<span class="hljs-number">2</span>);<br>        <span class="hljs-type">Task</span> <span class="hljs-variable">task</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Task</span>();<br>        FutureTask&lt;String&gt; futureTask = <span class="hljs-keyword">new</span> <span class="hljs-title class_">FutureTask</span>&lt;&gt;(task);<br>        executorService.submit(futureTask);<br>        <span class="hljs-type">String</span> <span class="hljs-variable">s</span> <span class="hljs-operator">=</span> futureTask.get();<br>        System.out.println(s);<br>        executorService.shutdown();<br>    &#125;<br>&#125;<br><br><span class="hljs-keyword">class</span> <span class="hljs-title class_">Task</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">Callable</span>&lt;String&gt; &#123;<br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> String <span class="hljs-title function_">call</span><span class="hljs-params">()</span> <span class="hljs-keyword">throws</span> Exception &#123;<br>        <span class="hljs-comment">// 模拟http</span><br>        System.out.println(<span class="hljs-string">&quot;http request&quot;</span>);<br>        Thread.sleep(<span class="hljs-number">1000</span>);<br><br>        <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;request success&quot;</span>;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+<p>但我们可以使用 <code>channel</code> 配合 <code>goroutine</code> 实现类似的功能：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-title">main</span><span class="hljs-params">()</span></span> &#123;<br>	ch := Request(<span class="hljs-string">&quot;https://github.com&quot;</span>)<br>	<span class="hljs-keyword">select</span> &#123;<br>	<span class="hljs-keyword">case</span> r := &lt;-ch:<br>		fmt.Println(r)<br>	&#125;<br>&#125;<br><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-title">Request</span><span class="hljs-params">(url <span class="hljs-type">string</span>)</span></span> &lt;-<span class="hljs-keyword">chan</span> <span class="hljs-type">string</span> &#123;<br>	ch := <span class="hljs-built_in">make</span>(<span class="hljs-keyword">chan</span> <span class="hljs-type">string</span>)<br>	<span class="hljs-keyword">go</span> <span class="hljs-function"><span class="hljs-keyword">func</span><span class="hljs-params">()</span></span> &#123;<br>		<span class="hljs-comment">// 模拟http请求</span><br>		time.Sleep(time.Second)<br>		ch &lt;- fmt.Sprintf(<span class="hljs-string">&quot;url=%s, res=%s&quot;</span>, url, <span class="hljs-string">&quot;ok&quot;</span>)<br>	&#125;()<br>	<span class="hljs-keyword">return</span> ch<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><code>goroutine</code> 发起请求后直接将这个 <code>channel</code> 返回，调用方会在请求响应之前一直阻塞，直到 <code>goroutine</code> 拿到了响应结果。</p>
+<h2 id="goroutine-互相通信"><a href="#goroutine-互相通信" class="headerlink" title="goroutine 互相通信"></a>goroutine 互相通信</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/**</span><br><span class="hljs-comment">  * 偶数线程</span><br><span class="hljs-comment">  */</span><br> <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">OuNum</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">Runnable</span> &#123;<br>     <span class="hljs-keyword">private</span> TwoThreadWaitNotifySimple number;<br><br>     <span class="hljs-keyword">public</span> <span class="hljs-title function_">OuNum</span><span class="hljs-params">(TwoThreadWaitNotifySimple number)</span> &#123;<br>         <span class="hljs-built_in">this</span>.number = number;<br>     &#125;<br><br>     <span class="hljs-meta">@Override</span><br>     <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">run</span><span class="hljs-params">()</span> &#123;<br>         <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> <span class="hljs-variable">i</span> <span class="hljs-operator">=</span> <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">11</span>; i++) &#123;<br>             <span class="hljs-keyword">synchronized</span> (TwoThreadWaitNotifySimple.class) &#123;<br>                 <span class="hljs-keyword">if</span> (number.flag) &#123;<br>                     <span class="hljs-keyword">if</span> (i % <span class="hljs-number">2</span> == <span class="hljs-number">0</span>) &#123;<br>                         System.out.println(Thread.currentThread().getName() + <span class="hljs-string">&quot;+-+偶数&quot;</span> + i);<br><br>                         number.flag = <span class="hljs-literal">false</span>;<br>                         TwoThreadWaitNotifySimple.class.notify();<br>                     &#125;<br><br>                 &#125; <span class="hljs-keyword">else</span> &#123;<br>                     <span class="hljs-keyword">try</span> &#123;<br>                         TwoThreadWaitNotifySimple.class.wait();<br>                     &#125; <span class="hljs-keyword">catch</span> (InterruptedException e) &#123;<br>                         e.printStackTrace();<br>                     &#125;<br>                 &#125;<br>             &#125;<br>         &#125;<br>     &#125;<br> &#125;<br><br><br> <span class="hljs-comment">/**</span><br><span class="hljs-comment">  * 奇数线程</span><br><span class="hljs-comment">  */</span><br> <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">JiNum</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">Runnable</span> &#123;<br>     <span class="hljs-keyword">private</span> TwoThreadWaitNotifySimple number;<br><br>     <span class="hljs-keyword">public</span> <span class="hljs-title function_">JiNum</span><span class="hljs-params">(TwoThreadWaitNotifySimple number)</span> &#123;<br>         <span class="hljs-built_in">this</span>.number = number;<br>     &#125;<br><br>     <span class="hljs-meta">@Override</span><br>     <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">run</span><span class="hljs-params">()</span> &#123;<br>         <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> <span class="hljs-variable">i</span> <span class="hljs-operator">=</span> <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">11</span>; i++) &#123;<br>             <span class="hljs-keyword">synchronized</span> (TwoThreadWaitNotifySimple.class) &#123;<br>                 <span class="hljs-keyword">if</span> (!number.flag) &#123;<br>                     <span class="hljs-keyword">if</span> (i % <span class="hljs-number">2</span> == <span class="hljs-number">1</span>) &#123;<br>                         System.out.println(Thread.currentThread().getName() + <span class="hljs-string">&quot;+-+奇数&quot;</span> + i);<br><br>                         number.flag = <span class="hljs-literal">true</span>;<br>                         TwoThreadWaitNotifySimple.class.notify();<br>                     &#125;<br><br>                 &#125; <span class="hljs-keyword">else</span> &#123;<br>                     <span class="hljs-keyword">try</span> &#123;<br>                         TwoThreadWaitNotifySimple.class.wait();<br>                     &#125; <span class="hljs-keyword">catch</span> (InterruptedException e) &#123;<br>                         e.printStackTrace();<br>                     &#125;<br>                 &#125;<br>             &#125;<br>         &#125;<br>     &#125;<br> &#125;<br></code></pre></td></tr></table></figure>
+<blockquote>
+<p>这里截取了”两个线程交替打印奇偶数“的部分代码。</p>
+</blockquote>
+<p>Java 提供了 <code>object.wait()/object.notify()</code> 这样的等待通知机制，可以实现两个线程间通信。</p>
+<p><code>go</code> 通过 <code>channel</code> 也能实现相同效果：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-title">main</span><span class="hljs-params">()</span></span> &#123;<br>	ch := <span class="hljs-built_in">make</span>(<span class="hljs-keyword">chan</span> <span class="hljs-keyword">struct</span>&#123;&#125;)<br>	<span class="hljs-keyword">go</span> <span class="hljs-function"><span class="hljs-keyword">func</span><span class="hljs-params">()</span></span> &#123;<br>		<span class="hljs-keyword">for</span> i := <span class="hljs-number">1</span>; i &lt; <span class="hljs-number">11</span>; i++ &#123;<br>			ch &lt;- <span class="hljs-keyword">struct</span>&#123;&#125;&#123;&#125;<br>			<span class="hljs-comment">//奇数</span><br>			<span class="hljs-keyword">if</span> i%<span class="hljs-number">2</span> == <span class="hljs-number">1</span> &#123;<br>				fmt.Println(<span class="hljs-string">&quot;奇数:&quot;</span>, i)<br>			&#125;<br>		&#125;<br>	&#125;()<br><br>	<span class="hljs-keyword">go</span> <span class="hljs-function"><span class="hljs-keyword">func</span><span class="hljs-params">()</span></span> &#123;<br>		<span class="hljs-keyword">for</span> i := <span class="hljs-number">1</span>; i &lt; <span class="hljs-number">11</span>; i++ &#123;<br>			&lt;-ch<br>			<span class="hljs-keyword">if</span> i%<span class="hljs-number">2</span> == <span class="hljs-number">0</span> &#123;<br>				fmt.Println(<span class="hljs-string">&quot;偶数:&quot;</span>, i)<br>			&#125;<br>		&#125;<br>	&#125;()<br><br>	time.Sleep(<span class="hljs-number">10</span> * time.Second)<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+<p>本质上他们都是利用了线程(<code>goroutine</code>)阻塞然后唤醒的特性，只是 Java 是通过 wait&#x2F;notify 机制；</p>
+<p>而 go 提供的 channel 也有类似的特性：</p>
+<ol>
+<li>向 <code>channel</code> 发送数据时(<code>ch&lt;-struct&#123;&#125;&#123;&#125;</code>)会被阻塞，直到 channel 被消费(<code>&lt;-ch</code>)。</li>
+</ol>
+<blockquote>
+<p>以上针对于<code>无缓冲 channel</code>。</p>
+</blockquote>
+<p><code>channel</code> 本身是由 <code>go</code> 原生保证并发安全的，不用额外的同步措施，可以放心使用。</p>
+<h2 id="广播通知"><a href="#广播通知" class="headerlink" title="广播通知"></a>广播通知</h2><p>不仅是两个 <code>goroutine</code> 之间通信，同样也能广播通知，类似于如下 <code>Java</code> 代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">main</span><span class="hljs-params">(String[] args)</span> <span class="hljs-keyword">throws</span> InterruptedException &#123;<br>    <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> <span class="hljs-variable">i</span> <span class="hljs-operator">=</span> <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">10</span>; i++) &#123;<br>        <span class="hljs-keyword">new</span> <span class="hljs-title class_">Thread</span>(() -&gt; &#123;<br>            <span class="hljs-keyword">try</span> &#123;<br>                <span class="hljs-keyword">synchronized</span> (NotifyAll.class)&#123;<br>                    NotifyAll.class.wait();<br>                &#125;<br>                System.out.println(Thread.currentThread().getName() + <span class="hljs-string">&quot;done....&quot;</span>);<br>            &#125; <span class="hljs-keyword">catch</span> (InterruptedException e) &#123;<br>                e.printStackTrace();<br>            &#125;<br>        &#125;).start();<br>    &#125;<br>    Thread.sleep(<span class="hljs-number">3000</span>);<br>    <span class="hljs-keyword">synchronized</span> (NotifyAll.class)&#123;<br>        NotifyAll.class.notifyAll();<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>主线程将所有等待的子线程全部唤醒，这个本质上也是通过 <code>wait/notify</code> 机制实现的，区别只是通知了所有等待的线程。</p>
+<p>换做是 <code>go</code> 的实现：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-title">main</span><span class="hljs-params">()</span></span> &#123;<br>	notify := <span class="hljs-built_in">make</span>(<span class="hljs-keyword">chan</span> <span class="hljs-keyword">struct</span>&#123;&#125;)<br>	<span class="hljs-keyword">for</span> i := <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">10</span>; i++ &#123;<br>		<span class="hljs-keyword">go</span> <span class="hljs-function"><span class="hljs-keyword">func</span><span class="hljs-params">(i <span class="hljs-type">int</span>)</span></span> &#123;<br>			<span class="hljs-keyword">for</span> &#123;<br>				<span class="hljs-keyword">select</span> &#123;<br>				<span class="hljs-keyword">case</span> &lt;-notify:<br>					fmt.Println(<span class="hljs-string">&quot;done.......&quot;</span>,i)<br>					<span class="hljs-keyword">return</span><br>				<span class="hljs-keyword">case</span> &lt;-time.After(<span class="hljs-number">1</span> * time.Second):<br>					fmt.Println(<span class="hljs-string">&quot;wait notify&quot;</span>,i)<br><br>				&#125;<br>			&#125;<br>		&#125;(i)<br>	&#125;<br>	time.Sleep(<span class="hljs-number">1</span> * time.Second)<br>	<span class="hljs-built_in">close</span>(notify)<br>	time.Sleep(<span class="hljs-number">3</span> * time.Second)<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>当关闭一个 <code>channel</code> 后，会使得所有获取 <code>channel</code> 的 <code>goroutine</code> 直接返回，不会阻塞，正是利用这一特性实现了广播通知所有 <code>goroutine</code> 的目的。</p>
+<blockquote>
+<p>注意，同一个 channel 不能反复关闭，不然会出现panic。</p>
+</blockquote>
+<h2 id="channel-解耦"><a href="#channel-解耦" class="headerlink" title="channel 解耦"></a>channel 解耦</h2><p>以上例子都是基于无缓冲的 <code>channel</code>，通常用于 <code>goroutine</code> 之间的同步；同时 channel 也具备缓冲的特性：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs go">ch :=<span class="hljs-built_in">make</span>(<span class="hljs-keyword">chan</span> T, <span class="hljs-number">100</span>)<br></code></pre></td></tr></table></figure>
+
+<p>可以直接将其理解为队列，正是因为具有缓冲能力，所以我们可以将业务之间进行解耦，生产方只管往 <code>channel</code> 中丢数据，消费者只管将数据取出后做自己的业务。</p>
+<p>同时也具有阻塞队列的特性：</p>
+<ul>
+<li>当 <code>channel</code> 写满时生产者将会被阻塞。</li>
+<li>当 <code>channel</code> 为空时消费者也会阻塞。</li>
+</ul>
+<blockquote>
+<p>从上文的例子中可以看出，实现相同的功能 go 的写法会更加简单直接，相对的 Java 就会复杂许多（当然这也和这里使用的偏底层 api 有关）。</p>
+</blockquote>
+<h1 id="Java-中的-BlockingQueue"><a href="#Java-中的-BlockingQueue" class="headerlink" title="Java 中的 BlockingQueue"></a>Java 中的 BlockingQueue</h1><p>这些特性都与 Java 中的 <code>BlockingQueue</code> 非常类似，他们具有以下的相同点：</p>
+<ul>
+<li>可以通过两者来进行 <code>goroutine/thread</code> 通信。</li>
+<li>具备队列的特征，可以解耦业务。</li>
+<li>支持并发安全。</li>
+</ul>
+<p>同样的他们又有很大的区别，从表现上看：</p>
+<ul>
+<li><code>channel</code> 支持 <code>select</code> 语法，对 <code>channel</code> 的管理更加简洁直观。</li>
+<li><code>channel</code> 支持关闭，不能向已关闭的 <code>channel</code> 发送消息。</li>
+<li><code>channel</code> 支持定义方向，在编译器的帮助下可以在语义上对行为的描述更加准确。</li>
+</ul>
+<p>当然还有本质上的区别就是 channel 是 go 推荐的 <code>CSP</code> 模型的核心，具有编译器的支持，可以有很轻量的成本实现并发通信。</p>
+<p>而 <code>BlockingQueue</code> 对于 <code>Java</code> 来说只是一个实现了并发安全的数据结构，即便不使用它也有其他的通信方式；只是他们都具有阻塞队列的特征，所有在初步接触 <code>channel</code> 时容易产生混淆。</p>
+<table>
+<thead>
+<tr>
+<th>相同点</th>
+<th>channel 特有</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>阻塞策略</td>
+<td>支持select</td>
+</tr>
+<tr>
+<td>设置大小</td>
+<td>支持关闭</td>
+</tr>
+<tr>
+<td>并发安全</td>
+<td>自定义方向</td>
+</tr>
+<tr>
+<td>普通数据结构</td>
+<td>编译器支持</td>
+</tr>
+</tbody></table>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>有过一门编程语言的使用经历在学习其他语言是确实是要方便许多，比如之前写过 <code>Java</code> 再看 <code>Go</code> 时就会发现许多类似之处，只是实现不同。</p>
+<p>拿这里的并发通信来说，本质上是因为并发模型上的不同；</p>
+<p><code>Go</code> 更推荐使用通信来共享内存，而 <code>Java</code> 大部分场景都是使用共享内存来通信（这样就得加锁来同步）。</p>
+<p>带着疑问来学习确实会事半功倍。</p>
+<p>最近和网友讨论后再补充一下，其实 <code>Go channel</code> 的底层实现也是通过对共享内存的加锁来实现的，这点任何语言都不可避免。</p>
+<p>既然都是共享内存那和我们自己使用共享内存有什么区别呢？主要还是 channel 的抽象层级更高，我们使用这类高抽象层级的方式编写代码会更易理解和维护。</p>
+<p>但在一些特殊场景，需要追求极致的性能，降低加锁颗粒度时用共享内存会更加合适，所以 Go 官方也提供有<code> sync.Map/Mutex</code> 这样的库；只是在并发场景下更推荐使用 <code>channel</code> 来解决问题。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/Go/" class="category-chain-item">Go</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
+      
+        <a href="/tags/Go/" class="print-no-link">#Go</a>
+      
+        <a href="/tags/channel/" class="print-no-link">#channel</a>
+      
+        <a href="/tags/BlockingQueue/" class="print-no-link">#BlockingQueue</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Go channel VS Java BlockingQueue</div>
+      <div>http://crossoverjie.top/2021/07/02/go/go channel vs java BlockingQueue/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>July 2, 2021</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2021/07/28/go/slice%20pointer/" title="切片 slice 原理分析">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">切片 slice 原理分析</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2021/05/12/cs/Linux%20Pipe/" title="Python 中的 os.popen 函数 与 Pipe 管道的坑">
+                        <span class="hidden-mobile">Python 中的 os.popen 函数 与 Pipe 管道的坑</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2021/07/02/go/go%20channel%20vs%20java%20BlockingQueue/';
+          this.page.identifier = '/2021/07/02/go/go%20channel%20vs%20java%20BlockingQueue/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

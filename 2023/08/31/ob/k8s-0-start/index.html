@@ -1,0 +1,885 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="背景最近这这段时间更新了一些 k8s 相关的博客和视频，也收到了一些反馈；大概分为这几类：  公司已经经历过服务化改造了，但还未接触过云原生。 公司部分应用进行了云原生改造，但大部分工作是由基础架构和运维部门推动的，自己只是作为开发并不了解其中的细节，甚至 k8s 也接触不到。 还处于比较传统的以虚拟机部署的传统运维为主。  其中以第二种占大多数，虽然公司进行了云原生改造，但似乎和纯业务研发同学">
+<meta property="og:type" content="article">
+<meta property="og:title" content="k8s 入门到实战--部署应用到 k8s">
+<meta property="og:url" content="http://crossoverjie.top/2023/08/31/ob/k8s-0-start/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景最近这这段时间更新了一些 k8s 相关的博客和视频，也收到了一些反馈；大概分为这几类：  公司已经经历过服务化改造了，但还未接触过云原生。 公司部分应用进行了云原生改造，但大部分工作是由基础架构和运维部门推动的，自己只是作为开发并不了解其中的细节，甚至 k8s 也接触不到。 还处于比较传统的以虚拟机部署的传统运维为主。  其中以第二种占大多数，虽然公司进行了云原生改造，但似乎和纯业务研发同学">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2023/09/04/ymUpcXZrxfNsT91.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/02/BtYcF6jp8u3nzJs.png">
+<meta property="og:image" content="https://s2.loli.net/2023/09/04/hrOUSVsmP2KkNlC.png">
+<meta property="article:published_time" content="2023-08-31T22:42:32.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.276Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Go">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2023/09/04/ymUpcXZrxfNsT91.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>k8s 入门到实战--部署应用到 k8s - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="k8s 入门到实战--部署应用到 k8s"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2023-08-31 22:42" pubdate>
+          August 31, 2023 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.6k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          14 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">k8s 入门到实战--部署应用到 k8s</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://s2.loli.net/2023/09/04/ymUpcXZrxfNsT91.png" srcset="/img/loading.gif" lazyload alt="k8s 入门到实战 01.png"></p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>最近这这段时间更新了一些 k8s 相关的博客和视频，也收到了一些反馈；大概分为这几类：</p>
+<ul>
+<li>公司已经经历过服务化改造了，但还未接触过云原生。</li>
+<li>公司部分应用进行了云原生改造，但大部分工作是由基础架构和运维部门推动的，自己只是作为开发并不了解其中的细节，甚至 k8s 也接触不到。</li>
+<li>还处于比较传统的以虚拟机部署的传统运维为主。</li>
+</ul>
+<p>其中以第二种占大多数，虽然公司进行了云原生改造，但似乎和纯业务研发同学来说没有太大关系，自己工作也没有什么变化。</p>
+<p>恰好我之前正好从业务研发的角度转换到了基础架构部门，两个角色我都接触过，也帮助过一些业务研发了解公司的云原生架构；</p>
+<p>为此所以我想系统性的带大家以<strong>研发</strong>的角度对 k8s 进行实践。</p>
+<p>因为 k8s 部分功能其实是偏运维的，对研发来说优先级并不太高；<br>所以我不太会涉及一些 k8s 运维的知识点，比如安装、组件等模块；主要以我们日常开发会使用到的组件讲起。</p>
+<span id="more"></span>
+
+<h1 id="计划"><a href="#计划" class="headerlink" title="计划"></a>计划</h1><h2 id="入门"><a href="#入门" class="headerlink" title="入门"></a>入门</h2><ul>
+<li>部署应用到 k8s</li>
+<li>跨服务调用</li>
+<li>集群外部访问</li>
+</ul>
+<h2 id="进阶"><a href="#进阶" class="headerlink" title="进阶"></a>进阶</h2><ul>
+<li>如何使用配置</li>
+<li>服务网格实战</li>
+</ul>
+<h2 id="运维你的应用"><a href="#运维你的应用" class="headerlink" title="运维你的应用"></a>运维你的应用</h2><ul>
+<li>应用探针</li>
+<li>滚动更新与回滚</li>
+<li>优雅采集日志</li>
+<li>应用可观测性<ul>
+<li>指标可视化</li>
+</ul>
+</li>
+</ul>
+<h2 id="k8s-部署常见中间件"><a href="#k8s-部署常见中间件" class="headerlink" title="k8s 部署常见中间件"></a>k8s 部署常见中间件</h2><ul>
+<li>helm 一键部署</li>
+<li>编写 Operator 自动化应用生命周期</li>
+</ul>
+<p><img src="https://s2.loli.net/2023/09/02/BtYcF6jp8u3nzJs.png" srcset="/img/loading.gif" lazyload alt="image.png"><br>这里我整理了一下目录，每个章节都有博客+视频配合观看，大家可以按照喜好选择。</p>
+<p>因为还涉及到了视频，所以只能争取一周两更，在两个月内全部更新完毕。</p>
+<p>根据我自己的经验，以上内容都掌握的话对 k8s 的掌握会更进一步。</p>
+<h1 id="部署应用到-k8s"><a href="#部署应用到-k8s" class="headerlink" title="部署应用到 k8s"></a>部署应用到 k8s</h1><p>首先从第一章【部署应用到 k8s】开始，我会用 Go 写一个简单的 Web 应用，然后打包为一个 Docker 镜像，之后部署到 k8s 中，并完成其中的接口调用。</p>
+<h2 id="编写应用"><a href="#编写应用" class="headerlink" title="编写应用"></a>编写应用</h2><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs go"><span class="hljs-function"><span class="hljs-keyword">func</span> <span class="hljs-title">main</span><span class="hljs-params">()</span></span> &#123;  <br>   http.HandleFunc(<span class="hljs-string">&quot;/ping&quot;</span>, <span class="hljs-function"><span class="hljs-keyword">func</span><span class="hljs-params">(w http.ResponseWriter, r *http.Request)</span></span> &#123;  <br>      log.Println(<span class="hljs-string">&quot;ping&quot;</span>)  <br>      fmt.Fprint(w, <span class="hljs-string">&quot;pong&quot;</span>)  <br>   &#125;)  <br>  <br>   http.ListenAndServe(<span class="hljs-string">&quot;:8081&quot;</span>, <span class="hljs-literal">nil</span>)  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p> 应用非常简单就是提供了一个 <code>ping</code>  接口，然后返回了一个 <code>pong</code>.</p>
+<h2 id="Dockerfile"><a href="#Dockerfile" class="headerlink" title="Dockerfile"></a>Dockerfile</h2><figure class="highlight dockerfile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><code class="hljs dockerfile"><span class="hljs-comment"># 第一阶段：编译 Go 程序  </span><br><span class="hljs-keyword">FROM</span> golang:<span class="hljs-number">1.19</span> AS dependencies  <br><span class="hljs-keyword">ENV</span> GOPROXY=https://goproxy.cn,direct  <br><span class="hljs-keyword">WORKDIR</span><span class="language-bash"> /go/src/app  </span><br><span class="hljs-keyword">COPY</span><span class="language-bash"> go.mod .  </span><br><span class="hljs-comment">#COPY ../../go.sum .  </span><br><span class="hljs-keyword">RUN</span><span class="language-bash"> --mount=<span class="hljs-built_in">type</span>=ssh go mod download  </span><br>  <br><span class="hljs-comment"># 第二阶段：构建可执行文件  </span><br><span class="hljs-keyword">FROM</span> golang:<span class="hljs-number">1.19</span> AS builder  <br><span class="hljs-keyword">WORKDIR</span><span class="language-bash"> /go/src/app  </span><br><span class="hljs-keyword">COPY</span><span class="language-bash"> . .  </span><br><span class="hljs-comment">#COPY --from=dependencies /go/pkg /go/pkg  </span><br><span class="hljs-keyword">RUN</span><span class="language-bash"> go build  </span><br>  <br><span class="hljs-comment"># 第三阶段：部署  </span><br><span class="hljs-keyword">FROM</span> debian:stable-slim  <br><span class="hljs-keyword">RUN</span><span class="language-bash"> apt-get update &amp;&amp; apt-get install -y curl  </span><br><span class="hljs-keyword">COPY</span><span class="language-bash"> --from=builder /go/src/app/k8s-combat /go/bin/k8s-combat  </span><br><span class="hljs-keyword">ENV</span> PATH=<span class="hljs-string">&quot;/go/bin:$&#123;PATH&#125;&quot;</span>  <br>  <br><span class="hljs-comment"># 启动 Go 程序  </span><br><span class="hljs-keyword">CMD</span><span class="language-bash"> [<span class="hljs-string">&quot;k8s-combat&quot;</span>]</span><br></code></pre></td></tr></table></figure>
+
+<p> 之后编写了一个 <code>dockerfile</code> 用于构建 <code>docker</code> 镜像。</p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs makefile"><span class="hljs-section">docker:  </span><br>   @echo <span class="hljs-string">&quot;Docker Build...&quot;</span>  <br>   docker build . -t crossoverjie/k8s-combat:v1 &amp;&amp; docker image push crossoverjie/k8s-combat:v1<br></code></pre></td></tr></table></figure>
+
+<p>使用 <code>make docker</code>  会在本地构建镜像并上传到 <code>dockerhub</code></p>
+<h2 id="编写-deployment"><a href="#编写-deployment" class="headerlink" title="编写 deployment"></a>编写 deployment</h2><p>下一步便是整个过程中最重要的环节了，也是唯一和 k8s 打交道的地方，那就是编写 deployment。</p>
+<iframe src="//player.bilibili.com/player.html?aid=702346697&bvid=BV1Cm4y1n7yG&cid=1235124452&page=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"> </iframe>
+
+<p>在之前的视频《一分钟了解 k8s》中讲过常见的组件：<br><img src="https://s2.loli.net/2023/09/04/hrOUSVsmP2KkNlC.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<p>其中我们最常见的就是 deployment，通常用于部署无状态应用；现在还不太需要了解其他的组件，先看看 deployment 如何编写：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">apiVersion:</span> <span class="hljs-string">apps/v1</span>  <br><span class="hljs-attr">kind:</span> <span class="hljs-string">Deployment</span>  <br><span class="hljs-attr">metadata:</span>  <br>  <span class="hljs-attr">labels:</span>  <br>    <span class="hljs-attr">app:</span> <span class="hljs-string">k8s-combat</span>  <br>  <span class="hljs-attr">name:</span> <span class="hljs-string">k8s-combat</span>  <br><span class="hljs-attr">spec:</span>  <br>  <span class="hljs-attr">replicas:</span> <span class="hljs-number">1</span>  <br>  <span class="hljs-attr">selector:</span>  <br>    <span class="hljs-attr">matchLabels:</span>  <br>      <span class="hljs-attr">app:</span> <span class="hljs-string">k8s-combat</span>  <br>  <span class="hljs-attr">template:</span>  <br>    <span class="hljs-attr">metadata:</span>  <br>      <span class="hljs-attr">labels:</span>  <br>        <span class="hljs-attr">app:</span> <span class="hljs-string">k8s-combat</span>  <br>    <span class="hljs-attr">spec:</span>  <br>      <span class="hljs-attr">containers:</span>  <br>        <span class="hljs-bullet">-</span> <span class="hljs-attr">name:</span> <span class="hljs-string">k8s-combat</span>  <br>          <span class="hljs-attr">image:</span> <span class="hljs-string">crossoverjie/k8s-combat:v1</span>  <br>          <span class="hljs-attr">imagePullPolicy:</span> <span class="hljs-string">Always</span>  <br>          <span class="hljs-attr">resources:</span>  <br>            <span class="hljs-attr">limits:</span>  <br>              <span class="hljs-attr">cpu:</span> <span class="hljs-string">&quot;1&quot;</span>  <br>              <span class="hljs-attr">memory:</span> <span class="hljs-string">300Mi</span>  <br>            <span class="hljs-attr">requests:</span>  <br>              <span class="hljs-attr">cpu:</span> <span class="hljs-string">&quot;0.1&quot;</span>  <br>              <span class="hljs-attr">memory:</span> <span class="hljs-string">30Mi</span><br></code></pre></td></tr></table></figure>
+
+<p>开头两行的 <code>apiVersion</code>  和 <code>kind</code> 可以暂时不要关注，就理解为 deployment 的固定写法即可。</p>
+<p>metadata：顾名思义就是定义元数据的地方，告诉 <code>Pod</code> 我们这个 <code>deployment</code> 叫什么名字，这里定义为：<code>k8s-combat</code></p>
+<p>中间的：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">metadata:</span>  <br>  <span class="hljs-attr">labels:</span>  <br>    <span class="hljs-attr">app:</span> <span class="hljs-string">k8s-combat</span><br></code></pre></td></tr></table></figure>
+
+<p>也很容易理解，就是给这个 <code>deployment</code> 打上标签，通常是将这个标签和其他的组件进行关联使用才有意义，不然就只是一个标签而已。</p>
+<blockquote>
+<p>标签是键值对的格式，key, value 都可以自定义。</p>
+</blockquote>
+<p>而这里的  <code>app: k8s-combat</code> 便是和下面的 spec 下的 selector 选择器匹配，表明都使用  <code>app: k8s-combat</code>  进行关联。</p>
+<p>而 template 中所定义的标签也是为了让选择器和 template 中的定义的 Pod 进行关联。</p>
+<blockquote>
+<p>Pod 是 k8s 中相同功能容器的分组，一个 Pod 可以绑定多个容器，这里就只有我们应用容器一个了；后续在讲到 istio 和日志采集时便可以看到其他的容器。</p>
+</blockquote>
+<p>template 中定义的内容就很容易理解了，指定了我们的容器拉取地址，以及所占用的资源(<code>cpu/ memory</code>)。</p>
+<p><code>replicas: 1</code>：表示只部署一个副本，也就是只有一个节点的意思。</p>
+<h2 id="部署应用"><a href="#部署应用" class="headerlink" title="部署应用"></a>部署应用</h2><p>之后我们使用命令:</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">kubectl apply -f deployment/deployment.yaml<br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p>生产环境中往往会使用云厂商所提供的 k8s 环境，我们本地可以使用 <a target="_blank" rel="noopener" href="https://minikube.sigs.k8s.io/docs/start/">https://minikube.sigs.k8s.io/docs/start/</a> minikube 来模拟。</p>
+</blockquote>
+<p>就会应用这个 deployment 同时将容器部署到 k8s 中，之后使用:</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">kubectl get pod<br></code></pre></td></tr></table></figure>
+<blockquote>
+<p> 在后台 k8s 会根据我们填写的资源选择一个合适的节点，将当前这个 Pod 部署过去。</p>
+</blockquote>
+<p> 就会列出我们刚才部署的 Pod:</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs shell">❯ kubectl get pod<br>NAME                                READY   STATUS    RESTARTS   AGE<br>k8s-combat-57f794c59b-7k58n         1/1     Running   0          17h<br></code></pre></td></tr></table></figure>
+
+<p>我们使用命令：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">kubectl exec -it k8s-combat-57f794c59b-7k58n  bash<br></code></pre></td></tr></table></figure>
+<p>就会进入我们的容器，这个和使用 docker 类似。</p>
+<p>之后执行 curl 命令便可以访问我们的接口了：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs shell">root@k8s-combat-57f794c59b-7k58n:/# curl http://127.0.0.1:8081/ping<br>pong<br>root@k8s-combat-57f794c59b-7k58n:/#<br></code></pre></td></tr></table></figure>
+
+<p>这时候我们再开一个终端执行：</p>
+<figure class="highlight subunit"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs subunit">❯ kubectl logs -f k8s-combat<span class="hljs-string">-57</span>f794c59b<span class="hljs-string">-7</span>k58n<br>2023/09/03 09:28:07 ping<br></code></pre></td></tr></table></figure>
+<p>便可以打印容器中的日志，当然前提是应用的日志是写入到了标准输出中。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>以上就是这一章节的主要内容，重点就是将我们应用程序员打包为 docker 镜像后上传到镜像仓库，再配置好 deployment 由 k8s 进行调度运行。</p>
+<p>下一章主要会涉及服务内部的调用，感兴趣的朋友可以先关注起来。</p>
+<p>相关的源码和 yaml 资源文件都存在这里：<br><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/k8s-combat">https://github.com/crossoverJie/k8s-combat</a></p>
+<p>#Blog #K8s </p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/k8s/" class="category-chain-item">k8s</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Go/" class="print-no-link">#Go</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>k8s 入门到实战--部署应用到 k8s</div>
+      <div>http://crossoverjie.top/2023/08/31/ob/k8s-0-start/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>August 31, 2023</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2023/09/05/ob/k8s-service/" title="k8s入门到实战--跨服务调用">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">k8s入门到实战--跨服务调用</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2023/08/30/ob/Pulsar-SQL/" title="使用 SQL 的方式查询消息队列数据以及踩坑指南">
+                        <span class="hidden-mobile">使用 SQL 的方式查询消息队列数据以及踩坑指南</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2023/08/31/ob/k8s-0-start/';
+          this.page.identifier = '/2023/08/31/ob/k8s-0-start/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

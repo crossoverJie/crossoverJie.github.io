@@ -1,0 +1,935 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="背景最近在做分布式相关的工作，由于人手不够只能我一个人来怼；看着这段时间的加班表想想就是够惨的。 不过其中也有遇到的不少有意思的事情今后再拿来分享，今天重点来讨论服务的注册与发现。 分布式带来的问题我的业务比较简单，只是需要知道现在有哪些服务实例可供使用就可以了（并不是做远程调用，只需要拿到信息即可）。 要实现这一功能最简单的方式可以在应用中配置所有的服务节点，这样每次在使用时只需要通过某种算法">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分布式(一) 搞定服务注册与发现">
+<meta property="og:url" content="http://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景最近在做分布式相关的工作，由于人手不够只能我一个人来怼；看着这段时间的加班表想想就是够惨的。 不过其中也有遇到的不少有意思的事情今后再拿来分享，今天重点来讨论服务的注册与发现。 分布式带来的问题我的业务比较简单，只是需要知道现在有哪些服务实例可供使用就可以了（并不是做远程调用，只需要拿到信息即可）。 要实现这一功能最简单的方式可以在应用中配置所有的服务节点，这样每次在使用时只需要通过某种算法">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22474b79.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22a0ab9f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22aa8afa.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22b37597.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22ba62d5.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22d1fd47.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d22ed3d2f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2353b899.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d235d30ea.jpg">
+<meta property="og:image" content="https://i.loli.net//2019//05//08//5cd1dc84306df.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2b5b15fd.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d2b66b2b2.jpg">
+<meta property="og:image" content="https://i.loli.net//2019//05//08//5cd1dd090d37e.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d4faa9cfc.jpg">
+<meta property="og:image" content="https://i.loli.net//2019//05//08//5cd1dd8cc097a.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d52ed5080.jpg">
+<meta property="article:published_time" content="2018-08-27T00:10:36.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.265Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="SpringBoot">
+<meta property="article:tag" content="Zookeeper">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1d22474b79.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>分布式(一) 搞定服务注册与发现 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="分布式(一) 搞定服务注册与发现"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2018-08-27 00:10" pubdate>
+          August 27, 2018 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.2k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          19 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">分布式(一) 搞定服务注册与发现</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2019/05/08/5cd1d22474b79.jpg" srcset="/img/loading.gif" lazyload></p>
+<h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>最近在做分布式相关的工作，由于人手不够只能我一个人来怼；看着这段时间的加班表想想就是够惨的。</p>
+<p>不过其中也有遇到的不少有意思的事情今后再拿来分享，今天重点来讨论服务的<strong>注册与发现</strong>。</p>
+<h2 id="分布式带来的问题"><a href="#分布式带来的问题" class="headerlink" title="分布式带来的问题"></a>分布式带来的问题</h2><p>我的业务比较简单，只是需要知道现在有哪些服务实例可供使用就可以了（并不是做远程调用，只需要拿到信息即可）。</p>
+<p>要实现这一功能最简单的方式可以在应用中配置所有的服务节点，这样每次在使用时只需要通过某种算法从配置列表中选择一个就可以了。</p>
+<p>但这样会有一个非常严重的问题：</p>
+<p>由于应用需要根据应用负载情况来灵活的调整服务节点的数量，这样我的配置就不能写死。</p>
+<p>不然就会出现要么新增的节点没有访问或者是已经 down 掉的节点却有请求，这样肯定是不行的。</p>
+<p>往往要解决这类分布式问题都需要一个公共的区域来保存这些信息，比如是否可以利用 Redis？</p>
+<p>每个节点启动之后都向 Redis 注册信息，关闭时也删除数据。</p>
+<p>其实就是存放节点的 <code>ip + port</code>，然后在需要知道服务节点信息时候只需要去 Redis 中获取即可。</p>
+<span id="more"></span>
+
+<p>如下图所示：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22a0ab9f.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>但这样会导致每次使用时都需要频繁的去查询 Redis，为了避免这个问题我们可以在每次查询之后在本地缓存一份最新的数据。这样优先从本地获取确实可以提高效率。</p>
+<p>但同样又会出现新的问题，如果服务提供者的节点新增或者删除消费者这边根本就不知道情况。</p>
+<p>要解决这个问题最先想到的应该就是利用定时任务定期去更新服务列表。</p>
+<p>以上的方案肯定不完美，并且不优雅。主要有以下几点：</p>
+<ul>
+<li>基于定时任务会导致很多无效的更新。</li>
+<li>定时任务存在周期性，没法做到实时，这样就可能存在请求异常。</li>
+<li>如果服务被强行 kill，没法及时清除 Redis，这样这个看似可用的服务将永远不可用！</li>
+</ul>
+<p>所以我们需要一个更加靠谱的解决方案，这样的场景其实和 Dubbo 非常类似。</p>
+<p>用过的同学肯定对这张图不陌生。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22aa8afa.jpg" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>引用自 Dubbo <a target="_blank" rel="noopener" href="https://dubbo.incubator.apache.org/en-us/">官网</a></p>
+</blockquote>
+<p>其中有一块非常核心的内容（红框出）就是服务的注册与发现。</p>
+<p>通常来说消费者是需要知道服务提供者的网络地址(ip + port)才能发起远程调用，这块内容和我上面的需求其实非常类似。</p>
+<p>而 Dubbo 则是利用 Zookeeper 来解决问题。</p>
+<h2 id="Zookeeper-能做什么"><a href="#Zookeeper-能做什么" class="headerlink" title="Zookeeper 能做什么"></a>Zookeeper 能做什么</h2><p>在具体讨论怎么实现之前先看看 Zookeeper 的几个重要特性。</p>
+<p>Zookeeper 实现了一个类似于文件系统的树状结构：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22b37597.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>这些节点被称为 znode(名字叫什么不重要)，其中每个节点都可以存放一定的数据。</p>
+<p>最主要的是 znode 有四种类型：</p>
+<ul>
+<li>永久节点（除非手动删除，节点永远存在）</li>
+<li>永久有序节点（按照创建顺序会为每个节点末尾带上一个序号如：<code>root-1</code>）</li>
+<li>瞬时节点（创建客户端与 Zookeeper 保持连接时节点存在，断开时则删除并会有相应的通知）</li>
+<li>瞬时有序节点（在瞬时节点的基础上加上了顺序）</li>
+</ul>
+<p>考虑下上文使用 Redis 最大的一个问题是什么？</p>
+<p>其实就是不能实时的更新服务提供者的信息。</p>
+<p>那利用 Zookeeper 是怎么实现的？</p>
+<p>主要看第三个特性：<strong>瞬时节点</strong></p>
+<p>Zookeeper 是一个典型的观察者模式。</p>
+<ul>
+<li>由于瞬时节点的特点，我们的消费者可以订阅瞬时节点的父节点。</li>
+<li>当新增、删除节点时所有的瞬时节点也会自动更新。</li>
+<li>更新时会给订阅者发起通知告诉最新的节点信息。</li>
+</ul>
+<p>这样我们就可以实时获取服务节点的信息，同时也只需要在第一次获取列表时缓存到本地；也不需要频繁和 Zookeeper 产生交互，只用等待通知更新即可。</p>
+<p>并且不管应用什么原因节点 down 掉后也会在 Zookeeper 中删除该信息。</p>
+<h2 id="效果演示"><a href="#效果演示" class="headerlink" title="效果演示"></a>效果演示</h2><p>这样实现方式就变为这样。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22ba62d5.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>为此我新建了一个应用来进行演示：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/netty-action/tree/master/netty-action-zk">https://github.com/crossoverJie/netty-action/tree/master/netty-action-zk</a></p>
+<p>就是一个简单的 SpringBoot 应用，只是做了几件事情。</p>
+<ul>
+<li>应用启动时新开一个线程用于向 Zookeeper 注册服务。</li>
+<li>同时监听一个节点用于更新本地服务列表。</li>
+<li>提供一个接口用于返回一个可有的服务节点。</li>
+</ul>
+<p>我在本地启动了两个应用分别是：<code>127.0.0.1:8083,127.0.0.1:8084</code>。来看看效果图。</p>
+<p>两个应用启动完成：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22d1fd47.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d22ed3d2f.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p>当前 Zookeeper 的可视化树状结构：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2353b899.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p>当想知道所有的服务节点信息时：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d235d30ea.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p>想要获取一个可用的服务节点时：</p>
+<p><img src="https://i.loli.net//2019//05//08//5cd1dc84306df.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>这里只是采取了简单的轮询。</p>
+<hr>
+<p>当 down 掉一个节点时：应用会收到通知更新本地缓存。同时 Zookeeper 中的节点会自动删除。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2b5b15fd.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d2b66b2b2.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p>再次获取最新节点时：</p>
+<p><img src="https://i.loli.net//2019//05//08//5cd1dd090d37e.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p>当节点恢复时自然也能获取到最新信息。本地缓存也会及时更新。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d4faa9cfc.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net//2019//05//08//5cd1dd8cc097a.jpg" srcset="/img/loading.gif" lazyload></p>
+<h2 id="编码实现"><a href="#编码实现" class="headerlink" title="编码实现"></a>编码实现</h2><p>实现起来倒也比较简单，主要就是 ZKClient 的 api 使用。</p>
+<p>贴几段比较核心的吧。</p>
+<h3 id="注册"><a href="#注册" class="headerlink" title="注册"></a>注册</h3><blockquote>
+<p>启动注册 Zookeeper。</p>
+</blockquote>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d52ed5080.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>主要逻辑都在这个线程中。</p>
+<ul>
+<li>首先创建父节点。如上图的 Zookeeper 节点所示；需要先创建 <code>/route</code> 根节点，创建的时候会判断是否已经存在。</li>
+<li>接着需要判断是否需要将自己注册到 Zookeeper 中，因为有些节点只是用于服务发现，他自身是不需要承担业务功能（是我自己项目的需求）。</li>
+<li>将当前应用的所在 ip 以及端口注册上去，同时需要监听根节点 <code>/route</code> ，这样才能在其他服务上下线时候获得通知。</li>
+</ul>
+<h3 id="根据本地缓存"><a href="#根据本地缓存" class="headerlink" title="根据本地缓存"></a>根据本地缓存</h3><blockquote>
+<p>监听到服务变化</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">subscribeEvent</span><span class="hljs-params">(String path)</span> &#123;<br>    zkClient.subscribeChildChanges(path, <span class="hljs-keyword">new</span> <span class="hljs-title class_">IZkChildListener</span>() &#123;<br>        <span class="hljs-meta">@Override</span><br>        <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">handleChildChange</span><span class="hljs-params">(String parentPath, List&lt;String&gt; currentChilds)</span> <span class="hljs-keyword">throws</span> Exception &#123;<br>            logger.info(<span class="hljs-string">&quot;清除/更新本地缓存 parentPath=【&#123;&#125;】,currentChilds=【&#123;&#125;】&quot;</span>, parentPath,currentChilds.toString());<br><br>            <span class="hljs-comment">//更新所有缓存/先删除 再新增</span><br>            serverCache.updateCache(currentChilds) ;<br>        &#125;<br>    &#125;);<br><br><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>可以看到这里是更新了本地缓存，该缓存采用了 Guava 提供的 Cache，感兴趣的可以查看之前的<a href="https://crossoverjie.top/categories/Guava/">源码分析</a>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * 更新所有缓存/先删除 再新增</span><br><span class="hljs-comment"> *</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@param</span> currentChilds</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">updateCache</span><span class="hljs-params">(List&lt;String&gt; currentChilds)</span> &#123;<br>    cache.invalidateAll();<br>    <span class="hljs-keyword">for</span> (String currentChild : currentChilds) &#123;<br>        <span class="hljs-type">String</span> <span class="hljs-variable">key</span> <span class="hljs-operator">=</span> currentChild.split(<span class="hljs-string">&quot;-&quot;</span>)[<span class="hljs-number">1</span>];<br>        addCache(key);<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h3 id="客户端负载"><a href="#客户端负载" class="headerlink" title="客户端负载"></a>客户端负载</h3><blockquote>
+<p>同时在客户端提供了一个负载算法。</p>
+</blockquote>
+<p>其实就是一个轮询的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * 选取服务器</span><br><span class="hljs-comment"> *</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@return</span></span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> String <span class="hljs-title function_">selectServer</span><span class="hljs-params">()</span> &#123;<br>    List&lt;String&gt; all = getAll();<br>    <span class="hljs-keyword">if</span> (all.size() == <span class="hljs-number">0</span>) &#123;<br>        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">RuntimeException</span>(<span class="hljs-string">&quot;路由列表为空&quot;</span>);<br>    &#125;<br>    <span class="hljs-type">Long</span> <span class="hljs-variable">position</span> <span class="hljs-operator">=</span> index.incrementAndGet() % all.size();<br>    <span class="hljs-keyword">if</span> (position &lt; <span class="hljs-number">0</span>) &#123;<br>        position = <span class="hljs-number">0L</span>;<br>    &#125;<br><br>    <span class="hljs-keyword">return</span> all.get(position.intValue());<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>当然这里可以扩展出更多的如权重、随机、<a href="https://crossoverjie.top/%2F2018%2F04%2F07%2Falgorithm%2FLRU-cache%2F">LRU</a> 等算法。</p>
+<h2 id="Zookeeper-其他优势及问题"><a href="#Zookeeper-其他优势及问题" class="headerlink" title="Zookeeper 其他优势及问题"></a>Zookeeper 其他优势及问题</h2><p>Zookeeper 自然是一个很棒的分布式协调工具，利用它的特性还可以有其他作用。</p>
+<ul>
+<li>数据变更发送通知这一特性可以实现统一配置中心，再也不需要在每个服务中单独维护配置。</li>
+<li>利用瞬时有序节点还可以实现分布式锁。</li>
+</ul>
+<p>在实现注册、发现这一需求时，Zookeeper 其实并不是最优选。</p>
+<p>由于 Zookeeper 在 CAP 理论中选择了 CP（一致性、分区容错性），当 Zookeeper 集群有半数节点不可用时是不能获取到任何数据的。</p>
+<p>对于一致性来说自然没啥问题，但在注册、发现的场景下更加推荐 <code>Eureka</code>，已经在 SpringCloud 中得到验证。具体就不在本文讨论了。</p>
+<p>但鉴于我的使用场景来说 Zookeeper 已经能够胜任。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本文所有完整代码都托管在 GitHub。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/netty-action">https://github.com/crossoverJie/netty-action</a>。</p>
+<p>一个看似简单的注册、发现功能实现了，但分布式应用远远不止这些。</p>
+<p>由于网络隔离之后带来的一系列问题还需要我们用其他方式一一完善；后续会继续更新分布式相关内容，感兴趣的朋友不妨持续关注。</p>
+<p><strong>你的点赞与转发是最大的支持。</strong></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/Distributed/" class="category-chain-item">Distributed</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/SpringBoot/" class="print-no-link">#SpringBoot</a>
+      
+        <a href="/tags/Zookeeper/" class="print-no-link">#Zookeeper</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>分布式(一) 搞定服务注册与发现</div>
+      <div>http://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>August 27, 2018</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2018/08/29/java-senior/OOM-Disruptor/" title="强如 Disruptor 也发生内存溢出？">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">强如 Disruptor 也发生内存溢出？</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2018/08/21/skill/resume/" title="什么样的简历不会被丢进回收站">
+                        <span class="hidden-mobile">什么样的简历不会被丢进回收站</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2018/08/27/distributed/distributed-discovery-zk/';
+          this.page.identifier = '/2018/08/27/distributed/distributed-discovery-zk/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

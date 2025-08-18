@@ -1,0 +1,864 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言由于最近换(mang)了(de)家(yi)公(bi)司接触了新的东西所以很久没有更新了。这次谈谈Redis，关于Redis应该很多朋友就算没有用过也听过，算是这几年最流行的NoSql之一了。Redis的应用场景非常多这里就不一一列举了，这次就以一个最简单的也最常用的 缓存数据 来举例。先来看一张效果图：">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SSM(七)在JavaWeb应用中使用Redis">
+<meta property="og:url" content="http://crossoverjie.top/2016/12/18/SSM7/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言由于最近换(mang)了(de)家(yi)公(bi)司接触了新的东西所以很久没有更新了。这次谈谈Redis，关于Redis应该很多朋友就算没有用过也听过，算是这几年最流行的NoSql之一了。Redis的应用场景非常多这里就不一一列举了，这次就以一个最简单的也最常用的 缓存数据 来举例。先来看一张效果图：">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://ooo.0o0.ooo/2017/05/07/590ea75de0d84.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba0ab8f76.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba0d7badf.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1ba12c0bb0.jpg">
+<meta property="article:published_time" content="2016-12-18T13:44:54.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.261Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Redis">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://ooo.0o0.ooo/2017/05/07/590ea75de0d84.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>SSM(七)在JavaWeb应用中使用Redis - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="SSM(七)在JavaWeb应用中使用Redis"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2016-12-18 13:44" pubdate>
+          December 18, 2016 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          3.3k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          28 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">SSM(七)在JavaWeb应用中使用Redis</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://ooo.0o0.ooo/2017/05/07/590ea75de0d84.jpg" srcset="/img/loading.gif" lazyload alt="redis封面.jpg"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>由于最近换(mang)了(de)家(yi)公(bi)司接触了新的东西所以很久没有更新了。<br>这次谈谈Redis，关于<code>Redis</code>应该很多朋友就算没有用过也听过，算是这几年最流行的<code>NoSql</code>之一了。<br><code>Redis</code>的应用场景非常多这里就不一一列举了，这次就以一个最简单的也最常用的 <strong>缓存数据</strong> 来举例。<br>先来看一张效果图：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1ba0ab8f76.jpg" srcset="/img/loading.gif" lazyload></p>
+<span id="more"></span>
+<p>作用就是在每次查询接口的时候首先判断<code>Redis</code>中是否有缓存，有的话就读取，没有就查询数据库并保存到<code>Redis</code>中，下次再查询的话就会直接从缓存中读取了。<br><code>Redis</code>中的结果：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1ba0d7badf.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>之后查询redis发现确实是存进来了。</p>
+<h1 id="Redis安装与使用"><a href="#Redis安装与使用" class="headerlink" title="Redis安装与使用"></a>Redis安装与使用</h1><p>首先第一步自然是安装<code>Redis</code>。我是在我<code>VPS</code>上进行安装的，操作系统是<code>CentOS6.5</code>。</p>
+<ul>
+<li><p>下载Redis<a target="_blank" rel="noopener" href="https://redis.io/download">https://redis.io/download</a>，我机器上安装的是<code>3.2.5</code></p>
+</li>
+<li><p>将下载下来的’reidis-3.2.5-tar.gz’上传到<code>usr/local</code>这个目录进行解压。</p>
+</li>
+<li><p>进入该目录。</p>
+</li>
+</ul>
+<p><img src="https://i.loli.net/2019/05/08/5cd1ba12c0bb0.jpg" srcset="/img/loading.gif" lazyload></p>
+<ul>
+<li><p>编译安装</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs linux">make<br>make install<br></code></pre></td></tr></table></figure>
+</li>
+<li><p>修改<code>redis.conf</code>配置文件。</p>
+</li>
+</ul>
+<p>这里我只是简单的加上密码而已。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs linux">vi redis.conf<br>requirepass 你的密码<br></code></pre></td></tr></table></figure>
+<ul>
+<li>启动Redis</li>
+</ul>
+<p>启动时候要选择我们之前修改的配置文件才能使配置文件生效。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs linux">进入src目录<br>cd /usr/local/redis-3.2.5/src<br>启动服务<br>./redis-server ../redis.conf<br></code></pre></td></tr></table></figure>
+
+<ul>
+<li>登陆redis<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs linux">./redis-cli -a 你的密码<br></code></pre></td></tr></table></figure></li>
+</ul>
+<h1 id="Spring整合Redis"><a href="#Spring整合Redis" class="headerlink" title="Spring整合Redis"></a>Spring整合Redis</h1><p>这里我就直接开始用Spring整合毕竟在实际使用中都是和<code>Spring</code>一起使用的。</p>
+<ul>
+<li>修改<code>Spring</code>配置文件<br>加入以下内容：<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-comment">&lt;!-- jedis 配置 --&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">bean</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;poolConfig&quot;</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;redis.clients.jedis.JedisPoolConfig&quot;</span>&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;maxIdle&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;$&#123;redis.maxIdle&#125;&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;maxWaitMillis&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;$&#123;redis.maxWait&#125;&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;testOnBorrow&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;$&#123;redis.testOnBorrow&#125;&quot;</span>/&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">bean</span>&gt;</span><br>    <span class="hljs-comment">&lt;!-- redis服务器中心 --&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">bean</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;connectionFactory&quot;</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;org.springframework.data.redis.connection.jedis.JedisConnectionFactory&quot;</span>&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;poolConfig&quot;</span> <span class="hljs-attr">ref</span>=<span class="hljs-string">&quot;poolConfig&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;port&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;$&#123;redis.port&#125;&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;hostName&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;$&#123;redis.host&#125;&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;password&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;$&#123;redis.password&#125;&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;timeout&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;$&#123;redis.timeout&#125;&quot;</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">property</span>&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">bean</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">bean</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;redisTemplate&quot;</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;org.springframework.data.redis.core.RedisTemplate&quot;</span>&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;connectionFactory&quot;</span> <span class="hljs-attr">ref</span>=<span class="hljs-string">&quot;connectionFactory&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;keySerializer&quot;</span>&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">bean</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;org.springframework.data.redis.serializer.StringRedisSerializer&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;/<span class="hljs-name">property</span>&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;valueSerializer&quot;</span>&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">bean</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;org.springframework.data.redis.serializer.JdkSerializationRedisSerializer&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;/<span class="hljs-name">property</span>&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">bean</span>&gt;</span><br><br>    <span class="hljs-comment">&lt;!-- cache配置 --&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">bean</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;methodCacheInterceptor&quot;</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;com.crossoverJie.intercept.MethodCacheInterceptor&quot;</span>&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;redisUtil&quot;</span> <span class="hljs-attr">ref</span>=<span class="hljs-string">&quot;redisUtil&quot;</span>/&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">bean</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">bean</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;redisUtil&quot;</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;com.crossoverJie.util.RedisUtil&quot;</span>&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;redisTemplate&quot;</span> <span class="hljs-attr">ref</span>=<span class="hljs-string">&quot;redisTemplate&quot;</span>/&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">bean</span>&gt;</span><br><br>    <span class="hljs-comment">&lt;!--配置切面拦截方法 --&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">aop:config</span> <span class="hljs-attr">proxy-target-class</span>=<span class="hljs-string">&quot;true&quot;</span>&gt;</span><br>        <span class="hljs-comment">&lt;!--将com.crossoverJie.service包下的所有select开头的方法加入拦截</span><br><span class="hljs-comment">        去掉select则加入所有方法w</span><br><span class="hljs-comment">        --&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">aop:pointcut</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;controllerMethodPointcut&quot;</span> <span class="hljs-attr">expression</span>=<span class="hljs-string">&quot;</span></span><br><span class="hljs-string"><span class="hljs-tag">        execution(* com.crossoverJie.service.*.select*(..))&quot;</span>/&gt;</span><br><br>        <span class="hljs-tag">&lt;<span class="hljs-name">aop:pointcut</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;selectMethodPointcut&quot;</span> <span class="hljs-attr">expression</span>=<span class="hljs-string">&quot;</span></span><br><span class="hljs-string"><span class="hljs-tag">        execution(* com.crossoverJie.dao..*Mapper.select*(..))&quot;</span>/&gt;</span><br><br>        <span class="hljs-tag">&lt;<span class="hljs-name">aop:advisor</span> <span class="hljs-attr">advice-ref</span>=<span class="hljs-string">&quot;methodCacheInterceptor&quot;</span> <span class="hljs-attr">pointcut-ref</span>=<span class="hljs-string">&quot;controllerMethodPointcut&quot;</span>/&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">aop:config</span>&gt;</span><br></code></pre></td></tr></table></figure>
+更多的配置可以直接在源码里面查看：<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/SSM/blob/master/src/main/resources/spring-mybatis.xml">https://github.com/crossoverJie/SSM/blob/master/src/main/resources/spring-mybatis.xml</a>。<br>以上都写有注释，也都是一些简单的配置相信都能看懂。<br>下面我会着重说下如何配置缓存的。</li>
+</ul>
+<h1 id="Spring切面使用缓存"><a href="#Spring切面使用缓存" class="headerlink" title="Spring切面使用缓存"></a>Spring切面使用缓存</h1><p>Spring的<code>AOP</code>真是是一个好东西，还不太清楚是什么的同学建议先自行<code>Google</code>下吧。<br>在不使用切面的时候如果我们想给某个方法加入缓存的话肯定是在方法返回之前就要加入相应的逻辑判断，只有一个或几个倒还好，如果有几十上百个的话那GG了，而且维护起来也特别麻烦。</p>
+<blockquote>
+<p>好在Spring的AOP可以帮我们解决这个问题。<br>这次就在我们需要加入缓存方法的切面加入这个逻辑，并且只需要一个配置即可搞定，就是上文中所提到的配置文件，如下：</p>
+</blockquote>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-comment">&lt;!--配置切面拦截方法 --&gt;</span><br><span class="hljs-tag">&lt;<span class="hljs-name">aop:config</span> <span class="hljs-attr">proxy-target-class</span>=<span class="hljs-string">&quot;true&quot;</span>&gt;</span><br>    <span class="hljs-comment">&lt;!--将com.crossoverJie.service包下的所有select开头的方法加入拦截</span><br><span class="hljs-comment">    去掉select则加入所有方法w</span><br><span class="hljs-comment">    --&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">aop:pointcut</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;controllerMethodPointcut&quot;</span> <span class="hljs-attr">expression</span>=<span class="hljs-string">&quot;</span></span><br><span class="hljs-string"><span class="hljs-tag">    execution(* com.crossoverJie.service.*.select*(..))&quot;</span>/&gt;</span><br><br>    <span class="hljs-tag">&lt;<span class="hljs-name">aop:pointcut</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;selectMethodPointcut&quot;</span> <span class="hljs-attr">expression</span>=<span class="hljs-string">&quot;</span></span><br><span class="hljs-string"><span class="hljs-tag">    execution(* com.crossoverJie.dao..*Mapper.select*(..))&quot;</span>/&gt;</span><br><br>    <span class="hljs-tag">&lt;<span class="hljs-name">aop:advisor</span> <span class="hljs-attr">advice-ref</span>=<span class="hljs-string">&quot;methodCacheInterceptor&quot;</span> <span class="hljs-attr">pointcut-ref</span>=<span class="hljs-string">&quot;controllerMethodPointcut&quot;</span>/&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">aop:config</span>&gt;</span><br></code></pre></td></tr></table></figure>
+<p>这里我们使用表达式<code>execution(* com.crossoverJie.service.*.select*(..))</code>来拦截<code>service</code>中所有以<code>select</code>开头的方法。这样只要我们要将加入的缓存的方法以select命名开头的话每次进入方法之前都会进入我们自定义的<code>MethodCacheInterceptor</code>拦截器。<br>这里贴一下<code>MethodCacheInterceptor</code>中处理逻辑的核心方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> Object <span class="hljs-title function_">invoke</span><span class="hljs-params">(MethodInvocation invocation)</span> <span class="hljs-keyword">throws</span> Throwable &#123;<br>        <span class="hljs-type">Object</span> <span class="hljs-variable">value</span> <span class="hljs-operator">=</span> <span class="hljs-literal">null</span>;<br><br>        <span class="hljs-type">String</span> <span class="hljs-variable">targetName</span> <span class="hljs-operator">=</span> invocation.getThis().getClass().getName();<br>        <span class="hljs-type">String</span> <span class="hljs-variable">methodName</span> <span class="hljs-operator">=</span> invocation.getMethod().getName();<br>        <span class="hljs-comment">// 不需要缓存的内容</span><br>        <span class="hljs-comment">//if (!isAddCache(StringUtil.subStrForLastDot(targetName), methodName)) &#123;</span><br>        <span class="hljs-keyword">if</span> (!isAddCache(targetName, methodName)) &#123;<br>            <span class="hljs-comment">// 执行方法返回结果</span><br>            <span class="hljs-keyword">return</span> invocation.proceed();<br>        &#125;<br>        Object[] arguments = invocation.getArguments();<br>        <span class="hljs-type">String</span> <span class="hljs-variable">key</span> <span class="hljs-operator">=</span> getCacheKey(targetName, methodName, arguments);<br>        logger.debug(<span class="hljs-string">&quot;redisKey: &quot;</span> + key);<br>        <span class="hljs-keyword">try</span> &#123;<br>            <span class="hljs-comment">// 判断是否有缓存</span><br>            <span class="hljs-keyword">if</span> (redisUtil.exists(key)) &#123;<br>                <span class="hljs-keyword">return</span> redisUtil.get(key);<br>            &#125;<br>            <span class="hljs-comment">// 写入缓存</span><br>            value = invocation.proceed();<br>            <span class="hljs-keyword">if</span> (value != <span class="hljs-literal">null</span>) &#123;<br>                <span class="hljs-keyword">final</span> <span class="hljs-type">String</span> <span class="hljs-variable">tkey</span> <span class="hljs-operator">=</span> key;<br>                <span class="hljs-keyword">final</span> <span class="hljs-type">Object</span> <span class="hljs-variable">tvalue</span> <span class="hljs-operator">=</span> value;<br>                <span class="hljs-keyword">new</span> <span class="hljs-title class_">Thread</span>(<span class="hljs-keyword">new</span> <span class="hljs-title class_">Runnable</span>() &#123;<br>                    <span class="hljs-meta">@Override</span><br>                    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">run</span><span class="hljs-params">()</span> &#123;<br>                        <span class="hljs-keyword">if</span> (tkey.startsWith(<span class="hljs-string">&quot;com.service.impl.xxxRecordManager&quot;</span>)) &#123;<br>                            redisUtil.set(tkey, tvalue, xxxRecordManagerTime);<br>                        &#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (tkey.startsWith(<span class="hljs-string">&quot;com.service.impl.xxxSetRecordManager&quot;</span>)) &#123;<br>                            redisUtil.set(tkey, tvalue, xxxSetRecordManagerTime);<br>                        &#125; <span class="hljs-keyword">else</span> &#123;<br>                            redisUtil.set(tkey, tvalue, defaultCacheExpireTime);<br>                        &#125;<br>                    &#125;<br>                &#125;).start();<br>            &#125;<br>        &#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;<br>            e.printStackTrace();<br>            <span class="hljs-keyword">if</span> (value == <span class="hljs-literal">null</span>) &#123;<br>                <span class="hljs-keyword">return</span> invocation.proceed();<br>            &#125;<br>        &#125;<br>        <span class="hljs-keyword">return</span> value;<br>    &#125;<br></code></pre></td></tr></table></figure>
+<ul>
+<li>先是查看了当前方法是否在我们自定义的方法中，如果不是的话就直接返回，不进入拦截器。</li>
+<li>之后利用反射获取的类名、方法名、参数生成<code>redis</code>的<code>key</code>。</li>
+<li>用key在redis中查询是否已经有缓存。</li>
+<li>有缓存就直接返回缓存内容，不再继续查询数据库。</li>
+<li>如果没有缓存就查询数据库并将返回信息加入到redis中。</li>
+</ul>
+<h2 id="使用PageHelper"><a href="#使用PageHelper" class="headerlink" title="使用PageHelper"></a>使用PageHelper</h2><p>这次为了分页方便使用了比较流行的<code>PageHelper</code>来帮我们更简单的进行分页。<br>首先是新增一个mybatis的配置文件<code>mybatis-config</code>：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-meta">&lt;?xml version=<span class="hljs-string">&quot;1.0&quot;</span> encoding=<span class="hljs-string">&quot;UTF-8&quot;</span> ?&gt;</span><br><span class="hljs-meta">&lt;!DOCTYPE <span class="hljs-keyword">configuration</span></span><br><span class="hljs-meta">        <span class="hljs-keyword">PUBLIC</span> <span class="hljs-string">&quot;-//mybatis.org//DTD Config 3.0//EN&quot;</span></span><br><span class="hljs-meta">        <span class="hljs-string">&quot;http://mybatis.org/dtd/mybatis-3-config.dtd&quot;</span>&gt;</span><br><span class="hljs-tag">&lt;<span class="hljs-name">configuration</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">settings</span>&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">setting</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;cacheEnabled&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;true&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">setting</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;lazyLoadingEnabled&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;true&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">setting</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;multipleResultSetsEnabled&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;true&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">setting</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;useColumnLabel&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;true&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">setting</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;useGeneratedKeys&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;false&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">setting</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;autoMappingBehavior&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;PARTIAL&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">setting</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;defaultExecutorType&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;SIMPLE&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">setting</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;defaultStatementTimeout&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;25&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">setting</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;safeRowBoundsEnabled&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;false&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">setting</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;mapUnderscoreToCamelCase&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;false&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">setting</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;localCacheScope&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;SESSION&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">setting</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;jdbcTypeForNull&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;OTHER&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">setting</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;lazyLoadTriggerMethods&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;equals,clone,hashCode,toString&quot;</span>/&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">settings</span>&gt;</span><br><br>    <span class="hljs-tag">&lt;<span class="hljs-name">plugins</span>&gt;</span><br>        <span class="hljs-comment">&lt;!-- com.github.pagehelper为PageHelper类所在包名 --&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">plugin</span> <span class="hljs-attr">interceptor</span>=<span class="hljs-string">&quot;com.github.pagehelper.PageHelper&quot;</span>&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;dialect&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;mysql&quot;</span>/&gt;</span><br>            <span class="hljs-comment">&lt;!-- 该参数默认为false --&gt;</span><br>            <span class="hljs-comment">&lt;!-- 设置为true时，会将RowBounds第一个参数offset当成pageNum页码使用 --&gt;</span><br>            <span class="hljs-comment">&lt;!-- 和startPage中的pageNum效果一样 --&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;offsetAsPageNum&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;true&quot;</span>/&gt;</span><br>            <span class="hljs-comment">&lt;!-- 该参数默认为false --&gt;</span><br>            <span class="hljs-comment">&lt;!-- 设置为true时，使用RowBounds分页会进行count查询 --&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;rowBoundsWithCount&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;true&quot;</span>/&gt;</span><br><br>            <span class="hljs-comment">&lt;!-- 设置为true时，如果pageSize=0或者RowBounds.limit = 0就会查询出全部的结果 --&gt;</span><br>            <span class="hljs-comment">&lt;!-- （相当于没有执行分页查询，但是返回结果仍然是Page类型） &lt;property name=&quot;pageSizeZero&quot; value=&quot;true&quot;/&gt; --&gt;</span><br><br>            <span class="hljs-comment">&lt;!-- 3.3.0版本可用 - 分页参数合理化，默认false禁用 --&gt;</span><br>            <span class="hljs-comment">&lt;!-- 启用合理化时，如果pageNum&lt;1会查询第一页，如果pageNum&gt;pages会查询最后一页 --&gt;</span><br>            <span class="hljs-comment">&lt;!-- 禁用合理化时，如果pageNum&lt;1或pageNum&gt;pages会返回空数据 --&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;reasonable&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;true&quot;</span>/&gt;</span><br>            <span class="hljs-comment">&lt;!-- 3.5.0版本可用 - 为了支持startPage(Object params)方法 --&gt;</span><br>            <span class="hljs-comment">&lt;!-- 增加了一个`params`参数来配置参数映射，用于从Map或ServletRequest中取值 --&gt;</span><br>            <span class="hljs-comment">&lt;!-- 可以配置pageNum,pageSize,count,pageSizeZero,reasonable,不配置映射的用默认值 --&gt;</span><br>            <span class="hljs-comment">&lt;!-- 不理解该含义的前提下，不要随便复制该配置 --&gt;</span><br>            <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;params&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;pageNum=start;pageSize=limit;&quot;</span>/&gt;</span><br>        <span class="hljs-tag">&lt;/<span class="hljs-name">plugin</span>&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">plugins</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">configuration</span>&gt;</span><br></code></pre></td></tr></table></figure>
+<p>接着在mybatis的配置文件中引入次配置文件：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">bean</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;sqlSessionFactory&quot;</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;org.mybatis.spring.SqlSessionFactoryBean&quot;</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;dataSource&quot;</span> <span class="hljs-attr">ref</span>=<span class="hljs-string">&quot;dataSource&quot;</span> /&gt;</span><br>    <span class="hljs-comment">&lt;!-- 自动扫描mapping.xml文件 --&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;mapperLocations&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;classpath:mapping/*.xml&quot;</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">property</span>&gt;</span><br>    <span class="hljs-comment">&lt;!--加入PageHelper--&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">property</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;configLocation&quot;</span> <span class="hljs-attr">value</span>=<span class="hljs-string">&quot;classpath:mybatis-config.xml&quot;</span>/&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">bean</span>&gt;</span><br></code></pre></td></tr></table></figure>
+<p>接着在service方法中：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Override</span><br><span class="hljs-keyword">public</span> PageEntity&lt;Rediscontent&gt; <span class="hljs-title function_">selectByPage</span><span class="hljs-params">(Integer pageNum, Integer pageSize)</span> &#123;<br>    PageHelper.startPage(pageNum, pageSize);<br>    <span class="hljs-comment">//因为是demo，所以这里默认没有查询条件。</span><br>    List&lt;Rediscontent&gt; rediscontents = rediscontentMapper.selectByExample(<span class="hljs-keyword">new</span> <span class="hljs-title class_">RediscontentExample</span>());<br>    PageEntity&lt;Rediscontent&gt; rediscontentPageEntity = <span class="hljs-keyword">new</span> <span class="hljs-title class_">PageEntity</span>&lt;Rediscontent&gt;();<br>    rediscontentPageEntity.setList(rediscontents);<br>    <span class="hljs-type">int</span> <span class="hljs-variable">size</span> <span class="hljs-operator">=</span> rediscontentMapper.selectByExample(<span class="hljs-keyword">new</span> <span class="hljs-title class_">RediscontentExample</span>()).size();<br>    rediscontentPageEntity.setCount(size);<br>    <span class="hljs-keyword">return</span> rediscontentPageEntity;<br>&#125;<br></code></pre></td></tr></table></figure>
+<p>只需要使用<code>PageHelper.startPage(pageNum, pageSize);</code>方法就可以帮我们简单的分页了。<br>这里我自定义了一个分页工具类<code>PageEntity</code>来更方便的帮我们在之后生成<code>JSON</code>数据。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">package</span> com.crossoverJie.util;<br><br><span class="hljs-keyword">import</span> java.io.Serializable;<br><span class="hljs-keyword">import</span> java.util.List;<br><br><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * 分页实体</span><br><span class="hljs-comment"> *</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@param</span> &lt;T&gt;</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">PageEntity</span>&lt;T&gt; <span class="hljs-keyword">implements</span> <span class="hljs-title class_">Serializable</span> &#123;<br>    <span class="hljs-keyword">private</span> List&lt;T&gt; list;<span class="hljs-comment">// 分页后的数据</span><br>    <span class="hljs-keyword">private</span> Integer count;<br><br>    <span class="hljs-keyword">public</span> Integer <span class="hljs-title function_">getCount</span><span class="hljs-params">()</span> &#123;<br>        <span class="hljs-keyword">return</span> count;<br>    &#125;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">setCount</span><span class="hljs-params">(Integer count)</span> &#123;<br>        <span class="hljs-built_in">this</span>.count = count;<br>    &#125;<br><br>    <span class="hljs-keyword">public</span> List&lt;T&gt; <span class="hljs-title function_">getList</span><span class="hljs-params">()</span> &#123;<br>        <span class="hljs-keyword">return</span> list;<br>    &#125;<br><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">setList</span><span class="hljs-params">(List&lt;T&gt; list)</span> &#123;<br>        <span class="hljs-built_in">this</span>.list = list;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+<p>更多<code>PageHelper</code>的使用请查看一下链接：<br><a target="_blank" rel="noopener" href="https://github.com/pagehelper/Mybatis-PageHelper">https://github.com/pagehelper/Mybatis-PageHelper</a></p>
+<h1 id="前端联调"><a href="#前端联调" class="headerlink" title="前端联调"></a>前端联调</h1><p>接下来看下控制层<code>RedisController</code>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">package</span> com.crossoverJie.controller;<br><br><span class="hljs-keyword">import</span> com.crossoverJie.pojo.Rediscontent;<br><span class="hljs-keyword">import</span> com.crossoverJie.service.RediscontentService;<br><span class="hljs-keyword">import</span> com.crossoverJie.util.CommonUtil;<br><span class="hljs-keyword">import</span> com.crossoverJie.util.PageEntity;<br><span class="hljs-keyword">import</span> com.github.pagehelper.PageHelper;<br><span class="hljs-keyword">import</span> net.sf.json.JSONArray;<br><span class="hljs-keyword">import</span> net.sf.json.JSONObject;<br><span class="hljs-keyword">import</span> org.slf4j.Logger;<br><span class="hljs-keyword">import</span> org.slf4j.LoggerFactory;<br><span class="hljs-keyword">import</span> org.springframework.beans.factory.annotation.Autowired;<br><span class="hljs-keyword">import</span> org.springframework.stereotype.Controller;<br><span class="hljs-keyword">import</span> org.springframework.web.bind.annotation.RequestMapping;<br><span class="hljs-keyword">import</span> org.springframework.web.bind.annotation.RequestParam;<br><br><span class="hljs-keyword">import</span> javax.servlet.http.HttpServletResponse;<br><br><br><span class="hljs-meta">@Controller</span><br><span class="hljs-meta">@RequestMapping(&quot;/redis&quot;)</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">RedisController</span> &#123;<br><br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-type">Logger</span> <span class="hljs-variable">logger</span> <span class="hljs-operator">=</span> LoggerFactory.getLogger(RedisController.class);<br><br>    <span class="hljs-meta">@Autowired</span><br>    <span class="hljs-keyword">private</span> RediscontentService rediscontentService;<br><br><br>    <span class="hljs-meta">@RequestMapping(&quot;/redis_list&quot;)</span><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">club_list</span><span class="hljs-params">(HttpServletResponse response,</span><br><span class="hljs-params">                          <span class="hljs-meta">@RequestParam(value = &quot;page&quot;, defaultValue = &quot;0&quot;)</span> <span class="hljs-type">int</span> page,</span><br><span class="hljs-params">                          <span class="hljs-meta">@RequestParam(value = &quot;pageSize&quot;, defaultValue = &quot;0&quot;)</span> <span class="hljs-type">int</span> pageSize)</span> &#123;<br>        <span class="hljs-type">JSONObject</span> <span class="hljs-variable">jsonObject</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">JSONObject</span>();<br>        <span class="hljs-type">JSONObject</span> <span class="hljs-variable">jo</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">JSONObject</span>();<br>        <span class="hljs-keyword">try</span> &#123;<br>            <span class="hljs-type">JSONArray</span> <span class="hljs-variable">ja</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">JSONArray</span>();<br>            PageHelper.startPage(<span class="hljs-number">1</span>, <span class="hljs-number">10</span>);<br>            PageEntity&lt;Rediscontent&gt; rediscontentPageEntity = rediscontentService.selectByPage(page, pageSize);<br>            <span class="hljs-keyword">for</span> (Rediscontent rediscontent : rediscontentPageEntity.getList()) &#123;<br>                <span class="hljs-type">JSONObject</span> <span class="hljs-variable">jo1</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">JSONObject</span>();<br>                jo1.put(<span class="hljs-string">&quot;rediscontent&quot;</span>, rediscontent);<br>                ja.add(jo1);<br>            &#125;<br>            jo.put(<span class="hljs-string">&quot;redisContents&quot;</span>, ja);<br>            jo.put(<span class="hljs-string">&quot;count&quot;</span>, rediscontentPageEntity.getCount());<br>            jsonObject = CommonUtil.parseJson(<span class="hljs-string">&quot;1&quot;</span>, <span class="hljs-string">&quot;成功&quot;</span>, jo);<br><br>        &#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;<br>            jsonObject = CommonUtil.parseJson(<span class="hljs-string">&quot;2&quot;</span>, <span class="hljs-string">&quot;操作异常&quot;</span>, <span class="hljs-string">&quot;&quot;</span>);<br>            logger.error(e.getMessage(), e);<br>        &#125;<br>        <span class="hljs-comment">//构建返回</span><br>        CommonUtil.responseBuildJson(response, jsonObject);<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+<p>这里就不做过多解释了，就是从redis或者是service中查询出数据并返回。</p>
+<p>前端的显示界面在<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/SSM/blob/master/src/main/webapp/redis/showRedis.jsp">https://github.com/crossoverJie/SSM/blob/master/src/main/webapp/redis/showRedis.jsp</a>中(并不是前端，将就看)。<br>其中核心的<code>redis_list.js</code>的代码如下：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br></pre></td><td class="code"><pre><code class="hljs js"><span class="hljs-keyword">var</span> page = <span class="hljs-number">1</span>,<br>    rows = <span class="hljs-number">10</span>;<br>$(<span class="hljs-variable language_">document</span>).<span class="hljs-title function_">ready</span>(<span class="hljs-keyword">function</span> (<span class="hljs-params"></span>) &#123;<br>    <span class="hljs-title function_">initJqPaginator</span>();<br>    <span class="hljs-comment">//加载</span><br>    <span class="hljs-title function_">load_redis_list</span>();<br>    $(<span class="hljs-string">&quot;.query_but&quot;</span>).<span class="hljs-title function_">click</span>(<span class="hljs-keyword">function</span> (<span class="hljs-params"></span>) &#123;<span class="hljs-comment">//查询按钮</span><br>        page = <span class="hljs-number">1</span>;<br>        <span class="hljs-title function_">load_redis_list</span>();<br>    &#125;);<br>&#125;);<br><span class="hljs-comment">//初始化分页</span><br><span class="hljs-keyword">function</span> <span class="hljs-title function_">initJqPaginator</span>(<span class="hljs-params"></span>) &#123;<br>    $.<span class="hljs-title function_">jqPaginator</span>(<span class="hljs-string">&#x27;#pagination&#x27;</span>, &#123;<br>        <span class="hljs-attr">totalPages</span>: <span class="hljs-number">100</span>,<br>        <span class="hljs-attr">visiblePages</span>: <span class="hljs-number">10</span>,<br>        <span class="hljs-attr">currentPage</span>: <span class="hljs-number">1</span>,<br>        <span class="hljs-attr">first</span>: <span class="hljs-string">&#x27;&lt;li class=&quot;prev&quot;&gt;&lt;a href=&quot;javascript:;&quot;&gt;首页&lt;/a&gt;&lt;/li&gt;&#x27;</span>,<br>        <span class="hljs-attr">last</span>: <span class="hljs-string">&#x27;&lt;li class=&quot;prev&quot;&gt;&lt;a href=&quot;javascript:;&quot;&gt;末页&lt;/a&gt;&lt;/li&gt;&#x27;</span>,<br>        <span class="hljs-attr">prev</span>: <span class="hljs-string">&#x27;&lt;li class=&quot;prev&quot;&gt;&lt;a href=&quot;javascript:;&quot;&gt;上一页&lt;/a&gt;&lt;/li&gt;&#x27;</span>,<br>        <span class="hljs-attr">next</span>: <span class="hljs-string">&#x27;&lt;li class=&quot;next&quot;&gt;&lt;a href=&quot;javascript:;&quot;&gt;下一页&lt;/a&gt;&lt;/li&gt;&#x27;</span>,<br>        <span class="hljs-attr">page</span>: <span class="hljs-string">&#x27;&lt;li class=&quot;page&quot;&gt;&lt;a href=&quot;javascript:;&quot;&gt;&#123;&#123;page&#125;&#125;&lt;/a&gt;&lt;/li&gt;&#x27;</span>,<br>        <span class="hljs-attr">onPageChange</span>: <span class="hljs-keyword">function</span> (<span class="hljs-params">num, type</span>) &#123;<br>            page = num;<br>            <span class="hljs-keyword">if</span> (type == <span class="hljs-string">&quot;change&quot;</span>) &#123;<br>                <span class="hljs-title function_">load_redis_list</span>();<br>            &#125;<br>        &#125;<br>    &#125;);<br>&#125;<br><span class="hljs-comment">//列表</span><br><span class="hljs-keyword">function</span> <span class="hljs-title function_">create_club_list</span>(<span class="hljs-params">redisContens</span>) &#123;<br>    <span class="hljs-keyword">var</span> phone = <span class="hljs-number">0</span>;<br>    <span class="hljs-keyword">var</span> html = <span class="hljs-string">&#x27;&lt;div class=&quot;product_box&quot;&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;div class=&quot;br&quot;&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;div class=&quot;product_link&quot;&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;div class=&quot;product_phc&quot;&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;img class=&quot;phc&quot; src=&quot;&quot; &gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;/div&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;span class=&quot;product_name&quot;&gt;&#x27;</span> + redisContens.<span class="hljs-property">id</span> + <span class="hljs-string">&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;div class=&quot;product_link toto&quot;&gt;&#x27;</span> + redisContens.<span class="hljs-property">content</span> + <span class="hljs-string">&#x27;&lt;/div&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;div class=&quot;product_link toto&quot;&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;span&gt;&#x27;</span> + <span class="hljs-string">&quot;&quot;</span> + <span class="hljs-string">&#x27;&lt;/span&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;/div&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;div class=&quot;product_link toto&quot;&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;span&gt;&#x27;</span> + phone + <span class="hljs-string">&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;div class=&quot;product_link toto&quot;&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;span&gt;&#x27;</span> + <span class="hljs-number">0</span> + <span class="hljs-string">&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;div class=&quot;product_link toto product_operation&quot;&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;span onclick=&quot;edit_club(&#x27;</span> + <span class="hljs-number">0</span> + <span class="hljs-string">&#x27;)&quot;&gt;编辑&lt;/span&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;span onclick=&quot;edit_del(&#x27;</span> + <span class="hljs-number">0</span> + <span class="hljs-string">&#x27;)&quot;&gt;删除&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&#x27;</span><br>        + <span class="hljs-string">&#x27;&lt;/div&gt;&#x27;</span>;<br>    <span class="hljs-keyword">return</span> html;<br>&#125;<br><span class="hljs-comment">//加载列表</span><br><span class="hljs-keyword">function</span> <span class="hljs-title function_">load_redis_list</span>(<span class="hljs-params"></span>) &#123;<br>    <span class="hljs-keyword">var</span> name = $(<span class="hljs-string">&quot;#name&quot;</span>).<span class="hljs-title function_">val</span>();<br>    $.<span class="hljs-title function_">ajax</span>(&#123;<br>        <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;POST&#x27;</span>,<br>        <span class="hljs-attr">url</span>: <span class="hljs-title function_">getPath</span>() + <span class="hljs-string">&#x27;/redis/redis_list&#x27;</span>,<br>        <span class="hljs-attr">async</span>: <span class="hljs-literal">false</span>,<br>        <span class="hljs-attr">data</span>: &#123;<span class="hljs-attr">name</span>: name, <span class="hljs-attr">page</span>: page, <span class="hljs-attr">pageSize</span>: rows&#125;,<br>        <span class="hljs-attr">datatype</span>: <span class="hljs-string">&#x27;json&#x27;</span>,<br>        <span class="hljs-attr">success</span>: <span class="hljs-keyword">function</span> (<span class="hljs-params">data</span>) &#123;<br>            <span class="hljs-keyword">if</span> (data.<span class="hljs-property">result</span> == <span class="hljs-number">1</span>) &#123;<br>                $(<span class="hljs-string">&quot;.product_length_number&quot;</span>).<span class="hljs-title function_">html</span>(data.<span class="hljs-property">data</span>.<span class="hljs-property">count</span>);<br>                <span class="hljs-keyword">var</span> html = <span class="hljs-string">&quot;&quot;</span>;<br>                <span class="hljs-keyword">var</span> count = data.<span class="hljs-property">data</span>.<span class="hljs-property">count</span>;<br>                <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> i = <span class="hljs-number">0</span>; i &lt; data.<span class="hljs-property">data</span>.<span class="hljs-property">redisContents</span>.<span class="hljs-property">length</span>; i++) &#123;<br>                    <span class="hljs-keyword">var</span> redisContent = data.<span class="hljs-property">data</span>.<span class="hljs-property">redisContents</span>[i];<br>                    html += <span class="hljs-title function_">create_club_list</span>(redisContent.<span class="hljs-property">rediscontent</span>);<br>                &#125;<br>                $(<span class="hljs-string">&quot;.product_content&quot;</span>).<span class="hljs-title function_">html</span>(html);<br>                <span class="hljs-comment">//这里是分页的插件</span><br>                $(<span class="hljs-string">&#x27;#pagination&#x27;</span>).<span class="hljs-title function_">jqPaginator</span>(<span class="hljs-string">&#x27;option&#x27;</span>, &#123;<br>                    <span class="hljs-attr">totalPages</span>: (<span class="hljs-title class_">Math</span>.<span class="hljs-title function_">ceil</span>(count / rows) &lt; <span class="hljs-number">1</span> ? <span class="hljs-number">1</span> : <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">ceil</span>(count / rows)),<br>                    <span class="hljs-attr">currentPage</span>: page<br>                &#125;);<br>            &#125; <span class="hljs-keyword">else</span> &#123;<br>                <span class="hljs-title function_">alert</span>(data.<span class="hljs-property">msg</span>);<br>            &#125;<br>        &#125;<br>    &#125;);<br>    $(<span class="hljs-string">&quot;.product_box:even&quot;</span>).<span class="hljs-title function_">css</span>(<span class="hljs-string">&quot;background&quot;</span>, <span class="hljs-string">&quot;#e6e6e6&quot;</span>);<span class="hljs-comment">//隔行变色</span><br>&#125;<br></code></pre></td></tr></table></figure>
+<p>其实就是一个简单的请求接口，并根据返回数据动态生成<code>Dom</code>而已。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>以上就是一个简单的<code>redis</code>的应用。<br>redis的应用场景还非常的多，比如现在我所在做的一个项目就有用来处理短信验证码的业务场景，之后有时间可以写一个demo。</p>
+<blockquote>
+<p>项目地址：<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/SSM.git">https://github.com/crossoverJie/SSM.git</a><br>GitHub地址：<a target="_blank" rel="noopener" href="https://github.com/crossoverJie">https://github.com/crossoverJie</a>。</p>
+</blockquote>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/SSM/" class="category-chain-item">SSM</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
+      
+        <a href="/tags/Redis/" class="print-no-link">#Redis</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>SSM(七)在JavaWeb应用中使用Redis</div>
+      <div>http://crossoverjie.top/2016/12/18/SSM7/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>December 18, 2016</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2016/12/31/annual-summary/GoodBye%202016,Welcome%202017%20%7C%20%E7%A0%81%E5%86%9C%E7%A0%8C%E5%A2%99%E8%AE%B0/" title="GoodBye 2016,Welcome 2017 | 码农砌墙记">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">GoodBye 2016,Welcome 2017 | 码农砌墙记</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2016/10/18/SSM6/" title="SSM(六)跨域传输">
+                        <span class="hidden-mobile">SSM(六)跨域传输</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2016/12/18/SSM7/';
+          this.page.identifier = '/2016/12/18/SSM7/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

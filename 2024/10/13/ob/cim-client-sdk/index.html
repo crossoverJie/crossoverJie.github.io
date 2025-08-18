@@ -1,0 +1,861 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="SDK 设计 在之前提到了 cim 在做集成测试的时候遇到的问题，需要提供一个 SDK 来解决，于是我花了一些时间编写了 SDK，同时也将 cim-client 重构了。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="IM系统重构到 SDK 设计的最佳实践">
+<meta property="og:url" content="http://crossoverjie.top/2024/10/13/ob/cim-client-sdk/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="SDK 设计 在之前提到了 cim 在做集成测试的时候遇到的问题，需要提供一个 SDK 来解决，于是我花了一些时间编写了 SDK，同时也将 cim-client 重构了。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/10/13/PW1J2bXx39cfpnC.png">
+<meta property="og:image" content="https://s2.loli.net/2024/09/17/Ck6AfdGOPISDrVN.png">
+<meta property="og:image" content="https://s2.loli.net/2024/09/17/2tCXEo9nLvIrNTf.png">
+<meta property="og:image" content="https://s2.loli.net/2024/09/19/v8NgprfJ5PWAsER.png">
+<meta property="article:published_time" content="2024-10-13T22:04:45.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.275Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="cim">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2024/10/13/PW1J2bXx39cfpnC.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>IM系统重构到 SDK 设计的最佳实践 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="IM系统重构到 SDK 设计的最佳实践"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-10-13 22:04" pubdate>
+          October 13, 2024 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.7k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          15 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">IM系统重构到 SDK 设计的最佳实践</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://s2.loli.net/2024/10/13/PW1J2bXx39cfpnC.png" srcset="/img/loading.gif" lazyload></p>
+<h1 id="SDK-设计"><a href="#SDK-设计" class="headerlink" title="SDK 设计"></a>SDK 设计</h1><p><img src="https://s2.loli.net/2024/09/17/Ck6AfdGOPISDrVN.png" srcset="/img/loading.gif" lazyload></p>
+<p>在之前提到了 <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/cim">cim</a> 在做集成测试的时候遇到的问题，需要提供一个 SDK 来解决，于是我花了一些时间编写了 SDK，同时也将 cim-client 重构了。</p>
+<span id="more"></span>
+
+<p>重构后的代码长这个样子：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Bean</span><br><span class="hljs-keyword">public</span> Client <span class="hljs-title function_">buildClient</span><span class="hljs-params">(<span class="hljs-meta">@Qualifier(&quot;callBackThreadPool&quot;)</span> ThreadPoolExecutor callbackThreadPool,</span><br><span class="hljs-params">                          Event event)</span> &#123;<br>    <span class="hljs-type">OkHttpClient</span> <span class="hljs-variable">okHttpClient</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">OkHttpClient</span>.Builder().connectTimeout(<span class="hljs-number">3</span>, TimeUnit.SECONDS)<br>            .readTimeout(<span class="hljs-number">3</span>, TimeUnit.SECONDS)<br>            .writeTimeout(<span class="hljs-number">3</span>, TimeUnit.SECONDS)<br>            .retryOnConnectionFailure(<span class="hljs-literal">true</span>).build();<br><br>    <span class="hljs-keyword">return</span> Client.builder()<br>            .auth(ClientConfigurationData.Auth.builder()<br>                    .userName(appConfiguration.getUserName())<br>                    .userId(appConfiguration.getUserId())<br>                    .build())<br>            .routeUrl(appConfiguration.getRouteUrl())<br>            .loginRetryCount(appConfiguration.getReconnectCount())<br>            .event(event)<br>            .reconnectCheck(client -&gt; !shutDownSign.checkStatus())<br>            .okHttpClient(okHttpClient)<br>            .messageListener(<span class="hljs-keyword">new</span> <span class="hljs-title class_">MsgCallBackListener</span>(msgLogger))<br>            .callbackThreadPool(callbackThreadPool)<br>            .build();<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+<p>配合 <code>springboot</code> 使用时只需要创建一个 <code>Client</code> 即可，这个 <code>Client</code> 里维护了核心的：</p>
+<ul>
+<li>长链接创建、状态维护</li>
+<li>心跳检测</li>
+<li>超时、网络异常重连等</li>
+</ul>
+<p>同时也提供了简易的 API 可以直接收发消息：<br><img src="https://s2.loli.net/2024/09/17/2tCXEo9nLvIrNTf.png" srcset="/img/loading.gif" lazyload></p>
+<p>这样在集成到业务代码中时会更方便。</p>
+<p>以前的代码耦合度非常高，同时因为基础代码是 18 年写的，现在真的没有眼看了；</p>
+<p>重构的过程中使用一些 Java8+ 的一些语法糖精简了许多代码，各个模块间的组织关系也重新梳理，现在会更易维护了。</p>
+<p>比如由于创建客户端需要许多可选参数，于是就提供了 Builder 模式的创建选项：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> <span class="hljs-title class_">ClientBuilder</span> &#123;  <br>  <br>    Client <span class="hljs-title function_">build</span><span class="hljs-params">()</span>;  <br>    ClientBuilder <span class="hljs-title function_">auth</span><span class="hljs-params">(ClientConfigurationData.Auth auth)</span>;  <br>    ClientBuilder <span class="hljs-title function_">routeUrl</span><span class="hljs-params">(String routeUrl)</span>;  <br>    ClientBuilder <span class="hljs-title function_">loginRetryCount</span><span class="hljs-params">(<span class="hljs-type">int</span> loginRetryCount)</span>;  <br>    ClientBuilder <span class="hljs-title function_">event</span><span class="hljs-params">(Event event)</span>;  <br>    ClientBuilder <span class="hljs-title function_">reconnectCheck</span><span class="hljs-params">(ReconnectCheck reconnectCheck)</span>;  <br>    ClientBuilder <span class="hljs-title function_">okHttpClient</span><span class="hljs-params">(OkHttpClient okHttpClient)</span>;  <br>    ClientBuilder <span class="hljs-title function_">messageListener</span><span class="hljs-params">(MessageListener messageListener)</span>;  <br>    ClientBuilder <span class="hljs-title function_">callbackThreadPool</span><span class="hljs-params">(ThreadPoolExecutor callbackThreadPool)</span>;  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p>以上部分 API 的设计借鉴了 Pulsar。</p>
+</blockquote>
+<h1 id="Proxy-优化"><a href="#Proxy-优化" class="headerlink" title="Proxy 优化"></a>Proxy 优化</h1><p>除此之外还优化了请求代理，这个 Proxy 主要是用于方便在各个服务中发起 rest 调用，我这里为了轻量也没有使用 Dubbo、SpringCloud 这类服务框架。</p>
+<p>但如果都硬编码 http client 去请求时会有许多重复冗余的代码，比如创建连接、请求参数、响应解析、异常处理等。</p>
+<p>于是在之前的版本中就提供了一个 <code>ProxyManager</code> 的基本实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Override</span>  <br><span class="hljs-keyword">public</span> List&lt;OnlineUsersResVO.DataBodyBean&gt; onlineUsers() <span class="hljs-keyword">throws</span> Exception&#123;  <br>    <span class="hljs-type">RouteApi</span> <span class="hljs-variable">routeApi</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">ProxyManager</span>&lt;&gt;(RouteApi.class, routeUrl, okHttpClient).getInstance();  <br>  <br>    <span class="hljs-type">Response</span> <span class="hljs-variable">response</span> <span class="hljs-operator">=</span> <span class="hljs-literal">null</span>;  <br>    <span class="hljs-type">OnlineUsersResVO</span> <span class="hljs-variable">onlineUsersResVO</span> <span class="hljs-operator">=</span> <span class="hljs-literal">null</span>;  <br>    <span class="hljs-keyword">try</span> &#123;  <br>        response = (Response) routeApi.onlineUser();  <br>        <span class="hljs-type">String</span> <span class="hljs-variable">json</span> <span class="hljs-operator">=</span> response.body().string() ;  <br>        onlineUsersResVO = JSON.parseObject(json, OnlineUsersResVO.class);  <br>  <br>    &#125;<span class="hljs-keyword">catch</span> (Exception e)&#123;  <br>        log.error(<span class="hljs-string">&quot;exception&quot;</span>,e);  <br>    &#125;<span class="hljs-keyword">finally</span> &#123;  <br>        response.body().close();  <br>    &#125;  <br>    <span class="hljs-keyword">return</span> onlineUsersResVO.getDataBody();  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>虽然提供了一些连接管理和参数封装等基础功能，但只实现了一半。</p>
+<p>从上面的代码也可以看出序列化都得自己实现，这些代码完全是冗余的。</p>
+<p>经过重构后以上的代码可以精简到如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">// 声明接口</span><br><span class="hljs-meta">@Request(method = Request.GET)</span>  <br>BaseResponse&lt;Set&lt;CIMUserInfo&gt;&gt; <span class="hljs-title function_">onlineUser</span><span class="hljs-params">()</span> <span class="hljs-keyword">throws</span> Exception;<br><br><span class="hljs-comment">// 初始化</span><br>routeApi = RpcProxyManager.create(RouteApi.class, routeUrl, okHttpClient);<br><br><span class="hljs-keyword">public</span> Set&lt;CIMUserInfo&gt; <span class="hljs-title function_">onlineUser</span><span class="hljs-params">()</span> <span class="hljs-keyword">throws</span> Exception &#123;  <br>    BaseResponse&lt;Set&lt;CIMUserInfo&gt;&gt; onlineUsersResVO = routeApi.onlineUser();  <br>    <span class="hljs-keyword">return</span> onlineUsersResVO.getDataBody();  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这个调整之后就非常类似于 Dubbo gRPC 这类 RPC 框架的使用，只需要把接口定义好，就和调用本地函数一样的简单。</p>
+<p>为了方便后续可能调用一些外部系统，在此基础上还支持了指定多种请求 method、指定 URL 、返回结果嵌套泛型等。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Request(url = &quot;sample-request?author=beeceptor&quot;)</span>  <br>EchoGeneric&lt;EchoResponse.HeadersDTO&gt; echoGeneric(EchoRequest message);<br><br><span class="hljs-meta">@Test</span>  <br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">testGeneric</span><span class="hljs-params">()</span> &#123;  <br>    <span class="hljs-type">OkHttpClient</span> <span class="hljs-variable">client</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">OkHttpClient</span>();  <br>    <span class="hljs-type">String</span> <span class="hljs-variable">url</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;http://echo.free.beeceptor.com&quot;</span>;  <br>    <span class="hljs-type">Echo</span> <span class="hljs-variable">echo</span> <span class="hljs-operator">=</span> RpcProxyManager.create(Echo.class, url, client);  <br>    <span class="hljs-type">EchoRequest</span> <span class="hljs-variable">request</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">EchoRequest</span>();  <br>    request.setName(<span class="hljs-string">&quot;crossoverJie&quot;</span>);  <br>    request.setAge(<span class="hljs-number">18</span>);  <br>    request.setCity(<span class="hljs-string">&quot;shenzhen&quot;</span>);  <br>    <span class="hljs-comment">// 支持泛型解析</span><br>    EchoGeneric&lt;EchoResponse.HeadersDTO&gt; response = echo.echoGeneric(request);  <br>    Assertions.assertEquals(response.getHeaders().getHost(), <span class="hljs-string">&quot;echo.free.beeceptor.com&quot;</span>);  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+<h2 id="支持动态-URL-调用"><a href="#支持动态-URL-调用" class="headerlink" title="支持动态 URL 调用"></a>支持动态 URL 调用</h2><p><img src="https://s2.loli.net/2024/09/19/v8NgprfJ5PWAsER.png" srcset="/img/loading.gif" lazyload></p>
+<p>还有一个 todo：希望可以将 <code>ProxyManager</code> 交给 <code>Spring</code> 去管理，之前是在每次调用的地方都会创建一个 Proxy 对象，完全没有必要，代码也很冗余。</p>
+<p>但有网友在实现过程中发现，有个场景的请求地址是动态的，如果是交给 Spring 管理为单例后是没法修改 URL 地址的，因为这个地址是在创建对象的时候初始化的。</p>
+<p>所以我就在这里新增了一个动态 URL 的特性：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java">EchoResponse <span class="hljs-title function_">echoTarget</span><span class="hljs-params">(EchoRequest message, <span class="hljs-meta">@DynamicUrl(useMethodEndpoint = false)</span> String url)</span>;<br><br><span class="hljs-type">Echo</span> <span class="hljs-variable">echo</span> <span class="hljs-operator">=</span> RpcProxyManager.create(Echo.class, client);<br><span class="hljs-type">String</span> <span class="hljs-variable">url</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;http://echo.free.beeceptor.com/sample-request?author=beeceptor&quot;</span>;<br><span class="hljs-type">EchoResponse</span> <span class="hljs-variable">response</span> <span class="hljs-operator">=</span> echo.echoTarget(request, url);<br></code></pre></td></tr></table></figure>
+
+<p>在声明接口的时候使用 <code>@DynamicUrl</code> 的方法参数注解，告诉代理这个参数是 URL。<br>这样就可以允许在创建  <code>Proxy</code> 对象的时候不指定 URL，而是在实际调用时候再传入具体的 URL，更方便创建单例了。</p>
+<h1 id="集成测试优化"><a href="#集成测试优化" class="headerlink" title="集成测试优化"></a>集成测试优化</h1><p>同时还优化了集成测试，支持了 server 的集群版测试。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/cim/blob/4c149f8bda78718e3ecae2c5759aa9732eff9132/cim-client-sdk/src/test/java/com/crossoverjie/cim/client/sdk/ClientTest.java#L210">https://github.com/crossoverJie/cim/blob/4c149f8bda78718e3ecae2c5759aa9732eff9132/cim-client-sdk/src/test/java/com/crossoverjie/cim/client/sdk/ClientTest.java#L210</a></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Test</span>  <br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">testReconnect</span><span class="hljs-params">()</span> <span class="hljs-keyword">throws</span> Exception &#123;  <br>    <span class="hljs-built_in">super</span>.startTwoServer();  <br>    <span class="hljs-built_in">super</span>.startRoute();  <br>  <br>    <span class="hljs-type">String</span> <span class="hljs-variable">routeUrl</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;http://localhost:8083&quot;</span>;  <br>    <span class="hljs-type">String</span> <span class="hljs-variable">cj</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;cj&quot;</span>;  <br>    <span class="hljs-type">String</span> <span class="hljs-variable">zs</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;zs&quot;</span>;  <br>    <span class="hljs-type">Long</span> <span class="hljs-variable">cjId</span> <span class="hljs-operator">=</span> <span class="hljs-built_in">super</span>.registerAccount(cj);  <br>    <span class="hljs-type">Long</span> <span class="hljs-variable">zsId</span> <span class="hljs-operator">=</span> <span class="hljs-built_in">super</span>.registerAccount(zs);  <br>    <span class="hljs-type">var</span> <span class="hljs-variable">auth1</span> <span class="hljs-operator">=</span> ClientConfigurationData.Auth.builder()  <br>            .userName(cj)  <br>            .userId(cjId)  <br>            .build();  <br>    <span class="hljs-type">var</span> <span class="hljs-variable">auth2</span> <span class="hljs-operator">=</span> ClientConfigurationData.Auth.builder()  <br>            .userName(zs)  <br>            .userId(zsId)  <br>            .build();  <br>  <br>    <span class="hljs-meta">@Cleanup</span>  <br>    <span class="hljs-type">Client</span> <span class="hljs-variable">client1</span> <span class="hljs-operator">=</span> Client.builder()  <br>            .auth(auth1)  <br>            .routeUrl(routeUrl)  <br>            .build();  <br>    TimeUnit.SECONDS.sleep(<span class="hljs-number">3</span>);  <br>    ClientState.<span class="hljs-type">State</span> <span class="hljs-variable">state</span> <span class="hljs-operator">=</span> client1.getState();  <br>    Awaitility.await().atMost(<span class="hljs-number">10</span>, TimeUnit.SECONDS)  <br>            .untilAsserted(() -&gt; Assertions.assertEquals(ClientState.State.Ready, state));  <br>  <br>  <br>    AtomicReference&lt;String&gt; client2Receive = <span class="hljs-keyword">new</span> <span class="hljs-title class_">AtomicReference</span>&lt;&gt;();  <br>    <span class="hljs-meta">@Cleanup</span>  <br>    <span class="hljs-type">Client</span> <span class="hljs-variable">client2</span> <span class="hljs-operator">=</span> Client.builder()  <br>            .auth(auth2)  <br>            .routeUrl(routeUrl)  <br>            .messageListener((client, message) -&gt; client2Receive.set(message))  <br>            .build();  <br>    TimeUnit.SECONDS.sleep(<span class="hljs-number">3</span>);  <br>    ClientState.<span class="hljs-type">State</span> <span class="hljs-variable">state2</span> <span class="hljs-operator">=</span> client2.getState();  <br>    Awaitility.await().atMost(<span class="hljs-number">10</span>, TimeUnit.SECONDS)  <br>            .untilAsserted(() -&gt; Assertions.assertEquals(ClientState.State.Ready, state2));  <br>  <br>    Optional&lt;CIMServerResVO&gt; serverInfo2 = client2.getServerInfo();  <br>    Assertions.assertTrue(serverInfo2.isPresent());  <br>    System.out.println(<span class="hljs-string">&quot;client2 serverInfo = &quot;</span> + serverInfo2.get());  <br>  <br>    <span class="hljs-comment">// send msg  </span><br>    <span class="hljs-type">String</span> <span class="hljs-variable">msg</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;hello&quot;</span>;  <br>    client1.sendGroup(msg);  <br>    Awaitility.await()  <br>            .untilAsserted(() -&gt; Assertions.assertEquals(String.format(<span class="hljs-string">&quot;cj:%s&quot;</span>, msg), client2Receive.get()));  <br>    client2Receive.set(<span class="hljs-string">&quot;&quot;</span>);  <br>  <br>  <br>    System.out.println(<span class="hljs-string">&quot;ready to restart server&quot;</span>);  <br>    TimeUnit.SECONDS.sleep(<span class="hljs-number">3</span>);  <br>    Optional&lt;CIMServerResVO&gt; serverInfo = client1.getServerInfo();  <br>    Assertions.assertTrue(serverInfo.isPresent());  <br>    System.out.println(<span class="hljs-string">&quot;server info = &quot;</span> + serverInfo.get());  <br>  <br>    <span class="hljs-built_in">super</span>.stopServer(serverInfo.get().getCimServerPort());  <br>    System.out.println(<span class="hljs-string">&quot;stop server success! &quot;</span> + serverInfo.get());  <br>  <br>  <br>    <span class="hljs-comment">// Waiting server stopped, and client reconnect.  </span><br>    TimeUnit.SECONDS.sleep(<span class="hljs-number">30</span>);  <br>    System.out.println(<span class="hljs-string">&quot;reconnect state: &quot;</span> + client1.getState());  <br>    Awaitility.await().atMost(<span class="hljs-number">15</span>, TimeUnit.SECONDS)  <br>            .untilAsserted(() -&gt; Assertions.assertEquals(ClientState.State.Ready, state));  <br>    serverInfo = client1.getServerInfo();  <br>    Assertions.assertTrue(serverInfo.isPresent());  <br>    System.out.println(<span class="hljs-string">&quot;client1 reconnect server info = &quot;</span> + serverInfo.get());  <br>  <br>    <span class="hljs-comment">// Send message again.  </span><br>    log.info(<span class="hljs-string">&quot;send message again, client2Receive = &#123;&#125;&quot;</span>, client2Receive.get());  <br>    client1.sendGroup(msg);  <br>    Awaitility.await()  <br>            .untilAsserted(() -&gt; Assertions.assertEquals(String.format(<span class="hljs-string">&quot;cj:%s&quot;</span>, msg), client2Receive.get()));  <br>    <span class="hljs-built_in">super</span>.stopTwoServer();  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>比如在这里编写了一个客户端重连的单测，代码有点长，但它的主要流程如下：</p>
+<ul>
+<li>启动两个 Server：Server1，Server2</li>
+<li>启动 Route</li>
+<li>在启动两个 Client 发送消息<ul>
+<li>校验消息发送是否成功</li>
+</ul>
+</li>
+<li><strong>停止 Client1 连接的 Server</strong></li>
+<li><strong>等待 Client 自动重连到另一个 Server</strong></li>
+<li>再次发送消息<ul>
+<li>校验消息发送是否成功</li>
+</ul>
+</li>
+</ul>
+<p>这样就可以验证在服务端 Server 宕机后整个服务是否可用，消息收发是否正常。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">startTwoServer</span><span class="hljs-params">()</span> &#123;  <br>    <span class="hljs-keyword">if</span> (!zooKeeperContainer.isRunning())&#123;  <br>        zooKeeperContainer.start();  <br>    &#125;    zookeeperAddr = String.format(<span class="hljs-string">&quot;%s:%d&quot;</span>, zooKeeperContainer.getHost(), zooKeeperContainer.getMappedPort(ZooKeeperContainer.DEFAULT_CLIENT_PORT));  <br>    <span class="hljs-type">SpringApplication</span> <span class="hljs-variable">server</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">SpringApplication</span>(CIMServerApplication.class);  <br>    String[] args1 = <span class="hljs-keyword">new</span> <span class="hljs-title class_">String</span>[]&#123;  <br>            <span class="hljs-string">&quot;--cim.server.port=11211&quot;</span>,  <br>            <span class="hljs-string">&quot;--server.port=8081&quot;</span>,  <br>            <span class="hljs-string">&quot;--app.zk.addr=&quot;</span> + zookeeperAddr,  <br>    &#125;;    <span class="hljs-type">ConfigurableApplicationContext</span> <span class="hljs-variable">run1</span> <span class="hljs-operator">=</span> server.run(args1);  <br>    runMap.put(Integer.parseInt(<span class="hljs-string">&quot;11211&quot;</span>), run1);  <br>  <br>  <br>    <span class="hljs-type">SpringApplication</span> <span class="hljs-variable">server2</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">SpringApplication</span>(CIMServerApplication.class);  <br>    String[] args2 = <span class="hljs-keyword">new</span> <span class="hljs-title class_">String</span>[]&#123;  <br>            <span class="hljs-string">&quot;--cim.server.port=11212&quot;</span>,  <br>            <span class="hljs-string">&quot;--server.port=8082&quot;</span>,  <br>            <span class="hljs-string">&quot;--app.zk.addr=&quot;</span> + zookeeperAddr,  <br>    &#125;;    <span class="hljs-type">ConfigurableApplicationContext</span> <span class="hljs-variable">run2</span> <span class="hljs-operator">=</span> server2.run(args2);  <br>    runMap.put(Integer.parseInt(<span class="hljs-string">&quot;11212&quot;</span>), run2);  <br>&#125;<br><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">stopServer</span><span class="hljs-params">(Integer port)</span> &#123;  <br>    runMap.get(port).close();  <br>    runMap.remove(port);  <br>&#125;<br></code></pre></td></tr></table></figure>
+<p>这里的启动两个 Server 就是创建了两个 Server 应用，然后保存好端口和应用之间的映射关系。</p>
+<p>这样就可以根据客户端连接的 Server 信息指定停止哪一个 Server，更方便做测试。</p>
+<p>这次重启 <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/cim">cim</a> 的维护后会尽量维护下去，即便更新时间慢一点。</p>
+<p>后续还会加上消息 ack、离线消息等之前呼声很高的功能，感兴趣的完全可以一起参与。</p>
+<p>源码地址：<br><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/cim">https://github.com/crossoverJie/cim</a></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/cim/" class="category-chain-item">cim</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/cim/" class="print-no-link">#cim</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>IM系统重构到 SDK 设计的最佳实践</div>
+      <div>http://crossoverjie.top/2024/10/13/ob/cim-client-sdk/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>October 13, 2024</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/10/29/ob/%F0%9F%92%A2%E7%BA%BF%E4%B8%8A%E9%AB%98%E5%BB%B6%E8%BF%9F%E8%AF%B7%E6%B1%82%E6%8E%92%E6%9F%A5/" title="💢线上高延迟请求排查">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">💢线上高延迟请求排查</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/10/09/ob/StarRocks-dev-env-build/" title="StarRocks 开发环境搭建踩坑指北">
+                        <span class="hidden-mobile">StarRocks 开发环境搭建踩坑指北</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2024/10/13/ob/cim-client-sdk/';
+          this.page.identifier = '/2024/10/13/ob/cim-client-sdk/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

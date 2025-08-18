@@ -1,0 +1,886 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言在上文《一份针对于新手的多线程实践》留下了一个问题：  这只是多线程其中的一个用法，相信看到这里的朋友应该多它的理解更进一步了。 再给大家留个阅后练习，场景也是类似的：  在 Redis 或者其他存储介质中存放有上千万的手机号码数据，每个号码都是唯一的，需要在最快的时间内把这些号码全部都遍历一遍。  有想法感兴趣的朋友欢迎在文末留言参与讨论🤔🤨。  网友们的方案">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一份针对于新手的多线程实践--进阶篇">
+<meta property="og:url" content="http://crossoverjie.top/2018/10/31/java-senior/concurrent-in-action2/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言在上文《一份针对于新手的多线程实践》留下了一个问题：  这只是多线程其中的一个用法，相信看到这里的朋友应该多它的理解更进一步了。 再给大家留个阅后练习，场景也是类似的：  在 Redis 或者其他存储介质中存放有上千万的手机号码数据，每个号码都是唯一的，需要在最快的时间内把这些号码全部都遍历一遍。  有想法感兴趣的朋友欢迎在文末留言参与讨论🤔🤨。  网友们的方案">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d10a48d3c.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c68e16cf8.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c698514ba.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c69b3e818.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c69cd14d7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1c69f810e6.jpg">
+<meta property="article:published_time" content="2018-10-31T01:10:16.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:09:25.271Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="SpringBoot">
+<meta property="article:tag" content="ThreadPool">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1d10a48d3c.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>一份针对于新手的多线程实践--进阶篇 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="一份针对于新手的多线程实践--进阶篇"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2018-10-31 01:10" pubdate>
+          October 31, 2018 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          17 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">一份针对于新手的多线程实践--进阶篇</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2019/05/08/5cd1d10a48d3c.jpg" srcset="/img/loading.gif" lazyload alt="img"></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>在上文<a href="https://crossoverjie.top/2018/10/29/java-senior/concurrent-in-action/#%E6%9B%B4%E5%A4%9A%E6%80%9D%E8%80%83">《一份针对于新手的多线程实践》</a>留下了一个问题：</p>
+<blockquote>
+<p>这只是多线程其中的一个用法，相信看到这里的朋友应该多它的理解更进一步了。</p>
+<p>再给大家留个阅后练习，场景也是类似的：</p>
+<blockquote>
+<p>在 Redis 或者其他存储介质中存放有上千万的手机号码数据，每个号码都是唯一的，需要在最快的时间内把这些号码全部都遍历一遍。</p>
+</blockquote>
+<p>有想法感兴趣的朋友欢迎在文末留言参与讨论🤔🤨。</p>
+</blockquote>
+<h2 id="网友们的方案"><a href="#网友们的方案" class="headerlink" title="网友们的方案"></a>网友们的方案</h2><span id="more"></span>
+
+<p>我在公众号以及其他一些平台收到了大家的回复，果然是<code>众人拾柴火焰高</code>啊。</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c68e16cf8.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c698514ba.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c69b3e818.jpg" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<p>感谢每一位参与的朋友。</p>
+<p>其实看了大家的方案大多都想到了数据肯定要分段，因为大量的数据肯定没法一次性 <code>load</code> 到内存。</p>
+<p>但怎么加载就要考虑清楚了，有些人说放在数据库中通过分页的方式进行加载，然后将每页的数据丢到一个线程里去做遍历。</p>
+<p>其实想法挺不错的，但有个问题就是：</p>
+<blockquote>
+<p>这样肯定会导致有一个主线程去遍历所有的号码，即便是分页查询的那也得全部查询一遍，效率还是很低。</p>
+<p>即便是分页加载号码用多线程，那就会涉及到锁的问题，怎么保证每个线程读取的数据是互不冲突的。</p>
+</blockquote>
+<p>但如果存储换成 <code>Redis</code> 的 <code>String</code> 结构这样就更行不通了。</p>
+<h1 id="遍历数据方案"><a href="#遍历数据方案" class="headerlink" title="遍历数据方案"></a>遍历数据方案</h1><p>有没有一种利用多线程加载效率高，并且线程之间互相不需要竞争锁的方案呢？</p>
+<p>下面来看看这个方案：</p>
+<p>首先在存储这千万号码的时候我们把它的号段单独提出来并冗余存储一次。</p>
+<p>比如有个号码是 <code>18523981123</code> 那么就还需要存储一个号段：<code>1852398</code>。</p>
+<p>这样当我们有以下这些号码时：</p>
+<p><code>18523981123 18523981124 18523981125 13123874321 13123874322 13123874323</code></p>
+<p>我们就还会维护一个号段数据为：</p>
+<p><code>1852398 1312387</code></p>
+<p>这样我想大家应该明白下一步应当怎么做了吧。</p>
+<p>在需要遍历时：</p>
+<ul>
+<li>通过主线程先把所有的号段加载到内存，即便是千万的号码号段也顶多几千条数据。</li>
+<li>遍历这个号段，将每个号段提交到一个 <code>task</code> 线程中。</li>
+<li>由这个线程通过号段再去查询真正的号码进行遍历。</li>
+<li>最后所有的号段都提交完毕再等待所有的线程执行完毕即可遍历所有的号码。</li>
+</ul>
+<p>这样做的根本原因其实是避免了线程之间加锁，通过号段可以让每个线程只取自己那一部分数据。</p>
+<p>可能会有人说，如果号码持续增多导致号段的数据也达到了上万甚至几十万这怎么办呢？</p>
+<p>那其实也是同样的思路，可以再把号段进行拆分。</p>
+<p>比如之前是 <code>1852398</code> 的号段，那我继续拆分为 <code>1852</code> 。</p>
+<p>这样只需要在之前的基础上再启动一个线程去查询子号段即可，有点 <code>fork/join</code> 的味道。</p>
+<blockquote>
+<p>这样的思路其实也和 JDK1.7 中的 ConcurrentHashMap 类似，定位一个真正的数据需要两次定位。</p>
+</blockquote>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c69cd14d7.jpg" srcset="/img/loading.gif" lazyload></p>
+<h1 id="分布式方案"><a href="#分布式方案" class="headerlink" title="分布式方案"></a>分布式方案</h1><p>上面的方案也是由局限性的，毕竟说到底还是一个单机应用。没法扩展；处理的数据始终是有上限。</p>
+<p>这个上限就和服务器的配置以及线程数这些相关，说的高大上一点其实就是<code>垂直扩展</code>增加单机的处理性能。</p>
+<p>因此随着数据量的提升我们肯定得需要通过<code>水平扩展</code>的方式才能达到最好的性能，这就是分布式的方案。</p>
+<p>假设我现在有上亿的数据需要遍历，但我当前的服务器配置只能支撑一个应用启动 N 个线程 5 分钟跑<code>5000W</code> 的数据。</p>
+<p>于是我水平扩展，在三台服务器上启动了三个独立的进程。假设一个应用能跑 5000W ，那么理论上来说三个应用就可以跑<strong>1.5亿</strong>的数据了。</p>
+<p>但这个的前提还是和上文一样：每个应用只能<strong>处理自己的数据</strong>，不能出现加锁的情况（这样会大大的降低性能）。</p>
+<p>所以我们得对刚才的号段进行分组。</p>
+<p>先通过一张图来直观的表示这个逻辑：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1c69f810e6.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>假设现在我有 9 个号段，那么我就得按照图中的方式把数据隔离开来。</p>
+<p>第一个数据给应用0，第二个数据给应用1，第三个数据给应用2。后面的数据以此类推（就是一个简单的取模运算）。</p>
+<p>这样就可以将号段均匀的分配给不同的应用来进行处理，然后每个应用再按照上文提到的将分配给自己的号段丢到线程池中由具体的线程去查询、遍历即可。</p>
+<h2 id="分布式带来的问题"><a href="#分布式带来的问题" class="headerlink" title="分布式带来的问题"></a>分布式带来的问题</h2><p>这样看似没啥问题，但一旦引入了分布式之后就不可避免的会出现 <code>CAP</code> 的取舍，这里不做过多讨论，感兴趣的朋友可以自行搜索。</p>
+<p>首先要解决的一个问题就是：</p>
+<p>这三个应用怎么知道它自己应该取哪些号段的数据呢？比如 0 号应用就取 <code>0 3 6</code>（这个相当于号段的下标），难道在配置文件里配置嘛？</p>
+<p>那如果数据量又增大了，对应的机器数也增加到了 5 台，那自然 0 号应用就不是取 <code>0 3 6</code> 了（取模之后数据会变）。</p>
+<blockquote>
+<p>所以我们得需要一个统一的调度来分配各个应用他们应当取哪些号段，这也就是<strong>数据分片</strong>。</p>
+</blockquote>
+<p>假设我这里有一个统一的分配中心，他知道现在有多少个应用来处理数据。还是假设上文的三个应用吧。</p>
+<p>在真正开始遍历数据的时候，这个分配中心就会去告诉这三个应用：</p>
+<blockquote>
+<p>你们要开始工作了啊，0 号应用你的工作内容是 <strong>0 3 6</strong>，1 号应用你的工作内容是 <strong>1 4 7</strong>，2 号应用你的工作内容是 <strong>2 5 8</strong>。</p>
+</blockquote>
+<p>这样各个应用就知道他们所应当处理的数据了。</p>
+<p>当我们新增了一个应用来处理数据时也很简单，同样这个分配中心知道现在有多少台应用会工作。</p>
+<p>他会再拿着现有的号段对 4(3+1台应用) 进行取模然后对数据进行重新分配，这样就可以再次保证数据分配均匀了。</p>
+<blockquote>
+<p>只是分配中心如何知道有多少应用呢，其实也简单，只要中心和应用之间通信就可以了。比如启动的时候调用分配中心的接口即可。</p>
+</blockquote>
+<p>上面提到的这个分配中心其实就是一个常见的定时任务的分布式调度中心，由它来统一发起调度，当然<strong>分片</strong>只是它其中的一个功能而已（关于调度中心之后有兴趣再细说）。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本次探讨了多线程的更多应用方式，如要是如何高效的运行。最主要的一点其实就是尽量的避免加锁。</p>
+<p>同时对分布式水平扩展谈了一些处理建议，本次也是难得的一行代码都没贴，大家感兴趣的话在后面更新相关代码。</p>
+<blockquote>
+<p>也欢迎大家留言讨论。😄</p>
+</blockquote>
+<p><strong>你的点赞与转发是最大的支持。</strong></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/Java-%E8%BF%9B%E9%98%B6/" class="category-chain-item">Java 进阶</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
+      
+        <a href="/tags/SpringBoot/" class="print-no-link">#SpringBoot</a>
+      
+        <a href="/tags/ThreadPool/" class="print-no-link">#ThreadPool</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>一份针对于新手的多线程实践--进阶篇</div>
+      <div>http://crossoverjie.top/2018/10/31/java-senior/concurrent-in-action2/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>October 31, 2018</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2018/11/06/personal/1W-star-update/" title="1.6W star 的 JCSprout 阅读体验大提升">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">1.6W star 的 JCSprout 阅读体验大提升</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2018/10/29/java-senior/concurrent-in-action/" title="一份针对于新手的多线程实践">
+                        <span class="hidden-mobile">一份针对于新手的多线程实践</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2018/10/31/java-senior/concurrent-in-action2/';
+          this.page.identifier = '/2018/10/31/java-senior/concurrent-in-action2/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>
