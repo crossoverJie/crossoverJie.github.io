@@ -13,7 +13,7 @@ tags:
 # 🧰Helm 的作用
 在开始前需要先对 kubernetes  Operator 有个简单的认识。
 
-以为我们在编写部署一些简单 `Deployment` 的时候只需要自己编写一个 yaml 文件然后 `kubectl apply` 即可。
+以前我们在编写部署一些简单 `Deployment` 的时候只需要自己编写一个 yaml 文件然后 `kubectl apply` 即可。
 
 <!--more-->
 
@@ -66,7 +66,7 @@ kubectl apply -f deployment.yaml
 等组件，每个组件的启动还有这依赖关系。
 > 必须需要等 Zookeeper 和 Bookkeeper 启动之后才能将流量放进来。
 
-此时如何还继续使用 yaml 文件一个个部署就会非常繁琐，好在社区有提供 Helm 一键安装程序，使用它我们只需要在一个同意的 yaml 里简单的配置一些组件，配置就可以由 helm 来部署整个复杂的 Pulsar 系统。
+此时如果还继续使用 yaml 文件一个个部署就会非常繁琐，好在社区有提供 Helm 一键安装程序，使用它我们只需要在一个统一的 yaml 里简单的配置一些组件，就可以由 helm 来部署整个复杂的 Pulsar 系统。
 
 ```yaml
 components:  
