@@ -1,6 +1,6 @@
 ---
 title: StarRocks 如何在本地搭建存算分离集群
-Date: 2025-08-01T17:24:00
+date: 2025/08/01 17:56:51
 banner_img: https://s2.loli.net/2025/08/15/CA8NgeuGjrFEX6k.png
 index_img: https://s2.loli.net/2025/08/15/CA8NgeuGjrFEX6k.png
 categories:
