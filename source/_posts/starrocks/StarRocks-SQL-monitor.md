@@ -6,6 +6,8 @@ categories:
   - StarRocks
 tags:
   - StarRocks
+banner_img: https://s2.loli.net/2025/11/13/ANcQBtkIe34hRjW.png
+index_img: https://s2.loli.net/2025/11/13/ANcQBtkIe34hRjW.png
 ---
 StarRocks 监控中有一个很关键的指标，就是针对慢 SQL 的监控。
 
