@@ -1,6 +1,6 @@
 ---
 title: StarRocks 如何监控 SQL
-Date: 2025-11-12T17:24:00
+Date: 2025/11/12 17:56:51
 categories:
   - OB
   - StarRocks
@@ -10,6 +10,7 @@ banner_img: https://s2.loli.net/2025/11/13/ANcQBtkIe34hRjW.png
 index_img: https://s2.loli.net/2025/11/13/ANcQBtkIe34hRjW.png
 ---
 StarRocks 监控中有一个很关键的指标，就是针对慢 SQL 的监控。
+
 
 在 StarRocks 中审计日志记录了所有用户的查询和连接信息，理论上我们只需要对这些日志进行分析就可以得到相关的慢 SQL，高 CPU、高内存的 SQL 信息。
 
