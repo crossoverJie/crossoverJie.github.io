@@ -1,6 +1,6 @@
 ---
 title: 持续剖析超级增强：将 Trace/ Span 和 Profile 整合打通
-Date: 2025-11-26 T17:24:00
+Date: 2025-11-26T17:24:00
 categories:
   - OB
   - OpenTelemetry
@@ -16,6 +16,8 @@ index_img: https://s2.loli.net/2025/11/25/nPdSi97fwrvZY8M.png
 
 
 在当今复杂的数据环境中，连续剖析（continuous profiling）已成为获取应用资源使用情况细粒度洞察的关键。Grafana Labs 现通过在 [Grafana 10.3](/blog/2024/01/23/grafana-10.3-release-canvas-panel-updates-multi-stack-data-sources-and-more/) 中引入 Span Profiles 功能，将这工作持续推进。
+
+<!--more-->
 
 Span Profiles 代表着剖析方法学上的一次重大转变，它让我们能够对追踪（tracing）和剖析（profiling）数据进行更深入的联合分析。传统的连续剖析是在固定时间区间内提供全局系统视角；相比之下，Span Profiles 可以对应用内部特定执行作用域（execution scope）进行更聚焦的分析，例如单个请求或某个特定的 trace span 分析它的 Profile。
 
