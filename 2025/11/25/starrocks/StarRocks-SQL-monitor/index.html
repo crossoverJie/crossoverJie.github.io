@@ -1,0 +1,876 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="StarRocks 监控中有一个很关键的指标，就是针对慢 SQL 的监控。 在 StarRocks 中审计日志记录了所有用户的查询和连接信息，理论上我们只需要对这些日志进行分析就可以得到相关的慢 SQL，高 CPU、高内存的 SQL 信息。 类似于这样的监控界面：">
+<meta property="og:type" content="article">
+<meta property="og:title" content="StarRocks 如何监控 SQL">
+<meta property="og:url" content="http://crossoverjie.top/2025/11/25/starrocks/StarRocks-SQL-monitor/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="StarRocks 监控中有一个很关键的指标，就是针对慢 SQL 的监控。 在 StarRocks 中审计日志记录了所有用户的查询和连接信息，理论上我们只需要对这些日志进行分析就可以得到相关的慢 SQL，高 CPU、高内存的 SQL 信息。 类似于这样的监控界面：">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2025/11/13/ANcQBtkIe34hRjW.png">
+<meta property="article:published_time" content="2025-11-25T15:10:37.665Z">
+<meta property="article:modified_time" content="2025-11-25T15:10:37.665Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="StarRocks">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2025/11/13/ANcQBtkIe34hRjW.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>StarRocks 如何监控 SQL - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/11/13/ANcQBtkIe34hRjW.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="StarRocks 如何监控 SQL"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-11-25 15:10" pubdate>
+          November 25, 2025 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.4k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          12 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">StarRocks 如何监控 SQL</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>StarRocks 监控中有一个很关键的指标，就是针对慢 SQL 的监控。</p>
+<p>在 StarRocks 中审计日志记录了所有用户的查询和连接信息，理论上我们只需要对这些日志进行分析就可以得到相关的慢 SQL，高 CPU、高内存的 SQL 信息。</p>
+<p>类似于这样的监控界面：<br><img src="https://s2.loli.net/2025/11/12/CJEwAz732myrd9H.png" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://s2.loli.net/2025/11/12/5l9ND3Bcve2GWb7.png" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://s2.loli.net/2025/11/12/UTyBDHtgX1Ariwm.png" srcset="/img/loading.gif" lazyload><br><img src="https://s2.loli.net/2025/11/12/SVpLiCIZvf4Bj2u.png" srcset="/img/loading.gif" lazyload></p>
+<span id="more"></span>
+<p>由于这些数据都是存放在日志文件里的我们想把他拿到 <code>grafna</code> 里展示的话得额外处理下。</p>
+<h1 id="结构化日志"><a href="#结构化日志" class="headerlink" title="结构化日志"></a>结构化日志</h1><p><a target="_blank" rel="noopener" href="https://docs.starrocks.io/zh/docs/administration/management/logs/#feauditlog">默认情况</a>下审计日志是以文本格式输出的，当然我们也可以使用一个<a target="_blank" rel="noopener" href="https://github.com/StarRocks/fe-plugins-auditloader">审计插件</a>，将审计日志写入到一张单独的表里供后续分析，也可以实现类似的效果。</p>
+<p>具体使用可以参考<a href="!%5B%5D(https://s2.loli.net/2025/11/12/WSwBQc964Jqbt5M.png)">官方文档</a>：<br><img src="https://s2.loli.net/2025/11/12/WSwBQc964Jqbt5M.png" srcset="/img/loading.gif" lazyload></p>
+<p>这里我们选择一个更简单的方法，我们可以将日志输出为 JSON 格式，然后再将其结构化，为每个字段创建索引，存入到单独的日志服务里。</p>
+<p><img src="https://s2.loli.net/2025/11/12/faJ8VBU5S6Kb2vs.png" srcset="/img/loading.gif" lazyload></p>
+<p>由于我们使用了云厂商的日志服务能力，只需要为这个日志文件（<strong>fe&#x2F;log&#x2F;fe.audit.log</strong>）配置一个采集服务，然后为其中的字段创建索引即可。</p>
+<p><img src="https://s2.loli.net/2025/11/12/nAfM7zPs3aFVo4L.png" srcset="/img/loading.gif" lazyload></p>
+<p>这样我们可以就可以通过云厂商提供的 grafna 插件将这里的日志作为一个数据源集成到 grafna 中。</p>
+<p>之后就可以在 <code>grafna</code> 中直接使用云厂商提供的查询语法来查询我们刚才的审计日志了。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql">IsQuery:&quot;true&quot;<span class="hljs-operator">|</span><span class="hljs-keyword">SELECT</span> QueryId,Stmt,<span class="hljs-type">Time</span>,CpuCostNs,MemCostBytes,ScanBytes,ScanRows,ReturnRows <span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> CpuCostNs <span class="hljs-keyword">DESC</span> LIMIT <span class="hljs-number">10</span><br></code></pre></td></tr></table></figure>
+
+<p>比如这样的查询语句含义是：限制为查询的 SQL（还有其他的 alter delete 等 SQL）、按照 CPU 耗时排序。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">CREATE TABLE</span> starrocks_audit_db__.starrocks_audit_tbl__ (<br>  `queryId` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">64</span>) COMMENT &quot;查询的唯一ID&quot;,<br>  `<span class="hljs-type">timestamp</span>` DATETIME <span class="hljs-keyword">NOT NULL</span> COMMENT &quot;查询开始时间&quot;,<br>  `queryType` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">12</span>) COMMENT &quot;查询类型（query, slow_query, connection）&quot;,<br>  `clientIp` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">32</span>) COMMENT &quot;客户端IP&quot;,<br>  `<span class="hljs-keyword">user</span>` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">64</span>) COMMENT &quot;查询用户名&quot;,<br>  `authorizedUser` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">64</span>) COMMENT &quot;用户唯一标识，既user_identity&quot;,<br>  `resourceGroup` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">64</span>) COMMENT &quot;资源组名&quot;,<br>  `catalog` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">32</span>) COMMENT &quot;数据目录名&quot;,<br>  `db` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">96</span>) COMMENT &quot;查询所在数据库&quot;,<br>  `state` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">8</span>) COMMENT &quot;查询状态（EOF，ERR，OK）&quot;,<br>  `errorCode` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">512</span>) COMMENT &quot;错误码&quot;,<br>  `queryTime` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询执行时间（毫秒）&quot;,<br>  `scanBytes` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询扫描的字节数&quot;,<br>  `scanRows` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询扫描的记录行数&quot;,<br>  `returnRows` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询返回的结果行数&quot;,<br>  `cpuCostNs` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询CPU耗时（纳秒）&quot;,<br>  `memCostBytes` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询消耗内存（字节）&quot;,<br>  `stmtId` <span class="hljs-type">INT</span> COMMENT &quot;SQL语句增量ID&quot;,<br>  `isQuery` TINYINT COMMENT &quot;SQL是否为查询（1或0）&quot;,<br>  `feIp` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">128</span>) COMMENT &quot;执行该语句的FE IP&quot;,<br>  `stmt` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">1048576</span>) COMMENT &quot;SQL原始语句&quot;,<br>  `digest` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">32</span>) COMMENT &quot;慢SQL指纹&quot;,<br>  `planCpuCosts` <span class="hljs-keyword">DOUBLE</span> COMMENT &quot;查询规划阶段CPU占用（纳秒）&quot;,<br>  `planMemCosts` <span class="hljs-keyword">DOUBLE</span> COMMENT &quot;查询规划阶段内存占用（字节）&quot;,<br>  `pendingTimeMs` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询在队列中等待的时间（毫秒）&quot;,<br>  `candidateMVs` <span class="hljs-type">varchar</span>(<span class="hljs-number">65533</span>) <span class="hljs-keyword">NULL</span> COMMENT &quot;候选MV列表&quot;,<br>  `hitMvs` <span class="hljs-type">varchar</span>(<span class="hljs-number">65533</span>) <span class="hljs-keyword">NULL</span> COMMENT &quot;命中MV列表&quot;,<br>  `warehouse` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">128</span>) <span class="hljs-keyword">NULL</span> COMMENT &quot;仓库名称&quot; <br>)<br></code></pre></td></tr></table></figure>
+<p>审计数据里的信息非常丰富，可以组合出各种查询条件。</p>
+<p>比如：</p>
+<ul>
+<li>限制查询时间大于多少，可以只查询慢 SQL</li>
+<li>根据内存占用排序</li>
+<li>执行失败的 SQL</li>
+</ul>
+<p>大家可以按需选择。</p>
+<h2 id="开源替换"><a href="#开源替换" class="headerlink" title="开源替换"></a>开源替换</h2><p>如果没有使用云厂商，一些开源组件也能满足以上需求：</p>
+<ul>
+<li>结构化存储日志</li>
+<li>根据字段创建索引</li>
+<li>类 SQL 查询</li>
+<li>支持 grafna 数据源，方便做可视化</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>服务名称</th>
+<th>索引能力</th>
+<th>查询语言</th>
+<th>Grafana 支持</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a target="_blank" rel="noopener" href="https://www.elastic.co/elasticsearch/"><strong>Elasticsearch</strong></a></td>
+<td>全文索引、倒排索引</td>
+<td>Elasticsearch DSL（类 SQL）</td>
+<td>官方插件，集成完善</td>
+<td>功能强大、生态成熟、搜索能力强</td>
+<td>资源占用大、运维成本高、JVM 调优复杂</td>
+<td>大规模日志搜索、全文检索</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://grafana.com/oss/loki/"><strong>Loki</strong></a></td>
+<td>仅索引标签（Label）</td>
+<td>LogQL</td>
+<td>原生支持，集成最佳</td>
+<td>轻量级、成本低、与 Grafana 生态完美</td>
+<td>全文搜索能力弱、不适合复杂查询</td>
+<td>中小规模、成本敏感、Grafana 用户</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://clickhouse.com/"><strong>ClickHouse</strong></a></td>
+<td>主键索引、二级索引、跳数索引</td>
+<td>标准 SQL</td>
+<td>官方插件支持</td>
+<td>查询速度极快、擅长 OLAP、支持复杂聚合</td>
+<td>不适合高频更新、需要结构化设计</td>
+<td>结构化日志分析、大数据量聚合查询</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://opensearch.org/"><strong>OpenSearch</strong></a></td>
+<td>全文索引、倒排索引</td>
+<td>OpenSearch DSL（兼容 ES）</td>
+<td>兼容 ES 插件</td>
+<td>完全开源、无商业限制、功能与 ES 相近</td>
+<td>社区相对较小、资源占用仍较大</td>
+<td>ES 的开源替代方案</td>
+</tr>
+</tbody></table>
+<h1 id="内部日志支持-JSON"><a href="#内部日志支持-JSON" class="headerlink" title="内部日志支持 JSON"></a>内部日志支持 JSON</h1><p>StarRocks 还有定期执行的内部 SQL，目前这些 SQL 也是会记录日志，但只是记录的纯文本，无法很好的对其进行监控。</p>
+<p>我们就出现过内部 SQL 大量占用了 CN 的 CPU 资源，将它的执行时间控制到 <code>00:00:00~08:00:00</code> 之后就会好很多了，只是不会影响到白天的业务使用。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/**  </span><br><span class="hljs-comment"> * The start time of day when auto-updates are enabled */</span><span class="hljs-meta">@ConfField(mutable = true)</span>  <br><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-type">String</span> <span class="hljs-variable">statistic_auto_analyze_start_time</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;00:00:00&quot;</span>;  <br>  <br><span class="hljs-comment">/**  </span><br><span class="hljs-comment"> * The end time of day when auto-updates are enabled */</span><span class="hljs-meta">@ConfField(mutable = true)</span>  <br><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-type">String</span> <span class="hljs-variable">statistic_auto_analyze_end_time</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;23:59:59&quot;</span>;<br></code></pre></td></tr></table></figure>
+
+<p>主要是这两个配置控制的时间范围，修改之后 CN CPU 使用有明显的下降：<br><img src="https://s2.loli.net/2025/11/13/U6xir9sYCnVLhjg.png" srcset="/img/loading.gif" lazyload></p>
+<p>为了方便后续对这部分内部 SQL 进行监控，提交了一个 <a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/64660">PR</a> 用于支持内部日志输出 JSON，这样采集日志之后就可以参考上面的审计日志对内部 SQL 进行监控了。</p>
+<p>#Blog </p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/OB/" class="category-chain-item">OB</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/OB/StarRocks/" class="category-chain-item">StarRocks</a>
+  
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/StarRocks/" class="print-no-link">#StarRocks</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>StarRocks 如何监控 SQL</div>
+      <div>http://crossoverjie.top/2025/11/25/starrocks/StarRocks-SQL-monitor/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>November 25, 2025</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2025/11/25/OpenTelemetry/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/" title="持续剖析超级增强：将 Trace/ Span 和 Profile 整合打通">
+                        <span class="hidden-mobile">持续剖析超级增强：将 Trace/ Span 和 Profile 整合打通</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2025/11/25/starrocks/StarRocks-SQL-monitor/';
+          this.page.identifier = '/2025/11/25/starrocks/StarRocks-SQL-monitor/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>
