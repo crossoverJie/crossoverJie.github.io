@@ -19,26 +19,26 @@
   <meta name="author" content="crossoverJie">
   <meta name="keywords" content="">
   
-    <meta name="description" content="最近在做持续剖析 Profile 与链路系统打通的工作，就查到了 grafana 在 24 年初写的这篇文章；觉得比较有参考意义，在这里分享给大家。  原文链接：https:&#x2F;&#x2F;grafana.com&#x2F;blog&#x2F;2024&#x2F;02&#x2F;06&#x2F;combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profil">
+    <meta name="description" content="StarRocks 监控中有一个很关键的指标，就是针对慢 SQL 的监控。 在 StarRocks 中审计日志记录了所有用户的查询和连接信息，理论上我们只需要对这些日志进行分析就可以得到相关的慢 SQL，高 CPU、高内存的 SQL 信息。 类似于这样的监控界面：">
 <meta property="og:type" content="article">
-<meta property="og:title" content="持续剖析超级增强：将 Trace&#x2F; Span 和 Profile 整合打通">
-<meta property="og:url" content="http://crossoverjie.top/2025/11/26/OpenTelemetry/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/index.html">
+<meta property="og:title" content="StarRocks 如何监控 SQL">
+<meta property="og:url" content="http://crossoverjie.top/2025/11/12/starrocks/StarRocks-SQL-monitor/index.html">
 <meta property="og:site_name" content="crossoverJie&#39;s Blog">
-<meta property="og:description" content="最近在做持续剖析 Profile 与链路系统打通的工作，就查到了 grafana 在 24 年初写的这篇文章；觉得比较有参考意义，在这里分享给大家。  原文链接：https:&#x2F;&#x2F;grafana.com&#x2F;blog&#x2F;2024&#x2F;02&#x2F;06&#x2F;combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profil">
+<meta property="og:description" content="StarRocks 监控中有一个很关键的指标，就是针对慢 SQL 的监控。 在 StarRocks 中审计日志记录了所有用户的查询和连接信息，理论上我们只需要对这些日志进行分析就可以得到相关的慢 SQL，高 CPU、高内存的 SQL 信息。 类似于这样的监控界面：">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="https://s2.loli.net/2025/11/25/nPdSi97fwrvZY8M.png">
-<meta property="article:published_time" content="2025-11-26T03:03:33.632Z">
-<meta property="article:modified_time" content="2025-11-26T03:03:33.632Z">
+<meta property="og:image" content="https://s2.loli.net/2025/11/13/ANcQBtkIe34hRjW.png">
+<meta property="article:published_time" content="2025-11-12T17:56:51.000Z">
+<meta property="article:modified_time" content="2025-11-26T03:17:58.077Z">
 <meta property="article:author" content="crossoverJie">
-<meta property="article:tag" content="OpenTelemetry">
+<meta property="article:tag" content="StarRocks">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://s2.loli.net/2025/11/25/nPdSi97fwrvZY8M.png">
+<meta name="twitter:image" content="https://s2.loli.net/2025/11/13/ANcQBtkIe34hRjW.png">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>持续剖析超级增强：将 Trace/ Span 和 Profile 整合打通 - crossoverJie&#39;s Blog</title>
+  <title>StarRocks 如何监控 SQL - crossoverJie&#39;s Blog</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -260,13 +260,13 @@
   
 
 <div id="banner" class="banner" parallax=true
-     style="background: url('https://s2.loli.net/2025/11/25/nPdSi97fwrvZY8M.png') no-repeat center center; background-size: cover;">
+     style="background: url('https://s2.loli.net/2025/11/13/ANcQBtkIe34hRjW.png') no-repeat center center; background-size: cover;">
   <div class="full-bg-img">
     <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="持续剖析超级增强：将 Trace/ Span 和 Profile 整合打通"></span>
+            <span id="subtitle" data-typed-text="StarRocks 如何监控 SQL"></span>
           
         </div>
 
@@ -282,8 +282,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2025-11-26 03:03" pubdate>
-          November 26, 2025 am
+        <time datetime="2025-11-12 17:56" pubdate>
+          November 12, 2025 pm
         </time>
       </span>
     
@@ -294,7 +294,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.5k words
+          1.4k words
         
       </span>
     
@@ -305,7 +305,7 @@
         
         
         
-          13 mins
+          12 mins
         
       </span>
     
@@ -351,66 +351,100 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">持续剖析超级增强：将 Trace/ Span 和 Profile 整合打通</h1>
+            <h1 id="seo-header">StarRocks 如何监控 SQL</h1>
             
             
               <div class="markdown-body">
                 
-                <blockquote>
-<p>最近在做持续剖析 Profile 与链路系统打通的工作，就查到了 grafana 在 24 年初写的这篇文章；觉得比较有参考意义，在这里分享给大家。</p>
-</blockquote>
-<p>原文链接：<a target="_blank" rel="noopener" href="https://grafana.com/blog/2024/02/06/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/">https://grafana.com/blog/2024/02/06/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/</a></p>
-<p>在当今复杂的数据环境中，连续剖析（continuous profiling）已成为获取应用资源使用情况细粒度洞察的关键。Grafana Labs 现通过在 <a href="/blog/2024/01/23/grafana-10.3-release-canvas-panel-updates-multi-stack-data-sources-and-more/">Grafana 10.3</a> 中引入 Span Profiles 功能，将这工作持续推进。</p>
+                <p>StarRocks 监控中有一个很关键的指标，就是针对慢 SQL 的监控。</p>
+<p>在 StarRocks 中审计日志记录了所有用户的查询和连接信息，理论上我们只需要对这些日志进行分析就可以得到相关的慢 SQL，高 CPU、高内存的 SQL 信息。</p>
+<p>类似于这样的监控界面：<br><img src="https://s2.loli.net/2025/11/12/CJEwAz732myrd9H.png" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://s2.loli.net/2025/11/12/5l9ND3Bcve2GWb7.png" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://s2.loli.net/2025/11/12/UTyBDHtgX1Ariwm.png" srcset="/img/loading.gif" lazyload><br><img src="https://s2.loli.net/2025/11/12/SVpLiCIZvf4Bj2u.png" srcset="/img/loading.gif" lazyload></p>
 <span id="more"></span>
+<p>由于这些数据都是存放在日志文件里的我们想把他拿到 <code>grafna</code> 里展示的话得额外处理下。</p>
+<h1 id="结构化日志"><a href="#结构化日志" class="headerlink" title="结构化日志"></a>结构化日志</h1><p><a target="_blank" rel="noopener" href="https://docs.starrocks.io/zh/docs/administration/management/logs/#feauditlog">默认情况</a>下审计日志是以文本格式输出的，当然我们也可以使用一个<a target="_blank" rel="noopener" href="https://github.com/StarRocks/fe-plugins-auditloader">审计插件</a>，将审计日志写入到一张单独的表里供后续分析，也可以实现类似的效果。</p>
+<p>具体使用可以参考<a href="!%5B%5D(https://s2.loli.net/2025/11/12/WSwBQc964Jqbt5M.png)">官方文档</a>：<br><img src="https://s2.loli.net/2025/11/12/WSwBQc964Jqbt5M.png" srcset="/img/loading.gif" lazyload></p>
+<p>这里我们选择一个更简单的方法，我们可以将日志输出为 JSON 格式，然后再将其结构化，为每个字段创建索引，存入到单独的日志服务里。</p>
+<p><img src="https://s2.loli.net/2025/11/12/faJ8VBU5S6Kb2vs.png" srcset="/img/loading.gif" lazyload></p>
+<p>由于我们使用了云厂商的日志服务能力，只需要为这个日志文件（<strong>fe&#x2F;log&#x2F;fe.audit.log</strong>）配置一个采集服务，然后为其中的字段创建索引即可。</p>
+<p><img src="https://s2.loli.net/2025/11/12/nAfM7zPs3aFVo4L.png" srcset="/img/loading.gif" lazyload></p>
+<p>这样我们可以就可以通过云厂商提供的 grafna 插件将这里的日志作为一个数据源集成到 grafna 中。</p>
+<p>之后就可以在 <code>grafna</code> 中直接使用云厂商提供的查询语法来查询我们刚才的审计日志了。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql">IsQuery:&quot;true&quot;<span class="hljs-operator">|</span><span class="hljs-keyword">SELECT</span> QueryId,Stmt,<span class="hljs-type">Time</span>,CpuCostNs,MemCostBytes,ScanBytes,ScanRows,ReturnRows <span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> CpuCostNs <span class="hljs-keyword">DESC</span> LIMIT <span class="hljs-number">10</span><br></code></pre></td></tr></table></figure>
 
-<p>Span Profiles 代表着剖析方法学上的一次重大转变，它让我们能够对追踪（tracing）和剖析（profiling）数据进行更深入的联合分析。传统的连续剖析是在固定时间区间内提供全局系统视角；相比之下，Span Profiles 可以对应用内部特定执行作用域（execution scope）进行更聚焦的分析，例如单个请求或某个特定的 trace span 分析它的 Profile。</p>
-<p>这一转变带来了更精细的性能视角：通过将剖析数据与 trace 直接关联，帮助我们更全面地理解应用行为。由此，工程团队可以更高效地识别并解决性能瓶颈。</p>
-<p><img src="https://s2.loli.net/2025/11/25/nPdSi97fwrvZY8M.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
-<p>在我们于 Grafana Labs 内部采用这一集成的 “trace-to-profile” 方法的第一个月中，CPU 利用率提升了 4 倍，对对象存储的 API 调用减少了 3 倍，同时还降低了成本（详见下文）——因此，我们非常高兴能向社区推出这一特性！</p>
-<hr>
-<h2 id="与-Grafana-Trace-视图集成：无缝体验"><a href="#与-Grafana-Trace-视图集成：无缝体验" class="headerlink" title="与 Grafana Trace 视图集成：无缝体验"></a>与 Grafana Trace 视图集成：无缝体验</h2><p>借助 Span Profiles，你可以在执行作用域<strong>内部</strong>挖掘具体的性能细节。比如，以前你只知道某个 span 花了 400ms，现在则能进一步了解：在这 400ms 里<strong>具体是哪部分代码</strong>在运行；从而更快的知道性能瓶颈</p>
-<p><img src="https://s2.loli.net/2025/11/25/cC9VkwNpOSXqd8v.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
-<blockquote>
-<p>使用 Span Profiles 的 flamegraph 截图。</p>
-</blockquote>
-<p>这种有针对性的方式，让你可以比以往更细粒度地剖析性能指标。通过聚焦于单个请求或单个 trace span，Span Profiles 为你提供了一扇直接洞察应用性能关键部分的窗口。</p>
-<p>Span Profiles 与 Grafana <a href="/docs/grafana/latest/explore/trace-integration/?pg=blog&plcmt=body-txt/#trace-view">trace 视图</a> 的集成，为用户带来无缝体验：你可以轻松地从高层级的 trace 概览，切换到对某个具体 trace span 进行深入分析。</p>
-<p>引入 Span Profiles 不仅是一次技术上的飞跃，同时也有非常可观的业务和投资回报（ROI）价值。</p>
-<p>通过帮助团队更快地识别并解决性能问题，Span Profiles 减少了排障所需的时间和资源投入。这种效率的提升带来显著的成本节约，让 Span Profiles 成为既能优化应用性能，又能降低运维成本的有力工具。</p>
-<hr>
-<h2 id="Grafana-Labs-内部的真实案例"><a href="#Grafana-Labs-内部的真实案例" class="headerlink" title="Grafana Labs 内部的真实案例"></a>Grafana Labs 内部的真实案例</h2><p>为了更直观地展示 Span Profiles 的业务价值，下面是我们在 Grafana Labs 内部使用该特性的一个实际案例。</p>
-<p>几个月前，<a href="/oss/pyroscope/https://grafana.com/oss/pyroscope/">Grafana Pyroscope</a> 团队（Pyroscope 是支撑 <a target="_blank" rel="noopener" href="https://grafana.com/products/cloud/profiles-for-continuous-profiling/">Grafana Cloud Profiles</a> 的开源连续剖析数据库）在数据库架构中新增了 <a target="_blank" rel="noopener" href="https://grafana.com/docs/pyroscope/latest/reference-pyroscope-architecture/components/compactor/?pg=blog&plcmt=body-txt">compactor 组件</a>，带来了显著的性能和成本收益。</p>
-<p>compactor 会通过合并多个 block 来提升查询性能，并减少长期存储的使用。它在为每个租户将多个 block 压缩成单个优化 block 的过程中扮演关键角色，这不仅降低了存储成本，也加快了查询速度。</p>
-<p><img src="https://s2.loli.net/2025/11/25/KB2n4rPfl657XdY.png" srcset="/img/loading.gif" lazyload></p>
-<blockquote>
-<p>compactor 组件结构图。</p>
-</blockquote>
-<p>然而，压缩过程本身非常复杂——包括竖向压缩、横向压缩以及拆分与合并（split-and-merge）策略等多个阶段——这些都带来了一些挑战，尤其是与性能瓶颈相关的挑战。例如，在密集的压缩操作期间，CPU 和内存使用可能会出现明显峰值，存储 IO 需求也会显著增加，从而可能影响整体系统稳定性。此外，在拥有大量租户的大规模集群中，管理和优化这些大规模压缩任务所需的资源也非常复杂。而这正是 Span Profiles 功能展现其独特优势的地方。</p>
-<p>通过对每一次压缩运行进行详细剖析，Span Profiles 能够在 trace 视图中直接提供按函数维度划分的 CPU 使用情况。这种与 trace 视图相结合的细节信息至关重要：它不仅能指出压缩过程的哪个阶段出现了瓶颈，还能告诉你每一次压缩影响到了哪些用户。</p>
-<p><img src="https://s2.loli.net/2025/11/25/xdWDUFrKRZO3h7q.png" srcset="/img/loading.gif" lazyload></p>
-<blockquote>
-<p>展示不同压缩操作对用户影响的 flamegraph。</p>
-</blockquote>
-<p>例如，我们发现由于符号信息的影响，一级（level 1）压缩是一个主要瓶颈；同时，我们也识别出每次运行中存在过度的 block 同步问题。有了这些数据，我们随之对压缩算法做出了有针对性的调整。<strong>改动带来的效果立竿见影：压缩时间减少了 4 倍，对对象存储的 API 调用量减少了 3 倍。</strong></p>
-<p><img src="https://s2.loli.net/2025/11/25/EoS4wz6rinK5aAN.png" srcset="/img/loading.gif" lazyload></p>
-<blockquote>
-<p>对象存储 API 调用量下降的仪表板截图。</p>
-</blockquote>
-<p>如果只看 GET 请求的减少，节省就已经非常可观。以 Google Cloud Storage Class B&#x2F;GET 的费用来计算，这些调整每月大约节省了 8,000 美元（计算方式为：0.0004 美元&#x2F;次 GET 请求 * 每分钟节省 400 次请求 * 60 分钟 * 24 小时 * 31 天）。</p>
-<p>Span Profiles 功能为应用剖析翻开了新篇章。通过在特定执行作用域上提供详细洞察，它彻底改变了性能问题的识别与解决方式。</p>
-<hr>
-<h2 id="如何开始使用-Span-Profiles"><a href="#如何开始使用-Span-Profiles" class="headerlink" title="如何开始使用 Span Profiles"></a>如何开始使用 Span Profiles</h2><p>Span Profiles 目前已经在 <a href="/docs/grafana-cloud/?pg=blog&plcmt=body-txt">Grafana Cloud</a> 和 <a href="/docs/grafana/latest/whatsnew/whats-new-in-v10-3/?pg=blog&plcmt=body-txt">Grafana 10.3</a> 中提供。想要进一步了解这一特性，你可以参考我们的<a href="/docs/grafana-cloud/connect-externally-hosted/data-sources/tempo/configure-tempo-data-source/#trace-to-profiles">技术文档</a>，以及以下入门资源：</p>
+<p>比如这样的查询语句含义是：限制为查询的 SQL（还有其他的 alter delete 等 SQL）、按照 CPU 耗时排序。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">CREATE TABLE</span> starrocks_audit_db__.starrocks_audit_tbl__ (<br>  `queryId` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">64</span>) COMMENT &quot;查询的唯一ID&quot;,<br>  `<span class="hljs-type">timestamp</span>` DATETIME <span class="hljs-keyword">NOT NULL</span> COMMENT &quot;查询开始时间&quot;,<br>  `queryType` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">12</span>) COMMENT &quot;查询类型（query, slow_query, connection）&quot;,<br>  `clientIp` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">32</span>) COMMENT &quot;客户端IP&quot;,<br>  `<span class="hljs-keyword">user</span>` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">64</span>) COMMENT &quot;查询用户名&quot;,<br>  `authorizedUser` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">64</span>) COMMENT &quot;用户唯一标识，既user_identity&quot;,<br>  `resourceGroup` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">64</span>) COMMENT &quot;资源组名&quot;,<br>  `catalog` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">32</span>) COMMENT &quot;数据目录名&quot;,<br>  `db` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">96</span>) COMMENT &quot;查询所在数据库&quot;,<br>  `state` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">8</span>) COMMENT &quot;查询状态（EOF，ERR，OK）&quot;,<br>  `errorCode` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">512</span>) COMMENT &quot;错误码&quot;,<br>  `queryTime` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询执行时间（毫秒）&quot;,<br>  `scanBytes` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询扫描的字节数&quot;,<br>  `scanRows` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询扫描的记录行数&quot;,<br>  `returnRows` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询返回的结果行数&quot;,<br>  `cpuCostNs` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询CPU耗时（纳秒）&quot;,<br>  `memCostBytes` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询消耗内存（字节）&quot;,<br>  `stmtId` <span class="hljs-type">INT</span> COMMENT &quot;SQL语句增量ID&quot;,<br>  `isQuery` TINYINT COMMENT &quot;SQL是否为查询（1或0）&quot;,<br>  `feIp` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">128</span>) COMMENT &quot;执行该语句的FE IP&quot;,<br>  `stmt` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">1048576</span>) COMMENT &quot;SQL原始语句&quot;,<br>  `digest` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">32</span>) COMMENT &quot;慢SQL指纹&quot;,<br>  `planCpuCosts` <span class="hljs-keyword">DOUBLE</span> COMMENT &quot;查询规划阶段CPU占用（纳秒）&quot;,<br>  `planMemCosts` <span class="hljs-keyword">DOUBLE</span> COMMENT &quot;查询规划阶段内存占用（字节）&quot;,<br>  `pendingTimeMs` <span class="hljs-type">BIGINT</span> COMMENT &quot;查询在队列中等待的时间（毫秒）&quot;,<br>  `candidateMVs` <span class="hljs-type">varchar</span>(<span class="hljs-number">65533</span>) <span class="hljs-keyword">NULL</span> COMMENT &quot;候选MV列表&quot;,<br>  `hitMvs` <span class="hljs-type">varchar</span>(<span class="hljs-number">65533</span>) <span class="hljs-keyword">NULL</span> COMMENT &quot;命中MV列表&quot;,<br>  `warehouse` <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">128</span>) <span class="hljs-keyword">NULL</span> COMMENT &quot;仓库名称&quot; <br>)<br></code></pre></td></tr></table></figure>
+<p>审计数据里的信息非常丰富，可以组合出各种查询条件。</p>
+<p>比如：</p>
 <ul>
-<li><a href="/docs/pyroscope/latest/configure-client/?pg=blog&plcmt=body-txt">配置 Pyroscope 以发送剖析数据</a>  </li>
-<li>配置客户端包以将 trace 与 profile 关联：  <ul>
-<li><a target="_blank" rel="noopener" href="https://github.com/grafana/otel-profiling-go">Go</a>  </li>
-<li><a target="_blank" rel="noopener" href="https://github.com/grafana/otel-profiling-ruby">Ruby</a>  </li>
-<li><a target="_blank" rel="noopener" href="https://github.com/grafana/otel-profiling-java">Java</a></li>
+<li>限制查询时间大于多少，可以只查询慢 SQL</li>
+<li>根据内存占用排序</li>
+<li>执行失败的 SQL</li>
 </ul>
-</li>
-<li><a href="/docs/grafana-cloud/connect-externally-hosted/data-sources/tempo/configure-tempo-data-source/?pg=blog&plcmt=body-txt">配置 Tempo 以发现已关联的 traces 和 profiles</a></li>
+<p>大家可以按需选择。</p>
+<h2 id="开源替换"><a href="#开源替换" class="headerlink" title="开源替换"></a>开源替换</h2><p>如果没有使用云厂商，一些开源组件也能满足以上需求：</p>
+<ul>
+<li>结构化存储日志</li>
+<li>根据字段创建索引</li>
+<li>类 SQL 查询</li>
+<li>支持 grafna 数据源，方便做可视化</li>
 </ul>
-<p>更多关于 Span Profile 的具体使用案例会在继续更新。</p>
+<table>
+<thead>
+<tr>
+<th>服务名称</th>
+<th>索引能力</th>
+<th>查询语言</th>
+<th>Grafana 支持</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a target="_blank" rel="noopener" href="https://www.elastic.co/elasticsearch/"><strong>Elasticsearch</strong></a></td>
+<td>全文索引、倒排索引</td>
+<td>Elasticsearch DSL（类 SQL）</td>
+<td>官方插件，集成完善</td>
+<td>功能强大、生态成熟、搜索能力强</td>
+<td>资源占用大、运维成本高、JVM 调优复杂</td>
+<td>大规模日志搜索、全文检索</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://grafana.com/oss/loki/"><strong>Loki</strong></a></td>
+<td>仅索引标签（Label）</td>
+<td>LogQL</td>
+<td>原生支持，集成最佳</td>
+<td>轻量级、成本低、与 Grafana 生态完美</td>
+<td>全文搜索能力弱、不适合复杂查询</td>
+<td>中小规模、成本敏感、Grafana 用户</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://clickhouse.com/"><strong>ClickHouse</strong></a></td>
+<td>主键索引、二级索引、跳数索引</td>
+<td>标准 SQL</td>
+<td>官方插件支持</td>
+<td>查询速度极快、擅长 OLAP、支持复杂聚合</td>
+<td>不适合高频更新、需要结构化设计</td>
+<td>结构化日志分析、大数据量聚合查询</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://opensearch.org/"><strong>OpenSearch</strong></a></td>
+<td>全文索引、倒排索引</td>
+<td>OpenSearch DSL（兼容 ES）</td>
+<td>兼容 ES 插件</td>
+<td>完全开源、无商业限制、功能与 ES 相近</td>
+<td>社区相对较小、资源占用仍较大</td>
+<td>ES 的开源替代方案</td>
+</tr>
+</tbody></table>
+<h1 id="内部日志支持-JSON"><a href="#内部日志支持-JSON" class="headerlink" title="内部日志支持 JSON"></a>内部日志支持 JSON</h1><p>StarRocks 还有定期执行的内部 SQL，目前这些 SQL 也是会记录日志，但只是记录的纯文本，无法很好的对其进行监控。</p>
+<p>我们就出现过内部 SQL 大量占用了 CN 的 CPU 资源，将它的执行时间控制到 <code>00:00:00~08:00:00</code> 之后就会好很多了，只是不会影响到白天的业务使用。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/**  </span><br><span class="hljs-comment"> * The start time of day when auto-updates are enabled */</span><span class="hljs-meta">@ConfField(mutable = true)</span>  <br><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-type">String</span> <span class="hljs-variable">statistic_auto_analyze_start_time</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;00:00:00&quot;</span>;  <br>  <br><span class="hljs-comment">/**  </span><br><span class="hljs-comment"> * The end time of day when auto-updates are enabled */</span><span class="hljs-meta">@ConfField(mutable = true)</span>  <br><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-type">String</span> <span class="hljs-variable">statistic_auto_analyze_end_time</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;23:59:59&quot;</span>;<br></code></pre></td></tr></table></figure>
+
+<p>主要是这两个配置控制的时间范围，修改之后 CN CPU 使用有明显的下降：<br><img src="https://s2.loli.net/2025/11/13/U6xir9sYCnVLhjg.png" srcset="/img/loading.gif" lazyload></p>
+<p>为了方便后续对这部分内部 SQL 进行监控，提交了一个 <a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/64660">PR</a> 用于支持内部日志输出 JSON，这样采集日志之后就可以参考上面的审计日志对内部 SQL 进行监控了。</p>
 <p>#Blog </p>
 
                 
@@ -435,7 +469,7 @@
   
     <span>></span>
     
-  <a href="/categories/OB/OpenTelemetry/" class="category-chain-item">OpenTelemetry</a>
+  <a href="/categories/OB/StarRocks/" class="category-chain-item">StarRocks</a>
   
   
 
@@ -452,7 +486,7 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/OpenTelemetry/" class="print-no-link">#OpenTelemetry</a>
+        <a href="/tags/StarRocks/" class="print-no-link">#StarRocks</a>
       
     </div>
   
@@ -464,8 +498,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>持续剖析超级增强：将 Trace/ Span 和 Profile 整合打通</div>
-      <div>http://crossoverjie.top/2025/11/26/OpenTelemetry/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/</div>
+      <div>StarRocks 如何监控 SQL</div>
+      <div>http://crossoverjie.top/2025/11/12/starrocks/StarRocks-SQL-monitor/</div>
     </div>
     <div class="license-meta">
       
@@ -477,7 +511,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>Posted on</div>
-          <div>November 26, 2025</div>
+          <div>November 12, 2025</div>
         </div>
       
       
@@ -509,9 +543,9 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2025/11/26/starrocks/StarRocks-SQL-monitor/" title="StarRocks 如何监控 SQL">
+                      <a href="/2025/11/25/OpenTelemetry/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/" title="持续剖析超级增强：将 Trace/ Span 和 Profile 整合打通">
                         <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">StarRocks 如何监控 SQL</span>
+                        <span class="hidden-mobile">持续剖析超级增强：将 Trace/ Span 和 Profile 整合打通</span>
                         <span class="visible-mobile">Previous</span>
                       </a>
                     
@@ -540,8 +574,8 @@
     
       <script type="text/javascript">
         var disqus_config = function() {
-          this.page.url = 'http://crossoverjie.top/2025/11/26/OpenTelemetry/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/';
-          this.page.identifier = '/2025/11/26/OpenTelemetry/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/';
+          this.page.url = 'http://crossoverjie.top/2025/11/12/starrocks/StarRocks-SQL-monitor/';
+          this.page.identifier = '/2025/11/12/starrocks/StarRocks-SQL-monitor/';
         };
         Fluid.utils.loadComments('#disqus_thread', function() {
           var d = document, s = d.createElement('script');
