@@ -1,6 +1,6 @@
 ---
 title: StarRocks 如何监控 SQL
-Date: 2025/11/12 17:56:51
+date: 2025/11/12 17:56:51
 categories:
   - OB
   - StarRocks
