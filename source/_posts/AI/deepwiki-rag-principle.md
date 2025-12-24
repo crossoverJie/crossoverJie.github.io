@@ -8,7 +8,6 @@ tags:
 banner_img: https://s2.loli.net/2025/12/24/MBD6nmwPbtqTvx9.png
 index_img: https://s2.loli.net/2025/12/24/MBD6nmwPbtqTvx9.png
 ---
-![](https://s2.loli.net/2025/12/24/MBD6nmwPbtqTvx9.png)
 
 上一篇文章：[大模型应用开发必需了解的基本概念](https://crossoverjie.top/2025/12/23/AI/LLM-app-concept/) 分享了关于 LLM 大模型应用开发的一些基础知识，本文乘热打铁，借助一个真实的大模型应用来分析下其中的流程
 
