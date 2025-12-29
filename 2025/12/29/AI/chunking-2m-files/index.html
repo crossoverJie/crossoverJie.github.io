@@ -1,0 +1,889 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="原文链接：https:&#x2F;&#x2F;github.com&#x2F;sweepai&#x2F;sweep&#x2F;blob&#x2F;main&#x2F;docs&#x2F;pages&#x2F;blogs&#x2F;chunking-2m-files.mdx  最近在研究 Code Splitter 的算法，发现 llama_index 的代码分割使用的是 sweepai 的代码分割算法，同时还提供了一篇博客，也就有了这篇文章。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AI 如何用 AST 每天对 200 万+ 文件做高质量分块（用于代码搜索）">
+<meta property="og:url" content="http://crossoverjie.top/2025/12/29/AI/chunking-2m-files/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="原文链接：https:&#x2F;&#x2F;github.com&#x2F;sweepai&#x2F;sweep&#x2F;blob&#x2F;main&#x2F;docs&#x2F;pages&#x2F;blogs&#x2F;chunking-2m-files.mdx  最近在研究 Code Splitter 的算法，发现 llama_index 的代码分割使用的是 sweepai 的代码分割算法，同时还提供了一篇博客，也就有了这篇文章。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2025/12/29/4WHveihZ6utrx9O.png">
+<meta property="article:published_time" content="2025-12-29T17:56:51.000Z">
+<meta property="article:modified_time" content="2025-12-29T08:38:08.153Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="AI">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2025/12/29/4WHveihZ6utrx9O.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>AI 如何用 AST 每天对 200 万+ 文件做高质量分块（用于代码搜索） - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":"G-930V538KP1"},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+    <!-- Google tag (gtag.js) -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript("https://www.googletagmanager.com/gtag/js?id=G-930V538KP1", function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            dataLayer.push(arguments);
+          }
+          gtag('js', new Date());
+          gtag('config', 'G-930V538KP1');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/12/29/4WHveihZ6utrx9O.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="AI 如何用 AST 每天对 200 万+ 文件做高质量分块（用于代码搜索）"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-12-29 17:56" pubdate>
+          December 29, 2025 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.7k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          23 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">AI 如何用 AST 每天对 200 万+ 文件做高质量分块（用于代码搜索）</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://s2.loli.net/2025/12/29/4WHveihZ6utrx9O.png" srcset="/img/loading.gif" lazyload></p>
+<p>原文链接：<a target="_blank" rel="noopener" href="https://github.com/sweepai/sweep/blob/main/docs/pages/blogs/chunking-2m-files.mdx">https://github.com/sweepai/sweep/blob/main/docs/pages/blogs/chunking-2m-files.mdx</a></p>
+<hr>
+<p>最近在研究 Code Splitter 的算法，发现 <a target="_blank" rel="noopener" href="https://developers.llamaindex.ai/python/framework/module_guides/loading/node_parsers/modules/#codesplitter">llama_index</a> 的代码分割使用的是 sweepai 的代码分割算法，同时还提供了一篇博客，也就有了这篇文章。</p>
+<p><img src="https://s2.loli.net/2025/12/29/pVsnHRh3FUacw5e.png" srcset="/img/loading.gif" lazyload></p>
+<span id="more"></span>
+
+<p>初始化任何向量存储都需要对大型文档进行切分（chunking）以进行高效搜索。</p>
+<p>为什么不能直接对整个文件做嵌入（embed）？以我们主 API 的 <a target="_blank" rel="noopener" href="https://github.com/sweepai/sweep/blob/b267b613d4c706eaf959fe6789f11e9a856521d1/sweepai/api.py">endpoint 文件</a> 为例：</p>
+<ol>
+<li>导入包</li>
+<li>常量声明</li>
+<li>辅助函数</li>
+<li>每个 webhook endpoint 的业务逻辑</li>
+</ol>
+<p>如果我搜索 “GitHub Action run”，它应该匹配检查 “check_runs completed” 事件的那个 switch case 块（参见 <a target="_blank" rel="noopener" href="https://github.com/sweepai/sweep/blob/b267b613d4c706eaf959fe6789f11e9a856521d1/sweepai/api.py#L295-L313">代码片段</a>）。但那只是 400 多行代码中的大约 20 行，即使是完美的搜索算法也只会把相似性视为 5%。如果我们把 400 行切成 20 个每个 20 行的块，就更容易匹配到正确的 switch case 块。</p>
+<p><img src="https://s2.loli.net/2025/12/29/GPSgUirMceTzKQ6.png" srcset="/img/loading.gif" lazyload></p>
+<p>那我们如何产生 20 行的块？一个简单的办法是均匀地把 400 行切成每 20 行一块。</p>
+<p>但是，这种方法行不通。语义上相关的代码不会被保留在一起，且会丢失上下文。例如，函数头可能会被和实现体分离。</p>
+<p>我们当前的代码切分算法每天处理 <strong>200 万+ 文件</strong>，并且已经<a target="_blank" rel="noopener" href="https://github.com/sweepai/sweep/blob/b267b613d4c706eaf959fe6789f11e9a856521d1/sweepai/utils/utils.py#L48-L126">开源了</a>！</p>
+<h2 id="约束-🚧"><a href="#约束-🚧" class="headerlink" title="约束 🚧"></a>约束 🚧</h2><p>大多数用于 RAG（检索增强生成）的切分器按 token 数量做上限。为简化处理，我们决定使用字符数，上限设为 1500。</p>
+<p>这是因为代码的平均 token 与字符比约为 1:5（300 tokens），而嵌入模型通常受 512 tokens 限制。进一步地，1500 字符大约对应 40 行，大致等同于一个小到中等大小的函数或类。</p>
+<p>挑战在于尽可能接近 1500 字符，同时保证块在语义上保持一致且相关上下文被保留。</p>
+<h2 id="开箱即用的解决方案-📦"><a href="#开箱即用的解决方案-📦" class="headerlink" title="开箱即用的解决方案 📦"></a>开箱即用的解决方案 📦</h2><p>最简单的现成解决方案是 <a target="_blank" rel="noopener" href="https://reference.langchain.com/python/langchain_text_splitters/?_gl=1*1wsspz*_gcl_au*MTQxMjAyNDczOS4xNzY1NDQ2MTUx*_ga*NDcyOTM2OTM2LjE3NjU0NDYxNTI.*_ga_47WX3HKKY2*czE3NjY0NjkxODUkbzYkZzEkdDE3NjY0NzA0MDkkajYwJGwwJGgw#langchain_text_splitters.RecursiveCharacterTextSplitter.split_text">Langchain 的递归切分器（recursive chunker）</a>。总体思路：</p>
+<ol>
+<li>用顶层分隔符拆分文本（先用 class，然后是 function 定义，然后是方法等）</li>
+<li>迭代每个区块并贪心地把它们串联直到超过字符限制。对于过大的区块，使用下一级分隔符递归切分。</li>
+</ol>
+<p>示例伪代码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs python">delimiters = [<span class="hljs-string">&quot;\nclass &quot;</span>, <span class="hljs-string">&quot;\ndef &quot;</span>, <span class="hljs-string">&quot;\n\tdef &quot;</span>, <span class="hljs-string">&quot;\n\n&quot;</span>, <span class="hljs-string">&quot;\n&quot;</span>, <span class="hljs-string">&quot; &quot;</span>, <span class="hljs-string">&quot;&quot;</span>]<br><span class="hljs-keyword">def</span> <span class="hljs-title function_">chunk</span>(<span class="hljs-params">text: <span class="hljs-built_in">str</span>, delimiter_index: <span class="hljs-built_in">int</span> = <span class="hljs-number">0</span>, MAX_CHARS: <span class="hljs-built_in">int</span> = <span class="hljs-number">1500</span></span>) -&gt; <span class="hljs-built_in">list</span>[<span class="hljs-built_in">str</span>]:<br>	delimiter = delimiters[delimiter_index]<br>	new_chunks = []<br>	current_chunk = <span class="hljs-string">&quot;&quot;</span><br>	<span class="hljs-keyword">for</span> section <span class="hljs-keyword">in</span> text.split(delimiter):<br>		<span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(section) &gt; MAX_CHARS:<br>			<span class="hljs-comment"># Section is too big, recursively chunk this section</span><br>			new_chunks.append(current_chunk)<br>			current_chunk = <span class="hljs-string">&quot;&quot;</span><br>			new_chunks.extend(chunk(section, delimiter_index + <span class="hljs-number">1</span>, MAX_CHARS)<br>		<span class="hljs-keyword">elif</span> <span class="hljs-built_in">len</span>(current_chunk) + <span class="hljs-built_in">len</span>(section) &gt; MAX_CHARS:<br>			<span class="hljs-comment"># Current chunk is max size</span><br>			new_chunks.append(current_chunk)<br>			current_chunk = section<br>		<span class="hljs-keyword">else</span>:<br>			<span class="hljs-comment"># Concatenate section to current_chunk</span><br>			current_chunk += section<br>	<span class="hljs-keyword">return</span> new_chunks<br></code></pre></td></tr></table></figure>
+
+<p>针对每种语言我们会使用不同的分隔符。</p>
+<h3 id="示例"><a href="#示例" class="headerlink" title="示例"></a>示例</h3><p>完整示例文件请见：<a target="_blank" rel="noopener" href="https://gist.github.com/kevinlu1248/ded3ea33dcd8a9bd08078f4c64eb9268">https://gist.github.com/kevinlu1248/ded3ea33dcd8a9bd08078f4c64eb9268</a></p>
+<h4 id="示例-1"><a href="#示例-1" class="headerlink" title="示例 #1"></a>示例 #1</h4><p>基于我们处理 GitHub Action 运行的 <code>on_check_suite.py</code> 文件。一个糟糕的切分把字符串拼接声明与其内容分开了。❌</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><code class="hljs python">...<br><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">on_check_suite</span>(<span class="hljs-params">request: CheckRunCompleted</span>):<br>    logger.info(<span class="hljs-string">f&quot;Received check run completed event for <span class="hljs-subst">&#123;request.repository.full_name&#125;</span>&quot;</span>)<br>    g = get_github_client(request.installation.<span class="hljs-built_in">id</span>)<br>    repo = g.get_repo(request.repository.full_name)<br>    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> get_gha_enabled(repo):<br>        logger.info(<span class="hljs-string">f&quot;Skipping github action for <span class="hljs-subst">&#123;request.repository.full_name&#125;</span> because it is not enabled&quot;</span>)<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span><br>    pr = repo.get_pull(request.check_run.pull_requests[<span class="hljs-number">0</span>].number)<br>    num_pr_commits = <span class="hljs-built_in">len</span>(<span class="hljs-built_in">list</span>(pr.get_commits()))<br>    <span class="hljs-keyword">if</span> num_pr_commits &gt; <span class="hljs-number">20</span>:<br>        logger.info(<span class="hljs-string">f&quot;Skipping github action for PR with <span class="hljs-subst">&#123;num_pr_commits&#125;</span> commits&quot;</span>)<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span><br>    logger.info(<span class="hljs-string">f&quot;Running github action for PR with <span class="hljs-subst">&#123;num_pr_commits&#125;</span> commits&quot;</span>)<br>    logs = download_logs(<br>        request.repository.full_name,<br>        request.check_run.run_id,<br>        request.installation.<span class="hljs-built_in">id</span><br>    )<br>    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> logs:<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span><br>    logs = clean_logs(logs)<br>    extractor = GHAExtractor()<br>    logger.info(<span class="hljs-string">f&quot;Extracting logs from <span class="hljs-subst">&#123;request.repository.full_name&#125;</span>, logs: <span class="hljs-subst">&#123;logs&#125;</span>&quot;</span>)<br>    problematic_logs = extractor.gha_extract(logs)<br>    <span class="hljs-keyword">if</span> problematic_logs.count(<span class="hljs-string">&quot;</span><br><span class="hljs-string">&quot;</span>) &gt; <span class="hljs-number">15</span>:<br>        problematic_logs += <span class="hljs-string">&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">========================================</span><br><span class="hljs-string"></span><br><span class="hljs-string">There are a lot of errors. This is likely a larger issue with the PR and not a small linting/type-checking issue.&quot;</span><br>    comments = <span class="hljs-built_in">list</span>(pr.get_issue_comments())<br>    <span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(comments) &gt;= <span class="hljs-number">2</span> <span class="hljs-keyword">and</span> problematic_logs == comments[-<span class="hljs-number">1</span>].body <span class="hljs-keyword">and</span> comments[-<span class="hljs-number">2</span>].body == comments[-<span class="hljs-number">1</span>].body:<br>        comment = pr.as_issue().create_comment(log_message.<span class="hljs-built_in">format</span>(error_logs=problematic_logs) + <span class="hljs-string">&quot;</span><br><span class="hljs-string"></span><br><span class="hljs-string">I&#x27;m getting the same errors 3 times in a row, so I will stop working on fixing this PR.&quot;</span>)<br>        logger.warning(<span class="hljs-string">&quot;Skipping logs because it is duplicated&quot;</span>)<br>        <span class="hljs-keyword">raise</span> Exception(<span class="hljs-string">&quot;Duplicate error logs&quot;</span>)<br>    <span class="hljs-built_in">print</span>(problematic_logs)<br>    comment = pr.as_issue().create_comment(log_message.<span class="hljs-built_in">format</span>(error_logs=problematic_logs))<br>    on_comment(<br>        repo_full_name=request.repository.full_name,<br>        repo_description=request.repository.description,<br>        comment=problematic_logs,<br>        pr_path=<span class="hljs-literal">None</span>,<br>        pr_line_position=<span class="hljs-literal">None</span>,<br>        username=request.sender.login,<br>        installation_id=request.installation.<span class="hljs-built_in">id</span>,<br>        pr_number=request.check_run.pull_requests[<span class="hljs-number">0</span>].number,<br>        comment_id=comment.<span class="hljs-built_in">id</span>,<br>        repo=repo,<br>    )<br>    <span class="hljs-keyword">return</span> &#123;<span class="hljs-string">&quot;success&quot;</span>: <span class="hljs-literal">True</span>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="示例-2"><a href="#示例-2" class="headerlink" title="示例 #2"></a>示例 #2</h4><p>基于 LlamaIndex 的 <code>BaseIndex.ts</code> 文件（声明向量存储的 ABC）。糟糕的切分把类的方法实现与其头部分离了。❌</p>
+<figure class="highlight tsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><code class="hljs tsx">...<br><br><span class="hljs-keyword">export</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">IndexDict</span> <span class="hljs-keyword">extends</span> <span class="hljs-title class_ inherited__">IndexStruct</span> &#123;<br>  <span class="hljs-attr">nodesDict</span>: <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-title class_">BaseNode</span>&gt; = &#123;&#125;;<br>  <span class="hljs-attr">docStore</span>: <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-title class_">Document</span>&gt; = &#123;&#125;; <span class="hljs-comment">// <span class="hljs-doctag">FIXME:</span> this should be implemented in storageContext</span><br>  <span class="hljs-attr">type</span>: <span class="hljs-title class_">IndexStructType</span> = <span class="hljs-title class_">IndexStructType</span>.<span class="hljs-property">SIMPLE_DICT</span>;<br><br>========================================<br><br><span class="hljs-title function_">getSummary</span>(): <span class="hljs-built_in">string</span> &#123;<br>    <span class="hljs-keyword">if</span> (<span class="hljs-variable language_">this</span>.<span class="hljs-property">summary</span> === <span class="hljs-literal">undefined</span>) &#123;<br>      <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Error</span>(<span class="hljs-string">&quot;summary field of the index dict is not set&quot;</span>);<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-variable language_">this</span>.<span class="hljs-property">summary</span>;<br>  &#125;<br><br>  <span class="hljs-title function_">addNode</span>(<span class="hljs-params"><span class="hljs-attr">node</span>: <span class="hljs-title class_">BaseNode</span>, <span class="hljs-attr">textId</span>?: <span class="hljs-built_in">string</span></span>) &#123;<br>    <span class="hljs-keyword">const</span> vectorId = textId ?? node.<span class="hljs-property">id_</span>;<br>    <span class="hljs-variable language_">this</span>.<span class="hljs-property">nodesDict</span>[vectorId] = node;<br>  &#125;<br><br>  <span class="hljs-title function_">toJson</span>(): <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-built_in">unknown</span>&gt; &#123;<br>    <span class="hljs-keyword">return</span> &#123;<br>      ...<span class="hljs-variable language_">super</span>.<span class="hljs-title function_">toJson</span>(),<br>      <span class="hljs-attr">nodesDict</span>: <span class="hljs-variable language_">this</span>.<span class="hljs-property">nodesDict</span>,<br>      <span class="hljs-attr">type</span>: <span class="hljs-variable language_">this</span>.<span class="hljs-property">type</span>,<br>    &#125;;<br>  &#125;<br>&#125;<br><br>...<br></code></pre></td></tr></table></figure>
+
+<h3 id="问题-🤔"><a href="#问题-🤔" class="headerlink" title="问题 🤔"></a>问题 🤔</h3><p>然而，这个切分器存在严重问题：</p>
+<ol>
+<li>对 Python 效果不错，但对大括号密集的语言（如 JS）和基于 XML 的语言（如 HTML）会在不可预期的地方断开。<ul>
+<li>此外，<code>str.split</code> 对这些更复杂的语法（如 JS、HTML）效果不好。</li>
+<li>例如，即使对 Python，也会把像 <code>problematic_logs += \&quot;</code> 与其余字符串错误地分割。</li>
+</ul>
+</li>
+<li>目前仅支持 16 种语言，不支持 JSX、Typescript、EJS 和 C#。<ul>
+<li>JSX&#x2F;TSX 占我们用户群的大部分。</li>
+</ul>
+</li>
+<li>Langchain 会删除重要分隔符（比如 “def” 和 “class”）。</li>
+</ol>
+<h2 id="我们的解决方案-🧠"><a href="#我们的解决方案-🧠" class="headerlink" title="我们的解决方案 🧠"></a>我们的解决方案 🧠</h2><p>根本问题是用一系列的 <code>str.split</code> 和分隔符来近似所谓的“具体语法树（CST）”是太原始了。</p>
+<p>为了解决这个问题，我们直接使用 CST 解析器。如何获得大量语言的 CST 解析器？幸运的是，库 <a target="_blank" rel="noopener" href="https://tree-sitter.github.io/">tree-sitter</a> 提供了标准化访问 113 种编程语言 CST 解析器的方式，并且速度快（用 C 写）且无额外依赖。</p>
+<p>新的算法在高层上与 Langchain 类似，步骤如下：</p>
+<ol>
+<li>要对一个父节点进行切分，我们遍历其子节点并贪心地把它们打包在一起。对于每个子节点：</li>
+<li>如果当前 chunk 太大，将其加入结果列表并清空当前 bundle</li>
+<li>如果下一个子节点本身太大，则递归切分该子节点并把结果加入列表</li>
+<li>否则，将该子节点的文本拼接到当前 chunk</li>
+<li>对最终结果做后处理：把单行的 chunk 与下一个 chunk 合并</li>
+<li>这样保证不会出现过小（意义不大）的 chunk</li>
+</ol>
+<p>示例伪代码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">from</span> tree_sitter <span class="hljs-keyword">import</span> Node<br><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">chunk_node</span>(<span class="hljs-params">node: Node, text: <span class="hljs-built_in">str</span>, MAX_CHARS: <span class="hljs-built_in">int</span> = <span class="hljs-number">1500</span></span>) -&gt; <span class="hljs-built_in">list</span>[<span class="hljs-built_in">str</span>]:<br>	new_chunks = []<br>	current_chunk = <span class="hljs-string">&quot;&quot;</span><br>	<span class="hljs-keyword">for</span> child <span class="hljs-keyword">in</span> node.children:<br>		<span class="hljs-keyword">if</span> child.end_byte - child.start_byte &gt; MAX_CHARS:<br>			new_chunks.append(current_chunk)<br>			current_chunk = <span class="hljs-string">&quot;&quot;</span><br>			new_chunks.extend(chunk_node(child, text, MAX_CHARS)<br>		<span class="hljs-keyword">elif</span> <span class="hljs-built_in">len</span>(current_chunk) + child.end_byte - child.start_byte &gt; MAX_CHARS:<br>			new_chunks.append(current_chunk)<br>			current_chunk = text[node.start_byte:node.end_byte]<br>		<span class="hljs-keyword">else</span>:<br>			current_chunk += text[node.start_byte:node.end_byte]<br>	<span class="hljs-keyword">return</span> new_chunks<br></code></pre></td></tr></table></figure>
+
+<h3 id="示例-1"><a href="#示例-1" class="headerlink" title="示例"></a>示例</h3><p>完整切分结果请见：<a target="_blank" rel="noopener" href="https://gist.github.com/kevinlu1248/49a72a1978868775109c5627677dc512">https://gist.github.com/kevinlu1248/49a72a1978868775109c5627677dc512</a></p>
+<h4 id="示例-1-1"><a href="#示例-1-1" class="headerlink" title="示例 #1"></a>示例 #1</h4><p>基于我们的 <code>on_check_suite.py</code> 文件。正确的切分；在 if 语句之前做切分，而不是把 if 语句与其主体分开。✅</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><code class="hljs python">...<br><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">on_check_suite</span>(<span class="hljs-params">request: CheckRunCompleted</span>):<br>    logger.info(<span class="hljs-string">f&quot;Received check run completed event for <span class="hljs-subst">&#123;request.repository.full_name&#125;</span>&quot;</span>)<br>    g = get_github_client(request.installation.<span class="hljs-built_in">id</span>)<br>    repo = g.get_repo(request.repository.full_name)<br>    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> get_gha_enabled(repo):<br>        logger.info(<span class="hljs-string">f&quot;Skipping github action for <span class="hljs-subst">&#123;request.repository.full_name&#125;</span> because it is not enabled&quot;</span>)<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span><br>    pr = repo.get_pull(request.check_run.pull_requests[<span class="hljs-number">0</span>].number)<br>    num_pr_commits = <span class="hljs-built_in">len</span>(<span class="hljs-built_in">list</span>(pr.get_commits()))<br>    <span class="hljs-keyword">if</span> num_pr_commits &gt; <span class="hljs-number">20</span>:<br>        logger.info(<span class="hljs-string">f&quot;Skipping github action for PR with <span class="hljs-subst">&#123;num_pr_commits&#125;</span> commits&quot;</span>)<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span><br>    logger.info(<span class="hljs-string">f&quot;Running github action for PR with <span class="hljs-subst">&#123;num_pr_commits&#125;</span> commits&quot;</span>)<br>    logs = download_logs(<br>        request.repository.full_name,<br>        request.check_run.run_id,<br>        request.installation.<span class="hljs-built_in">id</span><br>    )<br>    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> logs:<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span><br>    logs = clean_logs(logs)<br>    extractor = GHAExtractor()<br>    logger.info(<span class="hljs-string">f&quot;Extracting logs from <span class="hljs-subst">&#123;request.repository.full_name&#125;</span>, logs: <span class="hljs-subst">&#123;logs&#125;</span>&quot;</span>)<br>    problematic_logs = extractor.gha_extract(logs)<br>    <span class="hljs-keyword">if</span> problematic_logs.count(<span class="hljs-string">&quot;\n&quot;</span>) &gt; <span class="hljs-number">15</span>:<br>        problematic_logs += <span class="hljs-string">&quot;\n\nThere are a lot of errors. This is likely a larger issue with the PR and not a small linting/type-checking issue.&quot;</span><br>    comments = <span class="hljs-built_in">list</span>(pr.get_issue_comments())<br><br>==========<br><br>    <span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(comments) &gt;= <span class="hljs-number">2</span> <span class="hljs-keyword">and</span> problematic_logs == comments[-<span class="hljs-number">1</span>].body <span class="hljs-keyword">and</span> comments[-<span class="hljs-number">2</span>].body == comments[-<span class="hljs-number">1</span>].body:<br>        comment = pr.as_issue().create_comment(log_message.<span class="hljs-built_in">format</span>(error_logs=problematic_logs) + <span class="hljs-string">&quot;\n\nI&#x27;m getting the same errors 3 times in a row, so I will stop working on fixing this PR.&quot;</span>)<br>        logger.warning(<span class="hljs-string">&quot;Skipping logs because it is duplicated&quot;</span>)<br>        <span class="hljs-keyword">raise</span> Exception(<span class="hljs-string">&quot;Duplicate error logs&quot;</span>)<br>    <span class="hljs-built_in">print</span>(problematic_logs)<br>    comment = pr.as_issue().create_comment(log_message.<span class="hljs-built_in">format</span>(error_logs=problematic_logs))<br>    on_comment(<br>        repo_full_name=request.repository.full_name,<br>        repo_description=request.repository.description,<br>        comment=problematic_logs,<br>        pr_path=<span class="hljs-literal">None</span>,<br>        pr_line_position=<span class="hljs-literal">None</span>,<br>        username=request.sender.login,<br>        installation_id=request.installation.<span class="hljs-built_in">id</span>,<br>        pr_number=request.check_run.pull_requests[<span class="hljs-number">0</span>].number,<br>        comment_id=comment.<span class="hljs-built_in">id</span>,<br>        repo=repo,<br>    )<br></code></pre></td></tr></table></figure>
+
+<h4 id="示例-2-1"><a href="#示例-2-1" class="headerlink" title="示例 #2"></a>示例 #2</h4><p>基于 LlamaIndex 的 <code>BaseIndex.ts</code> 文件。我们的切分器正确地在导出的类和函数之间切分。✅</p>
+<figure class="highlight tsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><code class="hljs tsx">...<br><br><span class="hljs-keyword">export</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">IndexDict</span> <span class="hljs-keyword">extends</span> <span class="hljs-title class_ inherited__">IndexStruct</span> &#123;<br>  <span class="hljs-attr">nodesDict</span>: <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-title class_">BaseNode</span>&gt; = &#123;&#125;;<br>  <span class="hljs-attr">docStore</span>: <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-title class_">Document</span>&gt; = &#123;&#125;; <span class="hljs-comment">// <span class="hljs-doctag">FIXME:</span> this should be implemented in storageContext</span><br>  <span class="hljs-attr">type</span>: <span class="hljs-title class_">IndexStructType</span> = <span class="hljs-title class_">IndexStructType</span>.<span class="hljs-property">SIMPLE_DICT</span>;<br><br>  <span class="hljs-title function_">getSummary</span>(): <span class="hljs-built_in">string</span> &#123;<br>    <span class="hljs-keyword">if</span> (<span class="hljs-variable language_">this</span>.<span class="hljs-property">summary</span> === <span class="hljs-literal">undefined</span>) &#123;<br>      <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Error</span>(<span class="hljs-string">&quot;summary field of the index dict is not set&quot;</span>);<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-variable language_">this</span>.<span class="hljs-property">summary</span>;<br>  &#125;<br><br>  <span class="hljs-title function_">addNode</span>(<span class="hljs-params"><span class="hljs-attr">node</span>: <span class="hljs-title class_">BaseNode</span>, <span class="hljs-attr">textId</span>?: <span class="hljs-built_in">string</span></span>) &#123;<br>    <span class="hljs-keyword">const</span> vectorId = textId ?? node.<span class="hljs-property">id_</span>;<br>    <span class="hljs-variable language_">this</span>.<span class="hljs-property">nodesDict</span>[vectorId] = node;<br>  &#125;<br><br>  <span class="hljs-title function_">toJson</span>(): <span class="hljs-title class_">Record</span>&lt;<span class="hljs-built_in">string</span>, <span class="hljs-built_in">unknown</span>&gt; &#123;<br>    <span class="hljs-keyword">return</span> &#123;<br>      ...<span class="hljs-variable language_">super</span>.<span class="hljs-title function_">toJson</span>(),<br>      <span class="hljs-attr">nodesDict</span>: <span class="hljs-variable language_">this</span>.<span class="hljs-property">nodesDict</span>,<br>      <span class="hljs-attr">type</span>: <span class="hljs-variable language_">this</span>.<span class="hljs-property">type</span>,<br>    &#125;;<br>  &#125;<br>&#125;<br><br>========================================<br><br><span class="hljs-keyword">export</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">jsonToIndexStruct</span>(<span class="hljs-params"><span class="hljs-attr">json</span>: <span class="hljs-built_in">any</span></span>): <span class="hljs-title class_">IndexStruct</span> &#123;<br>  <span class="hljs-keyword">if</span> (json.<span class="hljs-property">type</span> === <span class="hljs-title class_">IndexStructType</span>.<span class="hljs-property">LIST</span>) &#123;<br>    <span class="hljs-keyword">const</span> indexList = <span class="hljs-keyword">new</span> <span class="hljs-title class_">IndexList</span>(json.<span class="hljs-property">indexId</span>, json.<span class="hljs-property">summary</span>);<br>    indexList.<span class="hljs-property">nodes</span> = json.<span class="hljs-property">nodes</span>;<br>    <span class="hljs-keyword">return</span> indexList;<br>  &#125; <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (json.<span class="hljs-property">type</span> === <span class="hljs-title class_">IndexStructType</span>.<span class="hljs-property">SIMPLE_DICT</span>) &#123;<br>    <span class="hljs-keyword">const</span> indexDict = <span class="hljs-keyword">new</span> <span class="hljs-title class_">IndexDict</span>(json.<span class="hljs-property">indexId</span>, json.<span class="hljs-property">summary</span>);<br>    indexDict.<span class="hljs-property">nodesDict</span> = json.<span class="hljs-property">nodesDict</span>;<br>    <span class="hljs-keyword">return</span> indexDict;<br>  &#125; <span class="hljs-keyword">else</span> &#123;<br>    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Error</span>(<span class="hljs-string">`Unknown index struct type: <span class="hljs-subst">$&#123;json.<span class="hljs-keyword">type</span>&#125;</span>`</span>);<br>  &#125;<br>&#125;<br><br>...<br></code></pre></td></tr></table></figure>
+
+<h3 id="算法其余部分-🤖"><a href="#算法其余部分-🤖" class="headerlink" title="算法其余部分 🤖"></a>算法其余部分 🤖</h3><ol>
+<li>依次遍历支持的语言列表，直到某个解析器成功解析代码</li>
+<li>对解析出的语法树根节点进行切分</li>
+<li>如果没有任何语言成功解析，则使用一个普通的切分器：每次取 40 行，并在块间保留 15 行重叠（覆盖），这种情况约占 0.1%</li>
+</ol>
+<p>示例伪代码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><code class="hljs python">language_names = [<span class="hljs-string">&quot;python&quot;</span>, <span class="hljs-string">&quot;java&quot;</span>, <span class="hljs-string">&quot;cpp&quot;</span>, <span class="hljs-string">&quot;go&quot;</span>, <span class="hljs-string">&quot;rust&quot;</span>, <span class="hljs-string">&quot;ruby&quot;</span>, <span class="hljs-string">&quot;php&quot;</span>] <span class="hljs-comment"># and more</span><br><br><span class="hljs-comment"># Installing the parsers</span><br>languages = &#123;&#125;<br><span class="hljs-keyword">for</span> language <span class="hljs-keyword">in</span> LANGUAGE_NAMES:<br>   subprocess.run(<span class="hljs-string">f&quot;git clone https://github.com/tree-sitter/tree-sitter-<span class="hljs-subst">&#123;language&#125;</span> cache/tree-sitter-<span class="hljs-subst">&#123;language&#125;</span>&quot;</span>, shell=<span class="hljs-literal">True</span>)<br>  <span class="hljs-keyword">for</span> language <span class="hljs-keyword">in</span> LANGUAGE_NAMES:<br>      Language.build_library(<span class="hljs-string">f&#x27;cache/build/<span class="hljs-subst">&#123;language&#125;</span>.so&#x27;</span>, [<span class="hljs-string">f&quot;cache/tree-sitter-<span class="hljs-subst">&#123;language&#125;</span>&quot;</span>])<br>  <span class="hljs-variable language_">self</span>.languages = &#123;language: Language(<span class="hljs-string">f&quot;cache/build/<span class="hljs-subst">&#123;language&#125;</span>.so&quot;</span>, language) <span class="hljs-keyword">for</span> language <span class="hljs-keyword">in</span> LANGUAGE_NAMES&#125;<br><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">chunk</span>(<span class="hljs-params">text: <span class="hljs-built_in">str</span>, MAX_CHARS: <span class="hljs-built_in">int</span> = <span class="hljs-number">1500</span></span>) -&gt; <span class="hljs-built_in">list</span>[<span class="hljs-built_in">str</span>]:<br>	<span class="hljs-comment"># Determining the language</span><br>	<span class="hljs-keyword">for</span> language_name <span class="hljs-keyword">in</span> language_names:<br>    language = languages[language_name]<br>    parser = Parser()<br>    parser.set_language(language)<br>    tree = parser.parse(<span class="hljs-built_in">bytes</span>(text, <span class="hljs-string">&quot;utf-8&quot;</span>))<br>    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> tree.root_node.children <span class="hljs-keyword">or</span> tree.root_node.children[<span class="hljs-number">0</span>].<span class="hljs-built_in">type</span> != <span class="hljs-string">&quot;ERROR&quot;</span>:<br>        file_language = language<br>        <span class="hljs-keyword">break</span><br>    logger.warning(<span class="hljs-string">f&quot;Not language <span class="hljs-subst">&#123;language_name&#125;</span>&quot;</span>)<br><br>	<span class="hljs-comment"># Smart chunker</span><br>	<span class="hljs-keyword">if</span> file_language:<br>      <span class="hljs-keyword">return</span> chunk_node(tree.root_node, text, max_chunk_size)<br><br>	<span class="hljs-comment"># Naive algorithm</span><br>  source_lines = file_content.split(<span class="hljs-string">&#x27;\n&#x27;</span>)<br>  num_lines = <span class="hljs-built_in">len</span>(source_lines)<br>  logger.info(<span class="hljs-string">f&quot;Number of lines: <span class="hljs-subst">&#123;num_lines&#125;</span>&quot;</span>)<br>  chunks = []<br>  start_line = <span class="hljs-number">0</span><br>  <span class="hljs-keyword">while</span> start_line &lt; num_lines <span class="hljs-keyword">and</span> num_lines &gt; overlap:<br>      end_line = <span class="hljs-built_in">min</span>(start_line + chunk_size, num_lines)<br>      chunk = <span class="hljs-string">&#x27;\n&#x27;</span>.join(source_lines[start_line:end_line])<br>      chunks.append(chunk)<br>      start_line += chunk_size - overlap<br>	<span class="hljs-keyword">return</span> chunks<br></code></pre></td></tr></table></figure>
+
+<p>在 Sweep，我们目前安装了 Python、Java、C++、Go、Rust、Ruby、PHP、C#、嵌入式模板（ERB &amp; EJS）、Markdown、Vue 和 TSX。另请注意：C++ 覆盖 C，TSX 覆盖 JS、JSX 和 TS。</p>
+<h2 id="陷阱-🕳️"><a href="#陷阱-🕳️" class="headerlink" title="陷阱 🕳️"></a>陷阱 🕳️</h2><p>不幸的是，<code>tree-sitter</code> 有时并不可靠，很多解析器由社区维护：</p>
+<ul>
+<li>TSX 解析器在无法解析时会挂起而不是返回错误</li>
+<li>此外，tree-sitter 的核心用 C 写成。在我们的 serverless 生产环境中运行需要一套复杂的方法来缓存已编译的 C 二进制，移动到可执行目录，并使用 Python 包装器去调用它们</li>
+<li>有些解析器在子节点之间留下空隙。我们通过合并（coalescing）解决了这个问题</li>
+<li>没有一种解析器会在解析错误的语言时都以相同方式报错</li>
+<li>有些解析器将根节点标记为 “ERROR”，而有些则把第一个 child 标为 ERROR</li>
+</ul>
+<p>我们通过在遇到这些错误（例如 TSX 挂起或其他不可靠行为）时回退到朴素切分器来规避问题，并将 TSX 优先级放在最后。同时我们会优先尝试与文件扩展名相对应的语言解析器。</p>
+<h2 id="未来-🔮"><a href="#未来-🔮" class="headerlink" title="未来 🔮"></a>未来 🔮</h2><p>这个算法现在已通过 <a target="_blank" rel="noopener" href="https://github.com/jerryjliu/llama_index/pull/7100">https://github.com/jerryjliu/llama_index/pull/7100</a> 集成到 LlamaIndex 中。</p>
+<p>另一个问题是，文件中相距较远的代码片段可能仍然需要共享上下文。例如，一个类的方法可能需要类头的上下文，长函数也需要函数签名。一个可能的改进是采用类似以下的格式来保留上下文：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Foo</span>:<br>  ...<br>  <span class="hljs-keyword">def</span> <span class="hljs-title function_">bar</span>(<span class="hljs-params">self</span>):<br>      <span class="hljs-keyword">pass</span><br></code></pre></td></tr></table></figure>
+
+<p>我们可以考虑使用 <a target="_blank" rel="noopener" href="https://github.com/universal-ctags/ctags">universal ctags</a> 或类似工具以实现更简单、更通用的解析，或者在手工标注的切分上训练一个自定义的 spaCy sentencizer，但那可能有点过度设计。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI/" class="print-no-link">#AI</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>AI 如何用 AST 每天对 200 万+ 文件做高质量分块（用于代码搜索）</div>
+      <div>http://crossoverjie.top/2025/12/29/AI/chunking-2m-files/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>December 29, 2025</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2025/12/25/AI/deepwiki-rag-principle/" title="DeepWiki 一个常用 RAG 应用的开发流程">
+                        <span class="hidden-mobile">DeepWiki 一个常用 RAG 应用的开发流程</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2025/12/29/AI/chunking-2m-files/';
+          this.page.identifier = '/2025/12/29/AI/chunking-2m-files/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>
