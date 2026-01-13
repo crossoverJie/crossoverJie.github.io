@@ -1,5 +1,5 @@
 ---
-title: 代码分割算法分析
+title: 对 AI 更友好的代码分割算法分析
 date: 2026/01/14 17:56:51
 categories:
   - AI
