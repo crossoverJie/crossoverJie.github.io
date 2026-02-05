@@ -28,7 +28,7 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://s2.loli.net/2026/02/04/C3D8KlakTS91sMG.png">
 <meta property="article:published_time" content="2026-02-03T17:56:51.000Z">
-<meta property="article:modified_time" content="2026-02-05T08:01:39.226Z">
+<meta property="article:modified_time" content="2026-02-05T08:27:05.751Z">
 <meta property="article:author" content="crossoverJie">
 <meta property="article:tag" content="AI">
 <meta property="article:tag" content="MCP">
@@ -310,7 +310,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          3k words
+          3.3k words
         
       </span>
     
@@ -321,7 +321,7 @@
         
         
         
-          25 mins
+          28 mins
         
       </span>
     
@@ -496,6 +496,18 @@
 <p>说到底，Skills 的本质还是前几年流行的<strong>提示词工程（Prompt Engineering）</strong>。</p>
 <p>回想一下 2023 年 ChatGPT 刚火的时候，网上到处都是”万能提示词模板”、”让 AI 效率翻倍的 prompt 技巧”。那时候大家都在研究怎么写出更好的 System Prompt，让 AI 扮演各种角色：翻译官、程序员、文案专家…</p>
 <p>Skills 做的事情本质上没变——**还是在告诉 AI “你是谁、你能做什么、你应该怎么做”**。</p>
+<p>说的更好理解一点：可以把自己日常的一些固定流程固化为一个 SKILLS，比如我写博客需要为一篇文章配一个封面图，我之前的流程是：</p>
+<ul>
+<li>写好文章后根据文章的内容想一个标题</li>
+<li>根据这个标题去网上照一张合适的图</li>
+<li>把图片上传到图床</li>
+<li>然后把图床链接贴到博客的顶部</li>
+</ul>
+<p>这些流程其实都是机械化的毫无智能而言，但是每次做法都是一样的；所以我将这些流程写到一个 SKILL.md 文档里。</p>
+<p>让 AI 给我总结文章标题、生成配图、上传图床、然后粘贴到文章顶部。</p>
+<p>这样我写好文章后，只需要对 Claude Code&#x2F;Codex 这类 agent 说：把 &#x2F;xx&#x2F;xx&#x2F;blog.md 配图。</p>
+<p>之后 AI 就会自动加载我在 <code>SKILL.md</code> 里定义的流程进行处理。</p>
+<p>同理，我们日常工作中这些繁琐的流程都可以抽象为一个个的 <code>SKILL</code>，想想是不是可玩性非常强。</p>
 <p>区别在于：</p>
 <ul>
 <li><strong>以前</strong>：把所有提示词塞进一个巨大的 System Prompt，不管用不用得上都要带着</li>
@@ -504,11 +516,11 @@
 <p>所以如果你之前积累了很多好用的提示词模板，现在可以直接把它们改造成 Skills——加上 frontmatter 元数据，放到 <code>~/.claude/skills/</code> 目录下，就能让 Claude 按需调用了。</p>
 <h1 id="现状"><a href="#现状" class="headerlink" title="现状"></a>现状</h1><h2 id="Skills-与-MCP-的关系"><a href="#Skills-与-MCP-的关系" class="headerlink" title="Skills 与 MCP 的关系"></a>Skills 与 MCP 的关系</h2><p>用一个类比来说明：</p>
 <ul>
-<li><strong>MCP 是”USB-C 接口协议”</strong></li>
-<li><strong>Skills 是”插在接口上的功能模块”</strong></li>
+<li><strong>MCP是 RPC 接口协议”</strong></li>
+<li><strong>Skills 是”接口实现里的一个个具体的函数（函数的抽象级别需要定义好，不然维护性也不强）”</strong></li>
 </ul>
 <p>它们不是互相替代的关系，而是”协议”与”实现”的关系。一个 “GitHub Skill” 内部就是通过 MCP 协议去和 GitHub 服务器通讯的。</p>
-<h2 id="Skills-的两阶段加载机制"><a href="#Skills-的两阶段加载机制" class="headerlink" title="Skills 的两阶段加载机制"></a>Skills 的两阶段加载机制</h2><p>这是 Skills 设计中最精妙的部分——<strong>不会导致 token 激增</strong>。</p>
+<h2 id="Skills-的两阶段加载机制"><a href="#Skills-的两阶段加载机制" class="headerlink" title="Skills 的两阶段加载机制"></a>Skills 的两阶段加载机制</h2><p>这是 Skills 设计中很精妙的部分——<strong>不会导致 token 激增</strong>。</p>
 <table>
 <thead>
 <tr>
@@ -537,8 +549,9 @@
 <li><strong>当你说</strong> “帮我创建一个 Obsidian 笔记”：才加载 <code>obsidian-markdown</code> 的完整内容</li>
 <li><strong>如果不涉及 Obsidian</strong>：完整内容永远不会加载</li>
 </ul>
-<h2 id="匹配逻辑：完全由大模型决定"><a href="#匹配逻辑：完全由大模型决定" class="headerlink" title="匹配逻辑：完全由大模型决定"></a>匹配逻辑：完全由大模型决定</h2><p>一个关键问题：谁来判断是否需要加载某个 Skill？</p>
+<h2 id="匹配逻辑：完全由大模型决定"><a href="#匹配逻辑：完全由大模型决定" class="headerlink" title="匹配逻辑：完全由大模型决定"></a>匹配逻辑：完全由大模型决定</h2><p>这里我其实有一个问题：谁来判断是否需要加载某个 Skill？</p>
 <p><strong>答案是：完全由大模型决定，不是客户端</strong>。</p>
+<p>任何需要做模糊语义判断的地方都是大模型来处理、Agent 只做具体确定的事情。</p>
 <figure class="highlight armasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs armasm"><span class="hljs-symbol">Claude</span> <span class="hljs-meta">Code</span> 客户端                    大模型<br>     │                                  │<br>     │  所有 skills 元数据              │<br>     │  (name + description)            │<br>     │ ──────────────────────────────▶  │<br>     │                                  │ ← 模型阅读、理解、判断<br>     │                                  │<br>     │  调用 Skill 工具                 │<br>     │ ◀──────────────────────────────  │<br>     │                                  │<br>     │  注入完整 SKILL.md 内容          │<br>     │ ──────────────────────────────▶  │<br></code></pre></td></tr></table></figure>
 
 <p>客户端做的事：收集元数据、打包发送、执行工具调用。</p>
@@ -546,9 +559,9 @@
 <blockquote>
 <p>客户端做的越轻越能体现 AI 的特点，也跟通用。</p>
 </blockquote>
-<p><strong>这带来的问题</strong>：由于完全依赖模型判断，存在不可靠性。<a target="_blank" rel="noopener" href="https://medium.com/data-science-collective/claude-skills-a-technical-deep-dive-into-context-injection-architecture-ee6bf30cf514">有测试表明</a> skills 经常没有被自动激活，模型会直接跳过它们。这就是为什么：</p>
+<p>由于完全依赖模型判断，存在不可靠性。skills 有可能没有被自动激活，模型会直接跳过它们，这就是大模型的概率问题，如果确定要使用某个 SKILL，可以用一下方案：</p>
 <ol>
-<li>有些人推荐用 <strong>hooks</strong> 强制注入</li>
+<li>直接使用 &#x2F;skill-name 强制使用</li>
 <li>关键规则放在 <strong>CLAUDE.md</strong> 中（始终在上下文里）</li>
 <li>设置 <code>disable-model-invocation: true</code> 改为手动调用</li>
 </ol>
@@ -583,7 +596,7 @@
 </tr>
 <tr>
 <td>开放标准</td>
-<td>Claude Code 专属</td>
+<td>Claude Code 专属（但一些其他 agent 也兼容读取了 cc 的目录来实现兼容性）</td>
 <td>Agent Skills 标准实现</td>
 </tr>
 </tbody></table>
@@ -635,7 +648,7 @@
 <li><strong>即时加载</strong>：毫秒级自动调用对应 Skill，无需用户干预</li>
 </ol>
 <p>**未来的 AI 就像”电力”**：100 年前你需要了解发电机的原理；现在你只需要插上插头。未来的大模型也会进化到——你只要说出需求，它会自动在后台调动千千万万个你从未听说过的”Skills”去帮你达成。</p>
-<h2 id="安全与信任挑战"><a href="#安全与信任挑战" class="headerlink" title="安全与信任挑战"></a>安全与信任挑战</h2><p>当 Skills 变得越来越自动化，安全问题会变得尤为重要：</p>
+<h2 id="安全与信任"><a href="#安全与信任" class="headerlink" title="安全与信任"></a>安全与信任</h2><p>当 Skills 变得越来越自动化，安全问题会变得尤为重要：</p>
 <table>
 <thead>
 <tr>
@@ -661,7 +674,7 @@
 </tr>
 </tbody></table>
 <p>公共仓库里的 Skill 需要经过：权限声明、运行时沙箱、代码审计与签名。这需要一个有信用背书的大厂（如 Anthropic，Google 等）来提供官方的审核与分发平台。</p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>从 Function Call 到 MCP 再到 Agent Skills，AI 能力扩展的演进遵循着一个清晰的脉络：</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>从 Function Call 到 MCP 再到 Agent Skills，AI 能力扩展的演进遵循着一个清晰的流程：</p>
 <ol>
 <li><strong>Function Call</strong>：让大模型学会使用工具，但每个应用各自为战</li>
 <li><strong>MCP</strong>：建立统一的工具接口标准，实现生态复用</li>
