@@ -21,7 +21,7 @@ index_img: https://s2.loli.net/2026/02/04/C3D8KlakTS91sMG.png
 <!--more-->
 
 
-再开始之前还是要澄清下大模型和 Agent 的关系，今天刷到一个[视频](<【【闪客】名词诈骗！一口气拆穿Skill/MCP/RAG/Agent/OpenClaw底层逻辑】 【精准空降到 00:13】 https://www.bilibili.com/video/BV1ojfDBSEPv/?share_source=copy_web&vd_source=358858ab808efe832b0dda9dbc4701da&t=13>)觉得讲的非常浅显易懂：
+再开始之前还是要澄清下大模型和 Agent 的关系，今天刷到一个[视频](https://www.bilibili.com/video/BV1ojfDBSEPv/?share_source=copy_web&vd_source=358858ab808efe832b0dda9dbc4701da&t=13)觉得讲的非常浅显易懂：
 
 所谓智能体就是把非智能的部分整合在一起，也就是说大模型帮我们做模糊自然语言的理解与决策，然后然后交给 agent 去调用一些非智能化的能力，比如：
 - 把 word 转换成 PDF
