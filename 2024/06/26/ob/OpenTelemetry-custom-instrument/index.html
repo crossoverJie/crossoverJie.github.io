@@ -1,0 +1,939 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="背景 在上一篇《从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅》中在最后提到在做一些 Trace 的定制开发。 到现在差不多算是完成了，可以和大家分享一下。 我们的需求是这样的： 假设现在有三个服务：ServiceA、ServiceB、ServiceC">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenTelemetry 深度定制：跨服务追踪的实战技巧">
+<meta property="og:url" content="http://crossoverjie.top/2024/06/26/ob/OpenTelemetry-custom-instrument/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景 在上一篇《从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅》中在最后提到在做一些 Trace 的定制开发。 到现在差不多算是完成了，可以和大家分享一下。 我们的需求是这样的： 假设现在有三个服务：ServiceA、ServiceB、ServiceC">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/05/19/7CnOFegSu4TLbhd.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/19/qex6IFcOnQ591gT.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/19/GtljX3BLVcePWFn.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/19/tvgdT1Mke7OjPGp.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/19/3rOdKfBmhSjz1GF.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/19/9v3cGMrez8XA2ZH.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/19/4o5mEhjnMbZWL62.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/19/gv2YEoO6LkiGIF9.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/FYiAnq2G3voIyR4.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/b3cxYekiUGaSlO9.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/vpxHt34TUbgfShz.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/19/4o5mEhjnMbZWL62.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/rwSc8HmvqKL9ZQl.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/ionwTD9EAr3CROL.png">
+<meta property="article:published_time" content="2024-06-26T11:58:03.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:08:23.116Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="OpenTelemetry">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2024/05/19/7CnOFegSu4TLbhd.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>OpenTelemetry 深度定制：跨服务追踪的实战技巧 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":"G-930V538KP1"},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+    <!-- Google tag (gtag.js) -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript("https://www.googletagmanager.com/gtag/js?id=G-930V538KP1", function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            dataLayer.push(arguments);
+          }
+          gtag('js', new Date());
+          gtag('config', 'G-930V538KP1');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="OpenTelemetry 深度定制：跨服务追踪的实战技巧"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-06-26 19:58" pubdate>
+          June 26, 2024 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.6k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          22 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">OpenTelemetry 深度定制：跨服务追踪的实战技巧</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p><img src="https://s2.loli.net/2024/05/19/7CnOFegSu4TLbhd.png" srcset="/img/loading.gif" lazyload></p>
+<p>在上一篇<a href="https://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/">《从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅》</a>中在最后提到在做一些 Trace 的定制开发。</p>
+<p>到现在差不多算是完成了，可以和大家分享一下。</p>
+<p>我们的需求是这样的：</p>
+<p><img src="https://s2.loli.net/2024/05/19/qex6IFcOnQ591gT.png" srcset="/img/loading.gif" lazyload><br>假设现在有三个服务：ServiceA、ServiceB、ServiceC</p>
+<span id="more"></span>
+
+<p><code>ServiceA</code> 对外提供了一个 http 接口 <code>request</code>，在这个接口会调用 <code>ServiceB</code> 的 <code>order</code> 订单接口创建订单，同时 <code>serviceB</code> 调用 <code>serviceC</code> 的 pay 接口。</p>
+<p><img src="https://s2.loli.net/2024/05/19/GtljX3BLVcePWFn.png" srcset="/img/loading.gif" lazyload><br>整个调用关系如上图所示。</p>
+<p>默认情况下 span 中的 attribute 会记录当前 span 的一些信息，比如：<br><img src="https://s2.loli.net/2024/05/19/tvgdT1Mke7OjPGp.png" srcset="/img/loading.gif" lazyload><br>这些都是当前一些当前 span 内置的信息，比如当前 gRPC 接口的一些基本数据：服务名、ip、端口等信息。</p>
+<p>但这里并没有上游的一些信息，虽然我们可以通过 Jaeger 的树状图得知上游是哪个应用调用过来的，但是一旦某个 span 下有多个子 span 的调用，就没办法很直观知道这个子 span 的上游是由谁发起的调用。</p>
+<p>比如如下这个链路：<br><img src="https://s2.loli.net/2024/05/19/3rOdKfBmhSjz1GF.png" srcset="/img/loading.gif" lazyload><br>当一个调用链非常长，同时也非常复杂时，没办法第一时间知道某一个 span 的上游到底是谁发起的，需要手动一层层的去折叠，或者全靠眼睛去找。</p>
+<h2 id="预期效果"><a href="#预期效果" class="headerlink" title="预期效果"></a>预期效果</h2><p><img src="https://s2.loli.net/2024/05/19/9v3cGMrez8XA2ZH.png" srcset="/img/loading.gif" lazyload></p>
+<p>为此我们希望的效果是可以通过给每一个子 span 中加入两个 attribute，来标明它的父调用来源。</p>
+<p>比如在 serviceB 中的所有 span 中都会加上两个标签：来源是 serviceA，同时是 serviceA 的 request 接口发起的请求。</p>
+<p>而在 serviceC 中同样可以知道来源是 serviceB 的 Order 接口发起的调用。</p>
+<p>我启动了三个 demo 应用，分别是 create1，create2，create3.</p>
+<p>create1 中会提供一个 <code>request</code> 接口，在这里面调用 create2 的 <code>create2</code> 接口，<code>create2</code> 的接口里接着调用 create3 的 <code>create3</code> 接口。</p>
+<p>create1：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@RequestMapping(&quot;/request&quot;)</span>  <br><span class="hljs-keyword">public</span> String <span class="hljs-title function_">request</span><span class="hljs-params">(<span class="hljs-meta">@RequestParam</span> String name)</span> &#123;  <br>   <span class="hljs-type">HelloRequest</span> <span class="hljs-variable">request</span> <span class="hljs-operator">=</span> HelloRequest.newBuilder()  <br>         .setName(name)  <br>         .build();  <br>   log.info(<span class="hljs-string">&quot;request: &#123;&#125;&quot;</span>, request);  <br>   <span class="hljs-type">String</span> <span class="hljs-variable">message</span> <span class="hljs-operator">=</span> myServiceStub.create2(request).getMessage();  <br>   Executors.newFixedThreadPool(<span class="hljs-number">1</span>).execute(() -&gt; &#123;  <br>      myServiceStub.create2(request).getMessage();  <br>   &#125;);       <span class="hljs-keyword">return</span> message;  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>create2:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Override</span>  <br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">create2</span><span class="hljs-params">(HelloRequest request, StreamObserver&lt;HelloReply&gt; responseObserver)</span> &#123;  <br>    <span class="hljs-type">HelloReply</span> <span class="hljs-variable">reply</span> <span class="hljs-operator">=</span> HelloReply.newBuilder()  <br>            .setMessage(<span class="hljs-string">&quot;Create2 ==&gt; &quot;</span> + request.getName())  <br>            .build();  <br>    log.info(<span class="hljs-string">&quot;Create2: &#123;&#125;&quot;</span>, reply.getMessage());  <br>    myMethod(request.getName());  <br>    myServiceStub.create3(request);<br>    responseObserver.onNext(reply);  <br>    responseObserver.onCompleted();  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>create3:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Override</span>  <br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">create3</span><span class="hljs-params">(HelloRequest request, StreamObserver&lt;HelloReply&gt; responseObserver)</span> &#123;  <br>    <span class="hljs-type">HelloReply</span> <span class="hljs-variable">reply</span> <span class="hljs-operator">=</span> HelloReply.newBuilder()  <br>            .setMessage(<span class="hljs-string">&quot;Create3 ==&gt; &quot;</span> + request.getName())  <br>            .build();  <br>    log.info(<span class="hljs-string">&quot;Create3: &#123;&#125;&quot;</span>, reply.getMessage());  <br>    myMethod(request.getName());  <br>    responseObserver.onNext(reply);  <br>    responseObserver.onCompleted();  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs shell">java -javaagent:opentelemetry-javaagent-2.4.0-SNAPSHOT.jar \<br>-Dotel.javaagent.extensions=otel-extensions-custom-context-1.0-SNAPSHOT.jar \<br>-Dotel.traces.exporter=otlp \<br>-Dotel.logs.exporter=none \<br>-Dotel.service.name=create2 \<br>-Dotel.exporter.otlp.protocol=grpc \<br>-Dotel.propagators=tracecontext,baggage,demo \<br>-Dotel.exporter.otlp.endpoint=http://127.0.0.1:5317 \<br>      -jar target/demo-0.0.1-SNAPSHOT.jar --spring.application.name=create2 --server.port=9191 --grpc.server.port=9292 --grpc.client.myService.address=static://127.0.0.1:9393<br></code></pre></td></tr></table></figure>
+<p>只是每个应用都需要使用我这边单独打的 agent 包以及一个 <code>extension</code>(tel-extensions-custom-context-1.0-SNAPSHOT.jar) 才能生效。</p>
+<p>最终的效果如下：<br><img src="https://s2.loli.net/2024/05/19/4o5mEhjnMbZWL62.png" srcset="/img/loading.gif" lazyload></p>
+<h1 id="Baggage"><a href="#Baggage" class="headerlink" title="Baggage"></a>Baggage</h1><p>在讲具体的实现之前需要先了解几个 Trace 中的概念，在这里主要用到的是一个称为 Baggage 的对象。</p>
+<p>在之前的文章中其实提到过它的原理以及使用场景：<br><a href="https://crossoverjie.top/2024/06/06/ob/OpenTelemetry-trace-concept/?highlight=%E5%88%86%E5%B8%83%E5%BC%8F%E8%BF%BD%E8%B8%AA%E7%9A%84%E6%BC%94%E8%BF%9B%E4%B9%8B%E6%97%85#Baggage">从 Dapper 到 OpenTelemetry：分布式追踪的演进之旅</a></p>
+<p><img src="https://s2.loli.net/2024/05/19/gv2YEoO6LkiGIF9.png" srcset="/img/loading.gif" lazyload></p>
+<p>Baggage 的中文翻译是：包裹📦；简单来说就是我们可以通过自定义 baggage 可以将我们想要的数据存放在其中，这样再整个 Trace 的任意一个 Span 中都可以读取到。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@RequestMapping(&quot;/request&quot;)</span>  <br><span class="hljs-keyword">public</span> String <span class="hljs-title function_">request</span><span class="hljs-params">(<span class="hljs-meta">@RequestParam</span> String name)</span> &#123;  <br>	<span class="hljs-comment">// 写入</span><br>    Baggage.current().toBuilder().  <br>          put(<span class="hljs-string">&quot;request.name&quot;</span>, name).build()  <br>          .storeInContext(Context.current()).makeCurrent();<br>&#125;         <br><br><span class="hljs-comment">// 获取</span><br><span class="hljs-type">String</span> <span class="hljs-variable">value</span> <span class="hljs-operator">=</span> Baggage.current().getEntryValue(<span class="hljs-string">&quot;request.name&quot;</span>);  <br>log.info(<span class="hljs-string">&quot;request.name: &#123;&#125;&quot;</span>, value);<br></code></pre></td></tr></table></figure>
+
+<p>理解了这个之后，我们要实现的将上游的信息传递到下游就可以通过这个组件实现了。</p>
+<p>只需要在上游创建 span 时将它自身数据写入到 Baggage 中，再到下游 span 取出来写入到 attribute 中即可。</p>
+<h1 id="ContextCustomizer"><a href="#ContextCustomizer" class="headerlink" title="ContextCustomizer"></a>ContextCustomizer</h1><p>这里的关键就是在哪里写入这个 Baggage，因为对第三方组件的 Instrumentation 的实现都是在 <a target="_blank" rel="noopener" href="https://github.com/open-telemetry/opentelemetry-java-instrumentation">opentelemetry-java-instrumentation</a>项目中。</p>
+<blockquote>
+<p>javaagent.jar 包也是通过该项目打包出来的。</p>
+</blockquote>
+<p>所以在该项目的 <code>io.opentelemetry.instrumentation.api.instrumenter.Instrumenter#doStart</code> 这个函数中我们发现一段逻辑：</p>
+<p><img src="https://s2.loli.net/2024/05/20/FYiAnq2G3voIyR4.png" srcset="/img/loading.gif" lazyload></p>
+<hr>
+<blockquote>
+<p>这个函数是在创建一个 span 的时候调用的，通常这个创建函数是在这些第三方库的拦截器中创建的。</p>
+</blockquote>
+<p><img src="https://s2.loli.net/2024/05/20/b3cxYekiUGaSlO9.png" srcset="/img/loading.gif" lazyload><br>比如这是在 grpc 的拦截器中调用。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">// context customizers run before span start, so that they can have access to the parent span  </span><br><span class="hljs-comment">// context, and so that their additions to the context will be visible to span processors  </span><br><span class="hljs-keyword">for</span> (ContextCustomizer&lt;? <span class="hljs-built_in">super</span> REQUEST&gt; contextCustomizer : contextCustomizers) &#123;  <br>  context = contextCustomizer.onStart(context, request, attributes);  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><code>ContextCustomizer</code> 是一个接口只提供了一个函数：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> <span class="hljs-title class_">ContextCustomizer</span>&lt;REQUEST&gt; &#123;  <br>  <br>  <span class="hljs-comment">/** Allows to customize the operation &#123;<span class="hljs-doctag">@link</span> Context&#125;. */</span>  <br>  Context <span class="hljs-title function_">onStart</span><span class="hljs-params">(Context parentContext, REQUEST request, Attributes startAttributes)</span>;  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<ul>
+<li><code>Context</code> 是上下文信息，可以在自定义的 ContextCustomizer 继续往上下文中追加信息。</li>
+<li><code>REQUEST</code> 是一个泛型：一般是当前第三方组件的请求信息：<ul>
+<li>比如是 <code>HTTP</code> 时，这个 <code>request</code> 就是 HTTP 的请求信息。</li>
+<li>而如果是 <code>gRPC</code> ，则是 <code>gRPC</code> 的请求信息。</li>
+<li>其他的请求类型同理。</li>
+</ul>
+</li>
+<li><code>startAttributes</code> 则是预先写入的一些属性，比如在上图中看到的一些 <code>rpc.service/rpc.method</code>等字段。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">// context customizers run before span start, so that they can have access to the parent span  </span><br><span class="hljs-comment">// context, and so that their additions to the context will be visible to span processors</span><br></code></pre></td></tr></table></figure>
+
+<p>从这个接口的调用注释可以看出：<br>这个自定义的 context 会在 span 开始之前调用，所以在这里是可以访问到当前创建的 span 的父 context，同时在这里的 context 中新增的数据可以在 <code>SpanProcessor</code> 访问到。</p>
+<h1 id="SpanProcessor"><a href="#SpanProcessor" class="headerlink" title="SpanProcessor"></a>SpanProcessor</h1><p>而 SpanProcessor 又是一个非常的重要的组件，我们接着刚才的 <code>contextCustomizer</code> 处往后跟踪代码。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java">context = contextCustomizer.onStart(context, request, attributes);<br>	---&gt;<span class="hljs-type">Span</span> <span class="hljs-variable">span</span> <span class="hljs-operator">=</span> spanBuilder.setParent(context).startSpan();<br>			---&gt;io.opentelemetry.sdk.trace.SdkSpanBuilder#startSpan<br>				---&gt;io.opentelemetry.sdk.trace.SdkSpan#startSpan<br>					---&gt;spanProcessor.onStart(parentContext, span);<br></code></pre></td></tr></table></figure>
+
+<p>可以看到 <code>spanProcessor.onStart</code> 这个函数会在 contextCustomizer 之后调用。</p>
+<p><img src="https://s2.loli.net/2024/05/20/vpxHt34TUbgfShz.png" srcset="/img/loading.gif" lazyload></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs java"><br><span class="hljs-comment">/**  </span><br><span class="hljs-comment"> * SpanProcessor is the interface &#123;<span class="hljs-doctag">@link</span> SdkTracer&#125; uses to allow synchronous hooks for when a  </span><br><span class="hljs-comment"> * &#123;<span class="hljs-doctag">@code</span> Span&#125; is started or when a &#123;<span class="hljs-doctag">@code</span> Span&#125; is ended.  </span><br><span class="hljs-comment"> */</span><br> <br><span class="hljs-comment">//==========================================================</span><br><br><span class="hljs-comment">/**  </span><br><span class="hljs-comment"> * Called when a &#123;<span class="hljs-doctag">@link</span> io.opentelemetry.api.trace.Span&#125; is started, if the &#123;<span class="hljs-doctag">@link</span>  </span><br><span class="hljs-comment"> * Span#isRecording()&#125; returns true.  </span><br><span class="hljs-comment"> * * &lt;p&gt;This method is called synchronously on the execution thread, should not throw or block the  </span><br><span class="hljs-comment"> * execution thread. * * <span class="hljs-doctag">@param</span> parentContext the parent &#123;<span class="hljs-doctag">@code</span> Context&#125; of the span that just started.  </span><br><span class="hljs-comment"> * <span class="hljs-doctag">@param</span> span the &#123;<span class="hljs-doctag">@code</span> Span&#125; that just started.  </span><br><span class="hljs-comment"> */</span><span class="hljs-keyword">void</span> <span class="hljs-title function_">onStart</span><span class="hljs-params">(Context parentContext, ReadWriteSpan span)</span>;<br></code></pre></td></tr></table></figure>
+
+<p>从注释中可以知道 SpanProcessor 是作为一个 span 的生命周期中的关键节点的 hook 函数。</p>
+<p>在这些函数中我们可以自定义一些 span 的数据，比如在 <code>onStart</code> 还可以往 span 中写入一些自定义的 attribute。</p>
+<p>这也是我们这次会用到的一个接口，我们的方案是：</p>
+<p>在 gRPC 构建 Instrument 时自定义一个 <code>GrpcServerContextCustomizer</code> ，在这个自定义的 <code>ContextCustomizer</code> 中写入一个 <code>Baggage</code>。</p>
+<p>然后在 <code>io.opentelemetry.sdk.trace.SpanProcessor#onStart</code> 接口中取出这个 <code>Baggage</code> 写入到当前 span 的 attribute 中。</p>
+<p>这样我们就可以看到之前提到的那些数据上游信息了。<br><img src="https://s2.loli.net/2024/05/19/4o5mEhjnMbZWL62.png" srcset="/img/loading.gif" lazyload></p>
+<h1 id="为-gRPC-添加上下文"><a href="#为-gRPC-添加上下文" class="headerlink" title="为 gRPC 添加上下文"></a>为 gRPC 添加上下文</h1><p>先来看看如何为 gRPC 添加 <code>Baggage</code>：</p>
+<p>我们先自定义一个 <code>GrpcServerContextCustomizer</code> 实现类：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">GrpcServerContextCustomizer</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">ContextCustomizer</span>&lt;GrpcRequest&gt; &#123;  <br>  <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> String currentServiceName;  <br>  <br>  <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-type">String</span> <span class="hljs-variable">PARENT_RPC_KEY</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;parent_rpc&quot;</span>;  <br>  <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-type">String</span> <span class="hljs-variable">CURRENT_RPC_KEY</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;current_rpc&quot;</span>;  <br>  <br>  <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> <span class="hljs-type">String</span> <span class="hljs-variable">CURRENT_HTTP_URL_PATH</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;current_http_url_path&quot;</span>;  <br>  <br>  <span class="hljs-keyword">public</span> <span class="hljs-title function_">GrpcServerContextCustomizer</span><span class="hljs-params">(String serviceName)</span> &#123;  <br>    <span class="hljs-built_in">this</span>.currentServiceName = serviceName;  <br>  &#125;  <br>  <span class="hljs-meta">@Override</span>  <br>  <span class="hljs-keyword">public</span> Context <span class="hljs-title function_">onStart</span><span class="hljs-params">(Context parentContext, GrpcRequest grpcRequest,  </span><br><span class="hljs-params">      Attributes startAttributeds)</span> &#123;  <br>    <span class="hljs-type">BaggageBuilder</span> <span class="hljs-variable">builder</span> <span class="hljs-operator">=</span> Baggage.fromContext(parentContext).toBuilder();  <br>  <br>    <span class="hljs-type">String</span> <span class="hljs-variable">currentRpc</span> <span class="hljs-operator">=</span> Baggage.fromContext(parentContext).getEntryValue(CURRENT_RPC_KEY);  <br>    <span class="hljs-type">String</span> <span class="hljs-variable">fullMethodName</span> <span class="hljs-operator">=</span> startAttributeds.get(AttributeKey.stringKey(<span class="hljs-string">&quot;rpc.method&quot;</span>));  <br>    <span class="hljs-type">String</span> <span class="hljs-variable">rpcService</span> <span class="hljs-operator">=</span> startAttributeds.get(AttributeKey.stringKey(<span class="hljs-string">&quot;rpc.service&quot;</span>));  <br>    <span class="hljs-comment">// call from grpc  </span><br>    <span class="hljs-type">String</span> <span class="hljs-variable">method</span> <span class="hljs-operator">=</span> rpcService + <span class="hljs-string">&quot;:&quot;</span> + fullMethodName;  <br>    <span class="hljs-type">String</span> <span class="hljs-variable">baggageInfo</span> <span class="hljs-operator">=</span> getBaggageInfo(currentServiceName, method);  <br>  <br>    <span class="hljs-type">String</span> <span class="hljs-variable">httpUrlPath</span> <span class="hljs-operator">=</span> Baggage.fromContext(parentContext).getEntryValue(CURRENT_HTTP_URL_PATH);  <br>    <span class="hljs-keyword">if</span> (!StringUtils.isNullOrEmpty(httpUrlPath)) &#123;  <br>      <span class="hljs-comment">// call from http  </span><br>      <span class="hljs-comment">// currentRpc = currentRpc;  currentRpc = create1|GET:/request      // clear current_http_url_path      builder.put(CURRENT_HTTP_URL_PATH, &quot;&quot;);  </span><br>    &#125;  <br>    <span class="hljs-type">Baggage</span> <span class="hljs-variable">baggage</span> <span class="hljs-operator">=</span> builder  <br>        .put(PARENT_RPC_KEY, currentRpc)  <br>        .put(CURRENT_RPC_KEY, baggageInfo)  <br>        .build();  <br>    <span class="hljs-keyword">return</span> parentContext.with(baggage);  <br>  <br>  &#125;  <br>  <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> String <span class="hljs-title function_">getBaggageInfo</span><span class="hljs-params">(String serviceName, String method)</span> &#123;  <br>    <span class="hljs-keyword">if</span> (StringUtils.isNullOrEmpty(serviceName)) &#123;  <br>      <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;&quot;</span>;  <br>    &#125;    <span class="hljs-keyword">return</span> serviceName + <span class="hljs-string">&quot;|&quot;</span> + method;  <br>  &#125;  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>从这个代码中可以看出，我们需要先从上下文中获取 <code>CURRENT_RPC_KEY</code> ，从而得知当前的 span 是不是 root span。</p>
+<p>所以我们其实是把当前的 span 信息作为一个 <code>PARENT_RPC_KEY</code> 写入到 Baggage 中。</p>
+<p>这样在 <code>SpanProcessor</code> 中便可以直接取出 <code>PARENT_RPC_KEY</code> 作为上游的信息写入 span 的 attribute 中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Override</span>  <br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">onStart</span><span class="hljs-params">(Context parentContext, ReadWriteSpan span)</span> &#123;<br>    <span class="hljs-type">String</span> <span class="hljs-variable">parentRpc</span> <span class="hljs-operator">=</span> Baggage.fromContext(parentContext).getEntryValue(<span class="hljs-string">&quot;parent_rpc&quot;</span>);  <br>    <span class="hljs-keyword">if</span> (!StringUtils.isNullOrEmpty(parentRpc)) &#123;  <br>        String[] split = parentRpc.split(<span class="hljs-string">&quot;\\|&quot;</span>);  <br>        span.setAttribute(<span class="hljs-string">&quot;parent_rpc&quot;</span>, parentRpc);  <br>        span.setAttribute(<span class="hljs-string">&quot;parent_service_name&quot;</span>, split[<span class="hljs-number">0</span>]);  <br>        span.setAttribute(<span class="hljs-string">&quot;parent_service_method&quot;</span>, split[<span class="hljs-number">1</span>]); <br>    &#125;  <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p>需要注意的是，这里的 Baggage 需要使用 <code>Baggage.fromContext(parentContext)</code> 才能拿到刚才写入 Baggage 信息。</p>
+</blockquote>
+<p>之后我们找到构建 <a target="_blank" rel="noopener" href="https://github.com/crossoverjie/opentelemetry-java-instrumentation/blob/715220c8d5e52001f9af9afbeb00bb87b4db0197/instrumentation/grpc-1.6/library/src/main/java/io/opentelemetry/instrumentation/grpc/v1_6/GrpcTelemetryBuilder.java#L31">gRPCServerInstrumenterBuilder</a> 的地方，写入我们刚才自定义的 <code>GrpcServerContextCustomizer</code> 即可。</p>
+<p><img src="https://s2.loli.net/2024/05/20/rwSc8HmvqKL9ZQl.png" srcset="/img/loading.gif" lazyload></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java">.addContextCustomizer(<span class="hljs-keyword">new</span> <span class="hljs-title class_">GrpcServerContextCustomizer</span>(serviceName))<br></code></pre></td></tr></table></figure>
+
+<p>这里我们选择写入到是 <code>serverInstrumenterBuilder</code> 而不是<code>clientInstrumenterBuilder</code>，因为在服务端的入口就知道是从哪个接口进来的请求。</p>
+<h1 id="为-spring-boot-的-http-接口添加上下文"><a href="#为-spring-boot-的-http-接口添加上下文" class="headerlink" title="为 spring boot 的 http 接口添加上下文"></a>为 spring boot 的 http 接口添加上下文</h1><p>如果只存在 gRPC 调用时只添加 <code>gRPC</code> 的上下文也够用了，但是我们也不排除由外部接口是通过 HTTP 访问进来的，然后再调用内部的 <code>gRPC</code> 接口；这也是非常常见的架构模式。</p>
+<p>所以我们还需要在 HTTP 中增加 <code>ContextCustomizer</code> 将自身的数据写入到 <code>Baggage</code> 中。</p>
+<p>好在 <code>HttpServerRouteBuilder</code> 自身是实现了 <code>ContextCustomizer</code> 接口的，我们只需要往里面写入 <code>Baggage</code> 数据即可。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> ContextCustomizer&lt;REQUEST&gt; <span class="hljs-title function_">build</span><span class="hljs-params">()</span> &#123;  <br>  Set&lt;String&gt; knownMethods = <span class="hljs-keyword">new</span> <span class="hljs-title class_">HashSet</span>&lt;&gt;(<span class="hljs-built_in">this</span>.knownMethods);  <br>  <span class="hljs-keyword">return</span> (context, request, startAttributes) -&gt; &#123;  <br>    <span class="hljs-keyword">if</span> (HttpRouteState.fromContextOrNull(context) != <span class="hljs-literal">null</span>) &#123;  <br>      <span class="hljs-keyword">return</span> context;  <br>    &#125;    <span class="hljs-type">String</span> <span class="hljs-variable">method</span> <span class="hljs-operator">=</span> getter.getHttpRequestMethod(request);  <br>    <span class="hljs-keyword">if</span> (method == <span class="hljs-literal">null</span> || !knownMethods.contains(method)) &#123;  <br>      method = <span class="hljs-string">&quot;HTTP&quot;</span>;  <br>    &#125;    <span class="hljs-type">String</span> <span class="hljs-variable">urlPath</span> <span class="hljs-operator">=</span> getter.getUrlPath(request);  <br>    <span class="hljs-type">String</span> <span class="hljs-variable">methodPath</span> <span class="hljs-operator">=</span> method + <span class="hljs-string">&quot;:&quot;</span> + urlPath;  <br>  <br>    <span class="hljs-type">String</span> <span class="hljs-variable">currentRpc</span> <span class="hljs-operator">=</span> Baggage.fromContext(context).getEntryValue(CURRENT_RPC_KEY);  <br>    <span class="hljs-type">String</span> <span class="hljs-variable">baggageInfo</span> <span class="hljs-operator">=</span> getBaggageInfo(serviceName, methodPath);  <br>    <span class="hljs-type">Baggage</span> <span class="hljs-variable">baggage</span> <span class="hljs-operator">=</span> Baggage.fromContext(context).toBuilder()  <br>        .put(PARENT_RPC_KEY, currentRpc)  <br>        .put(CURRENT_RPC_KEY, baggageInfo)  <br>        .put(CURRENT_HTTP_URL_PATH, methodPath)  <br>        .build();   <br>    <span class="hljs-keyword">return</span> context.with(HttpRouteState.create(method, <span class="hljs-literal">null</span>, <span class="hljs-number">0</span>))  <br>        .with(baggage);  <br>  &#125;;&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这里新增了 <code>CURRENT_HTTP_URL_PATH</code> 用于标记当前的请求来源是 HTTP，在 grpc 的 <code>ContextCustomizer</code> 解析时会判断这个值是否为空。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">String</span> <span class="hljs-variable">httpUrlPath</span> <span class="hljs-operator">=</span> Baggage.fromContext(parentContext).getEntryValue(CURRENT_HTTP_URL_PATH);  <br><span class="hljs-keyword">if</span> (!StringUtils.isNullOrEmpty(httpUrlPath)) &#123;  <br>  <span class="hljs-comment">// call from http  </span><br>  <span class="hljs-comment">// currentRpc = currentRpc;  currentRpc = create1|GET:/request  // clear current_http_url_path  builder.put(CURRENT_HTTP_URL_PATH, &quot;&quot;);  </span><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<hr>
+<p><img src="https://s2.loli.net/2024/05/20/ionwTD9EAr3CROL.png" srcset="/img/loading.gif" lazyload></p>
+<p>这样就可以在 grpc 的下游接口拿到入口的 HTTP 接口数据了。</p>
+<hr>
+<p>当然也有可能是在 grpc 接口中调用 HTTP 的接口的场景，只是我们的业务中没有这种情况，所以就没有适配这类的场景。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p><code>ContextCustomizer</code> 接口没有提供对应的扩展，但是 <code>SpanProcessor</code> 是提供了扩展接口的。</p>
+<blockquote>
+<p>原本是想尽量别维护自己的 javaagent，但也好在 OpenTelemetry 是提供的接口，所以也并不会去修改原本的代码。</p>
+</blockquote>
+<p>所以我们还是需要创建一个 extensions 的项目在实现 <code>SpanProcessor</code>，这个在之前的 <a href="https://crossoverjie.top/2024/04/15/ob/how-to-write-otel-extensions/">《实战：如何编写一个 OpenTelemetry Extensions》</a>有详细讲到。</p>
+<p>所以最后的应用启动方式如下：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs shell">java -javaagent:opentelemetry-javaagent-2.4.0-SNAPSHOT.jar \<br>-Dotel.javaagent.extensions=otel-extensions-custom-context-1.0-SNAPSHOT.jar \<br></code></pre></td></tr></table></figure>
+
+<p>需要使用我们手动打包的 javaagent 以及一个自定义扩展包。</p>
+<p>打包方式：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">./gradlew assemble<br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>opentelemetry-java-instrumentation</code> 项目比较大，所以打包过程可能比较久。</p>
+</blockquote>
+<p>因为这其实是一些定制需求，所以就没提交到上游，感兴趣的可以自行合并代码测试。</p>
+<p>最后可以这个分支中查看到修改的部分：<br><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/opentelemetry-java-instrumentation/compare/main...add-grpc-context">https://github.com/crossoverJie/opentelemetry-java-instrumentation/compare/main...add-grpc-context</a></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/OB/" class="category-chain-item">OB</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/OpenTelemetry/" class="print-no-link">#OpenTelemetry</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>OpenTelemetry 深度定制：跨服务追踪的实战技巧</div>
+      <div>http://crossoverjie.top/2024/06/26/ob/OpenTelemetry-custom-instrument/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>June 26, 2024</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/07/01/ob/how-to-involve-OpenSource/" title="如何找到并快速上手一个开源项目">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">如何找到并快速上手一个开源项目</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/06/13/ob/OpenTelemetry-metrics-concept/" title="从 Prometheus 到 OpenTelemetry：指标监控的演进与实践">
+                        <span class="hidden-mobile">从 Prometheus 到 OpenTelemetry：指标监控的演进与实践</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2024/06/26/ob/OpenTelemetry-custom-instrument/';
+          this.page.identifier = '/2024/06/26/ob/OpenTelemetry-custom-instrument/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

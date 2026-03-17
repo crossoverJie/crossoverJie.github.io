@@ -1,0 +1,960 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="背景最近在用 deepwiki-open 给内部的 Java 项目生成 wiki，发现一个很明显的问题：生成的 wiki 页面里引用的代码行号经常不准确，看起来是 LLM 根据上下文自己推算的。 比如一个函数明明在第 503 行，生成出来的 wiki 里可能标注成第 510 行甚至更离谱的数字。 之前我在 DeepWiki 一个常用 RAG 应用的开发流程 里分析过它的整体流程，本文主要聊聊我们在">
+<meta property="og:type" content="article">
+<meta property="og:title" content="DeepWiki 优化实战：代码行号与确定性目录生成">
+<meta property="og:url" content="http://crossoverjie.top/2026/03/17/AI/deepwiki-optimize-line-number/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景最近在用 deepwiki-open 给内部的 Java 项目生成 wiki，发现一个很明显的问题：生成的 wiki 页面里引用的代码行号经常不准确，看起来是 LLM 根据上下文自己推算的。 比如一个函数明明在第 503 行，生成出来的 wiki 里可能标注成第 510 行甚至更离谱的数字。 之前我在 DeepWiki 一个常用 RAG 应用的开发流程 里分析过它的整体流程，本文主要聊聊我们在">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://jsd.cdn.zzko.cn/gh/crossoverJie/images@main/images/cf24da10_deepwiki-optimize-cover.png">
+<meta property="article:published_time" content="2026-03-17T10:00:00.000Z">
+<meta property="article:modified_time" content="2026-03-17T03:46:01.576Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="AI">
+<meta property="article:tag" content="DeepWiki">
+<meta property="article:tag" content="RAG">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://jsd.cdn.zzko.cn/gh/crossoverJie/images@main/images/cf24da10_deepwiki-optimize-cover.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>DeepWiki 优化实战：代码行号与确定性目录生成 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":"G-930V538KP1"},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+    <!-- Google tag (gtag.js) -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript("https://www.googletagmanager.com/gtag/js?id=G-930V538KP1", function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            dataLayer.push(arguments);
+          }
+          gtag('js', new Date());
+          gtag('config', 'G-930V538KP1');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://jsd.cdn.zzko.cn/gh/crossoverJie/images@main/images/cf24da10_deepwiki-optimize-cover.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="DeepWiki 优化实战：代码行号与确定性目录生成"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-03-17 18:00" pubdate>
+          March 17, 2026 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          18 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">DeepWiki 优化实战：代码行号与确定性目录生成</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>最近在用 <a target="_blank" rel="noopener" href="https://github.com/AsyncFuncAI/deepwiki-open/">deepwiki-open</a> 给内部的 Java 项目生成 wiki，发现一个很明显的问题：<strong>生成的 wiki 页面里引用的代码行号经常不准确</strong>，看起来是 LLM 根据上下文自己推算的。</p>
+<p>比如一个函数明明在第 503 行，生成出来的 wiki 里可能标注成第 510 行甚至更离谱的数字。</p>
+<p>之前我在 <a href="https://crossoverjie.top/2025/12/25/AI/deepwiki-rag-principle/">DeepWiki 一个常用 RAG 应用的开发流程</a> 里分析过它的整体流程，本文主要聊聊我们在实际使用中遇到的两个问题以及对应的优化方案。</p>
+<span id="more"></span>
+<h1 id="问题分析：LLM-为什么算不对行号"><a href="#问题分析：LLM-为什么算不对行号" class="headerlink" title="问题分析：LLM 为什么算不对行号"></a>问题分析：LLM 为什么算不对行号</h1><p>在我们的优化版本中，已经使用 <a href="https://crossoverjie.top/2026/01/14/AI/splitter-Algorithm-analyse/">tree-sitter</a> 基于 AST 将代码进行拆分存入了本地的向量数据库。</p>
+<p>第一版存储的 chunk 格式是这样的：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">file</span> <span class="hljs-attr">path</span>=<span class="hljs-string">&quot;src/main/java/com/example/Client.java&quot;</span>&gt;</span><br><span class="hljs-tag">&lt;<span class="hljs-name">chunk</span> <span class="hljs-attr">start_line</span>=<span class="hljs-string">&quot;503&quot;</span> <span class="hljs-attr">end_line</span>=<span class="hljs-string">&quot;581&quot;</span>&gt;</span><br>package com.example;<br><br>import cn.hutool.core.util.ZipUtil;<br>import com.google.common.collect.Lists;<br>import com.google.protobuf.ByteString;<br>// ... 后面的代码<br><span class="hljs-tag">&lt;/<span class="hljs-name">chunk</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">file</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p>看起来我们已经告诉 LLM 这段代码从第 503 行开始到第 581 行结束了，但问题在于：<strong>chunk 内部的代码是原始文本，没有行号标记</strong>。</p>
+<p>当 LLM 需要引用某个具体函数的行号时，它必须从 <code>start_line=503</code> 开始，自己数第几行是哪个函数。</p>
+<p>这对 LLM 来说太难了——众所周知 LLM 不擅长数学计算，让它去数几十行代码然后算出 <code>503 + 偏移量 = 实际行号</code>，幻觉就不可避免了。</p>
+<blockquote>
+<p>这就好比你让一个文科生做加法题还不让用计算器，虽然能算但准确率堪忧。</p>
+</blockquote>
+<h1 id="优化一：给代码加上行号前缀"><a href="#优化一：给代码加上行号前缀" class="headerlink" title="优化一：给代码加上行号前缀"></a>优化一：给代码加上行号前缀</h1><p>既然 LLM 算不准，那最好的办法就是<strong>直接把结果给它</strong>，让它只需要”读”而不需要”算”。</p>
+<h2 id="改动思路"><a href="#改动思路" class="headerlink" title="改动思路"></a>改动思路</h2><p>核心改动很简单，在把 chunk 内容发给 LLM 之前，给每一行代码加上实际行号前缀：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">_add_line_numbers</span>(<span class="hljs-params">text: <span class="hljs-built_in">str</span>, start_line: <span class="hljs-built_in">int</span></span>) -&gt; <span class="hljs-built_in">str</span>:<br>    <span class="hljs-string">&quot;&quot;&quot;给代码文本的每一行添加行号前缀&quot;&quot;&quot;</span><br>    <span class="hljs-keyword">return</span> <span class="hljs-string">&#x27;\n&#x27;</span>.join(<br>        <span class="hljs-string">f&quot;<span class="hljs-subst">&#123;start_line + i&#125;</span>. <span class="hljs-subst">&#123;line&#125;</span>&quot;</span><br>        <span class="hljs-keyword">for</span> i, line <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(text.split(<span class="hljs-string">&#x27;\n&#x27;</span>))<br>    )<br></code></pre></td></tr></table></figure>
+
+<h2 id="优化前后对比"><a href="#优化前后对比" class="headerlink" title="优化前后对比"></a>优化前后对比</h2><table>
+<thead>
+<tr>
+<th></th>
+<th>优化前</th>
+<th>优化后</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>chunk 内容</td>
+<td>原始代码文本</td>
+<td>每行带行号前缀</td>
+</tr>
+<tr>
+<td>LLM 行为</td>
+<td>从 start_line 推算偏移量</td>
+<td>直接读取行号</td>
+</tr>
+<tr>
+<td>准确率</td>
+<td>经常偏差 5-20 行</td>
+<td>基本准确</td>
+</tr>
+</tbody></table>
+<p>优化前发给 LLM 的数据：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">chunk</span> <span class="hljs-attr">start_line</span>=<span class="hljs-string">&quot;503&quot;</span> <span class="hljs-attr">end_line</span>=<span class="hljs-string">&quot;581&quot;</span>&gt;</span><br>package com.example;<br><br>import cn.hutool.core.util.ZipUtil;<br>import com.google.common.collect.Lists;<br><span class="hljs-tag">&lt;/<span class="hljs-name">chunk</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p>优化后发给 LLM 的数据：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">chunk</span> <span class="hljs-attr">start_line</span>=<span class="hljs-string">&quot;1&quot;</span> <span class="hljs-attr">end_line</span>=<span class="hljs-string">&quot;44&quot;</span>&gt;</span><br>2.<br>3. import cn.hutool.core.util.ZipUtil;<br>4. import com.google.common.collect.Lists;<br>5. import com.google.protobuf.ByteString;<br><span class="hljs-tag">&lt;/<span class="hljs-name">chunk</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p>LLM 现在要引用 <code>ZipUtil</code> 的导入行，直接看到前缀 <code>3.</code> 就知道是第 3 行，不需要做任何计算。</p>
+<h2 id="具体改动文件"><a href="#具体改动文件" class="headerlink" title="具体改动文件"></a>具体改动文件</h2><p>一共改了 4 个文件：</p>
+<p><strong>1. <code>api/websocket_wiki.py</code></strong> — 添加 <code>_add_line_numbers()</code> 工具函数，在构建 chunk 内容时加上行号前缀：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">if</span> start_line <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span> <span class="hljs-keyword">and</span> end_line <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:<br>    numbered_text = _add_line_numbers(doc.text, start_line)<br>    doc_parts.append(<br>        <span class="hljs-string">f&#x27;&lt;chunk start_line=&quot;<span class="hljs-subst">&#123;start_line&#125;</span>&quot; end_line=&quot;<span class="hljs-subst">&#123;end_line&#125;</span>&quot;&gt;\n<span class="hljs-subst">&#123;numbered_text&#125;</span>\n&lt;/chunk&gt;&#x27;</span><br>    )<br></code></pre></td></tr></table></figure>
+
+
+<p><strong>2. <code>api/websocket_wiki.py</code> 的 prompt 部分</strong> — 更新 <code>&lt;line_number_rules&gt;</code> 指令，告诉 LLM 直接读取行号前缀而不是自己计算：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-string">&quot;&lt;line_number_rules&gt;&quot;</span><br><span class="hljs-string">&quot;Each line in the code context is prefixed with its actual line number (e.g., &#x27;100. code here&#x27;). &quot;</span><br><span class="hljs-string">&quot;When citing source lines, read the line numbers directly from these prefixes. &quot;</span><br><span class="hljs-string">&quot;Do not count or calculate line numbers yourself. &quot;</span><br><span class="hljs-string">&quot;&lt;/line_number_rules&gt;&quot;</span><br></code></pre></td></tr></table></figure>
+
+
+<h2 id="Token-成本"><a href="#Token-成本" class="headerlink" title="Token 成本"></a>Token 成本</h2><p>每行增加约 4-6 个字符（比如 <code>503. </code>），一个典型的 chunk 30-40 行，大概增加 150 字符。10-20 个 chunks 总共增加约 1500-3000 字符（约 500-1000 tokens），成本基本可以忽略。</p>
+<h1 id="优化二：基于-Proto-文件生成确定性目录"><a href="#优化二：基于-Proto-文件生成确定性目录" class="headerlink" title="优化二：基于 Proto 文件生成确定性目录"></a>优化二：基于 Proto 文件生成确定性目录</h1><p>第二个问题是 wiki 的<strong>目录结构</strong>。</p>
+<p>DeepWiki 默认的做法是把 repo 的目录树和 README 丢给 LLM，让它自由发挥来生成 wiki 目录（虽然有一些限制提示词，比如输出目录结构的大概要求）。这在通用场景下是合理的，但对我们的内部 Java 项目来说效果不好。</p>
+<p>原因很简单：我们所有的业务都是围绕着 <strong>gRPC 接口</strong>来的，理想的 wiki 目录应该是按 Service 和 RPC 方法来组织的，而不是让 AI 自由发挥出一堆”Architecture Overview”、”Getting Started” 之类的通用章节。</p>
+<h2 id="改动思路-1"><a href="#改动思路-1" class="headerlink" title="改动思路"></a>改动思路</h2><p>写代码读取 repo 里所有的 <code>*.proto</code> 文件，解析出所有的 Service 和 RPC 接口列表，然后直接构建出确定性的目录结构给前端，绕过 LLM 的目录生成步骤。</p>
+<p>具体流程：</p>
+<ol>
+<li>扫描 repo 里所有 <code>.proto</code> 文件</li>
+<li>用正则解析出 <code>package</code>、<code>service</code>、<code>rpc</code> 定义</li>
+<li>构建固定格式的 <code>WikiStructure</code> JSON</li>
+<li>前端检测到 proto 文件存在时，调用这个接口替代 LLM 生成</li>
+</ol>
+<h2 id="核心代码：proto-parser-py"><a href="#核心代码：proto-parser-py" class="headerlink" title="核心代码：proto_parser.py"></a>核心代码：proto_parser.py</h2><p>新增了一个 <code>api/proto_parser.py</code> 文件，主要做三件事：</p>
+<p><strong>扫描 proto 文件：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">find_proto_files</span>(<span class="hljs-params">repo_path: <span class="hljs-built_in">str</span>, excluded_dirs=<span class="hljs-literal">None</span></span>) -&gt; <span class="hljs-type">List</span>[<span class="hljs-built_in">str</span>]:<br>    <span class="hljs-string">&quot;&quot;&quot;遍历 repo 目录，返回所有 .proto 文件路径&quot;&quot;&quot;</span><br>    skip = <span class="hljs-built_in">set</span>(DEFAULT_EXCLUDED_DIRS)  <span class="hljs-comment"># 排除 vendor、node_modules 等</span><br>    proto_files = []<br>    <span class="hljs-keyword">for</span> root, dirs, files <span class="hljs-keyword">in</span> os.walk(repo_path):<br>        dirs[:] = [d <span class="hljs-keyword">for</span> d <span class="hljs-keyword">in</span> dirs <span class="hljs-keyword">if</span> d <span class="hljs-keyword">not</span> <span class="hljs-keyword">in</span> skip]<br>        <span class="hljs-keyword">for</span> f <span class="hljs-keyword">in</span> files:<br>            <span class="hljs-keyword">if</span> f.endswith(<span class="hljs-string">&quot;.proto&quot;</span>):<br>                proto_files.append(os.path.join(root, f))<br>    proto_files.sort()<br>    <span class="hljs-keyword">return</span> proto_files<br></code></pre></td></tr></table></figure>
+
+<p><strong>解析 proto 内容：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python">_RE_PACKAGE = re.<span class="hljs-built_in">compile</span>(<span class="hljs-string">r&quot;package\s+([\w.]+)\s*;&quot;</span>)<br>_RE_RPC = re.<span class="hljs-built_in">compile</span>(<br>    <span class="hljs-string">r&quot;rpc\s+(\w+)\s*\(\s*(stream\s+)?(\w+)\s*\)\s*returns\s*\(\s*(stream\s+)?(\w+)\s*\)&quot;</span>,<br>)<br></code></pre></td></tr></table></figure>
+
+<p>通过平衡大括号匹配来提取 service block，再用正则提取每个 RPC 方法的签名，包括方法名、请求类型、响应类型以及是否是 streaming。</p>
+<p><strong>构建 wiki 目录结构：</strong></p>
+<p>生成的目录包含 3 个固定章节 + 每个 Service 一个独立章节：</p>
+<table>
+<thead>
+<tr>
+<th>章节</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Overview</td>
+<td>项目总览</td>
+</tr>
+<tr>
+<td>System Architecture</td>
+<td>系统架构</td>
+</tr>
+<tr>
+<td>Core Features</td>
+<td>gRPC 接口汇总</td>
+</tr>
+<tr>
+<td>{ServiceName} Service</td>
+<td>每个 RPC 方法一个子页面</td>
+</tr>
+</tbody></table>
+<p>每个 RPC 方法的页面标题直接用方法签名，比如 <code>GetOrder(GetOrderRequest) returns (GetOrderResponse)</code>，非常清晰。</p>
+<h2 id="前端改动：page-tsx"><a href="#前端改动：page-tsx" class="headerlink" title="前端改动：page.tsx"></a>前端改动：page.tsx</h2><p>在 <code>src/app/[owner]/[repo]/page.tsx</code> 里新增了一个检测逻辑：</p>
+<figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs typescript"><span class="hljs-comment">// 检测 repo 是否包含 proto 文件</span><br><span class="hljs-comment">// 如果有，调用 /api/proto/wiki_structure 获取确定性目录</span><br><span class="hljs-comment">// 如果失败，fallback 到原来的 LLM 生成方式</span><br></code></pre></td></tr></table></figure>
+<p>前端的核心逻辑是：</p>
+<ol>
+<li>先尝试调用 proto 解析接口获取确定性目录</li>
+<li>如果 proto 接口返回了有效结构，直接使用（跳过 LLM 目录生成）</li>
+<li>并发生成每个页面的具体内容（最多 5 个并行请求）</li>
+<li>如果 proto 接口失败，fallback 到原来的 LLM 生成流程</li>
+</ol>
+<blockquote>
+<p>这样做的好处是：目录结构 100% 准确，不会出现 LLM 瞎编目录的情况，同时还省了一次 LLM 调用的成本。</p>
+</blockquote>
+<h1 id="确定性-vs-不确定性：什么该交给-AI"><a href="#确定性-vs-不确定性：什么该交给-AI" class="headerlink" title="确定性 vs 不确定性：什么该交给 AI"></a>确定性 vs 不确定性：什么该交给 AI</h1><p>这两个优化背后其实是同一个思路：<strong>把确定的东西明确告诉 AI，不确定的才让 AI 来发挥</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>内容</th>
+<th>处理方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>确定的</td>
+<td>代码行号</td>
+<td>直接给 LLM 标注好</td>
+</tr>
+<tr>
+<td>确定的</td>
+<td>gRPC 接口列表、目录结构</td>
+<td>代码解析，不经过 LLM</td>
+</tr>
+<tr>
+<td>不确定的</td>
+<td>函数功能解释</td>
+<td>交给 LLM 归纳</td>
+</tr>
+<tr>
+<td>不确定的</td>
+<td>项目架构分析</td>
+<td>交给 LLM 总结</td>
+</tr>
+<tr>
+<td>不确定的</td>
+<td>代码关联关系</td>
+<td>交给 LLM 推理</td>
+</tr>
+</tbody></table>
+<p>LLM 非常擅长理解、归纳和总结，但不擅长精确计算和结构化数据的生成。把它们分开处理，各取所长，效果就好很多了。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这篇文章分享了我们在基于 DeepWiki 做内部项目 wiki 生成时的两个优化：</p>
+<ol>
+<li><strong>行号前缀</strong>：给代码 chunk 的每一行加上实际行号，让 LLM 直接读取而不是自己推算，token 成本几乎可以忽略但准确率大幅提升。</li>
+<li><strong>确定性目录生成</strong>：通过代码解析 proto 文件直接构建目录结构，绕过 LLM 的自由发挥，保证目录 100% 准确。</li>
+</ol>
+<p>核心经验就一句话：<strong>需要定制自己的项目，尽量不要用通用的方案</strong>，不然就只是可用，但不精通。类似于现在的 <a href="https://crossoverjie.top/2026/03/11/AI/skilldeck-openclaw-support/">OpenClaw</a>，通用方案大家都能用，但真正好用的一定是针对你自己场景深度优化的。</p>
+<p>对于确定的内容要明确告知 AI，不要让它自行发挥去推理，特别是和逻辑计算相关的，不然幻觉很严重。而不确定的、需要归纳总结的主观内容，则非常适合交给 AI 来输出。</p>
+<p>#Blog</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI/" class="print-no-link">#AI</a>
+      
+        <a href="/tags/DeepWiki/" class="print-no-link">#DeepWiki</a>
+      
+        <a href="/tags/RAG/" class="print-no-link">#RAG</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>DeepWiki 优化实战：代码行号与确定性目录生成</div>
+      <div>http://crossoverjie.top/2026/03/17/AI/deepwiki-optimize-line-number/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>March 17, 2026</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/03/11/AI/skilldeck-openclaw-support/" title="SkillDeck 支持 OpenClaw 了，顺便聊聊小龙虾">
+                        <span class="hidden-mobile">SkillDeck 支持 OpenClaw 了，顺便聊聊小龙虾</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2026/03/17/AI/deepwiki-optimize-line-number/';
+          this.page.identifier = '/2026/03/17/AI/deepwiki-optimize-line-number/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

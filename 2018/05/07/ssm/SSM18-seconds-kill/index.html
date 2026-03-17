@@ -1,0 +1,1035 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言之前在 Java-Interview 中提到过秒杀架构的设计，这次基于其中的理论简单实现了一下。  本次采用循序渐进的方式逐步提高性能达到并发秒杀的效果，文章较长请准备好瓜子板凳(liushuizhang😂)。  本文所有涉及的代码：  https:&#x2F;&#x2F;github.com&#x2F;crossoverJie&#x2F;SSM https:&#x2F;&#x2F;github.com&#x2F;crossoverJie&#x2F;distribut">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SSM(十八) 秒杀架构实践">
+<meta property="og:url" content="http://crossoverjie.top/2018/05/07/ssm/SSM18-seconds-kill/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前言之前在 Java-Interview 中提到过秒杀架构的设计，这次基于其中的理论简单实现了一下。  本次采用循序渐进的方式逐步提高性能达到并发秒杀的效果，文章较长请准备好瓜子板凳(liushuizhang😂)。  本文所有涉及的代码：  https:&#x2F;&#x2F;github.com&#x2F;crossoverJie&#x2F;SSM https:&#x2F;&#x2F;github.com&#x2F;crossoverJie&#x2F;distribut">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d713e19ed.jpg">
+<meta property="og:image" content="https://i.loli.net/2018/05/08/5af079ea8618b.png">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d71693bb0.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d7189c72f.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d721e9fd4.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d7243c657.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d726cee79.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d72816d67.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d72b9f26a.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d72dab853.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d730800b1.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d73324dd2.jpg">
+<meta property="og:image" content="https://i.loli.net//2019//05//08//5cd1daafb70bc.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d752909b9.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d758c7714.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d764221b5.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d7676e1d2.jpg">
+<meta property="og:image" content="https://i.loli.net//2019//05//08//5cd1daeb0c306.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d776c39b7.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d77ba16d2.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d780d5aa2.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d784644d5.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d787b3e49.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d78b3896a.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d78d659b6.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d790607a1.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d79307676.jpg">
+<meta property="og:image" content="https://i.loli.net/2019/05/08/5cd1d7973de43.jpg">
+<meta property="article:published_time" content="2018-05-06T17:12:54.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:08:22.690Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Kafka">
+<meta property="article:tag" content="Redis">
+<meta property="article:tag" content="SpringBoot">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://i.loli.net/2019/05/08/5cd1d713e19ed.jpg">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>SSM(十八) 秒杀架构实践 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":"G-930V538KP1"},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+    <!-- Google tag (gtag.js) -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript("https://www.googletagmanager.com/gtag/js?id=G-930V538KP1", function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            dataLayer.push(arguments);
+          }
+          gtag('js', new Date());
+          gtag('config', 'G-930V538KP1');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="SSM(十八) 秒杀架构实践"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2018-05-07 01:12" pubdate>
+          May 7, 2018 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          3.3k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          28 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">SSM(十八) 秒杀架构实践</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><img src="https://i.loli.net/2019/05/08/5cd1d713e19ed.jpg" srcset="/img/loading.gif" lazyload></p>
+<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>之前在 <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/Java-Interview/blob/master/MD/Spike.md">Java-Interview</a> 中提到过秒杀架构的设计，这次基于其中的理论简单实现了一下。</p>
+<blockquote>
+<p>本次采用循序渐进的方式逐步提高性能达到并发秒杀的效果，文章较长请准备好瓜子板凳(liushuizhang😂)。</p>
+</blockquote>
+<p>本文所有涉及的代码：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/SSM">https://github.com/crossoverJie/SSM</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/distributed-redis-tool">https://github.com/crossoverJie/distributed-redis-tool</a></li>
+</ul>
+<p>最终架构图：</p>
+<p><img src="https://i.loli.net/2018/05/08/5af079ea8618b.png" srcset="/img/loading.gif" lazyload alt="系统架构设计.png"></p>
+<span id="more"></span>
+
+<p>先简单根据这个图谈下请求的流转，因为后面不管怎么改进这个都是没有变的。</p>
+<ul>
+<li>前端请求进入 <code>web</code> 层，对应的代码就是 <code>controller</code>。</li>
+<li>之后将真正的库存校验、下单等请求发往 <code>Service</code> 层（其中 RPC 调用依然采用的 <code>dubbo</code>，只是更新为最新版本，本次不会过多讨论 dubbo 相关的细节，有兴趣的可以查看 <a href="https://crossoverjie.top/%2F2017%2F04%2F07%2FSSM11%2F">基于dubbo的分布式架构</a>）。</li>
+<li><code>Service</code> 层再对数据进行落地，下单完成。</li>
+</ul>
+<h2 id="无限制"><a href="#无限制" class="headerlink" title="无限制"></a>无限制</h2><p>其实抛开秒杀这个场景来说正常的一个下单流程可以简单分为以下几步：</p>
+<ul>
+<li>校验库存</li>
+<li>扣库存</li>
+<li>创建订单</li>
+<li>支付</li>
+</ul>
+<p>基于上文的架构所以我们有了以下实现：</p>
+<p>先看看实际项目的结构：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d71693bb0.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>还是和以前一样：</p>
+<ul>
+<li>提供出一个 <code>API</code> 用于 <code>Service</code> 层实现，以及 <code>web</code> 层消费。</li>
+<li>web 层简单来说就是一个 <code>SpringMVC</code>。</li>
+<li><code>Service</code> 层则是真正的数据落地。</li>
+<li><code>SSM-SECONDS-KILL-ORDER-CONSUMER</code> 则是后文会提到的 <code>Kafka</code> 消费。</li>
+</ul>
+<p>数据库也是只有简单的两张表模拟下单：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">CREATE TABLE</span> `stock` (<br>  `id` <span class="hljs-type">int</span>(<span class="hljs-number">11</span>) unsigned <span class="hljs-keyword">NOT NULL</span> AUTO_INCREMENT,<br>  `name` <span class="hljs-type">varchar</span>(<span class="hljs-number">50</span>) <span class="hljs-keyword">NOT NULL</span> <span class="hljs-keyword">DEFAULT</span> <span class="hljs-string">&#x27;&#x27;</span> COMMENT <span class="hljs-string">&#x27;名称&#x27;</span>,<br>  `count` <span class="hljs-type">int</span>(<span class="hljs-number">11</span>) <span class="hljs-keyword">NOT NULL</span> COMMENT <span class="hljs-string">&#x27;库存&#x27;</span>,<br>  `sale` <span class="hljs-type">int</span>(<span class="hljs-number">11</span>) <span class="hljs-keyword">NOT NULL</span> COMMENT <span class="hljs-string">&#x27;已售&#x27;</span>,<br>  `version` <span class="hljs-type">int</span>(<span class="hljs-number">11</span>) <span class="hljs-keyword">NOT NULL</span> COMMENT <span class="hljs-string">&#x27;乐观锁，版本号&#x27;</span>,<br>  <span class="hljs-keyword">PRIMARY KEY</span> (`id`)<br>) ENGINE<span class="hljs-operator">=</span>InnoDB AUTO_INCREMENT<span class="hljs-operator">=</span><span class="hljs-number">2</span> <span class="hljs-keyword">DEFAULT</span> CHARSET<span class="hljs-operator">=</span>utf8;<br><br><br><span class="hljs-keyword">CREATE TABLE</span> `stock_order` (<br>  `id` <span class="hljs-type">int</span>(<span class="hljs-number">11</span>) unsigned <span class="hljs-keyword">NOT NULL</span> AUTO_INCREMENT,<br>  `sid` <span class="hljs-type">int</span>(<span class="hljs-number">11</span>) <span class="hljs-keyword">NOT NULL</span> COMMENT <span class="hljs-string">&#x27;库存ID&#x27;</span>,<br>  `name` <span class="hljs-type">varchar</span>(<span class="hljs-number">30</span>) <span class="hljs-keyword">NOT NULL</span> <span class="hljs-keyword">DEFAULT</span> <span class="hljs-string">&#x27;&#x27;</span> COMMENT <span class="hljs-string">&#x27;商品名称&#x27;</span>,<br>  `create_time` <span class="hljs-type">timestamp</span> <span class="hljs-keyword">NOT NULL</span> <span class="hljs-keyword">DEFAULT</span> <span class="hljs-built_in">CURRENT_TIMESTAMP</span> <span class="hljs-keyword">ON</span> <span class="hljs-keyword">UPDATE</span> <span class="hljs-built_in">CURRENT_TIMESTAMP</span> COMMENT <span class="hljs-string">&#x27;创建时间&#x27;</span>,<br>  <span class="hljs-keyword">PRIMARY KEY</span> (`id`)<br>) ENGINE<span class="hljs-operator">=</span>InnoDB AUTO_INCREMENT<span class="hljs-operator">=</span><span class="hljs-number">55</span> <span class="hljs-keyword">DEFAULT</span> CHARSET<span class="hljs-operator">=</span>utf8;<br></code></pre></td></tr></table></figure>
+
+<p>web 层 <code>controller</code> 实现:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs java"><br><span class="hljs-meta">@Autowired</span><br><span class="hljs-keyword">private</span> StockService stockService;<br><br><span class="hljs-meta">@Autowired</span><br><span class="hljs-keyword">private</span> OrderService orderService;<br><br><span class="hljs-meta">@RequestMapping(&quot;/createWrongOrder/&#123;sid&#125;&quot;)</span><br><span class="hljs-meta">@ResponseBody</span><br><span class="hljs-keyword">public</span> String <span class="hljs-title function_">createWrongOrder</span><span class="hljs-params">(<span class="hljs-meta">@PathVariable</span> <span class="hljs-type">int</span> sid)</span> &#123;<br>    logger.info(<span class="hljs-string">&quot;sid=[&#123;&#125;]&quot;</span>, sid);<br>    <span class="hljs-type">int</span> <span class="hljs-variable">id</span> <span class="hljs-operator">=</span> <span class="hljs-number">0</span>;<br>    <span class="hljs-keyword">try</span> &#123;<br>        id = orderService.createWrongOrder(sid);<br>    &#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;<br>        logger.error(<span class="hljs-string">&quot;Exception&quot;</span>,e);<br>    &#125;<br>    <span class="hljs-keyword">return</span> String.valueOf(id);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>其中 web 作为一个消费者调用看 <code>OrderService</code> 提供出来的 dubbo 服务。</p>
+<p>Service 层，<code>OrderService</code> 实现：</p>
+<p>首先是对 API 的实现(会在 API 提供出接口)：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Service</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">OrderServiceImpl</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">OrderService</span> &#123;<br><br>    <span class="hljs-meta">@Resource(name = &quot;DBOrderService&quot;)</span><br>    <span class="hljs-keyword">private</span> com.crossoverJie.seconds.kill.service.OrderService orderService ;<br><br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> <span class="hljs-type">int</span> <span class="hljs-title function_">createWrongOrder</span><span class="hljs-params">(<span class="hljs-type">int</span> sid)</span> <span class="hljs-keyword">throws</span> Exception &#123;<br>        <span class="hljs-keyword">return</span> orderService.createWrongOrder(sid);<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这里只是简单调用了 <code>DBOrderService</code> 中的实现，DBOrderService 才是真正的数据落地，也就是写数据库了。</p>
+<p>DBOrderService 实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><code class="hljs java">Transactional(rollbackFor = Exception.class)<br><span class="hljs-meta">@Service(value = &quot;DBOrderService&quot;)</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">OrderServiceImpl</span> <span class="hljs-keyword">implements</span> <span class="hljs-title class_">OrderService</span> &#123;<br>    <span class="hljs-meta">@Resource(name = &quot;DBStockService&quot;)</span><br>    <span class="hljs-keyword">private</span> com.crossoverJie.seconds.kill.service.StockService stockService;<br><br>    <span class="hljs-meta">@Autowired</span><br>    <span class="hljs-keyword">private</span> StockOrderMapper orderMapper;<br>    <br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> <span class="hljs-type">int</span> <span class="hljs-title function_">createWrongOrder</span><span class="hljs-params">(<span class="hljs-type">int</span> sid)</span> <span class="hljs-keyword">throws</span> Exception&#123;<br><br>        <span class="hljs-comment">//校验库存</span><br>        <span class="hljs-type">Stock</span> <span class="hljs-variable">stock</span> <span class="hljs-operator">=</span> checkStock(sid);<br><br>        <span class="hljs-comment">//扣库存</span><br>        saleStock(stock);<br><br>        <span class="hljs-comment">//创建订单</span><br>        <span class="hljs-type">int</span> <span class="hljs-variable">id</span> <span class="hljs-operator">=</span> createOrder(stock);<br><br>        <span class="hljs-keyword">return</span> id;<br>    &#125;<br>    <br>    <span class="hljs-keyword">private</span> Stock <span class="hljs-title function_">checkStock</span><span class="hljs-params">(<span class="hljs-type">int</span> sid)</span> &#123;<br>        <span class="hljs-type">Stock</span> <span class="hljs-variable">stock</span> <span class="hljs-operator">=</span> stockService.getStockById(sid);<br>        <span class="hljs-keyword">if</span> (stock.getSale().equals(stock.getCount())) &#123;<br>            <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">RuntimeException</span>(<span class="hljs-string">&quot;库存不足&quot;</span>);<br>        &#125;<br>        <span class="hljs-keyword">return</span> stock;<br>    &#125;<br>    <br>    <span class="hljs-keyword">private</span> <span class="hljs-type">int</span> <span class="hljs-title function_">saleStock</span><span class="hljs-params">(Stock stock)</span> &#123;<br>        stock.setSale(stock.getSale() + <span class="hljs-number">1</span>);<br>        <span class="hljs-keyword">return</span> stockService.updateStockById(stock);<br>    &#125;<br>    <br>    <span class="hljs-keyword">private</span> <span class="hljs-type">int</span> <span class="hljs-title function_">createOrder</span><span class="hljs-params">(Stock stock)</span> &#123;<br>        <span class="hljs-type">StockOrder</span> <span class="hljs-variable">order</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">StockOrder</span>();<br>        order.setSid(stock.getId());<br>        order.setName(stock.getName());<br>        <span class="hljs-type">int</span> <span class="hljs-variable">id</span> <span class="hljs-operator">=</span> orderMapper.insertSelective(order);<br>        <span class="hljs-keyword">return</span> id;<br>    &#125;        <br>        <br>&#125;<br></code></pre></td></tr></table></figure>
+
+<blockquote>
+<p> 预先初始化了 10 条库存。</p>
+</blockquote>
+<p>手动调用下 <code>createWrongOrder/1</code> 接口发现：</p>
+<p>库存表：<br><img src="https://i.loli.net/2019/05/08/5cd1d7189c72f.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>订单表：<br><img src="https://i.loli.net/2019/05/08/5cd1d721e9fd4.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>一切看起来都没有问题，数据也正常。</p>
+<p>但是当用 <code>JMeter</code> 并发测试时：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d7243c657.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>测试配置是：300个线程并发，测试两轮来看看数据库中的结果：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d726cee79.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d72816d67.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d72b9f26a.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>请求都响应成功，库存确实也扣完了，但是订单却生成了 <strong>124</strong> 条记录。</p>
+<p>这显然是典型的超卖现象。</p>
+<blockquote>
+<p>其实现在再去手动调用接口会返回库存不足，但为时晚矣。</p>
+</blockquote>
+<h2 id="乐观锁更新"><a href="#乐观锁更新" class="headerlink" title="乐观锁更新"></a>乐观锁更新</h2><p>怎么来避免上述的现象呢？</p>
+<p>最简单的做法自然是乐观锁了，这里不过多讨论这个，不熟悉的朋友可以看下<a href="http://crossoverjie.top/%2F2017%2F07%2F09%2FSSM15%2F">这篇</a>。</p>
+<p>来看看具体实现：</p>
+<blockquote>
+<p>其实其他的都没怎么改，主要是 Service 层。</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Override</span><br><span class="hljs-keyword">public</span> <span class="hljs-type">int</span> <span class="hljs-title function_">createOptimisticOrder</span><span class="hljs-params">(<span class="hljs-type">int</span> sid)</span> <span class="hljs-keyword">throws</span> Exception &#123;<br><br>    <span class="hljs-comment">//校验库存</span><br>    <span class="hljs-type">Stock</span> <span class="hljs-variable">stock</span> <span class="hljs-operator">=</span> checkStock(sid);<br><br>    <span class="hljs-comment">//乐观锁更新库存</span><br>    saleStockOptimistic(stock);<br><br>    <span class="hljs-comment">//创建订单</span><br>    <span class="hljs-type">int</span> <span class="hljs-variable">id</span> <span class="hljs-operator">=</span> createOrder(stock);<br><br>    <span class="hljs-keyword">return</span> id;<br>&#125;<br><br><span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">saleStockOptimistic</span><span class="hljs-params">(Stock stock)</span> &#123;<br>    <span class="hljs-type">int</span> <span class="hljs-variable">count</span> <span class="hljs-operator">=</span> stockService.updateStockByOptimistic(stock);<br>    <span class="hljs-keyword">if</span> (count == <span class="hljs-number">0</span>)&#123;<br>        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">RuntimeException</span>(<span class="hljs-string">&quot;并发更新库存失败&quot;</span>) ;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>对应的 XML：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">update</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;updateByOptimistic&quot;</span> <span class="hljs-attr">parameterType</span>=<span class="hljs-string">&quot;com.crossoverJie.seconds.kill.pojo.Stock&quot;</span>&gt;</span><br>    update stock<br>    <span class="hljs-tag">&lt;<span class="hljs-name">set</span>&gt;</span><br>        sale = sale + 1,<br>        version = version + 1,<br>    <span class="hljs-tag">&lt;/<span class="hljs-name">set</span>&gt;</span><br><br>    WHERE id = #&#123;id,jdbcType=INTEGER&#125;<br>    AND version = #&#123;version,jdbcType=INTEGER&#125;<br><br><span class="hljs-tag">&lt;/<span class="hljs-name">update</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p>同样的测试条件，我们再进行上面的测试 <code>/createOptimisticOrder/1</code>：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d72dab853.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d730800b1.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d73324dd2.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>这次发现无论是库存订单都是 OK 的。</p>
+<p>查看日志发现：</p>
+<p><img src="https://i.loli.net//2019//05//08//5cd1daafb70bc.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>很多并发请求会响应错误，这就达到了效果。</p>
+<h3 id="提高吞吐量"><a href="#提高吞吐量" class="headerlink" title="提高吞吐量"></a>提高吞吐量</h3><p>为了进一步提高秒杀时的吞吐量以及响应效率，这里的 web 和 Service 都进行了横向扩展。</p>
+<ul>
+<li>web 利用 Nginx 进行负载。</li>
+<li>Service 也是多台应用。</li>
+</ul>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d752909b9.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d758c7714.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>再用 JMeter 测试时可以直观的看到效果。</p>
+<blockquote>
+<p>由于我是在阿里云的一台小水管服务器进行测试的，加上配置不高、应用都在同一台，所以并没有完全体现出性能上的优势（ <code>Nginx</code> 做负载转发时候也会增加额外的网络消耗）。</p>
+</blockquote>
+<h3 id="shell-脚本实现简单的-CI"><a href="#shell-脚本实现简单的-CI" class="headerlink" title="shell 脚本实现简单的 CI"></a>shell 脚本实现简单的 CI</h3><p>由于应用多台部署之后，手动发版测试的痛苦相信经历过的都有体会。</p>
+<p>这次并没有精力去搭建完整的 CI CD，只是写了一个简单的脚本实现了自动化部署，希望对这方面没有经验的同学带来一点启发：</p>
+<h4 id="构建-web"><a href="#构建-web" class="headerlink" title="构建 web"></a>构建 web</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><code class="hljs shell"><span class="hljs-meta prompt_">#</span><span class="language-bash">!/bin/bash</span><br><span class="hljs-meta prompt_"></span><br><span class="hljs-meta prompt_"># </span><span class="language-bash">构建 web 消费者</span><br><span class="hljs-meta prompt_"></span><br><span class="hljs-meta prompt_">#</span><span class="language-bash"><span class="hljs-built_in">read</span> appname</span><br><br>appname=&quot;consumer&quot;<br>echo &quot;input=&quot;$appname<br><br>PID=$(ps -ef | grep $appname | grep -v grep | awk &#x27;&#123;print $2&#125;&#x27;)<br><span class="hljs-meta prompt_"></span><br><span class="hljs-meta prompt_"># </span><span class="language-bash">遍历杀掉 pid</span><br>for var in $&#123;PID[@]&#125;;<br>do<br>    echo &quot;loop pid= $var&quot;<br>    kill -9 $var<br>done<br><br>echo &quot;kill $appname success&quot;<br><br>cd ..<br><br>git pull<br><br>cd SSM-SECONDS-KILL<br><br>mvn -Dmaven.test.skip=true clean package<br><br>echo &quot;build war success&quot;<br><br>cp /home/crossoverJie/SSM/SSM-SECONDS-KILL/SSM-SECONDS-KILL-WEB/target/SSM-SECONDS-KILL-WEB-2.2.0-SNAPSHOT.war /home/crossoverJie/tomcat/tomcat-dubbo-consumer-8083/webapps<br>echo &quot;cp tomcat-dubbo-consumer-8083/webapps ok!&quot;<br><br>cp /home/crossoverJie/SSM/SSM-SECONDS-KILL/SSM-SECONDS-KILL-WEB/target/SSM-SECONDS-KILL-WEB-2.2.0-SNAPSHOT.war /home/crossoverJie/tomcat/tomcat-dubbo-consumer-7083-slave/webapps<br>echo &quot;cp tomcat-dubbo-consumer-7083-slave/webapps ok!&quot;<br><br>sh /home/crossoverJie/tomcat/tomcat-dubbo-consumer-8083/bin/startup.sh<br>echo &quot;tomcat-dubbo-consumer-8083/bin/startup.sh success&quot;<br><br>sh /home/crossoverJie/tomcat/tomcat-dubbo-consumer-7083-slave/bin/startup.sh<br>echo &quot;tomcat-dubbo-consumer-7083-slave/bin/startup.sh success&quot;<br><br>echo &quot;start $appname success&quot;<br></code></pre></td></tr></table></figure>
+
+<h4 id="构建-Service"><a href="#构建-Service" class="headerlink" title="构建 Service"></a>构建 Service</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><code class="hljs shell"><span class="hljs-meta prompt_"># </span><span class="language-bash">构建服务提供者</span><br><span class="hljs-meta prompt_"></span><br><span class="hljs-meta prompt_">#</span><span class="language-bash"><span class="hljs-built_in">read</span> appname</span><br><br>appname=&quot;provider&quot;<br><br>echo &quot;input=&quot;$appname<br><br><br>PID=$(ps -ef | grep $appname | grep -v grep | awk &#x27;&#123;print $2&#125;&#x27;)<br><span class="hljs-meta prompt_"></span><br><span class="hljs-meta prompt_">#</span><span class="language-bash"><span class="hljs-keyword">if</span> [ $? -eq 0 ]; <span class="hljs-keyword">then</span></span><br><span class="hljs-meta prompt_"># </span><span class="language-bash">   <span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;process id:<span class="hljs-variable">$PID</span>&quot;</span></span><br><span class="hljs-meta prompt_">#</span><span class="language-bash"><span class="hljs-keyword">else</span></span><br><span class="hljs-meta prompt_"># </span><span class="language-bash">   <span class="hljs-built_in">echo</span> <span class="hljs-string">&quot;process <span class="hljs-variable">$appname</span> not exit&quot;</span></span><br><span class="hljs-meta prompt_"># </span><span class="language-bash">   <span class="hljs-built_in">exit</span></span><br><span class="hljs-meta prompt_">#</span><span class="language-bash"><span class="hljs-keyword">fi</span></span><br><span class="hljs-meta prompt_"></span><br><span class="hljs-meta prompt_"># </span><span class="language-bash">遍历杀掉 pid</span><br>for var in $&#123;PID[@]&#125;;<br>do<br>    echo &quot;loop pid= $var&quot;<br>    kill -9 $var<br>done<br><br>echo &quot;kill $appname success&quot;<br><br><br>cd ..<br><br>git pull<br><br>cd SSM-SECONDS-KILL<br><br>mvn -Dmaven.test.skip=true clean package<br><br>echo &quot;build war success&quot;<br><br>cp /home/crossoverJie/SSM/SSM-SECONDS-KILL/SSM-SECONDS-KILL-SERVICE/target/SSM-SECONDS-KILL-SERVICE-2.2.0-SNAPSHOT.war /home/crossoverJie/tomcat/tomcat-dubbo-provider-8080/webapps<br><br>echo &quot;cp tomcat-dubbo-provider-8080/webapps ok!&quot;<br><br>cp /home/crossoverJie/SSM/SSM-SECONDS-KILL/SSM-SECONDS-KILL-SERVICE/target/SSM-SECONDS-KILL-SERVICE-2.2.0-SNAPSHOT.war /home/crossoverJie/tomcat/tomcat-dubbo-provider-7080-slave/webapps<br><br>echo &quot;cp tomcat-dubbo-provider-7080-slave/webapps ok!&quot;<br><br>sh /home/crossoverJie/tomcat/tomcat-dubbo-provider-8080/bin/startup.sh<br>echo &quot;tomcat-dubbo-provider-8080/bin/startup.sh success&quot;<br><br>sh /home/crossoverJie/tomcat/tomcat-dubbo-provider-7080-slave/bin/startup.sh<br>echo &quot;tomcat-dubbo-provider-8080/bin/startup.sh success&quot;<br><br>echo &quot;start $appname success&quot;<br></code></pre></td></tr></table></figure>
+
+<p>之后每当我有更新，只需要执行这两个脚本就可以帮我自动构建。</p>
+<p>都是最基础的 Linux 命令，相信大家都看得明白。</p>
+<h2 id="乐观锁更新-分布式限流"><a href="#乐观锁更新-分布式限流" class="headerlink" title="乐观锁更新 + 分布式限流"></a>乐观锁更新 + 分布式限流</h2><p>上文的结果看似没有问题，其实还差得远呢。</p>
+<p>这里只是模拟了 300 个并发没有问题，但是当请求达到了 3000 ，3W，300W 呢？</p>
+<p>虽说可以横向扩展可以支撑更多的请求。</p>
+<p>但是能不能利用最少的资源解决问题呢？</p>
+<p>其实仔细分析下会发现：</p>
+<blockquote>
+<p>假设我的商品一共只有 10 个库存，那么无论你多少人来买其实最终也最多只有 10 人可以下单成功。</p>
+</blockquote>
+<p>所以其中会有 <code>99%</code> 的请求都是无效的。</p>
+<p>大家都知道：大多数应用数据库都是压倒骆驼的最后一根稻草。</p>
+<p>通过 <code>Druid</code> 的监控来看看之前请求数据库的情况：</p>
+<p>因为 Service 是两个应用。<br><img src="https://i.loli.net/2019/05/08/5cd1d764221b5.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d7676e1d2.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net//2019//05//08//5cd1daeb0c306.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>数据库也有 20 多个连接。</p>
+<p>怎么样来优化呢？<br>其实很容易想到的就是<a href="http://crossoverjie.top/2018/04/28/sbc/sbc7-Distributed-Limit/">分布式限流</a>。</p>
+<p>我们将并发控制在一个可控的范围之内，然后快速失败这样就能最大程度的保护系统。</p>
+<h3 id="distributed-redis-tool-⬆️v1-0-3"><a href="#distributed-redis-tool-⬆️v1-0-3" class="headerlink" title="distributed-redis-tool ⬆️v1.0.3"></a>distributed-redis-tool ⬆️v1.0.3</h3><p>为此还对 <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/distributed-redis-tool">https://github.com/crossoverJie/distributed-redis-tool</a> 进行了小小的升级。</p>
+<p>因为加上该组件之后所有的请求都会经过 Redis，所以对 Redis 资源的使用也是要非常小心。</p>
+<h4 id="API-更新"><a href="#API-更新" class="headerlink" title="API 更新"></a>API 更新</h4><p>修改之后的 API 如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Configuration</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">RedisLimitConfig</span> &#123;<br><br>    <span class="hljs-keyword">private</span> <span class="hljs-type">Logger</span> <span class="hljs-variable">logger</span> <span class="hljs-operator">=</span> LoggerFactory.getLogger(RedisLimitConfig.class);<br><br>    <span class="hljs-meta">@Value(&quot;$&#123;redis.limit&#125;&quot;)</span><br>    <span class="hljs-keyword">private</span> <span class="hljs-type">int</span> limit;<br><br><br>    <span class="hljs-meta">@Autowired</span><br>    <span class="hljs-keyword">private</span> JedisConnectionFactory jedisConnectionFactory;<br><br>    <span class="hljs-meta">@Bean</span><br>    <span class="hljs-keyword">public</span> RedisLimit <span class="hljs-title function_">build</span><span class="hljs-params">()</span> &#123;<br>        <span class="hljs-type">RedisLimit</span> <span class="hljs-variable">redisLimit</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">RedisLimit</span>.Builder(jedisConnectionFactory, RedisToolsConstant.SINGLE)<br>                .limit(limit)<br>                .build();<br><br>        <span class="hljs-keyword">return</span> redisLimit;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这里构建器改用了 <code>JedisConnectionFactory</code>，所以得配合 Spring 来一起使用。</p>
+<p>并在初始化时显示传入 Redis 是以集群方式部署还是单机（强烈建议集群，限流之后对 Redis 还是有一定的压力）。</p>
+<h5 id="限流实现"><a href="#限流实现" class="headerlink" title="限流实现"></a>限流实现</h5><p>既然 API 更新了，实现自然也要修改：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * limit traffic</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@return</span> if true</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">public</span> <span class="hljs-type">boolean</span> <span class="hljs-title function_">limit</span><span class="hljs-params">()</span> &#123;<br><br>    <span class="hljs-comment">//get connection</span><br>    <span class="hljs-type">Object</span> <span class="hljs-variable">connection</span> <span class="hljs-operator">=</span> getConnection();<br><br>    <span class="hljs-type">Object</span> <span class="hljs-variable">result</span> <span class="hljs-operator">=</span> limitRequest(connection);<br><br>    <span class="hljs-keyword">if</span> (FAIL_CODE != (Long) result) &#123;<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;<br>    &#125; <span class="hljs-keyword">else</span> &#123;<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;<br>    &#125;<br>&#125;<br><br><span class="hljs-keyword">private</span> Object <span class="hljs-title function_">limitRequest</span><span class="hljs-params">(Object connection)</span> &#123;<br>    <span class="hljs-type">Object</span> <span class="hljs-variable">result</span> <span class="hljs-operator">=</span> <span class="hljs-literal">null</span>;<br>    <span class="hljs-type">String</span> <span class="hljs-variable">key</span> <span class="hljs-operator">=</span> String.valueOf(System.currentTimeMillis() / <span class="hljs-number">1000</span>);<br>    <span class="hljs-keyword">if</span> (connection <span class="hljs-keyword">instanceof</span> Jedis)&#123;<br>        result = ((Jedis)connection).eval(script, Collections.singletonList(key), Collections.singletonList(String.valueOf(limit)));<br>        ((Jedis) connection).close();<br>    &#125;<span class="hljs-keyword">else</span> &#123;<br>        result = ((JedisCluster) connection).eval(script, Collections.singletonList(key), Collections.singletonList(String.valueOf(limit)));<br>        <span class="hljs-keyword">try</span> &#123;<br>            ((JedisCluster) connection).close();<br>        &#125; <span class="hljs-keyword">catch</span> (IOException e) &#123;<br>            logger.error(<span class="hljs-string">&quot;IOException&quot;</span>,e);<br>        &#125;<br>    &#125;<br>    <span class="hljs-keyword">return</span> result;<br>&#125;<br><br><span class="hljs-keyword">private</span> Object <span class="hljs-title function_">getConnection</span><span class="hljs-params">()</span> &#123;<br>    Object connection ;<br>    <span class="hljs-keyword">if</span> (type == RedisToolsConstant.SINGLE)&#123;<br>        <span class="hljs-type">RedisConnection</span> <span class="hljs-variable">redisConnection</span> <span class="hljs-operator">=</span> jedisConnectionFactory.getConnection();<br>        connection = redisConnection.getNativeConnection();<br>    &#125;<span class="hljs-keyword">else</span> &#123;<br>        <span class="hljs-type">RedisClusterConnection</span> <span class="hljs-variable">clusterConnection</span> <span class="hljs-operator">=</span> jedisConnectionFactory.getClusterConnection();<br>        connection = clusterConnection.getNativeConnection() ;<br>    &#125;<br>    <span class="hljs-keyword">return</span> connection;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>如果是原生的 Spring 应用得采用 <code>@SpringControllerLimit(errorCode = 200)</code> 注解。</p>
+<p>实际使用如下：</p>
+<p>web 端：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * 乐观锁更新库存 限流</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@param</span> sid</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@return</span></span><br><span class="hljs-comment"> */</span><br><span class="hljs-meta">@SpringControllerLimit(errorCode = 200)</span><br><span class="hljs-meta">@RequestMapping(&quot;/createOptimisticLimitOrder/&#123;sid&#125;&quot;)</span><br><span class="hljs-meta">@ResponseBody</span><br><span class="hljs-keyword">public</span> String <span class="hljs-title function_">createOptimisticLimitOrder</span><span class="hljs-params">(<span class="hljs-meta">@PathVariable</span> <span class="hljs-type">int</span> sid)</span> &#123;<br>    logger.info(<span class="hljs-string">&quot;sid=[&#123;&#125;]&quot;</span>, sid);<br>    <span class="hljs-type">int</span> <span class="hljs-variable">id</span> <span class="hljs-operator">=</span> <span class="hljs-number">0</span>;<br>    <span class="hljs-keyword">try</span> &#123;<br>        id = orderService.createOptimisticOrder(sid);<br>    &#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;<br>        logger.error(<span class="hljs-string">&quot;Exception&quot;</span>,e);<br>    &#125;<br>    <span class="hljs-keyword">return</span> String.valueOf(id);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>Service 端就没什么更新了，依然是采用的乐观锁更新数据库。</p>
+<p>再压测看下效果 <code>/createOptimisticLimitOrderByRedis/1</code>：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d776c39b7.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d77ba16d2.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d780d5aa2.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d784644d5.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d787b3e49.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>首先是看结果没有问题，再看数据库连接以及并发请求数都有<strong>明显的下降</strong>。</p>
+<h2 id="乐观锁更新-分布式限流-Redis-缓存"><a href="#乐观锁更新-分布式限流-Redis-缓存" class="headerlink" title="乐观锁更新 + 分布式限流 + Redis 缓存"></a>乐观锁更新 + 分布式限流 + Redis 缓存</h2><p>其实仔细观察 Druid 监控数据发现这个 SQL 被多次查询：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d78b3896a.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>其实这是实时查询库存的 SQL，主要是为了在每次下单之前判断是否还有库存。</p>
+<p><strong>这也是个优化点</strong>。</p>
+<p>这种数据我们完全可以放在内存中，效率比在数据库要高很多。</p>
+<p>由于我们的应用是分布式的，所以堆内缓存显然不合适，Redis 就非常适合。</p>
+<p>这次主要改造的是 Service 层：</p>
+<ul>
+<li>每次查询库存时走 Redis。</li>
+<li>扣库存时更新 Redis。</li>
+<li>需要提前将库存信息写入 Redis（手动或者程序自动都可以）。</li>
+</ul>
+<p>主要代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Override</span><br><span class="hljs-keyword">public</span> <span class="hljs-type">int</span> <span class="hljs-title function_">createOptimisticOrderUseRedis</span><span class="hljs-params">(<span class="hljs-type">int</span> sid)</span> <span class="hljs-keyword">throws</span> Exception &#123;<br>    <span class="hljs-comment">//检验库存，从 Redis 获取</span><br>    <span class="hljs-type">Stock</span> <span class="hljs-variable">stock</span> <span class="hljs-operator">=</span> checkStockByRedis(sid);<br><br>    <span class="hljs-comment">//乐观锁更新库存 以及更新 Redis</span><br>    saleStockOptimisticByRedis(stock);<br><br>    <span class="hljs-comment">//创建订单</span><br>    <span class="hljs-type">int</span> <span class="hljs-variable">id</span> <span class="hljs-operator">=</span> createOrder(stock);<br>    <span class="hljs-keyword">return</span> id ;<br>&#125;<br><br><br><span class="hljs-keyword">private</span> Stock <span class="hljs-title function_">checkStockByRedis</span><span class="hljs-params">(<span class="hljs-type">int</span> sid)</span> <span class="hljs-keyword">throws</span> Exception &#123;<br>    <span class="hljs-type">Integer</span> <span class="hljs-variable">count</span> <span class="hljs-operator">=</span> Integer.parseInt(redisTemplate.opsForValue().get(RedisKeysConstant.STOCK_COUNT + sid));<br>    <span class="hljs-type">Integer</span> <span class="hljs-variable">sale</span> <span class="hljs-operator">=</span> Integer.parseInt(redisTemplate.opsForValue().get(RedisKeysConstant.STOCK_SALE + sid));<br>    <span class="hljs-keyword">if</span> (count.equals(sale))&#123;<br>        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">RuntimeException</span>(<span class="hljs-string">&quot;库存不足 Redis currentCount=&quot;</span> + sale);<br>    &#125;<br>    <span class="hljs-type">Integer</span> <span class="hljs-variable">version</span> <span class="hljs-operator">=</span> Integer.parseInt(redisTemplate.opsForValue().get(RedisKeysConstant.STOCK_VERSION + sid));<br>    <span class="hljs-type">Stock</span> <span class="hljs-variable">stock</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Stock</span>() ;<br>    stock.setId(sid);<br>    stock.setCount(count);<br>    stock.setSale(sale);<br>    stock.setVersion(version);<br><br>    <span class="hljs-keyword">return</span> stock;<br>&#125;    <br><br><br><span class="hljs-comment">/**</span><br><span class="hljs-comment"> * 乐观锁更新数据库 还要更新 Redis</span><br><span class="hljs-comment"> * <span class="hljs-doctag">@param</span> stock</span><br><span class="hljs-comment"> */</span><br><span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">saleStockOptimisticByRedis</span><span class="hljs-params">(Stock stock)</span> &#123;<br>    <span class="hljs-type">int</span> <span class="hljs-variable">count</span> <span class="hljs-operator">=</span> stockService.updateStockByOptimistic(stock);<br>    <span class="hljs-keyword">if</span> (count == <span class="hljs-number">0</span>)&#123;<br>        <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">RuntimeException</span>(<span class="hljs-string">&quot;并发更新库存失败&quot;</span>) ;<br>    &#125;<br>    <span class="hljs-comment">//自增</span><br>    redisTemplate.opsForValue().increment(RedisKeysConstant.STOCK_SALE + stock.getId(),<span class="hljs-number">1</span>) ;<br>    redisTemplate.opsForValue().increment(RedisKeysConstant.STOCK_VERSION + stock.getId(),<span class="hljs-number">1</span>) ;<br>&#125;    <br></code></pre></td></tr></table></figure>
+
+<p>压测看看实际效果 <code>/createOptimisticLimitOrderByRedis/1</code>：</p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d78d659b6.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d790607a1.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d79307676.jpg" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://i.loli.net/2019/05/08/5cd1d7973de43.jpg" srcset="/img/loading.gif" lazyload></p>
+<p>最后发现数据没问题，数据库的请求与并发也都下来了。</p>
+<h2 id="乐观锁更新-分布式限流-Redis-缓存-Kafka-异步"><a href="#乐观锁更新-分布式限流-Redis-缓存-Kafka-异步" class="headerlink" title="乐观锁更新 + 分布式限流 + Redis 缓存 + Kafka 异步"></a>乐观锁更新 + 分布式限流 + Redis 缓存 + Kafka 异步</h2><p>最后的优化还是想如何来再次提高吞吐量以及性能的。</p>
+<p>我们上文所有例子其实都是同步请求，完全可以利用同步转异步来提高性能啊。</p>
+<p>这里我们将写订单以及更新库存的操作进行异步化，利用 <code>Kafka</code> 来进行解耦和队列的作用。</p>
+<p>每当一个请求通过了限流到达了 Service 层通过了库存校验之后就将订单信息发给 Kafka ，这样一个请求就可以直接返回了。</p>
+<p>消费程序再对数据进行入库落地。</p>
+<p>因为异步了，所以最终需要采取回调或者是其他提醒的方式提醒用户购买完成。</p>
+<p>这里代码较多就不贴了，消费程序其实就是把之前的 Service 层的逻辑重写了一遍，不过采用的是 SpringBoot。</p>
+<p>感兴趣的朋友可以看下。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/crossoverJie/SSM/tree/master/SSM-SECONDS-KILL/SSM-SECONDS-KILL-ORDER-CONSUMER">https://github.com/crossoverJie/SSM/tree/master/SSM-SECONDS-KILL/SSM-SECONDS-KILL-ORDER-CONSUMER</a></p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>其实经过上面的一顿优化总结起来无非就是以下几点：</p>
+<ul>
+<li>尽量将请求拦截在上游。</li>
+<li>还可以根据 UID 进行限流。</li>
+<li>最大程度的减少请求落到 DB。</li>
+<li>多利用缓存。</li>
+<li>同步操作异步化。</li>
+<li>fail fast，尽早失败，保护应用。</li>
+</ul>
+<p>码字不易，这应该是我写过字数最多的了，想想当年高中 800 字的作文都憋不出来😂，可想而知是有多难得了。</p>
+<p><strong>以上内容欢迎讨论</strong>。</p>
+<h3 id="号外"><a href="#号外" class="headerlink" title="号外"></a>号外</h3><p>最近在总结一些 Java 相关的知识点，感兴趣的朋友可以一起维护。</p>
+<blockquote>
+<p>地址: <a target="_blank" rel="noopener" href="https://github.com/crossoverJie/Java-Interview">https://github.com/crossoverJie/Java-Interview</a></p>
+</blockquote>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/SSM/" class="category-chain-item">SSM</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/SSM/Distributed-Tools/" class="category-chain-item">Distributed Tools</a>
+  
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
+      
+        <a href="/tags/Kafka/" class="print-no-link">#Kafka</a>
+      
+        <a href="/tags/Redis/" class="print-no-link">#Redis</a>
+      
+        <a href="/tags/SpringBoot/" class="print-no-link">#SpringBoot</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>SSM(十八) 秒杀架构实践</div>
+      <div>http://crossoverjie.top/2018/05/07/ssm/SSM18-seconds-kill/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>May 7, 2018</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2018/05/15/skill/1Kstar/" title="1K star+ 的项目是如何炼成的？">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">1K star+ 的项目是如何炼成的？</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2018/04/28/sbc/sbc7-Distributed-Limit/" title="sbc(七)分布式限流">
+                        <span class="hidden-mobile">sbc(七)分布式限流</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2018/05/07/ssm/SSM18-seconds-kill/';
+          this.page.identifier = '/2018/05/07/ssm/SSM18-seconds-kill/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

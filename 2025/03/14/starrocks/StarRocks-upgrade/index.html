@@ -1,0 +1,876 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前段时间升级了生产环境的 StarRocks，从 3.3.3 升级到了 3.3.9，期间还是踩了不少坑所以在这里记录下。   因为我们的集群使用的是存算分离的版本，也是使用官方提供的 operator 部署在 kubernetes 里的，所以没法按照官方的流程进入虚拟机手动启停对应的服务。 只能使用 operator 提供的方案手动修改对应组件的镜像版本，后续的升级操作交给 operator 去完">
+<meta property="og:type" content="article">
+<meta property="og:title" content="StarRocks 升级注意事项">
+<meta property="og:url" content="http://crossoverjie.top/2025/03/14/starrocks/StarRocks-upgrade/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="前段时间升级了生产环境的 StarRocks，从 3.3.3 升级到了 3.3.9，期间还是踩了不少坑所以在这里记录下。   因为我们的集群使用的是存算分离的版本，也是使用官方提供的 operator 部署在 kubernetes 里的，所以没法按照官方的流程进入虚拟机手动启停对应的服务。 只能使用 operator 提供的方案手动修改对应组件的镜像版本，后续的升级操作交给 operator 去完">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2025/08/15/uJ5RWbItMrUTc3h.png">
+<meta property="article:published_time" content="2025-03-14T09:16:35.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:08:23.191Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="StarRocks">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2025/08/15/uJ5RWbItMrUTc3h.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>StarRocks 升级注意事项 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":"G-930V538KP1"},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+    <!-- Google tag (gtag.js) -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript("https://www.googletagmanager.com/gtag/js?id=G-930V538KP1", function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            dataLayer.push(arguments);
+          }
+          gtag('js', new Date());
+          gtag('config', 'G-930V538KP1');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/uJ5RWbItMrUTc3h.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="StarRocks 升级注意事项"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-03-14 17:16" pubdate>
+          March 14, 2025 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.7k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          15 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">StarRocks 升级注意事项</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>前段时间升级了生产环境的 <code>StarRocks</code>，从 3.3.3 升级到了 3.3.9，期间还是踩了不少坑所以在这里记录下。</p>
+<p><img src="https://s2.loli.net/2025/03/17/uGyo2HULqzQ1j7W.png" srcset="/img/loading.gif" lazyload></p>
+<p> 因为我们的集群使用的是存算分离的版本，也是使用官方提供的 operator 部署在 kubernetes 里的，所以没法按照官方的流程进入虚拟机手动启停对应的服务。</p>
+<p>只能使用 operator 提供的方案手动修改对应组件的镜像版本，后续的升级操作交给 operator 去完成。</p>
+<span id="more"></span>
+
+<p><img src="https://s2.loli.net/2025/03/17/7YwRaKzbPo4dAEs.png" srcset="/img/loading.gif" lazyload></p>
+<p>理论上这个升级流程没什么问题，修改镜像版本之后只需要安静等待他滚动更新即可。</p>
+<h1 id="元数据备份与恢复"><a href="#元数据备份与恢复" class="headerlink" title="元数据备份与恢复"></a>元数据备份与恢复</h1><p>但考虑到之前在社区看到有存算分离集群升级失败导致数据丢失的案例，我们的全量业务已经切换到 StarRocks，如果数据丢失那需要花几天时间进行数据同步，这在业务上是无法接受的，所以我们最好是可以在升级前备份数据，即便是升级失败数据依然还在。</p>
+<p><img src="https://s2.loli.net/2025/03/17/g1q7NbX6H9t5oce.png" srcset="/img/loading.gif" lazyload></p>
+<p>原本官方社区是有提供数据备份与恢复能力的，但是我们使用的存算分离集群不支持😂，而想要获得社区版的支持应该还要等一段时间，即便是支持了我们升级到那个版本依然是需要备份的。</p>
+<p><img src="https://s2.loli.net/2025/03/17/l6Dfcs4JYV52pQE.png" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>好消息，在最新的 3.4.1 版本中已经支持了快照备份了，只是作为一个新 feature，稳定性还有待观察。</p>
+</blockquote>
+<p>所以我们的计划是在当前这个版本（3.3.3）能否自己备份数据，由于我们是存算分离的版本，所以数据主要分为两部分：</p>
+<ul>
+<li>存储在所有 FE 节点里的 meta 元数据</li>
+<li>存储在云存储里的业务数据</li>
+</ul>
+<p>备份的时候自然就需要备份这两部分的数据。</p>
+<h2 id="备份元数据"><a href="#备份元数据" class="headerlink" title="备份元数据"></a>备份元数据</h2><p>在元数据里存放了所有的数据库、表、视图等信息，具体在磁盘的结构如下：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs shell">|-- bdb<br>|   |-- 00000000.jdb<br>|   |-- je.config.csv<br>|   |-- je.info.0<br>|   |-- je.info.0.lck<br>|   |-- je.lck<br>|   `-- je.stat.csv<br>|-- image<br>|   |-- ROLE<br>|   |-- VERSION<br>|   |-- image.327375<br>|   |-- starmgr<br>|   |   `-- image.390<br>|   `-- v2<br>|       |-- checksum.327375<br>|       `-- image.327375<br></code></pre></td></tr></table></figure>
+
+<p>bdb 目录主要是用于 leader 选举的，理论上并不需要备份，真正需要的是 <code>image</code> 目录下的 <code>image.327375</code> 等元数据文件。</p>
+<p><img src="https://s2.loli.net/2025/03/17/KpVCBqJGjXQctah.png" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://s2.loli.net/2025/03/17/CMAiILF3ZHaouY6.png" srcset="/img/loading.gif" lazyload></p>
+<p>里面是用 JSON 存储的各种类型的元数据，FE 在启动的时候会读取该文件，然后根据不同的类型取不同的偏移量读取其中的元数据加载到内存里。</p>
+<p>我们的 FE 一共有三个节点，需要找到其中的 leader 节点（理论上只需要备份 leader 节点即可，其他节点会在 leader 启动后同步过去），直接将这个 meta 目录备份到本地即可：</p>
+<p>在开始之前需要停掉所有的写入任务，暂停所有的物化视图刷新。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs sql"><br># inactive 所有的物化视图<br><span class="hljs-keyword">SELECT</span> CONCAT(<span class="hljs-string">&#x27;ALTER MATERIALIZED VIEW &#x27;</span>, TABLE_NAME, <span class="hljs-string">&#x27; INACTIVE;&#x27;</span>) <span class="hljs-keyword">FROM</span> information_schema.materialized_views;<br><br># 手动创建镜像<br><span class="hljs-keyword">ALTER</span> <span class="hljs-keyword">SYSTEM</span> <span class="hljs-keyword">CREATE</span> IMAGE;<br><br># 找到 leader 节点<br><span class="hljs-keyword">SHOW</span> FRONTENDS;<br></code></pre></td></tr></table></figure>
+
+<p>然后进入 leader 节点备份元数据：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs shell">k exec -it kube-starrocks-fe-0-n sr -- bash<br><br>tar -zcvf meta.tar.gz meta/<br><span class="hljs-meta prompt_"></span><br><span class="hljs-meta prompt_"># </span><span class="language-bash">下载备份元数据到本地</span><br>k cp starrocks-fe-0:/opt/starrocks/fe/meta/image.tar.gz image.tar.gz -n starrocks -c fe --retries=5<br></code></pre></td></tr></table></figure>
+
+<h2 id="备份云存储数据"><a href="#备份云存储数据" class="headerlink" title="备份云存储数据"></a>备份云存储数据</h2><p>云存储的备份就需要结合你使用的云厂商来备份了，通常他们都有提供对应的备份能力。</p>
+<p>要注意的是我们再备份的时候需要记录在存储桶里的目录名称，之后还原的时候名称得保持一致才行。</p>
+<h2 id="恢复元数据"><a href="#恢复元数据" class="headerlink" title="恢复元数据"></a>恢复元数据</h2><p>当出现极端情况升级失败的时候，我们需要把元数据覆盖回去；但由于我们的应用运行在容器里，不可以在应用启动之后再替换元数据。</p>
+<p>只能在应用启动之前将之前备份的元数据覆盖回去，这里可以使用 kubernetes 中的 <code>initContainers</code> 提前将数据复制到应用容器里。</p>
+<p>在开始之前我们需要先把备份的元数据打包为一个镜像。</p>
+<figure class="highlight dockerfile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs dockerfile"><span class="hljs-keyword">FROM</span> busybox  <br><span class="hljs-keyword">ADD</span><span class="language-bash"> meta.tar.gz /temp</span><br></code></pre></td></tr></table></figure>
+
+<p>然后我们需要手动修改 FE 的 <code>statefulset</code> 的资源，创建一个 initContainers。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">initContainers:</span>  <br>  <span class="hljs-bullet">-</span> <span class="hljs-attr">name:</span> <span class="hljs-string">copy-file-init</span>  <br>    <span class="hljs-attr">image:</span> <span class="hljs-string">meta:0.0.1</span>  <br>    <span class="hljs-attr">command:</span> [<span class="hljs-string">&quot;/bin/sh&quot;</span>, <span class="hljs-string">&quot;-c&quot;</span>]  <br>    <span class="hljs-attr">args:</span> [<span class="hljs-string">&quot;rm -rf /meta-target/* &amp;&amp; cp -r /temp/meta/. /meta-target&quot;</span>]  <br>    <span class="hljs-attr">volumeMounts:</span>  <br>      <span class="hljs-bullet">-</span> <span class="hljs-attr">name:</span> <span class="hljs-string">fe-meta</span>  <br>        <span class="hljs-attr">mountPath:</span> <span class="hljs-string">&quot;/meta-target&quot;</span><br></code></pre></td></tr></table></figure>
+
+<p>原理就是在 initContainers 中挂载原本 FE 的元数据目录，这样就可以直接将之前备份的元数据覆盖过去。</p>
+<blockquote>
+<p>当然也可以直接使用 k8s 的 go client 用代码的方式来修改，会更容易维护。</p>
+</blockquote>
+<p>还原的时候需要先将云存储里的数据先还原之后再还原元数据。</p>
+<h1 id="物化视图刷新策略"><a href="#物化视图刷新策略" class="headerlink" title="物化视图刷新策略"></a>物化视图刷新策略</h1><p>真正升级的时候倒是没有碰到升级失败的情况，所以没有走恢复流程；但是却碰到了一个更麻烦的事情。</p>
+<h2 id="物化视图作为基表"><a href="#物化视图作为基表" class="headerlink" title="物化视图作为基表"></a>物化视图作为基表</h2><p>我们在升级前将所有的物化视图设置为了 <code>INACTIVE</code>，升级成功后需要将他们都改为 <code>ACTIVE</code>。</p>
+<p>第一个问题是如果某个物化视图 <code>MV1</code> 的基表也是一个物化视图 <code>MV-base</code>，这样会导致 <code>MV1</code> 的全量刷新。</p>
+<p>我之前在这个 <a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/50926">PR</a> 里新增了一个参数：<code>excluded_refresh_tables</code> 可以用于排除基表发生变化的时候刷新物化视图，但是忘记了基表也是物化视图的场景。</p>
+<p><img src="https://s2.loli.net/2025/03/18/nf3QioRgc96ze2p.png" srcset="/img/loading.gif" lazyload></p>
+<p>所以在这个 <a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/56428">PR</a> 中修复了该问题，现在基表是物化视图的时候也可以使用了。</p>
+<h2 id="物化视图手动-ACTIVE"><a href="#物化视图手动-ACTIVE" class="headerlink" title="物化视图手动 ACTIVE"></a>物化视图手动 ACTIVE</h2><p>前面提到在升级之前需要将所有的物化视图设置为 <code>INACTIVE</code>，升级成功后再手动设置为 ACTIVE。</p>
+<p>我们在手动 ACTIVE 之后发现这些物化视图又在做全量刷新了，于是我们检查了代码。</p>
+<p><img src="https://s2.loli.net/2025/03/18/DMNQsxH5ZqaKpFb.png" srcset="/img/loading.gif" lazyload></p>
+<p>发现在使用 <code>ALTER MATERIALIZED VIEW order_mv ACTIVE;</code> 修改视图状态的时候会强制刷新物化视图的所有分区。</p>
+<p><img src="https://s2.loli.net/2025/03/18/GP6Bzl7Zxq29FoD.png" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>force: true 的时候会直接跳过基表的分区检查，导致分区的全量刷新。</p>
+</blockquote>
+<p><img src="https://s2.loli.net/2025/03/18/PG8WVKrpfoTz61I.png" srcset="/img/loading.gif" lazyload></p>
+<p>同时会在 ACTIVE 的时候将视图基表的 <code>baseTableVisibleVersionMap</code> 版本号缓存清空，FE 需要在刷新的时候判断当前需要刷新的分区是否存在与缓存中，如果存在的话说明不需要刷新，现在被清空后就一定会被刷新。</p>
+<p>所以我提了一个 PR 可以在 <code>ACTIVE</code> 物化视图的时候人工判断是否需要刷新:</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">alter</span> materialized <span class="hljs-keyword">view</span> mv_test1 ACTIVE <span class="hljs-keyword">WITH</span> NO_VALIDATION<br></code></pre></td></tr></table></figure>
+
+<p>这样带上 <code>NO_VALIDATION</code> 参数后就 <code>force=false</code> 也就不会全量刷新了。</p>
+<p>如果在 ACTIVE 物化视图的时候碰到类似场景，可以在这个 <code>PR</code> 发布之后加上 <code>NO_VALIDATION</code> 来跳过刷新。</p>
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/50926">https://github.com/StarRocks/starrocks/pull/50926</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/56428">https://github.com/StarRocks/starrocks/pull/56428</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/StarRocks/starrocks/pull/56864">https://github.com/StarRocks/starrocks/pull/56864</a></li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/OB/" class="category-chain-item">OB</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/StarRocks/" class="print-no-link">#StarRocks</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>StarRocks 升级注意事项</div>
+      <div>http://crossoverjie.top/2025/03/14/starrocks/StarRocks-upgrade/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>March 14, 2025</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2025/04/15/ob/OTel-member/" title="一年时间从小白成为 OpenTelemetry Member 有感">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">一年时间从小白成为 OpenTelemetry Member 有感</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2025/03/03/annual-summary/2024/" title="我的 2024">
+                        <span class="hidden-mobile">我的 2024</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2025/03/14/starrocks/StarRocks-upgrade/';
+          this.page.identifier = '/2025/03/14/starrocks/StarRocks-upgrade/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>

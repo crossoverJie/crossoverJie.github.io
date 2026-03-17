@@ -1,0 +1,938 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="之前分享过如何快速上手开源项目以及如何在开源项目里做集成测试，但还没有讲过具体的实操。 今天来详细讲讲如何写单元测试。 🤔什么情况下需要单元测试这个大家应该是有共识的，对于一些功能单一、核心逻辑、同时变化不频繁的公开函数才有必要做单元测试。 对于业务复杂、链路繁琐但也是核心流程的功能通常建议做 e2e 测试，这样可以保证最终测试结果的一致性。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入理解单元测试：技巧与最佳实践">
+<meta property="og:url" content="http://crossoverjie.top/2024/08/15/ob/unit-test/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="之前分享过如何快速上手开源项目以及如何在开源项目里做集成测试，但还没有讲过具体的实操。 今天来详细讲讲如何写单元测试。 🤔什么情况下需要单元测试这个大家应该是有共识的，对于一些功能单一、核心逻辑、同时变化不频繁的公开函数才有必要做单元测试。 对于业务复杂、链路繁琐但也是核心流程的功能通常建议做 e2e 测试，这样可以保证最终测试结果的一致性。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2024/07/02/SbqCvHVZk6f5tB1.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/02/zSocET9f5y6lqC3.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/02/5DwRyVsBHd1EmpA.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/02/fgv3O4RbnHsQTWV.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/02/coXOGkjyE2zKsYa.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/02/GiBrPjtLcXhgDbp.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/02/ujdGke4gf5mAW3x.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/02/nFt5SukAjMPZ96W.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/02/KcXJUs3mehxFAYz.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/02/3lnFxsQmcWqao5u.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/02/aFiCLRyYh4IU83o.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/02/mW3gxERBc4qoz2L.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/02/bxfQgsymWVcnawE.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/11/vZISu9Qg3foKhsU.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/f2196pujo8m7KRe.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/YpwtSHnLXqU1xQj.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/1ySGWF46U7EC2rk.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/2Afmdu8ozRvH9FC.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/C1RHxTkuz25Mlj8.png">
+<meta property="og:image" content="https://s2.loli.net/2024/07/11/KlqzSwJ6f895A4n.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/9PbioA3RQLMBy6J.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/blKePdxTUIkgRD3.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/gzY3lyTGuEDUwZF.png">
+<meta property="og:image" content="https://s2.loli.net/2024/05/20/N15amZihWI73Qyw.png">
+<meta property="article:published_time" content="2024-08-15T02:43:09.000Z">
+<meta property="article:modified_time" content="2025-08-18T07:08:23.133Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="单测">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2024/07/02/SbqCvHVZk6f5tB1.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>深入理解单元测试：技巧与最佳实践 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":"G-930V538KP1"},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+    <!-- Google tag (gtag.js) -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript("https://www.googletagmanager.com/gtag/js?id=G-930V538KP1", function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            dataLayer.push(arguments);
+          }
+          gtag('js', new Date());
+          gtag('config', 'G-930V538KP1');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/08/15/JGUlLi6WoOQMREp.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="深入理解单元测试：技巧与最佳实践"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-08-15 10:43" pubdate>
+          August 15, 2024 am
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.4k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          21 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">深入理解单元测试：技巧与最佳实践</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>之前分享过如何快速上手开源项目以及如何在开源项目里做集成测试，但还没有讲过具体的实操。</p>
+<p>今天来详细讲讲如何写单元测试。</p>
+<h1 id="🤔什么情况下需要单元测试"><a href="#🤔什么情况下需要单元测试" class="headerlink" title="🤔什么情况下需要单元测试"></a>🤔什么情况下需要单元测试</h1><p>这个大家应该是有共识的，对于一些功能单一、核心逻辑、同时变化不频繁的公开函数才有必要做单元测试。</p>
+<p>对于业务复杂、链路繁琐但也是核心流程的功能通常建议做 e2e 测试，这样可以保证最终测试结果的一致性。</p>
+<span id="more"></span>
+
+<h1 id="💀具体案例"><a href="#💀具体案例" class="headerlink" title="💀具体案例"></a>💀具体案例</h1><p>我们都知道单测的主要目的是模拟执行你写过的每一行代码，目的就是要覆盖到主要分支，做到自己的每一行代码都心中有数。</p>
+<p>下面以 <code>Apache HertzBeat</code> 的一些单测为例，讲解如何编写一个单元测试。</p>
+<p><img src="https://s2.loli.net/2024/07/02/SbqCvHVZk6f5tB1.png" srcset="/img/loading.gif" lazyload><br>先以一个最简单的 <code>org.apache.hertzbeat.collector.collect.udp.UdpCollectImpl#preCheck</code> 函数测试为例。<br>这里的 <code>preCheck</code> 函数就是简单的检测做参数校验。<br>测试时只要我们手动将 <code>metrics</code> 设置为 <code>null</code> 就可以进入这个 if 条件。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@ExtendWith(MockitoExtension.class)</span><br><span class="hljs-keyword">class</span> <span class="hljs-title class_">UdpCollectImplTest</span> &#123;<br><br>    <span class="hljs-meta">@InjectMocks</span><br>    <span class="hljs-keyword">private</span> UdpCollectImpl udpCollect;<br><br>    <span class="hljs-meta">@Test</span><br>    <span class="hljs-keyword">void</span> <span class="hljs-title function_">testPreCheck</span><span class="hljs-params">()</span> &#123;<br>        List&lt;String&gt; aliasField = <span class="hljs-keyword">new</span> <span class="hljs-title class_">ArrayList</span>&lt;&gt;();<br>        aliasField.add(<span class="hljs-string">&quot;responseTime&quot;</span>);<br>        <span class="hljs-type">Metrics</span> <span class="hljs-variable">metrics</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">Metrics</span>();<br>        metrics.setAliasFields(aliasField);<br>        assertThrows(IllegalArgumentException.class, () -&gt; udpCollect.preCheck(metrics));<br>    &#125;<br>&#125;    <br></code></pre></td></tr></table></figure>
+
+<p>来看具体的单测代码，我们一行行的来看：</p>
+<p><code>@ExtendWith(MockitoExtension.class)</code> 是 <code>Junit5</code> 提供的一个注解，里面传入的 <code>MockitoExtension.class</code> 是我们单测 mock 常用的框架。</p>
+<p>简单来说就是告诉 <code>Junit5</code> ，当前的测试类会使用 mockito 作为扩展运行，从而可以 <code>mock</code> 我们运行时的一些对象。</p>
+<hr>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@InjectMocks</span>  <br><span class="hljs-keyword">private</span> UdpCollectImpl udpCollect;<br></code></pre></td></tr></table></figure>
+
+<p><code>@InjectMocks</code> 也是 <code>mockito</code> 这个库提供的注解，通常用于声明需要测试的类。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@InjectMocks</span>  <br><span class="hljs-keyword">private</span> AbstractCollect udpCollect;<br></code></pre></td></tr></table></figure>
+<p><img src="https://s2.loli.net/2024/07/02/zSocET9f5y6lqC3.png" srcset="/img/loading.gif" lazyload></p>
+<p>需要注意的是这个注解必须是一个具体的类，不可以是一个抽象类或者是接口。</p>
+<p>其实当我们了解了他的原理就能知道具体的原因：<br><img src="https://s2.loli.net/2024/07/02/5DwRyVsBHd1EmpA.png" srcset="/img/loading.gif" lazyload></p>
+<p>当我们 debug 运行时会发现 <code>udpCollect</code> 对象是有值的，而如果我们去掉这个注解 <code>@InjectMocks</code> 再运行就会抛空指针异常。</p>
+<blockquote>
+<p>因为并没有初始化 udpCollect</p>
+</blockquote>
+<p>而使用 <code>@InjectMocks</code>注解后，<code>mockito</code> 框架会自动给 <code>udpCollect</code> 注入一个代理对象；而如果是一个接口或者是抽象类，mockito 框架是无法知道创建具体哪个对象。</p>
+<p>当然在这个简单场景下，我们直接 <code>udpCollect = new UdpCollectImpl()</code> 进行测试也是可以的。</p>
+<h1 id="🔥配合-jacoco-输出单测覆盖率"><a href="#🔥配合-jacoco-输出单测覆盖率" class="headerlink" title="🔥配合 jacoco 输出单测覆盖率"></a>🔥配合 jacoco 输出单测覆盖率</h1><p><img src="https://s2.loli.net/2024/07/02/fgv3O4RbnHsQTWV.png" srcset="/img/loading.gif" lazyload><br><img src="https://s2.loli.net/2024/07/02/coXOGkjyE2zKsYa.png" srcset="/img/loading.gif" lazyload></p>
+<p>在 IDEA 中我们可以以 <code>Coverage</code> 的方式运行，<code>IDEA</code> 就将我们的单测覆盖情况显示在源代码中，绿色的部分就代表在实际在运行时执行到的地方。</p>
+<p>我们也可以在 <code>maven</code> 项目中集成 <code>jacoco</code>，只需要添加一个根目录的 <code>pom.xml</code> 中添加一个 <code>plugin</code> 就可以了。</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">plugin</span>&gt;</span>  <br>    <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>org.jacoco<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span>  <br>    <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>jacoco-maven-plugin<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span>  <br>    <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>$&#123;jacoco-maven-plugin.version&#125;<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span>  <br>    <span class="hljs-tag">&lt;<span class="hljs-name">executions</span>&gt;</span>  <br>        <span class="hljs-tag">&lt;<span class="hljs-name">execution</span>&gt;</span>  <br>            <span class="hljs-tag">&lt;<span class="hljs-name">goals</span>&gt;</span>  <br>                <span class="hljs-tag">&lt;<span class="hljs-name">goal</span>&gt;</span>prepare-agent<span class="hljs-tag">&lt;/<span class="hljs-name">goal</span>&gt;</span>  <br>            <span class="hljs-tag">&lt;/<span class="hljs-name">goals</span>&gt;</span>  <br>        <span class="hljs-tag">&lt;/<span class="hljs-name">execution</span>&gt;</span>  <br>        <span class="hljs-tag">&lt;<span class="hljs-name">execution</span>&gt;</span>  <br>            <span class="hljs-tag">&lt;<span class="hljs-name">id</span>&gt;</span>report<span class="hljs-tag">&lt;/<span class="hljs-name">id</span>&gt;</span>  <br>            <span class="hljs-tag">&lt;<span class="hljs-name">phase</span>&gt;</span>test<span class="hljs-tag">&lt;/<span class="hljs-name">phase</span>&gt;</span>  <br>            <span class="hljs-tag">&lt;<span class="hljs-name">goals</span>&gt;</span>  <br>                <span class="hljs-tag">&lt;<span class="hljs-name">goal</span>&gt;</span>report<span class="hljs-tag">&lt;/<span class="hljs-name">goal</span>&gt;</span>  <br>            <span class="hljs-tag">&lt;/<span class="hljs-name">goals</span>&gt;</span>  <br>        <span class="hljs-tag">&lt;/<span class="hljs-name">execution</span>&gt;</span>  <br>    <span class="hljs-tag">&lt;/<span class="hljs-name">executions</span>&gt;</span>  <br><span class="hljs-tag">&lt;/<span class="hljs-name">plugin</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p>之后运行 <code>mvn test</code> 就会在 target 目录下生成测试报告了。</p>
+<p><img src="https://s2.loli.net/2024/07/02/GiBrPjtLcXhgDbp.png" srcset="/img/loading.gif" lazyload></p>
+<p>我们还可以在 GitHub 的 CI 中集成 <code>Codecov</code>，他会直接读取 jacoco 的测试数据，并且在 PR 的评论区加上测试报告。<br><img src="https://s2.loli.net/2024/07/02/ujdGke4gf5mAW3x.png" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://s2.loli.net/2024/07/02/nFt5SukAjMPZ96W.png" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://s2.loli.net/2024/07/02/KcXJUs3mehxFAYz.png" srcset="/img/loading.gif" lazyload></p>
+<p>需要从 <code>Codecov</code> 里将你项目的 token 添加到 repo 的 环境变量中即可。</p>
+<p>具体可以参考这个 PR：<a target="_blank" rel="noopener" href="https://github.com/apache/hertzbeat/pull/1985">https://github.com/apache/hertzbeat/pull/1985</a></p>
+<h1 id="☀️复杂一点的单测"><a href="#☀️复杂一点的单测" class="headerlink" title="☀️复杂一点的单测"></a>☀️复杂一点的单测</h1><p>刚才展示的是一个非常简单的场景，下面来看看稍微复杂的。</p>
+<p>我们以这个单测为例：<br><code>org.apache.hertzbeat.collector.collect.redis.RedisClusterCollectImplTest</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@ExtendWith(MockitoExtension.class)</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">RedisClusterCollectImplTest</span> &#123;<br>    <br>    <span class="hljs-meta">@InjectMocks</span><br>    <span class="hljs-keyword">private</span> RedisCommonCollectImpl redisClusterCollect;<br><br><br>    <span class="hljs-meta">@Mock</span><br>    <span class="hljs-keyword">private</span> StatefulRedisClusterConnection&lt;String, String&gt; connection;<br><br>    <span class="hljs-meta">@Mock</span><br>    <span class="hljs-keyword">private</span> RedisAdvancedClusterCommands&lt;String, String&gt; cmd;<br><br>    <span class="hljs-meta">@Mock</span><br>    <span class="hljs-keyword">private</span> RedisClusterClient client;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这个单测在刚才的基础上多了一个 <code>@Mock</code> 的注解。</p>
+<p>这是因为我们需要测试的 <code>RedisCommonCollectImpl</code> 类中需要依赖 <code>StatefulRedisClusterConnection/RedisAdvancedClusterCommands/RedisClusterClient</code> 这几个类所提供的服务。</p>
+<p>单测的时候需要使用 <code>mockito</code> 创建一个他们的对象，并且注入到需要被测试的 <code>RedisCommonCollectImpl</code>类中。</p>
+<blockquote>
+<p>不然我们就需要准备单测所需要的资源，比如可以使用的 Redis、MySQL 等。</p>
+</blockquote>
+<h2 id="🚤模拟行为"><a href="#🚤模拟行为" class="headerlink" title="🚤模拟行为"></a>🚤模拟行为</h2><p>只是注入进去还不够，我们还需要模拟它的行为：</p>
+<ul>
+<li>比如调用某个函数可以模拟返回数据</li>
+<li>模拟函数调用抛出异常</li>
+<li>模拟函数调用耗时</li>
+</ul>
+<p>这里以最常见的模拟函数返回为例：</p>
+<p><img src="https://s2.loli.net/2024/07/02/3lnFxsQmcWqao5u.png" srcset="/img/loading.gif" lazyload></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">String</span> <span class="hljs-variable">clusterNodes</span> <span class="hljs-operator">=</span> connection.sync().clusterInfo();<br></code></pre></td></tr></table></figure>
+<p>在源码里看到会使用 connection 的 <code>clusterInfo()</code> 函数返回集群信息。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">String</span> <span class="hljs-variable">clusterKnownNodes</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;2&quot;</span>;<br><span class="hljs-type">String</span> <span class="hljs-variable">clusterInfoTemp</span> <span class="hljs-operator">=</span> <span class="hljs-string">&quot;&quot;&quot;</span><br><span class="hljs-string">        cluster_slots_fail:0</span><br><span class="hljs-string">        cluster_known_nodes:%s</span><br><span class="hljs-string">        &quot;&quot;&quot;</span>;<br><span class="hljs-type">String</span> <span class="hljs-variable">clusterInfo</span> <span class="hljs-operator">=</span> String.format(clusterInfoTemp, clusterKnownNodes);<br>Mockito.<span class="hljs-keyword">when</span>(cmd.clusterInfo()).thenReturn(clusterInfo);        <br></code></pre></td></tr></table></figure>
+
+<p>此时我们就可以使用 <code>Mockito.when().thenReturn()</code> 来模拟这个函数的返回数据。</p>
+<p>而其中的 <code>cmd</code> 自然也是需要模拟返回的：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java">Mockito.mockStatic(RedisClusterClient.class).<span class="hljs-keyword">when</span>(()-&gt;RedisClusterClient.create(Mockito.any(ClientResources.class),<br>        Mockito.any(RedisURI.class))).thenReturn(client);<br>Mockito.<span class="hljs-keyword">when</span>(client.connect()).thenReturn(connection);<br><br>Mockito.<span class="hljs-keyword">when</span>(connection.sync()).thenReturn(cmd);<br>Mockito.<span class="hljs-keyword">when</span>(cmd.info(metrics.getName())).thenReturn(info);<br>Mockito.<span class="hljs-keyword">when</span>(cmd.clusterInfo()).thenReturn(clusterInfo);<br></code></pre></td></tr></table></figure>
+
+<p><code>cmd</code> 是通过 <code>Mockito.when(connection.sync()).thenReturn(cmd);</code>返回的，而 <code>connection</code> 又是从 <code>client.connect()</code> 返回的。</p>
+<p>最终就像是套娃一样，<code>client</code> 在源码中是通过一个静态函数创建的。</p>
+<h3 id="⚡模拟静态函数"><a href="#⚡模拟静态函数" class="headerlink" title="⚡模拟静态函数"></a>⚡模拟静态函数</h3><p>我依稀记得在我刚接触 <code>mockito</code> 的 16～17 年那段时间还不支持模拟调用静态函数，不过如今已经支持了：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Mock</span>  <br><span class="hljs-keyword">private</span> RedisClusterClient client;<br><br><br>Mockito.mockStatic(RedisClusterClient.class).<span class="hljs-keyword">when</span>(()-&gt;RedisClusterClient.create(Mockito.any(ClientResources.class),  <br>        Mockito.any(RedisURI.class))).thenReturn(client);<br></code></pre></td></tr></table></figure>
+<p>这样就可以模拟静态函数的返回值了，但前提是返回的 <code>client</code> 需要使用 <code>@Mock</code> 注解。</p>
+<h3 id="💥模拟构造函数"><a href="#💥模拟构造函数" class="headerlink" title="💥模拟构造函数"></a>💥模拟构造函数</h3><p><img src="https://s2.loli.net/2024/07/02/aFiCLRyYh4IU83o.png" srcset="/img/loading.gif" lazyload><br>有时候我们也需要模拟构造函数，从而可以模拟后续这个对象的行为。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs java">MockedConstruction&lt;FTPClient&gt; mocked = Mockito.mockConstruction(FTPClient.class,<br>        (ftpClient, context) -&gt; &#123;<br>            Mockito.doNothing().<span class="hljs-keyword">when</span>(ftpClient).connect(ftpProtocol.getHost(),<br>                    Integer.parseInt(ftpProtocol.getPort()));<br><br>            Mockito.doAnswer(invocationOnMock -&gt; <span class="hljs-literal">true</span>).<span class="hljs-keyword">when</span>(ftpClient)<br>                    .login(ftpProtocol.getUsername(), ftpProtocol.getPassword());<br>            Mockito.<span class="hljs-keyword">when</span>(ftpClient.changeWorkingDirectory(ftpProtocol.getDirection())).thenReturn(isActive);<br>            Mockito.doNothing().<span class="hljs-keyword">when</span>(ftpClient).disconnect();<br>        &#125;);<br></code></pre></td></tr></table></figure>
+<p>可以使用 <code>Mockito.mockConstruction</code> 来进行模拟，该对象的一些行为就直接写在这个模拟函数内。</p>
+<p>需要注意的是返回的 <code>mocked</code> 对象需要记得关闭。</p>
+<h3 id="不需要-Mock"><a href="#不需要-Mock" class="headerlink" title="不需要 Mock"></a>不需要 Mock</h3><p>当然也不是所有的场景都需要 <code>mock</code>。</p>
+<p>比如刚才第一个场景，没有依赖任何外部服务时就不需要 <code>mock</code>。</p>
+<p><img src="https://s2.loli.net/2024/07/02/mW3gxERBc4qoz2L.png" srcset="/img/loading.gif" lazyload></p>
+<p>类似于这个 <a target="_blank" rel="noopener" href="https://github.com/apache/hertzbeat/pull/2021">PR</a> 里的测试，只是依赖一个基础的内存缓存组件，就没必要 mock，但如果依赖的是 <code>Redis</code> 缓存组件还是需要 mock 的。<br><a target="_blank" rel="noopener" href="https://github.com/apache/hertzbeat/pull/2021">https://github.com/apache/hertzbeat/pull/2021</a></p>
+<h3 id="⚙️修改源码"><a href="#⚙️修改源码" class="headerlink" title="⚙️修改源码"></a>⚙️修改源码</h3><p>如果有些测试场景下需要获取内部变量方便后续的测试，但是该测试类也没有提供获取变量的函数，我们就只有修改源码来配合测试了。</p>
+<p>比如这个 <a target="_blank" rel="noopener" href="https://github.com/apache/hertzbeat/pull/">PR</a>：<br><img src="https://s2.loli.net/2024/07/02/bxfQgsymWVcnawE.png" srcset="/img/loading.gif" lazyload></p>
+<p>当然如果只是给测试环境下使用的函数或变量，我们可以加上 <code>@VisibleForTesting</code>注解标明一下，这个注解没有其他作用，可以让后续的维护者更清楚的知道这是做什么用的。</p>
+<h1 id="📈集成测试"><a href="#📈集成测试" class="headerlink" title="📈集成测试"></a>📈集成测试</h1><p>单元测试只能测试一些功能单一的函数，要保证整个软件的质量仅依赖单测是不够的，我们还需要集成测试。</p>
+<p>通常是需要对外提供服务的开源项目都需要集成测试：</p>
+<ul>
+<li>Pulsar</li>
+<li>Kafka</li>
+<li>Dubbo 等</li>
+</ul>
+<p>以我接触到的服务型应用主要分为两类：一个是 Java 应用一个是 Golang 应用。</p>
+<h1 id="🐳Golang"><a href="#🐳Golang" class="headerlink" title="🐳Golang"></a>🐳Golang</h1><p><img src="https://s2.loli.net/2024/07/11/vZISu9Qg3foKhsU.png" srcset="/img/loading.gif" lazyload></p>
+<p><code>Golang</code> 因为工具链没有 Java 那么强大，所以大部分的集成测试的功能都是通过编写 Makefile 和 shell 脚本实现的。</p>
+<p>还是以我熟悉的 Pulsar 的 <code>go-client</code> 为例，它在 GitHub 的集成测试是通过 GitHub action 触发的，定义如下：<br><img src="https://s2.loli.net/2024/05/20/f2196pujo8m7KRe.png" srcset="/img/loading.gif" lazyload><br>最终调用的是 Makefile 中的 test 命令，并且把需要测试的 Golang 版本传入进去。</p>
+<p><img src="https://s2.loli.net/2024/05/20/YpwtSHnLXqU1xQj.png" srcset="/img/loading.gif" lazyload></p>
+<p><code>Dockerfile</code>：<br><img src="https://s2.loli.net/2024/05/20/1ySGWF46U7EC2rk.png" srcset="/img/loading.gif" lazyload></p>
+<p>这个镜像简单来说就是将 Pulsar 的镜像作为基础运行镜像（这里面包含了 Pulsar 的服务端），然后将这个 pulsar-client-go 的代码复制进去编译。</p>
+<p>接着运行：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">cd /pulsar/pulsar-client-go &amp;&amp; ./scripts/run-ci.sh<br></code></pre></td></tr></table></figure>
+<p>也就是测试脚本。</p>
+<p><img src="https://s2.loli.net/2024/05/20/2Afmdu8ozRvH9FC.png" srcset="/img/loading.gif" lazyload></p>
+<p>测试脚本的逻辑也很简单：</p>
+<ul>
+<li>启动 pulsar 服务端</li>
+<li>运行测试代码<br>因为所有的测试代码里连接服务端的地址都是 <code>localhost</code>，所以可以直接连接。<br><img src="https://s2.loli.net/2024/05/20/C1RHxTkuz25Mlj8.png" srcset="/img/loading.gif" lazyload></li>
+</ul>
+<p>通过这里的 <a target="_blank" rel="noopener" href="https://github.com/apache/pulsar-client-go/actions/runs/9014510238/job/24768797555">action</a> 日志可以跟踪所有的运行情况。</p>
+<h1 id="☕Java"><a href="#☕Java" class="headerlink" title="☕Java"></a>☕Java</h1><p><img src="https://s2.loli.net/2024/07/11/KlqzSwJ6f895A4n.png" srcset="/img/loading.gif" lazyload></p>
+<p>Java 因为工具链强大，所以集成测试几乎不需要用 Makefile 和脚本配合执行。</p>
+<p>还是以 Pulsar 为例，它的集成测试是需要模拟在本地启动一个服务端（因为 Pulsar 的服务端源码和测试代码都是 Java 写的，更方便做测试），然后再运行测试代码。</p>
+<blockquote>
+<p>这个的好处是任何一个单测都可以在本地直接运行，而  Go 的代码还需要先在本地启动一个服务端，测试起来比较麻烦。</p>
+</blockquote>
+<p>来看看它是如何实现的，我以其中一个 <a target="_blank" rel="noopener" href="https://github.com/apache/pulsar/blob/631b13ad23d7e48c6e82d38f97c23d129062cb7c/pulsar-broker/src/test/java/org/apache/pulsar/client/impl/BrokerClientIntegrationTest.java#L117">BrokerClientIntegrationTest</a>为例：<br><img src="https://s2.loli.net/2024/05/20/9PbioA3RQLMBy6J.png" srcset="/img/loading.gif" lazyload><br><img src="https://s2.loli.net/2024/05/20/blKePdxTUIkgRD3.png" srcset="/img/loading.gif" lazyload><br>会在单测启动的时候先启动服务端。</p>
+<p><img src="https://s2.loli.net/2024/05/20/gzY3lyTGuEDUwZF.png" srcset="/img/loading.gif" lazyload></p>
+<p>最终会调用 <code>PulsarTestContext</code> 的 <code>build</code> 函数启动 <code>broker</code>（服务端），而执行单测也只需要使用 <code>mvn test</code> 就可以自动触发这些单元测试。<br><img src="https://s2.loli.net/2024/05/20/N15amZihWI73Qyw.png" srcset="/img/loading.gif" lazyload><br>只是每一个单测都需要启停服务端，所以要把 Pulsar 的所有单测跑完通常需要 1～2 个小时。</p>
+<p>以上就是日常编写单测可能会碰到的场景，希望对大家有所帮助。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/OB/" class="category-chain-item">OB</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/%E5%8D%95%E6%B5%8B/" class="print-no-link">#单测</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>深入理解单元测试：技巧与最佳实践</div>
+      <div>http://crossoverjie.top/2024/08/15/ob/unit-test/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>August 15, 2024</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/08/20/ob/OpenTelemetry-01-trace/" title="OpenTelemetry 实战：从零实现分布式链路追踪">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">OpenTelemetry 实战：从零实现分布式链路追踪</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/08/06/ob/Pulsar%20test%20framework/" title="Pulsar升级自动化：一键搞定集群升级与测试">
+                        <span class="hidden-mobile">Pulsar升级自动化：一键搞定集群升级与测试</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2024/08/15/ob/unit-test/';
+          this.page.identifier = '/2024/08/15/ob/unit-test/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>
