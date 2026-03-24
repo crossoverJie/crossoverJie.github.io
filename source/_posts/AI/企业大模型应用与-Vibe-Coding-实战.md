@@ -7,8 +7,8 @@ tags:
   - AI
   - VibeCoding
   - LLM
-banner_img: https://jsd.cdn.zzko.cn/gh/crossoverJie/images@main/images/e86c3595_blog-cover-16x9.png
-index_img: https://jsd.cdn.zzko.cn/gh/crossoverJie/images@main/images/e86c3595_blog-cover-16x9.png
+banner_img: https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/e86c3595_blog-cover-16x9.png
+index_img: https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/e86c3595_blog-cover-16x9.png
 ---
 
 # 背景
@@ -185,3 +185,4 @@ AI coding 过程中，自己消耗大量 token 总结出来的内容，如果暂
 
 ![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260321020731.png)
 ![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260321020817.png)
+

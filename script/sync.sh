@@ -2,8 +2,8 @@
 #!/bin/bash
 
 # 切换到指定目录
-path="/Users/chenjie/Documents/Obsidian Vault/✍️Blog"
-target_base="/Users/chenjie/Documents/Hexo/source/_posts"
+path="/Users/chenjie/Documents/Obsidian Vault/Blog"
+target_base="/Users/chenjie/Documents/dev/github/crossoverJie.github.io/source/_posts"
 
 cd "${path}"
 
@@ -44,10 +44,11 @@ echo "Copied to: $target_path/$latest_file"
 echo "Copy completed successfully!!!"
 
 
-# 切换到目标目录执行git操作
-cd "$target_base"
+# 切换到 git 仓库根目录执行 git 操作
+git_base="/Users/chenjie/Documents/dev/github/crossoverJie.github.io"
+cd "$git_base"
 
-echo "Switching to git repository: $target_base"
+echo "Switching to git repository: $git_base"
 
 # 添加所有更改到暂存区
 git add .
