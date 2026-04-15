@@ -1,0 +1,862 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="最近在做持续剖析 Profile 与链路系统打通的工作，就查到了 grafana 在 24 年初写的这篇文章；觉得比较有参考意义，在这里分享给大家。  原文链接：https:&#x2F;&#x2F;grafana.com&#x2F;blog&#x2F;2024&#x2F;02&#x2F;06&#x2F;combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profil">
+<meta property="og:type" content="article">
+<meta property="og:title" content="持续剖析超级增强：将 Trace&#x2F; Span 和 Profile 整合打通">
+<meta property="og:url" content="http://crossoverjie.top/2025/11/25/OpenTelemetry/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="最近在做持续剖析 Profile 与链路系统打通的工作，就查到了 grafana 在 24 年初写的这篇文章；觉得比较有参考意义，在这里分享给大家。  原文链接：https:&#x2F;&#x2F;grafana.com&#x2F;blog&#x2F;2024&#x2F;02&#x2F;06&#x2F;combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profil">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://s2.loli.net/2025/11/25/nPdSi97fwrvZY8M.png">
+<meta property="article:published_time" content="2025-11-25T09:56:51.000Z">
+<meta property="article:modified_time" content="2026-04-15T15:04:16.105Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="OpenTelemetry">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s2.loli.net/2025/11/25/nPdSi97fwrvZY8M.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>持续剖析超级增强：将 Trace/ Span 和 Profile 整合打通 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":"G-930V538KP1"},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+    <!-- Google tag (gtag.js) -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript("https://www.googletagmanager.com/gtag/js?id=G-930V538KP1", function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            dataLayer.push(arguments);
+          }
+          gtag('js', new Date());
+          gtag('config', 'G-930V538KP1');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://s2.loli.net/2025/11/25/nPdSi97fwrvZY8M.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="持续剖析超级增强：将 Trace/ Span 和 Profile 整合打通"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2025-11-25 17:56" pubdate>
+          November 25, 2025 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.5k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          13 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">持续剖析超级增强：将 Trace/ Span 和 Profile 整合打通</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <blockquote>
+<p>最近在做持续剖析 Profile 与链路系统打通的工作，就查到了 grafana 在 24 年初写的这篇文章；觉得比较有参考意义，在这里分享给大家。</p>
+</blockquote>
+<p>原文链接：<a target="_blank" rel="noopener" href="https://grafana.com/blog/2024/02/06/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/">https://grafana.com/blog/2024/02/06/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/</a></p>
+<p>在当今复杂的数据环境中，连续剖析（continuous profiling）已成为获取应用资源使用情况细粒度洞察的关键。Grafana Labs 现通过在 <a href="/blog/2024/01/23/grafana-10.3-release-canvas-panel-updates-multi-stack-data-sources-and-more/">Grafana 10.3</a> 中引入 Span Profiles 功能，将这工作持续推进。</p>
+<span id="more"></span>
+
+<p>Span Profiles 代表着剖析方法学上的一次重大转变，它让我们能够对追踪（tracing）和剖析（profiling）数据进行更深入的联合分析。传统的连续剖析是在固定时间区间内提供全局系统视角；相比之下，Span Profiles 可以对应用内部特定执行作用域（execution scope）进行更聚焦的分析，例如单个请求或某个特定的 trace span 分析它的 Profile。</p>
+<p>这一转变带来了更精细的性能视角：通过将剖析数据与 trace 直接关联，帮助我们更全面地理解应用行为。由此，工程团队可以更高效地识别并解决性能瓶颈。</p>
+<p><img src="https://s2.loli.net/2025/11/25/nPdSi97fwrvZY8M.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<p>在我们于 Grafana Labs 内部采用这一集成的 “trace-to-profile” 方法的第一个月中，CPU 利用率提升了 4 倍，对对象存储的 API 调用减少了 3 倍，同时还降低了成本（详见下文）——因此，我们非常高兴能向社区推出这一特性！</p>
+<hr>
+<h2 id="与-Grafana-Trace-视图集成：无缝体验"><a href="#与-Grafana-Trace-视图集成：无缝体验" class="headerlink" title="与 Grafana Trace 视图集成：无缝体验"></a>与 Grafana Trace 视图集成：无缝体验</h2><p>借助 Span Profiles，你可以在执行作用域<strong>内部</strong>挖掘具体的性能细节。比如，以前你只知道某个 span 花了 400ms，现在则能进一步了解：在这 400ms 里<strong>具体是哪部分代码</strong>在运行；从而更快的知道性能瓶颈</p>
+<p><img src="https://s2.loli.net/2025/11/25/cC9VkwNpOSXqd8v.png" srcset="/img/loading.gif" lazyload alt="image.png"></p>
+<blockquote>
+<p>使用 Span Profiles 的 flamegraph 截图。</p>
+</blockquote>
+<p>这种有针对性的方式，让你可以比以往更细粒度地剖析性能指标。通过聚焦于单个请求或单个 trace span，Span Profiles 为你提供了一扇直接洞察应用性能关键部分的窗口。</p>
+<p>Span Profiles 与 Grafana <a href="/docs/grafana/latest/explore/trace-integration/?pg=blog&plcmt=body-txt/#trace-view">trace 视图</a> 的集成，为用户带来无缝体验：你可以轻松地从高层级的 trace 概览，切换到对某个具体 trace span 进行深入分析。</p>
+<p>引入 Span Profiles 不仅是一次技术上的飞跃，同时也有非常可观的业务和投资回报（ROI）价值。</p>
+<p>通过帮助团队更快地识别并解决性能问题，Span Profiles 减少了排障所需的时间和资源投入。这种效率的提升带来显著的成本节约，让 Span Profiles 成为既能优化应用性能，又能降低运维成本的有力工具。</p>
+<hr>
+<h2 id="Grafana-Labs-内部的真实案例"><a href="#Grafana-Labs-内部的真实案例" class="headerlink" title="Grafana Labs 内部的真实案例"></a>Grafana Labs 内部的真实案例</h2><p>为了更直观地展示 Span Profiles 的业务价值，下面是我们在 Grafana Labs 内部使用该特性的一个实际案例。</p>
+<p>几个月前，<a href="/oss/pyroscope/https://grafana.com/oss/pyroscope/">Grafana Pyroscope</a> 团队（Pyroscope 是支撑 <a target="_blank" rel="noopener" href="https://grafana.com/products/cloud/profiles-for-continuous-profiling/">Grafana Cloud Profiles</a> 的开源连续剖析数据库）在数据库架构中新增了 <a target="_blank" rel="noopener" href="https://grafana.com/docs/pyroscope/latest/reference-pyroscope-architecture/components/compactor/?pg=blog&plcmt=body-txt">compactor 组件</a>，带来了显著的性能和成本收益。</p>
+<p>compactor 会通过合并多个 block 来提升查询性能，并减少长期存储的使用。它在为每个租户将多个 block 压缩成单个优化 block 的过程中扮演关键角色，这不仅降低了存储成本，也加快了查询速度。</p>
+<p><img src="https://s2.loli.net/2025/11/25/KB2n4rPfl657XdY.png" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>compactor 组件结构图。</p>
+</blockquote>
+<p>然而，压缩过程本身非常复杂——包括竖向压缩、横向压缩以及拆分与合并（split-and-merge）策略等多个阶段——这些都带来了一些挑战，尤其是与性能瓶颈相关的挑战。例如，在密集的压缩操作期间，CPU 和内存使用可能会出现明显峰值，存储 IO 需求也会显著增加，从而可能影响整体系统稳定性。此外，在拥有大量租户的大规模集群中，管理和优化这些大规模压缩任务所需的资源也非常复杂。而这正是 Span Profiles 功能展现其独特优势的地方。</p>
+<p>通过对每一次压缩运行进行详细剖析，Span Profiles 能够在 trace 视图中直接提供按函数维度划分的 CPU 使用情况。这种与 trace 视图相结合的细节信息至关重要：它不仅能指出压缩过程的哪个阶段出现了瓶颈，还能告诉你每一次压缩影响到了哪些用户。</p>
+<p><img src="https://s2.loli.net/2025/11/25/xdWDUFrKRZO3h7q.png" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>展示不同压缩操作对用户影响的 flamegraph。</p>
+</blockquote>
+<p>例如，我们发现由于符号信息的影响，一级（level 1）压缩是一个主要瓶颈；同时，我们也识别出每次运行中存在过度的 block 同步问题。有了这些数据，我们随之对压缩算法做出了有针对性的调整。<strong>改动带来的效果立竿见影：压缩时间减少了 4 倍，对对象存储的 API 调用量减少了 3 倍。</strong></p>
+<p><img src="https://s2.loli.net/2025/11/25/EoS4wz6rinK5aAN.png" srcset="/img/loading.gif" lazyload></p>
+<blockquote>
+<p>对象存储 API 调用量下降的仪表板截图。</p>
+</blockquote>
+<p>如果只看 GET 请求的减少，节省就已经非常可观。以 Google Cloud Storage Class B&#x2F;GET 的费用来计算，这些调整每月大约节省了 8,000 美元（计算方式为：0.0004 美元&#x2F;次 GET 请求 * 每分钟节省 400 次请求 * 60 分钟 * 24 小时 * 31 天）。</p>
+<p>Span Profiles 功能为应用剖析翻开了新篇章。通过在特定执行作用域上提供详细洞察，它彻底改变了性能问题的识别与解决方式。</p>
+<hr>
+<h2 id="如何开始使用-Span-Profiles"><a href="#如何开始使用-Span-Profiles" class="headerlink" title="如何开始使用 Span Profiles"></a>如何开始使用 Span Profiles</h2><p>Span Profiles 目前已经在 <a href="/docs/grafana-cloud/?pg=blog&plcmt=body-txt">Grafana Cloud</a> 和 <a href="/docs/grafana/latest/whatsnew/whats-new-in-v10-3/?pg=blog&plcmt=body-txt">Grafana 10.3</a> 中提供。想要进一步了解这一特性，你可以参考我们的<a href="/docs/grafana-cloud/connect-externally-hosted/data-sources/tempo/configure-tempo-data-source/#trace-to-profiles">技术文档</a>，以及以下入门资源：</p>
+<ul>
+<li><a href="/docs/pyroscope/latest/configure-client/?pg=blog&plcmt=body-txt">配置 Pyroscope 以发送剖析数据</a>  </li>
+<li>配置客户端包以将 trace 与 profile 关联：  <ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/grafana/otel-profiling-go">Go</a>  </li>
+<li><a target="_blank" rel="noopener" href="https://github.com/grafana/otel-profiling-ruby">Ruby</a>  </li>
+<li><a target="_blank" rel="noopener" href="https://github.com/grafana/otel-profiling-java">Java</a></li>
+</ul>
+</li>
+<li><a href="/docs/grafana-cloud/connect-externally-hosted/data-sources/tempo/configure-tempo-data-source/?pg=blog&plcmt=body-txt">配置 Tempo 以发现已关联的 traces 和 profiles</a></li>
+</ul>
+<p>更多关于 Span Profile 的具体使用案例会在继续更新。</p>
+<p>#Blog </p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/OB/" class="category-chain-item">OB</a>
+  
+  
+    <span>></span>
+    
+  <a href="/categories/OB/OpenTelemetry/" class="category-chain-item">OpenTelemetry</a>
+  
+  
+
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/OpenTelemetry/" class="print-no-link">#OpenTelemetry</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>持续剖析超级增强：将 Trace/ Span 和 Profile 整合打通</div>
+      <div>http://crossoverjie.top/2025/11/25/OpenTelemetry/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>November 25, 2025</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2025/12/23/AI/LLM-app-concept/" title="大模型应用开发必需了解的基本概念">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">大模型应用开发必需了解的基本概念</span>
+                        <span class="visible-mobile">Previous</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2025/11/12/starrocks/StarRocks-SQL-monitor/" title="StarRocks 如何监控 SQL">
+                        <span class="hidden-mobile">StarRocks 如何监控 SQL</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2025/11/25/OpenTelemetry/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/';
+          this.page.identifier = '/2025/11/25/OpenTelemetry/combining-tracing-and-profiling-for-enhanced-observability-introducing-span-profiles/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>
