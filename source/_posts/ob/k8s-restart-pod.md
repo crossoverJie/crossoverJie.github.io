@@ -2,8 +2,8 @@
 title: 如何优雅重启 kubernetes 的 Pod
 date: 2023/10/19 10:58:44
 categories:
-  - OB
   - k8s
+  - OB
 tags:
 - client-go
 ---

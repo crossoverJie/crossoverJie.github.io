@@ -2,9 +2,9 @@
 title: 从 Helm 到 Operator：Kubernetes应用管理的进化
 date: 2024/07/08 11:19:51
 categories:
+  - k8s
   - OB
   - kubernetes
-  - k8s
 tags:
 - kubernetes
 - Operator

@@ -2,9 +2,9 @@
 title: 【译】几个你或许并不知道 kubernetes 技巧
 date: 2024/06/03 18:05:25
 categories:
+  - k8s
   - 翻译
   - kubernetes
-  - k8s
 tags:
   - kubernetes
 ---
