@@ -4,7 +4,7 @@ date: 2024/07/08 11:19:51
 categories:
   - OB
   - kubernetes
-  - kubernetes
+  - k8s
 tags:
 - kubernetes
 - Operator

@@ -5,6 +5,7 @@ banner_img: https://s2.loli.net/2024/12/20/nAOS5E1YzWDoZyF.png
 index_img: https://s2.loli.net/2024/12/20/nAOS5E1YzWDoZyF.png
 categories:
   - OB
+  - k8s
   - kubernetes
 tags:
 - kubernetes

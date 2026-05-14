@@ -4,6 +4,7 @@ date: 2024/06/03 18:05:25
 categories:
   - 翻译
   - kubernetes
+  - k8s
 tags:
   - kubernetes
 ---
