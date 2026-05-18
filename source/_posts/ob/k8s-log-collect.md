@@ -2,6 +2,7 @@
 title: 在 kubernetes 环境下如何采集日志
 date: 2024/04/21 13:07:07
 categories:
+  - k8s
   - OB
 tags:
 - kubernetes

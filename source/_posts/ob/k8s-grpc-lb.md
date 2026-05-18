@@ -2,8 +2,8 @@
 title: 在 kubernetes 环境中实现 gRPC 负载均衡
 date: 2023/10/16 15:55:50
 categories:
-  - OB
   - k8s
+  - OB
 tags:
 - gRPC
 ---

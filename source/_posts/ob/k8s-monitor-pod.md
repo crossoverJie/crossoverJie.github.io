@@ -4,6 +4,7 @@ date: 2025/01/02 14:00:50
 banner_img: https://s2.loli.net/2024/12/20/nAOS5E1YzWDoZyF.png
 index_img: https://s2.loli.net/2024/12/20/nAOS5E1YzWDoZyF.png
 categories:
+  - k8s
   - OB
   - kubernetes
 tags:
