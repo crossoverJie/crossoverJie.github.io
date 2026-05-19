@@ -6,9 +6,10 @@ categories:
   - 工程实践
 tags:
   - AI
-banner_img: https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/212beff6_01-cover-cc-generate-wiki.png
-index_img: https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/212beff6_01-cover-cc-generate-wiki.png
+banner_img: https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260519171100.png
+index_img: https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260519171100.png
 ---
+
 
 # 背景
 
