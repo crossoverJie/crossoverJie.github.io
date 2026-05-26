@@ -2,8 +2,8 @@
 title: "[送码] 用 AI Coding 做了一个 App，谈谈 AI Coding 的真实体验"
 date: 2026/05/26 21:00:00
 categories:
-  - AI Coding
-  - macOS
+  - AI
+  - 独立开发
 tags:
   - AI
   - 独立开发
