@@ -1,0 +1,1046 @@
+
+
+<!DOCTYPE html>
+<html lang="en" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  <link rel="icon" href="https://s2.loli.net/2025/08/15/WXCrTGSPe8a17B5.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="crossoverJie">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="背景最近在搞 StarRocks 的跨版本升级（3.3 → 3.5），中间踩了不少坑。我之前也写过一篇 StarRocks 升级注意事项记录了手动升级的流程，但那只是针对小版本（3.3.3 → 3.3.9）的升级。 跨大版本升级完全是另一回事——3.3 到 3.5 中间有 6000+ 个 commit，里面藏着各种不兼容变更：配置默认值变了、Session Variable 改了、Protocol">
+<meta property="og:type" content="article">
+<meta property="og:title" content="我做了一个 StarRocks 升级风险扫描工具，直接帮我定位到一个风险">
+<meta property="og:url" content="http://crossoverjie.top/2026/06/14/starrocks/StarRocks-upgrade-skill-principle/index.html">
+<meta property="og:site_name" content="crossoverJie&#39;s Blog">
+<meta property="og:description" content="背景最近在搞 StarRocks 的跨版本升级（3.3 → 3.5），中间踩了不少坑。我之前也写过一篇 StarRocks 升级注意事项记录了手动升级的流程，但那只是针对小版本（3.3.3 → 3.3.9）的升级。 跨大版本升级完全是另一回事——3.3 到 3.5 中间有 6000+ 个 commit，里面藏着各种不兼容变更：配置默认值变了、Session Variable 改了、Protocol">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615004232.png">
+<meta property="article:published_time" content="2026-06-14T17:00:00.000Z">
+<meta property="article:modified_time" content="2026-06-14T17:17:40.427Z">
+<meta property="article:author" content="crossoverJie">
+<meta property="article:tag" content="AI">
+<meta property="article:tag" content="StarRocks">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615004232.png">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>我做了一个 StarRocks 升级风险扫描工具，直接帮我定位到一个风险 - crossoverJie&#39;s Blog</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"crossoverjie.top","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":"G-930V538KP1"},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":"Qv6ckEtL1pe3PJD10qoOLKtg-gzGzoHsz","app_key":"NXiHFodQfmI8oxkK6IThhjrF","server_url":"https://qv6cketl.lc-cn-n1-shared.com","path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+    <!-- Google tag (gtag.js) -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript("https://www.googletagmanager.com/gtag/js?id=G-930V538KP1", function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            dataLayer.push(arguments);
+          }
+          gtag('js', new Date());
+          gtag('config', 'G-930V538KP1');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="crossoverJie's Blog" type="application/atom+xml">
+</head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>crossoverJie&#39;s Blog</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>Home</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>Archives</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>Categories</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>Tags</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>About</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie" target="_self">
+                <i class="iconfont icon-github-fill"></i>
+                <span>github</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/gscript" target="_self">
+                <i class="iconfont icon-code"></i>
+                <span>gscript</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://github.com/crossoverjie/cim" target="_self">
+                <i class="iconfont icon-telegram-fill"></i>
+                <span>cim</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="https://space.bilibili.com/42339430" target="_self">
+                <i class="iconfont icon-bilibili-fill"></i>
+                <span>vlog</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615004232.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="我做了一个 StarRocks 升级风险扫描工具，直接帮我定位到一个风险"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-author" aria-hidden="true"></i>
+        crossoverJie
+      </span>
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-06-14 17:00" pubdate>
+          June 14, 2026 pm
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.9k words
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          25 mins
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> views
+        </span>
+        
+      
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">我做了一个 StarRocks 升级风险扫描工具，直接帮我定位到一个风险</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>最近在搞 StarRocks 的跨版本升级（3.3 → 3.5），中间踩了不少坑。我之前也写过一篇 <a href="https://crossoverjie.top/2025/03/14/starrocks/StarRocks-upgrade/">StarRocks 升级注意事项</a>记录了手动升级的流程，但那只是针对小版本（3.3.3 → 3.3.9）的升级。</p>
+<p>跨大版本升级完全是另一回事——3.3 到 3.5 中间有 6000+ 个 commit，里面藏着各种不兼容变更：配置默认值变了、Session Variable 改了、Protocol 字段删了……人工逐个审查根本不现实，漏一个关键变更就可能导致生产事故。</p>
+<p>于是我就想：能不能用 AI 来帮我干这活？经过一段时间的迭代，我用 Claude Code 手搓了一个 StarRocks 升级风险扫描工具（<a target="_blank" rel="noopener" href="https://github.com/crossoverJie/skills/blob/main/skills/starrocks-upgrade/SKILL.md">starrocks-upgrade skill</a>），这篇文章就来聊聊它的设计原理。</p>
+<p>现在升级之前会先执行一次 Skill，它首先会让你输入一些集群信息方便后面做具体的分析：<br><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260614235018.png" srcset="/img/loading.gif" lazyload></p>
+<p>收集完成之后便会收集差异版本之间的 commit 信息开始分析，最终生成一个升级报告，给出一些潜在的风险，比如这个：<br><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260614235225.png" srcset="/img/loading.gif" lazyload></p>
+<p>我们在升级之后确实遇到了这个问题，提前有了这份报告之后解决起来自然也要轻松许多。</p>
+<span id="more"></span>
+
+<h1 id="问题域：为什么升级这么难"><a href="#问题域：为什么升级这么难" class="headerlink" title="问题域：为什么升级这么难"></a>问题域：为什么升级这么难</h1><p>先说清楚我们要解决的核心问题。StarRocks 跨版本升级的难点不在于”升级操作”本身，而在于<strong>升级前不知道会发生什么</strong>。</p>
+<h2 id="不兼容变更难以发现"><a href="#不兼容变更难以发现" class="headerlink" title="不兼容变更难以发现"></a>不兼容变更难以发现</h2><p>版本间的配置项默认值变化、Session Variable 变更、BE 配置修改等，往往隐藏在几千个 commit 中。传统做法是人工阅读 Release Notes，但很多行为变更根本不会记录在 RN 里。</p>
+<h2 id="影响范围难以评估"><a href="#影响范围难以评估" class="headerlink" title="影响范围难以评估"></a>影响范围难以评估</h2><p>一个配置项的默认值变化可能通过间接调用链产生连锁反应。比如 <code>transform_type_prefer_string_for_varchar</code> 从 false 变为 true，看起来只是改了个默认值，但它会通过 MV re-activation 间接导致物化视图失效。这种间接影响链靠肉眼根本发现不了。</p>
+<h2 id="集群特定风险无法量化"><a href="#集群特定风险无法量化" class="headerlink" title="集群特定风险无法量化"></a>集群特定风险无法量化</h2><p>不同集群的配置（fe.conf&#x2F;be.conf）、部署方式（K8s&#x2F;VM）、规模（MV 数量、表数量）各不相同，通用的升级建议无法覆盖特定集群的风险。同样是默认值变了，你的集群如果已经在 conf 中覆盖了，风险就很低；但如果你用的恰好是旧默认值，升级后行为就直接变了。</p>
+<h2 id="现有方案的不足"><a href="#现有方案的不足" class="headerlink" title="现有方案的不足"></a>现有方案的不足</h2><table>
+<thead>
+<tr>
+<th>方案</th>
+<th>不足</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>人工阅读 Release Notes</td>
+<td>不完整，很多行为变更不记录在 RN 中</td>
+</tr>
+<tr>
+<td><code>git log --oneline A..B</code></td>
+<td>只能看到 commit 列表，无法判断兼容性风险</td>
+</tr>
+<tr>
+<td>CI&#x2F;CD 自动化测试</td>
+<td>只能验证功能正确性，无法发现配置冲突、运维影响</td>
+</tr>
+<tr>
+<td>逐个 PR 阅读分析</td>
+<td>分析片面——只看 PR diff 无法了解调用链和上下游影响</td>
+</tr>
+</tbody></table>
+<p>特别是逐 PR 分析，这是最容易掉进去的坑。一个 PR 的 diff 只是变更的代码片段，你根本看不到变更所在的类与上下游调用关系。比如上面提到的 <code>transform_type_prefer_string_for_varchar</code>，PR diff 中只是修改了 <code>Config.java</code> 中的一个默认值，但你看不到 <code>AnalyzerUtils.transformTableColumnType()</code> 在读这个配置、<code>MaterializedViewAnalyzer</code> 调用了它、<code>AlterJobMgr.reActivateMV()</code> 又间接触发了 MV 重新解析——这条完整的间接影响链，只看 PR diff 是绝对看不出来的。</p>
+<h1 id="核心设计选择：源码全量扫描"><a href="#核心设计选择：源码全量扫描" class="headerlink" title="核心设计选择：源码全量扫描"></a>核心设计选择：源码全量扫描</h1><p>基于上面的分析，工具做了一个根本性的设计选择：<strong>必须在 StarRocks 源码根目录下运行</strong>，而不是逐个 PR 读取 GitHub 上的 diff。</p>
+<p>这个选择的原因很简单：</p>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>逐 PR 分析</th>
+<th>源码全量扫描</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>识别配置项移除</td>
+<td>不行（已删除的行不会出现在 PR diff 中）</td>
+<td>可以——全量解析新旧版本的 Config.java，对比字段集合</td>
+</tr>
+<tr>
+<td>追踪间接调用链</td>
+<td>不行——缺少源码上下文</td>
+<td>可以——在源码树中 grep 递归追踪</td>
+</tr>
+<tr>
+<td>集群配置冲突检测</td>
+<td>不行——无法读取用户 conf</td>
+<td>可以——解析 cluster-profile.yaml 并与 Scanner 结果交叉对比</td>
+</tr>
+<tr>
+<td>识别”默认值变更但用户未覆盖”</td>
+<td>不行</td>
+<td>可以——对比 conf 中的值与新旧默认值</td>
+</tr>
+</tbody></table>
+<p>简单来说：<strong>没有源码上下文，就没有深度分析。</strong></p>
+<h1 id="设计哲学：宁可误报也不漏报"><a href="#设计哲学：宁可误报也不漏报" class="headerlink" title="设计哲学：宁可误报也不漏报"></a>设计哲学：宁可误报也不漏报</h1><p>这个工具的核心设计哲学是 <strong>prefer false positives over false negatives</strong>。</p>
+<p>原因很简单：升级风险的成本是非对称的。漏报一个不兼容变更可能导致生产事故，而误报只是增加了人工验证的工作量。所以工具采用了多层级扫描策略：11 个专项 Scanner 覆盖已知风险模式 + 逐 commit Tier 分类确保无遗漏。</p>
+<h1 id="整体架构"><a href="#整体架构" class="headerlink" title="整体架构"></a>整体架构</h1><p>整个工具的工作流分为四个阶段，先看一张全局视图：</p>
+<p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615002106.png" srcset="/img/loading.gif" lazyload></p>
+<h2 id="Phase-1：数据收集"><a href="#Phase-1：数据收集" class="headerlink" title="Phase 1：数据收集"></a>Phase 1：数据收集</h2><p>这是整个工具的基础，由 <code>starrocks_upgrade.py</code> 实现。它要做的事情很多：</p>
+<h3 id="Git-Commit-Diff-采集"><a href="#Git-Commit-Diff-采集" class="headerlink" title="Git Commit Diff 采集"></a>Git Commit Diff 采集</h3><p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/imagesmac_1781454655007.png" srcset="/img/loading.gif" lazyload></p>
+<p>通过 <code>git log branchA..branchB</code> 获取目标分支独有的 commits，然后对每个 commit 做分类。这里有个关键优化——使用自定义分隔符（SOH&#x2F;STX）通过单次 <code>git log</code> 调用获取所有 commit 的完整信息，避免 N+1 查询。</p>
+<h3 id="Commit-Tier-分类"><a href="#Commit-Tier-分类" class="headerlink" title="Commit Tier 分类"></a>Commit Tier 分类</h3><p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615003636.png" srcset="/img/loading.gif" lazyload></p>
+<p>不是所有 commit 都需要深度分析。工具把 commit 分成四级：</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>匹配规则</th>
+<th>处理方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SKIP</td>
+<td>test&#x2F;docs&#x2F;build 目录；commit 前缀为 build&#x2F;chore&#x2F;ci&#x2F;style</td>
+<td>仅统计数量</td>
+</tr>
+<tr>
+<td>HIGH</td>
+<td>核心路径：FE 优化器&#x2F;执行器&#x2F;SQL 解析、BE runtime&#x2F;storage、Protocol&#x2F;IDL</td>
+<td>保存完整 diff + 深度分析</td>
+</tr>
+<tr>
+<td>MEDIUM</td>
+<td>业务路径：连接器&#x2F;认证&#x2F;权限；feat&#x2F;fix 类型的源码变更</td>
+<td>保存完整 diff + 分析</td>
+</tr>
+<tr>
+<td>LOW</td>
+<td>其他所有变更</td>
+<td>仅保存元数据</td>
+</tr>
+</tbody></table>
+<p>这样 HIGH&#x2F;MEDIUM 的 commit 得到深度分析，LOW&#x2F;SKIP 不浪费资源。</p>
+<h3 id="11-个专项-Scanner"><a href="#11-个专项-Scanner" class="headerlink" title="11 个专项 Scanner"></a>11 个专项 Scanner</h3><p>这是工具最核心的部分，覆盖了升级风险的 11 个维度：</p>
+<p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615003917.png" srcset="/img/loading.gif" lazyload></p>
+<p><strong>FE 侧：</strong></p>
+<ul>
+<li>Config Scanner — 扫描 <code>Config.java</code> 中的 <code>@ConfField</code> 配置项变更</li>
+<li>Session Variable Scanner — 扫描 <code>SessionVariable.java</code> 中的 <code>@VarAttr</code> 变量变更</li>
+<li>System Variable Scanner — 扫描 <code>GlobalVariable.java</code></li>
+<li>Auth Scanner — 扫描 <code>AuthenticationManager.java</code>、<code>PrivilegeManager.java</code></li>
+</ul>
+<p><strong>BE 侧：</strong></p>
+<ul>
+<li>BE Config Scanner — 扫描 <code>config.h</code> 中的 <code>CONF_*</code> 宏定义</li>
+<li>Storage Format Scanner — 扫描 <code>segment_format.h</code>、<code>tablet_meta.h</code></li>
+</ul>
+<p><strong>IDL&#x2F;协议：</strong></p>
+<ul>
+<li>Protocol Scanner — 扫描 <code>.thrift</code> &#x2F; <code>.proto</code> 文件变更</li>
+<li>Parser Scanner — 扫描 <code>StarRocksParser.g4</code>、<code>AstBuilder.java</code></li>
+</ul>
+<p><strong>数据&#x2F;类型：</strong></p>
+<ul>
+<li>Charset&#x2F;Collation Scanner — 扫描 <code>Collation*.java</code></li>
+<li>Type System Scanner — 扫描 <code>ScalarType.java</code> &#x2F; <code>Column.java</code></li>
+<li>MV Scanner — 扫描 <code>MaterializedView.java</code>、<code>MVRefreshParams.java</code></li>
+</ul>
+<p>每个 Scanner 的工作模式都一样：</p>
+<p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615004232.png" srcset="/img/loading.gif" lazyload></p>
+<h3 id="Config-Scanner-的状态机解析"><a href="#Config-Scanner-的状态机解析" class="headerlink" title="Config Scanner 的状态机解析"></a>Config Scanner 的状态机解析</h3><p>这里值得展开说说，因为 Config.java 的解析是整个工具中最复杂的部分。</p>
+<p>Java 注解可能跨多行：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@ConfField(mutable = true, comment = &quot;Whether to prefer string type &quot;</span><br><span class="hljs-meta">        + &quot;for fixed length varchar column in materialized view creation/ctas&quot;)</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-type">boolean</span> <span class="hljs-variable">transform_type_prefer_string_for_varchar</span> <span class="hljs-operator">=</span> <span class="hljs-literal">true</span>;<br></code></pre></td></tr></table></figure>
+
+<p>所以解析器采用了<strong>逐行状态机</strong>模式：</p>
+<p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615004523.png" srcset="/img/loading.gif" lazyload></p>
+<p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615004849.png" srcset="/img/loading.gif" lazyload></p>
+<p>状态机跟踪 <code>(</code> 和 <code>)</code> 的配对，将多行注解拼接后再解析 <code>mutable</code> 和 <code>comment</code> 属性。相比简单的正则匹配，这种方式能正确处理各种边界情况。</p>
+<h3 id="BE-Config-解析"><a href="#BE-Config-解析" class="headerlink" title="BE Config 解析"></a>BE Config 解析</h3><p>BE 端使用 C++ 宏定义配置，解析方式完全不同：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-built_in">CONF_Bool</span>(datacache_auto_adjust_enable, <span class="hljs-string">&quot;false&quot;</span>)     <span class="hljs-comment">// 不可运行时修改</span><br><span class="hljs-built_in">CONF_mBool</span>(lake_enable_alter_struct, <span class="hljs-string">&quot;true&quot;</span>)          <span class="hljs-comment">// 可运行时修改 (m 前缀)</span><br></code></pre></td></tr></table></figure>
+
+<p>正则 <code>CONF_(m?\w+)\((\w+),\s*&quot;([^&quot;]*)&quot;\)</code> 一把就能提取出来，注意 <code>m</code> 前缀表示 mutable，可运行时修改。</p>
+<h3 id="集群配置冲突检测"><a href="#集群配置冲突检测" class="headerlink" title="集群配置冲突检测"></a>集群配置冲突检测</h3><p>这是我觉得最有用的功能。不同场景下同一个默认值变化的风险完全不同：</p>
+<p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615005115.png" srcset="/img/loading.gif" lazyload></p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>示例</th>
+<th>风险</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>配置已移除 + 你的 conf 中有</td>
+<td><code>mysql_service_nio_enabled</code> 已删除，你 conf 中有 <code>= true</code></td>
+<td>HIGH — 启动报错</td>
+</tr>
+<tr>
+<td>默认值变化 + 你使用旧默认</td>
+<td><code>enable_load_volume_from_conf</code> true→false，你 conf 中 <code>= true</code></td>
+<td>MEDIUM — 你的覆盖生效，但需决定是否跟随</td>
+</tr>
+<tr>
+<td>默认值变化 + 你有自定义值</td>
+<td>你 conf 中设了 <code>= custom_value</code></td>
+<td>LOW — 你的覆盖优先</td>
+</tr>
+<tr>
+<td>默认值变化 + 你未覆盖</td>
+<td><code>mysql_server_version</code> 5.1.0→8.0.33，你 conf 中没有</td>
+<td>HIGH — 自动采用新默认值</td>
+</tr>
+</tbody></table>
+<p>这种精确区分比泛泛地说”某个配置默认值变了”有用得多。</p>
+<h3 id="部署方式感知"><a href="#部署方式感知" class="headerlink" title="部署方式感知"></a>部署方式感知</h3><p>工具还会根据集群的部署方式生成特定风险提示：</p>
+<p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615005328.png" srcset="/img/loading.gif" lazyload></p>
+<p>比如 K8s 环境下，FE Pod 重启会触发 MV re-activation，如果有 MV 相关代码变更，可能导致 schema 不兼容；VM 环境下则更关注升级顺序（BE 先 FE 后）。</p>
+<h2 id="Phase-2：Commit-Diff-分析"><a href="#Phase-2：Commit-Diff-分析" class="headerlink" title="Phase 2：Commit Diff 分析"></a>Phase 2：Commit Diff 分析</h2><p>Phase 1 保存了 HIGH&#x2F;MEDIUM commit 的完整 diff。Phase 2 由 AI Agent 执行，利用并行 Subagent 对 commit 进行深度兼容性分析。</p>
+<p>由于跨版本 diff 的 commit 数量通常很大（3.3→3.5 有 1361 个 HIGH tier commit），逐个串行分析不现实。所以按模块分组，每组 5-8 个 commit 分配给一个并行 Subagent：</p>
+<p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615005547.png" srcset="/img/loading.gif" lazyload></p>
+<p>每个 Subagent 输出结构化的分析结果：<code>compatibility_impact</code>、<code>impact_type</code>、<code>severity</code>、<code>error_scenario</code>、<code>reproduction</code>、<code>rollback</code>。</p>
+<h2 id="Phase-3：深度影响分析"><a href="#Phase-3：深度影响分析" class="headerlink" title="Phase 3：深度影响分析"></a>Phase 3：深度影响分析</h2><p>Phase 2 的输出 + Phase 1 的 Scanner 发现中，所有 CRITICAL&#x2F;HIGH 级别的发现需要进一步深度分析。每个（或每批相关的）发现分配一个并行 Subagent，在源码树中 grep 追踪调用链。</p>
+<p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615005815.png" srcset="/img/loading.gif" lazyload></p>
+<p>这是工具最独特的设计之一——<strong>系统生命周期入口追踪</strong>。一个配置变更可能不直接被生命周期代码引用，但通过间接调用链到达：</p>
+<figure class="highlight erlang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs erlang"><span class="hljs-function"><span class="hljs-title">transform_type_prefer_string_for_varchar</span> <span class="hljs-params">(Config)</span></span><br><span class="hljs-function">  └─ A<span class="hljs-title">nalyzerUtils</span>.<span class="hljs-title">transformTableColumnType</span><span class="hljs-params">()</span> <span class="hljs-params">(直接调用方)</span></span><br><span class="hljs-function">       └─ M<span class="hljs-title">aterializedViewAnalyzer</span> <span class="hljs-params">(间接调用方)</span></span><br><span class="hljs-function">            └─ A<span class="hljs-title">lterJobMgr</span>.<span class="hljs-title">reActivateMV</span><span class="hljs-params">()</span> <span class="hljs-params">(系统生命周期入口: FE 重启时触发)</span></span><br></code></pre></td></tr></table></figure>
+
+<p>如果不追踪这条间接路径，就会漏掉”FE 重启后 MV re-activation 失败”这个关键风险。</p>
+<h2 id="Phase-4：报告综合"><a href="#Phase-4：报告综合" class="headerlink" title="Phase 4：报告综合"></a>Phase 4：报告综合</h2><p>将 Phase 1-3 的所有分析结果综合为一份结构化的中文升级报告。</p>
+<p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615010857.png" srcset="/img/loading.gif" lazyload></p>
+<p>报告的核心设计原则：</p>
+<ol>
+<li><strong>INCOMPATIBLE CHANGES 置顶</strong>：最关键的信息放在最前面，按 CRITICAL &gt; HIGH 排序</li>
+<li><strong>按触发时机分类报错场景</strong>：FE 重启后 &#x2F; CN 重启后 &#x2F; 日常查询 &#x2F; 升级过程中</li>
+<li><strong>集群特定的冲突检测</strong>：只有与用户集群配置相关的冲突才展示</li>
+<li><strong>可操作的 Upgrade Checklist</strong>：每个步骤都是具体的、可执行的</li>
+</ol>
+<h3 id="数据流全图"><a href="#数据流全图" class="headerlink" title="数据流全图"></a>数据流全图</h3><p>把 Phase 1 的数据流串起来看会更清晰：</p>
+<p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615011151.png" srcset="/img/loading.gif" lazyload></p>
+<h1 id="统一影响模型"><a href="#统一影响模型" class="headerlink" title="统一影响模型"></a>统一影响模型</h1><p>所有 Scanner 的发现都使用统一的四维影响模型：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>含义</th>
+<th>触发条件示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>data</code></td>
+<td>影响现有数据</td>
+<td><code>transform_type_prefer_string_for_varchar</code>、<code>max_varchar_length</code></td>
+</tr>
+<tr>
+<td><code>behavior</code></td>
+<td>相同 SQL 可能返回不同结果</td>
+<td><code>sql_mode</code>、<code>mysql_server_version</code></td>
+</tr>
+<tr>
+<td><code>operational</code></td>
+<td>需要配置&#x2F;运维变更</td>
+<td>任一 HIGH_RISK 配置变更</td>
+</tr>
+<tr>
+<td><code>rolling_upgrade</code></td>
+<td>混合版本集群可能中断</td>
+<td><code>protocol_field_removed</code>、<code>storage_format_changed</code></td>
+</tr>
+</tbody></table>
+<p>每个发现都附带四维评估，便于按维度筛选和汇总。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>这个工具的设计思路可以归结为以下几点：</p>
+<ol>
+<li><p><strong>源码是真理</strong>：所有分析都建立在完整的源码树上，而不是 GitHub API 返回的 PR diff 片段。没有源码上下文，就没有深度分析。</p>
+</li>
+<li><p><strong>分层处理</strong>：不是所有 commit 都值得深度分析，Tier 分类的分层策略确保关键 commit 得到深度分析，低风险 commit 不浪费资源。</p>
+</li>
+<li><p><strong>专项 Scanner + AI Agent 的组合</strong>：Python 脚本做确定性的数据收集和模式匹配（11 个 Scanner），AI Agent 做不确定性的深度分析（调用链追踪、影响评估）。各取所长。</p>
+</li>
+<li><p><strong>集群特定</strong>：不是给出通用建议，而是结合用户实际的 fe.conf&#x2F;be.conf，精确识别集群特定风险。</p>
+</li>
+<li><p><strong>宁可误报也不漏报</strong>：升级风险的成本是非对称的，漏报的代价远大于误报。</p>
+</li>
+</ol>
+<p>当然也有局限性：Protocol&#x2F;Parser Scanner 精度有限、间接调用链追踪依赖 AI Agent 的能力、无法检测运行时行为变化、大仓库性能问题（6000+ commit 需要 30 分钟以上）。这些也是后续改进的方向。</p>
+<p>如果你也在维护 StarRocks 集群并且经常需要跨版本升级，可以试试这个工具。至少在我这边，它帮我发现了好几个 Release Notes 里没提到的不兼容变更。</p>
+<p>对于这种大型项目，存在复杂的上下文分析完全是现在 LLM 擅长的地方，非常适合拿来做这种以前的人工体力活。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/StarRocks/" class="category-chain-item">StarRocks</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI/" class="print-no-link">#AI</a>
+      
+        <a href="/tags/StarRocks/" class="print-no-link">#StarRocks</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>我做了一个 StarRocks 升级风险扫描工具，直接帮我定位到一个风险</div>
+      <div>http://crossoverjie.top/2026/06/14/starrocks/StarRocks-upgrade-skill-principle/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>Author</div>
+          <div>crossoverJie</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>Posted on</div>
+          <div>June 14, 2026</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>Licensed under</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - Attribution">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/05/26/clipshelf/clipshelf-introduce/" title="[送码] 用 AI Coding 做了一个 App，谈谈 AI Coding 的真实体验">
+                        <span class="hidden-mobile">[送码] 用 AI Coding 做了一个 App，谈谈 AI Coding 的真实体验</span>
+                        <span class="visible-mobile">Next</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div class="disqus" style="width:100%">
+    <div id="disqus_thread"></div>
+    
+      <script type="text/javascript">
+        var disqus_config = function() {
+          this.page.url = 'http://crossoverjie.top/2026/06/14/starrocks/StarRocks-upgrade-skill-principle/';
+          this.page.identifier = '/2026/06/14/starrocks/StarRocks-upgrade-skill-principle/';
+        };
+        Fluid.utils.loadComments('#disqus_thread', function() {
+          var d = document, s = d.createElement('script');
+          s.src = '//' + 'crossoverjie' + '.disqus.com/embed.js';
+          s.setAttribute('data-timestamp', new Date());
+          (d.head || d.body).appendChild(s);
+        });
+      </script>
+    
+    <noscript>Please enable JavaScript to view the comments</noscript>
+  </div>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>Table of Contents</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Search</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">Keyword</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        © 2016 – 2025 | 总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">Blog works best with JavaScript enabled</div>
+  </noscript>
+</body>
+</html>
