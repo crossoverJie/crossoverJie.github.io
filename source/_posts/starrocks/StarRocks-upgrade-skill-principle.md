@@ -1,5 +1,5 @@
 ---
-title: 我做了一个 StarRocks 升级风险扫描工具，直接帮我定位到一个风险
+title: 我做了一个 AI 版的 StarRocks 升级风险扫描工具，直接帮我定位到一个风险
 date: 2026/06/14 17:00:00
 categories:
   - StarRocks
