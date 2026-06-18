@@ -19,10 +19,10 @@ Cross-major-version upgrades are an entirely different beast — between 3.3 and
 So I thought: can AI help me do this job? After some iteration, I hand-crafted a StarRocks upgrade risk scanner using Claude Code ([starrocks-upgrade skill](https://github.com/crossoverJie/skills/blob/main/skills/starrocks-upgrade/SKILL.md)). This article discusses its design principles.
 
 Before upgrading now, I run the Skill first. It prompts you to input cluster information for downstream analysis:
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260614235018.png)
+![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202606181026011.png)
 
 After collecting that, it gathers commit diffs between the two versions, analyzes them, and generates an upgrade report highlighting potential risks, like this one:
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260614235225.png)
+![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202606181113157.png)
 
 We actually encountered this exact issue after the upgrade — having the report in advance made resolving it much easier.
 
@@ -88,13 +88,13 @@ This is the foundation of the entire tool, implemented by `starrocks_upgrade.py`
 
 ### Git Commit Diff Collection
 
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/imagesmac_1781454655007.png)
+![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202606181044451.png)
 
 It uses `git log branchA..branchB` to get commits unique to the target branch, then classifies each commit. There's a key optimization here — using custom delimiters (SOH/STX) to fetch all commit details in a single `git log` call, avoiding N+1 queries.
 
 ### Commit Tier Classification
 
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615003636.png)
+![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202606181049053.png)
 
 Not every commit needs deep analysis. The tool classifies commits into four tiers:
 
@@ -111,7 +111,7 @@ This way, HIGH/MEDIUM commits get deep analysis, while LOW/SKIP commits don't wa
 
 This is the most critical part of the tool, covering 11 dimensions of upgrade risk:
 
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615003917.png)
+![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202606181054768.png)
 
 **FE side:**
 - Config Scanner — scans `@ConfField` config changes in `Config.java`
@@ -134,7 +134,7 @@ This is the most critical part of the tool, covering 11 dimensions of upgrade ri
 
 Every Scanner follows the same workflow:
 
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615004232.png)
+![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202606181059804.png)
 
 ### Config Scanner's State Machine Parsing
 
@@ -150,9 +150,7 @@ public static boolean transform_type_prefer_string_for_varchar = true;
 
 So the parser uses a **line-by-line state machine** approach:
 
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615004523.png)
-
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615004849.png)
+![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202606181206843.png)
 
 The state machine tracks `(` and `)` pairing, concatenates multi-line annotations, then parses the `mutable` and `comment` attributes. Compared to simple regex matching, this approach correctly handles various edge cases.
 
@@ -171,7 +169,7 @@ The regex `CONF_(m?\w+)\((\w+),\s*"([^"]*)"\)` extracts everything in one pass. 
 
 This is the feature I find most useful. The risk of the same default value change varies dramatically across scenarios:
 
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615005115.png)
+![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202606181222357.png)
 
 | Scenario | Example | Risk |
 |----------|---------|------|
@@ -186,7 +184,7 @@ This precise distinction is far more useful than vaguely saying "some config def
 
 The tool also generates deployment-specific risk alerts based on the cluster's deployment method:
 
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615005328.png)
+![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202606181226250.png)
 
 For example, in a K8s environment, FE Pod restarts trigger MV re-activation. If there are MV-related code changes, this could cause schema incompatibilities. In VM environments, the focus is more on upgrade order (BE first, then FE).
 
@@ -196,7 +194,7 @@ Phase 1 saved the full diffs of HIGH/MEDIUM commits. Phase 2 is executed by AI A
 
 Since cross-version diffs typically have a large number of commits (1361 HIGH tier commits for 3.3→3.5), sequential analysis is impractical. So commits are grouped by module, with 5-8 commits per group assigned to a parallel subagent:
 
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615005547.png)
+![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202606181238262.png)
 
 Each subagent outputs structured analysis results: `compatibility_impact`, `impact_type`, `severity`, `error_scenario`, `reproduction`, `rollback`.
 
@@ -204,7 +202,7 @@ Each subagent outputs structured analysis results: `compatibility_impact`, `impa
 
 All CRITICAL/HIGH level findings from Phase 2's output + Phase 1's Scanner results require further deep analysis. Each (or each batch of related) findings is assigned a parallel subagent that traces call chains via grep in the source tree.
 
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615005815.png)
+![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202606181249149.png)
 
 This is one of the tool's most distinctive designs — **system lifecycle entry-point tracing**. A config change may not be directly referenced by lifecycle code, but reaches it through an indirect call chain:
 
@@ -221,7 +219,7 @@ Without tracing this indirect path, you'd miss the critical risk of "MV re-activ
 
 All analysis results from Phases 1-3 are synthesized into a structured upgrade report.
 
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615010857.png)
+![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202606181244064.png)
 
 The report's core design principles:
 
@@ -234,7 +232,7 @@ The report's core design principles:
 
 Looking at Phase 1's data flow as a whole makes it clearer:
 
-![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615011151.png)
+![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202606181252041.png)
 
 # Unified Impact Model
 
