@@ -97,7 +97,7 @@ Copied: /Users/aurora/Code/project-b/src/service/payment.go
 
 ---
 
-## 2. `zoxide`：不用记路径，只要记得项目大概叫什么
+## 2. [`zoxide`](https://github.com/ajeetdsouza/zoxide)：不用记路径，只要记得项目大概叫什么
 
 项目多起来以后，最烦的不是打开终端，而是进入正确目录。
 
@@ -163,7 +163,7 @@ zi my-app
 
 ---
 
-## 3. `fzf + fp`：从文件列表中选中目标，并把绝对路径直接交给 Agent
+## 3. [`fzf`](https://github.com/junegunn/fzf) + `fp`：从文件列表中选中目标，并把绝对路径直接交给 Agent
 
 `fzf` 是一个终端里的模糊选择器。
 
@@ -244,7 +244,7 @@ Alt-C：选择目录并切换过去
 
 ---
 
-## 4. [Otty](https://otty.sh/) 的保活机制：让长时间 Agent 任务不被 Mac 睡眠打断
+## 4. [Otty](https://docs.otty.sh/agents/parallel-tasks#keep-macos-awake) 的保活机制：让长时间 Agent 任务不被 Mac 睡眠打断
 
 AI Agent 任务经常比普通命令跑得久。
 
