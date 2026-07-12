@@ -9,8 +9,8 @@ tags:
   - Rust
   - Bun
   - LLM
-banner_img: https://s2.loli.net/2026/02/04/C3D8KlakTS91sMG.png
-index_img: https://s2.loli.net/2026/02/04/C3D8KlakTS91sMG.png
+banner_img: https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260712160208850.png
+index_img: https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260712160208850.png
 ---
 ![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260712160208850.png)
 
