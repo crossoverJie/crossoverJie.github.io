@@ -28,7 +28,7 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615004232.png">
 <meta property="article:published_time" content="2026-06-14T17:00:00.000Z">
-<meta property="article:modified_time" content="2026-08-11T14:46:00.311Z">
+<meta property="article:modified_time" content="2026-08-25T10:09:06.501Z">
 <meta property="article:author" content="crossoverJie">
 <meta property="article:tag" content="AI">
 <meta property="article:tag" content="StarRocks">
@@ -565,7 +565,7 @@
 <h2 id="Phase-3：深度影响分析"><a href="#Phase-3：深度影响分析" class="headerlink" title="Phase 3：深度影响分析"></a>Phase 3：深度影响分析</h2><p>Phase 2 的输出 + Phase 1 的 Scanner 发现中，所有 CRITICAL&#x2F;HIGH 级别的发现需要进一步深度分析。每个（或每批相关的）发现分配一个并行 Subagent，在源码树中 grep 追踪调用链。</p>
 <p><img src="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260615005815.png" srcset="/img/loading.gif" lazyload></p>
 <p>这是工具最独特的设计之一——<strong>系统生命周期入口追踪</strong>。一个配置变更可能不直接被生命周期代码引用，但通过间接调用链到达：</p>
-<figure class="highlight erlang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs erlang"><span class="hljs-function"><span class="hljs-title">transform_type_prefer_string_for_varchar</span> <span class="hljs-params">(Config)</span></span><br><span class="hljs-function">  └─ A<span class="hljs-title">nalyzerUtils</span>.<span class="hljs-title">transformTableColumnType</span><span class="hljs-params">()</span> <span class="hljs-params">(直接调用方)</span></span><br><span class="hljs-function">       └─ M<span class="hljs-title">aterializedViewAnalyzer</span> <span class="hljs-params">(间接调用方)</span></span><br><span class="hljs-function">            └─ A<span class="hljs-title">lterJobMgr</span>.<span class="hljs-title">reActivateMV</span><span class="hljs-params">()</span> <span class="hljs-params">(系统生命周期入口: FE 重启时触发)</span></span><br></code></pre></td></tr></table></figure>
+<figure class="highlight dns"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs dns">transform_type_prefer_string_for_varchar <span class="hljs-punctuation">(</span>Config<span class="hljs-punctuation">)</span><br>  └─ AnalyzerUtils.transformTableColumnType<span class="hljs-punctuation">(</span><span class="hljs-punctuation">)</span> <span class="hljs-punctuation">(</span>直接调用方<span class="hljs-punctuation">)</span><br>       └─ MaterializedViewAnalyzer <span class="hljs-punctuation">(</span>间接调用方<span class="hljs-punctuation">)</span><br>            └─ AlterJobMgr.reActivateMV<span class="hljs-punctuation">(</span><span class="hljs-punctuation">)</span> <span class="hljs-punctuation">(</span>系统生命周期入口: FE 重启时触发<span class="hljs-punctuation">)</span><br></code></pre></td></tr></table></figure>
 
 <p>如果不追踪这条间接路径，就会漏掉”FE 重启后 MV re-activation 失败”这个关键风险。</p>
 <h2 id="Phase-4：报告综合"><a href="#Phase-4：报告综合" class="headerlink" title="Phase 4：报告综合"></a>Phase 4：报告综合</h2><p>将 Phase 1-3 的所有分析结果综合为一份结构化的中文升级报告。</p>

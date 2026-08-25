@@ -28,7 +28,7 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260724112251196.png">
 <meta property="article:published_time" content="2026-07-24T08:00:00.000Z">
-<meta property="article:modified_time" content="2026-08-11T14:46:00.311Z">
+<meta property="article:modified_time" content="2026-08-25T10:09:06.501Z">
 <meta property="article:author" content="crossoverJie">
 <meta property="article:tag" content="StarRocks">
 <meta name="twitter:card" content="summary_large_image">
@@ -390,7 +390,7 @@
 <p>since 3.5.15 the async MV reload on FE restart makes this a serious regression: during image load onReload() sets active &#x3D; false first and restores it asynchronously, leaving a minutes-long window in which MVs are transiently inactive. MVActiveChecker picks them up and runs ALTER MATERIALIZED VIEW xxx ACTIVE, and the activation path calls refreshMaterializedView(…, force&#x3D;true, …) — so every FE leader restart triggers a FORCE full refresh of all async MVs.</p>
 </blockquote>
 <p>所以触发链路是：</p>
-<figure class="highlight routeros"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs routeros">FE 重启 → async reload 设 <span class="hljs-attribute">active</span>=<span class="hljs-literal">false</span> → MVActiveChecker 激活 <br>→ refreshMaterializedView(<span class="hljs-attribute">force</span>=<span class="hljs-literal">true</span>) → 全量刷新<br></code></pre></td></tr></table></figure>
+<figure class="highlight dart"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs dart">FE 重启 → <span class="hljs-keyword">async</span> reload 设 active=<span class="hljs-keyword">false</span> → <span class="hljs-title class_">MVActiveChecker</span> 激活 <br>→ <span class="hljs-title function_">refreshMaterializedView</span>(force=<span class="hljs-keyword">true</span>) → 全量刷新<br></code></pre></td></tr></table></figure>
 
 <h2 id="滚动重启放大"><a href="#滚动重启放大" class="headerlink" title="滚动重启放大"></a>滚动重启放大</h2><p>我们的 K8s 集群有 3 个 FE Pod，滚动更新逐个重启。每次当前 Leader 被重启，就会触发 failover，新 Leader 的 <code>MVActiveChecker</code> 再扫一遍所有 inactive 的 MV，又来一波全量刷新。也就是说，只要某一轮切换后的 Leader 还没拿到修复版代码，就可能再刷一波；实际波次数取决于 leader 切换路径和滚动顺序。</p>
 <h2 id="日志证据"><a href="#日志证据" class="headerlink" title="日志证据"></a>日志证据</h2><p>日志里能看到 FE-2 先一直正常周期刷新，<code>forceRefresh=false</code>：</p>
