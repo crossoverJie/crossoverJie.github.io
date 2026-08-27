@@ -19,6 +19,8 @@ index_img: https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images202
 
 最近把这事落地了，做了一个轻量的个人 Agent 框架，起名 [botler-agent](https://github.com/crossoverJie/botler-agent)（bot + butler，当数据管家用）。
 
+源码地址： [https://github.com/crossoverJie/botler-agent](https://github.com/crossoverJie/botler-agent)
+
 它的使用效果如下图：
 ![](https://cdn.jsdelivr.net/gh/crossoverJie/images@main/images/images20260825164732457.png)
 
